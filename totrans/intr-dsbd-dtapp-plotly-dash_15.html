@@ -1,0 +1,249 @@
+<html><head></head><body>
+		<div id="_idContainer190">
+			<h1 id="_idParaDest-161"><em class="italic"><a id="_idTextAnchor161"/>Chapter 12</em>: Deploying Your App</h1>
+			<p>We have done a lot of work, and I'm sure you are looking forward to sharing that work with the world. With the app in its current state, we will go through the process of setting up a server and deploying the app on a public address.</p>
+			<p>Essentially, what we will be doing is moving our data and code to a different computer and running the app in a similar way to what we have done so far. However, we need to set up a hosting account, a server, and a <strong class="bold">Web Server Gateway Interface</strong> (<strong class="bold">WSGI</strong>) in order for our app to be publicly available and visible. We will also need to establish a basic workflow for a development, deployment, and update cycle.</p>
+			<p>We will take a brief look at the <strong class="bold">Git</strong> source control management system, as well as do some basic <strong class="bold">Linux system administration</strong>. We will cover just enough to get our app online, and we won't even be scratching the surface of what can be done with those systems—I only mention them as a reference for further research. The approach we follow is creating a very basic installation to get our app online as fast as possible. This will not be achieved using simple tools. On the contrary—we will be using some of the most powerful tools available, but we will use a very simple setup. This will allow us to keep things simple at the beginning, and then explore how to expand our apps and setup later.</p>
+			<p>The following topics will be covered in this chapter:</p>
+			<ul>
+				<li>Establishing the general development, deployment, and update workflow</li>
+				<li>Creating a hosting account and virtual server</li>
+				<li>Connecting to your server with <strong class="bold">Secure Shell</strong> (<strong class="bold">SSH</strong>)</li>
+				<li>Running the app on the server</li>
+				<li>Setting up and running the app with a WSGI</li>
+				<li>Setting up and configuring the web server</li>
+				<li>Managing maintenance and updates</li>
+			</ul>
+			<h1 id="_idParaDest-162"><a id="_idTextAnchor162"/>Technical requirements</h1>
+			<p>We now need a Linux server connected to the internet; the data files; and our app's code. We will be installing <strong class="source-inline">Gunicorn</strong> (Green Unicorn, the WSGI) and <strong class="source-inline">nginx</strong> (the web server), as well as our app's Python packages as dependencies. We will install <strong class="source-inline">Dash</strong> and its main packages; Dash Bootstrap Components; <strong class="source-inline">pandas</strong>; and <strong class="source-inline">sklearn</strong>. An account on a source code management system such as Git will be needed, and we will be using GitHub as an example for this chapter.</p>
+			<p>Our development workflow so far has been to test certain functionality on JupyterLab and run it, and once it is working fine, we incorporate it to our app. This development workflow will not change. We will simply add a few steps and components for deployment after making our changes. So, let's start by establishing the workflow that we will be working with.</p>
+			<h1 id="_idParaDest-163"><a id="_idTextAnchor163"/>Establishing the general development, deployment, and update workflow</h1>
+			<p>When we<a id="_idIndexMarker571"/> discuss<a id="_idIndexMarker572"/> deployment, we are<a id="_idIndexMarker573"/> assuming that we are happy enough with what we have developed so far. This could be when we run our app for the first time, or after having introduced some changes or fixed some bugs. So, our data and code are ready to go. Our focus will be to set up the required infrastructure to enable us to run the code online.</p>
+			<p>The setup we will be going through is going to be simple and straightforward. We will be using Linode as an example for our hosting provider. An important feature of Linode is that it follows a philosophy of "open cloud." This means that the server we will be working with will be a plain Linux server, using open source components and packages that you can customize the way you want and migrate to and from with ease. The potential challenge here is that with more freedom comes more complexity and responsibility. In <a href="B16780_04_Final_NM_ePub.xhtml#_idTextAnchor060"><em class="italic">Chapter 4</em></a>, <em class="italic">Data Manipulation and Preparation – Paving the Way to Plotly Express</em>, we discussed the trade-off involved in choosing between higher- and lower-level software, and in this case, we will be working with a lower-level system to run our app.</p>
+			<p>If you are experienced in running and managing servers, then you will have the full flexibility that you need and you can skip most of the chapter. The good news for beginners is that even though you will be "on your own," we will be running a very simple setup with simple defaults. This should enable you to easily deploy your app, and you can gradually learn more about how you might want to customize your setup, knowing that you have full access to some of the top tools.</p>
+			<p>Our deployment workflow will contain three main components, outlined as follows:</p>
+			<ul>
+				<li><strong class="bold">Your local workstation</strong>: This has <a id="_idIndexMarker574"/>been extensively covered so far, and you should have experience with the local setup that we have been working with so far.</li>
+				<li><strong class="bold">A source code management system</strong>: You don't really need this to get your app to run but it is a very good practice to follow, especially when your app grows in size and when more people are involved in its maintenance.</li>
+				<li><strong class="bold">A server with the required infrastructure and setup</strong>: Your code and data will be running and served to the public from here.</li>
+			</ul>
+			<p>To make things <a id="_idIndexMarker575"/>clearer, the following screenshot shows<a id="_idIndexMarker576"/> the <a id="_idIndexMarker577"/>elements we are discussing and, following that, a brief description of them and how they relate to each stage in the development and deployment cycle:</p>
+			<div>
+				<div id="_idContainer181" class="IMG---Figure">
+					<img src="image/B16780_12_1.jpg" alt="Figure 12.1 – The three main components in the development, deployment, and update cycle"/>
+				</div>
+			</div>
+			<p class="figure-caption">Figure 12.1 – The three main components in the development, deployment, and update cycle</p>
+			<p>One or more people write code on their local machines, and the code they write travels both ways between them and the central Git repository. Note that code does not travel between collaborators on the project—for example, by email; they only send their code changes/additions to the Git repository. There are many benefits to using a central Git repository. This is a large topic and there are special books for it, so we will only cover very basic concepts, and I encourage you to learn more. One of the most important things that Git facilitates is to have everyone collaborate on a single set of changes—this streamlines the process for everyone. There needs to be one or more administrators of the central repository, and that person(s) approves what goes into the main repository and what doesn't. Additionally, they need to be able to resolve conflicts. Two people might work on the same file separately, and they might both push changes that conflict with each other, so someone needs to decide what to do in such cases.</p>
+			<p>The approved version gets pushed from Git to the server and the website gets published. As you can see, code goes in one direction only at this stage. Even if you are working alone, it's highly advised to use Git to manage changes.</p>
+			<p>Another<a id="_idIndexMarker578"/> important <a id="_idIndexMarker579"/>benefit <a id="_idIndexMarker580"/>is that every set of changes (which are called "commits") that are made contains metadata about when the changes were made, and by who. More importantly, the commits show to which branch of changes they belong. In case you need to roll back some changes, you can also "check out" a certain commit or a branch, and take the full repository back to a certain state. You can fix your bugs and make changes while your app is running, and then re-introduce them.</p>
+			<p>This was an oversimplification of what Git does and how it works, but I think it's worth mentioning and learning more about. We will use it for deployment and introduce very basic commands. We will go through the process of making a change to one of our files in the final section of this chapter, to give an example of how a change can be introduced using Git.</p>
+			<p>At this stage, you have your code working locally with all the required data, and you want to push it to a central Git repository and then to your server for deployment. Alternatively, you might simply clone this book's repository and deploy it to your server as well. </p>
+			<p>Now that we have established the general cycle of our work and explored the main components and steps, we are ready to start our work online, and we first do so by setting up a Linode account.</p>
+			<h1 id="_idParaDest-164"><a id="_idTextAnchor164"/>Creating a hosting account and virtual server</h1>
+			<p>It's<a id="_idIndexMarker581"/> straightforward to set up an account on Linode, and you can do so <a id="_idIndexMarker582"/>from the signup page at <a href="https://login.linode.com/signup">https://login.linode.com/signup</a>. Once you register and provide your billing information, you can start by creating a "Linode." Virtual servers with their own <strong class="bold">Internet Protocol </strong>(<strong class="bold">IP</strong>) address<a id="_idIndexMarker583"/> are also called Linodes (Linux + node), similar to the name of the company.</p>
+			<p>The process is straightforward and can be done through the main dashboard that you land on when you log in.</p>
+			<p>The following screenshot shows some of the main options available to create and manage your account:</p>
+			<div>
+				<div id="_idContainer182" class="IMG---Figure">
+					<img src="image/B16780_12_2.jpg" alt="Figure 12.2 – The main objects that you can create on Linode; most importantly, the &quot;Linode&quot;"/>
+				</div>
+			</div>
+			<p class="figure-caption">Figure 12.2 – The main objects that you can create on Linode; most importantly, the "Linode"</p>
+			<p>Once you select the <strong class="bold">Create</strong> option and then select <strong class="bold">Linode</strong>, you are given several options to choose from. We will go with <strong class="bold">Distributions</strong>. You can think of distributions as bundles of software based on the Linux kernel but containing different components. Each distribution is customized for a certain use case. We will be using the Ubuntu distribution for our Linode. Other options can be interesting—for example, <strong class="bold">Marketplace</strong> provides the option to create a full installation of popular software with a few clicks. Feel free to explore these other options as well. <em class="italic">Figure 12.3</em> shows the distribution we selected, and after that you have a few simple options to choose from. Most importantly, you need to choose a plan, and there are many to choose from, giving you a lot of flexibility. You can use the smallest one for now, and then you can decide when/if you want to upgrade. In the following screenshot, you can see the Ubuntu<a id="_idIndexMarker584"/> distribution <a id="_idIndexMarker585"/>being selected:</p>
+			<div>
+				<div id="_idContainer183" class="IMG---Figure">
+					<img src="image/B16780_12_3.jpg" alt="Figure 12.3 – Selecting and configuring a distribution on Linode"/>
+				</div>
+			</div>
+			<p class="figure-caption">Figure 12.3 – Selecting and configuring a distribution on Linode</p>
+			<p>Once you have finalized the remaining options you can hit the <strong class="bold">Create</strong> button, and you should now land on the dashboard for your newly created Linode. The following screenshot shows the top of the screen for that interface: </p>
+			<div>
+				<div id="_idContainer184" class="IMG---Figure">
+					<img src="image/B16780_12_4.jpg" alt="Figure 12.4 – The Linodes dashboard containing several reports and details"/>
+				</div>
+			</div>
+			<p class="figure-caption">Figure 12.4 – The Linodes dashboard containing several reports and details</p>
+			<p>You can see all the relevant details about your newly created Linode on this screen, and you can refer back to it to get performance data and other information, or in case you want to make any changes. Later on, you will probably want to either upgrade your plan or add volumes for extra storage, and so on.</p>
+			<p>For us, the<a id="_idIndexMarker586"/> interesting part of this screen is the <strong class="bold">SSH Access</strong> part. We <a id="_idIndexMarker587"/>will now use this to log in to our server, and we won't be using the web interface from now on.</p>
+			<p class="callout-heading">Important note</p>
+			<p class="callout">Linode provides several<a id="_idIndexMarker588"/> ways to interact with and manage your account. It provides an <strong class="bold">application programming interface</strong> (<strong class="bold">API</strong>) and a <strong class="bold">command-line interface</strong> (<strong class="bold">CLI</strong>), among <a id="_idIndexMarker589"/>other tools, from which you can do pretty much anything that you can do through the web interface. It's more convenient to use the web interface for simple tasks such as the one we just did. Using the API and/or the CLI becomes more useful for automating and operationalizing tasks on a large scale.</p>
+			<p>Now that we have our server running, we want to start working on it. This will mainly be done through the SSH interface.</p>
+			<h1 id="_idParaDest-165"><a id="_idTextAnchor165"/>Connecting to your server with SSH</h1>
+			<p>SSH is a<a id="_idIndexMarker590"/> protocol for moving data securely, over an unsecured <a id="_idIndexMarker591"/>network. This will enable us to get access to and run code from the command line of our server, using the Terminal on our local machine.</p>
+			<p>Let's start by copying the <strong class="source-inline">ssh root@127.105.72.121</strong> command by clicking on the clipboard icon next to it, which you can see in <em class="italic">Figure 12.4</em> as well.</p>
+			<p>Now, open the terminal application on your local machine and paste the command, as follows:</p>
+			<p class="source-code">ssh root@172.105.72.121</p>
+			<p class="source-code"><strong class="bold">The authenticity of host '172.105.72.121 (172.105.72.121)' can't be established.</strong></p>
+			<p class="source-code"><strong class="bold">ECDSA key fingerprint is SHA256:7TvPpP9fko2gTGG1lW/4ZJC+jj6fB/nzVzlW5pjepyU.</strong></p>
+			<p class="source-code"><strong class="bold">Are you sure you want to continue connecting (yes/no/[fingerprint])? </strong>yes</p>
+			<p class="source-code"><strong class="bold">Warning: Permanently added '172.105.72.121' (ECDSA) to the list of known hosts.</strong></p>
+			<p class="source-code">root@172.105.72.121's password:</p>
+			<p>As you can see, we had two main responses: one asking if we want to connect and add the IP to the list of known hosts, to which we answered <strong class="source-inline">yes</strong>; and another response, after having confirmed, asking us for our password.</p>
+			<p>Once you enter your password, which you have created for this specific server (Linode) and not for your account, you get the new prompt, as follows: </p>
+			<p class="source-code">root@localhost:~#</p>
+			<p>You now have root access to your server from your own terminal application. A good thing to do immediately (and frequently) is to update your system's packages. Two quick commands to do that are shown here:</p>
+			<p class="source-code">apt-get update</p>
+			<p class="source-code">apt-get upgrade</p>
+			<p>Later on, you will probably need to manage updates to other packages that you install separately. </p>
+			<p>Having root access is very powerful and you can do anything as the root user, which means that this could also be a security risk. If someone else were able to accidentally sign in using your root user, they could potentially add or delete any files they want, with no restrictions whatsoever. </p>
+			<p>Because of that, we will use the recommended practice of creating a limited user immediately, and only signing in using that user. Proceed as follows:</p>
+			<ol>
+				<li>Create a new user using whatever name you want, as follows:<p class="source-code"><strong class="bold">adduser elias</strong></p></li>
+				<li>You will be prompted to enter and re-enter a password for this user. By now, you will have three passwords: one for the Linode account, another for the root user of this Linode, and one for the limited user we just created. Optionally, you can also provide<a id="_idIndexMarker592"/> the full name, phone number, and other <a id="_idIndexMarker593"/>details. You can hit <em class="italic">Enter</em> and skip those options if you want. Even though this user is limited, we can add it to the <strong class="source-inline">sudo</strong> (superuser <strong class="source-inline">do</strong>!) group. This will allow this user to access root privileges temporarily, whenever we want to make some admin tasks or access sensitive files. Now that we have a new limited user, let's add it to the <strong class="source-inline">sudo</strong> group, as follows:<p class="source-code"><strong class="bold">adduser elias sudo</strong></p></li>
+				<li>Having created a limited user that can temporarily use <strong class="source-inline">sudo</strong> privileges, we can now sign out of root, and log back in again with the new user, as follows:<p class="source-code"><strong class="bold">exit</strong></p></li>
+				<li>You should get a message that the connection to your IP address was lost, and you should see the prompt in the Terminal of your local machine. Now, we log in using the new user, the same way we did previously, as follows:<p class="source-code"><strong class="bold">ssh elias@172.105.72.121</strong></p></li>
+				<li>Once you log in successfully, you will be given a new prompt showing the logged-in user, as seen here:<p class="source-code"><strong class="bold">elias@localhost:~$</strong></p></li>
+			</ol>
+			<p>We are now ready to get started with building our app on the server, but before that, let's see how we can access sensitive files and use <strong class="source-inline">sudo</strong> privileges, as follows:</p>
+			<ol>
+				<li value="1">Try to access one of the system's log files—for example, using the <strong class="source-inline">cat</strong> command, as illustrated in the following code snippet:<p class="source-code"><strong class="bold">elias@localhost:~$ cat /var/log/syslog</strong></p><p class="source-code"><strong class="bold">cat: /var/log/syslog: Permission denied</strong></p></li>
+				<li>We were not given permission, which is the right outcome. Now, we can ask for <strong class="source-inline">sudo</strong> access by running the same command and preceding it with the <strong class="source-inline">sudo</strong> command, as follows:<p class="source-code">elias@localhost:~$ sudo cat /var/log/syslog</p><p class="source-code"><strong class="bold">[sudo] password for elias:</strong></p></li>
+				<li>Enter the<a id="_idIndexMarker594"/> password for this user and get access to the<a id="_idIndexMarker595"/> requested sensitive files.</li>
+			</ol>
+			<p>You will face this situation quite frequently, and you can easily use the <strong class="source-inline">sudo</strong> command to get temporary root access.</p>
+			<p>We have a good part of our server ready to go, but we are still not there yet. We now want to get our files and data on the server, and then install the required Python packages.</p>
+			<h1 id="_idParaDest-166"><a id="_idTextAnchor166"/>Running the app on the server</h1>
+			<p>What we <a id="_idIndexMarker596"/>will <a id="_idIndexMarker597"/>do in this section is exactly what we did back in <a href="B16780_01_Final_NM_ePub.xhtml#_idTextAnchor015"><em class="italic">Chapter 1</em></a>, <em class="italic">Overview of the Dash Ecosystem</em>. We will clone the code and data repository from GitHub and get them to the server, install the dependencies, and try to run the app.</p>
+			<p>You typically have Python already installed on such servers, but it's always good to check and know how to get it, in case you don't. An easy way to check if we have it installed, and to get the version in one go, is to run <strong class="source-inline">python --version</strong> from the command line. Keep in mind that the <strong class="source-inline">python</strong> command can be interpreted to mean Python 2. The upgrade to Python 3 took a while to get fully implemented, and so, during that time, to differentiate between the two versions the <strong class="source-inline">python3</strong> command was used, to be explicit about wanting to run Python version 3. This applies to the <strong class="source-inline">pip</strong> command, which can also be run as <strong class="source-inline">pip3</strong>.</p>
+			<p>When I ran <strong class="source-inline">python3 --version</strong>, I got version 3.8.6. By the time you read this, the default version might be different. Also, at the time of this writing, Python 3.9 was launched and<a id="_idIndexMarker598"/> was considered stable. This is what I got when I tried to run<a id="_idIndexMarker599"/> it from the command line:</p>
+			<p class="source-code">elias@localhost:~$ python3.9</p>
+			<p class="source-code">Command 'python3.9' not found, but can be installed with:</p>
+			<p class="source-code">sudo apt install python3.9</p>
+			<p>No explanation needed. We were also reminded that in order to install such a package, we need to use <strong class="source-inline">sudo</strong> as well. These are some examples of what you can use and what you might typically face, but Linux administration is another massive topic, and it's good to familiarize yourself with some of its basics. </p>
+			<p>Let's now activate a virtual environment and clone the GitHub repository, using the exact same steps we used in <a href="B16780_01_Final_NM_ePub.xhtml#_idTextAnchor015"><em class="italic">Chapter 1</em></a>, <em class="italic">Overview of the Dash Ecosystem</em>, as follows:</p>
+			<ol>
+				<li value="1">Create a Python virtual environment in a folder called <strong class="source-inline">dash_project</strong> (or any other name you want). This will also create a new folder with the name you chose. Note that you might need to install <strong class="source-inline">venv</strong> for this to work, and you should get the command to do so, as in the previous example, as follows:<p class="source-code">python3 -m venv dash_project</p></li>
+				<li>Activate the virtual environment. You should now see the name of the environment in parentheses, indicating that the environment is activated, as illustrated in the following code snippet:<p class="source-code">source dash_project/bin/activate</p><p class="source-code"><strong class="bold"> (dash_project) elias@localhost:~/dash_project$</strong></p></li>
+				<li>Go into the environment folder by running the following command:<p class="source-code">cd dash_project</p></li>
+				<li>We now want to clone our GitHub repository, and get all available files and code on our server. We will use the book's repository as an example, but I encourage you to run and clone your own instead. Run the following command:<p class="source-code">git clone https://github.com/PacktPublishing/Interactive-Dashboards-and-Data-Apps-with-Plotly-and-Dash</p></li>
+				<li>Next, we need<a id="_idIndexMarker600"/> to install the required packages, which we do by<a id="_idIndexMarker601"/> getting into the main folder and running the command for that, as follows: <p class="source-code">cd Interactive-Dashboards-and-Data-Apps-with-Plotly-and-Dash/</p><p class="source-code">pip install -r requirements.txt</p></li>
+				<li>We can now enter into any chapter's folder to run that particular version of the app. In the following code snippet, we can see what happens if we go into the final version of <a href="B16780_11_Final_NM_ePub.xhtml#_idTextAnchor151"><em class="italic">Chapter 11</em></a>, <em class="italic">URLs and Multi-Page Apps</em>:<p class="source-code">cd chapter_11</p><p class="source-code">python app_v11_1.py</p></li>
+			</ol>
+			<p>Going through the preceding sequence of steps produces the exact same result that we are familiar with when running our apps locally, as you can see in the following screenshot: </p>
+			<div>
+				<div id="_idContainer185" class="IMG---Figure">
+					<img src="image/B16780_12_5.jpg" alt="Figure 12.5 – The app running on the server"/>
+				</div>
+			</div>
+			<p class="figure-caption">Figure 12.5 – The app running on the server</p>
+			<p>Getting the preceding message means that the code is working fine, with no issues. Of course, it also gives us a big warning that we are using a development server only and that we should not use it in a production deployment.</p>
+			<p>So, we will set up our web server. But before that, we need to use the interface that makes it easy for our web framework (Flask) to work with any web server we want. This interface is called a WSGI (pronounced Wiz-ghee, or whiskey!). </p>
+			<p>Let's first establish a<a id="_idIndexMarker602"/> basic understanding of the components and <a id="_idIndexMarker603"/>phases involved in serving our app that we will be working with. The following screenshot shows a simple sequence that requests and responses flow through when a user accesses our app from their browser:</p>
+			<div>
+				<div id="_idContainer186" class="IMG---Figure">
+					<img src="image/B16780_12_6.jpg" alt="Figure 12.6 – The components of our app, on a public server"/>
+				</div>
+			</div>
+			<p class="figure-caption">Figure 12.6 – The components of our app, on a public server</p>
+			<p>The request starts form the left (as you can see in the preceding screenshot), and then goes through several components until it reaches Dash, which runs our <strong class="source-inline">app.py</strong> module. Then, our app's code generates a response that goes through the same components in the opposite direction, until it reaches the user's browser.</p>
+			<p>Let's briefly discuss each of those elements, as follows:</p>
+			<ul>
+				<li><strong class="bold">Browser</strong>: This is <a id="_idIndexMarker604"/>straightforward and can<a id="_idIndexMarker605"/> mean any <strong class="bold">HyperText Transfer Protocol</strong> (<strong class="bold">HTTP</strong>) client. When the user enters a <strong class="bold">Uniform Resource Locator</strong> (<strong class="bold">URL</strong>) and hits <em class="italic">Enter</em>, the browser makes a request to the web server.</li>
+				<li><strong class="bold">Web server</strong>: The job of the web server is to handle the requests that it receives. Our problem is that the server doesn't execute Python code, so there needs to be some way for us to get the requests, interpret them, and return responses.</li>
+				<li><strong class="bold">WSGI server</strong>: This<a id="_idIndexMarker606"/> is the middleware that does the job of speaking<a id="_idIndexMarker607"/> the server's language, as well as speaking Python. Having this set up means that our web framework (Flask, in this case) does not need to worry about handling the server or handling many requests. It can focus on creating the web app, and only needs to make sure that it conforms to the WSGI specification. This also means that with this set up, we are free to change our web server and/or WSGI server without having to make any changes to our app's code.</li>
+				<li><strong class="bold">Web framework</strong>: This is the Flask web framework with which Dash is built. A Dash app is basically a Flask app, and we have covered this quite extensively.</li>
+			</ul>
+			<p>We don't need to know about web servers or WSGI servers any more than this for now. Let's see how simple it is to run our app using our WSGI server.</p>
+			<h1 id="_idParaDest-167"><a id="_idTextAnchor167"/>Setting up and running the app with a WSGI</h1>
+			<p>We <a id="_idIndexMarker608"/>have <a id="_idIndexMarker609"/>run <a id="_idIndexMarker610"/>our app<a id="_idIndexMarker611"/> using the <strong class="source-inline">python app.py</strong> command from the command line. Alternatively, we used the <strong class="source-inline">app.run_server</strong> method when running with <strong class="source-inline">jupyter_dash</strong>. We are going to do it now with Gunicorn, our WSGI server.</p>
+			<p>The command is slightly different from the previous one and is run with the following pattern:</p>
+			<p class="source-code">gunicorn &lt;app_module_name:server_name&gt;</p>
+			<p>We have two main differences here. First, we only use the module name, or the filename without the <strong class="source-inline">.py</strong> extension. Then, we add a colon, and then the server name. This is a simple variable that we have to define, and it can be done with one line of code, right after we define our top-level <strong class="source-inline">app</strong> variable, as follows:</p>
+			<p class="source-code">app = dash.Dash(__name__)</p>
+			<p class="source-code"><strong class="bold">server = app.server</strong></p>
+			<p>Now that we<a id="_idIndexMarker612"/> have defined our <a id="_idIndexMarker613"/>sever as <strong class="source-inline">server</strong>, and <a id="_idIndexMarker614"/>assuming our app is in a file called <strong class="source-inline">app.py</strong>, we can<a id="_idIndexMarker615"/> run the app from the command line, as follows:</p>
+			<p class="source-code">gunicorn app:server</p>
+			<p>That's it for the WSGI server!</p>
+			<p>Once that change has been made, we can go to the folder where our app is and run it with the preceding command. The following screenshot shows the output we get when running our app with the <strong class="source-inline">gunicorn</strong> command:</p>
+			<div>
+				<div id="_idContainer187" class="IMG---Figure">
+					<img src="image/B16780_12_7.jpg" alt="Figure 12.7 – Running the app with the Gunicorn WSGI server"/>
+				</div>
+			</div>
+			<p class="figure-caption">Figure 12.7 – Running the app with the Gunicorn WSGI server</p>
+			<p>This output shows that our app is working fine. We can also see that it is listening at a different port. The default port for Dash is <strong class="source-inline">8050</strong>, while here it is <strong class="source-inline">8000</strong>.</p>
+			<p>We have come one step closer to the browser and the user. It seems the code is working fine<a id="_idIndexMarker616"/> with the WSGI server. Let's <a id="_idIndexMarker617"/>now set<a id="_idIndexMarker618"/> up <a id="_idIndexMarker619"/>our web server to make our app publicly available.</p>
+			<h1 id="_idParaDest-168"><a id="_idTextAnchor168"/>Setting up and configuring the web server</h1>
+			<p>We will be<a id="_idIndexMarker620"/> using nginx as our web server in this example. You can now stop <a id="_idIndexMarker621"/>the app using <em class="italic">Ctrl</em> + <em class="italic">C</em> from the command line. Alternatively, you can stop your app using the <strong class="source-inline">kill</strong> command, which requires you to know the ID of the process that is running your app. This is useful if you log in later and have no idea which processes are running, and want to identify the process responsible for your app.</p>
+			<p>You can run the <strong class="source-inline">ps -A</strong> process status command from the command line to get all the currently running processes. You can either scroll to find a process whose name contains <strong class="source-inline">gunicorn</strong> or add a pipe, and search for that process in the previous command's output, as follows:</p>
+			<p class="source-code">ps -A | grep gunicorn</p>
+			<p>Running the preceding command while the app is running gets us the output you see in the following screenshot:</p>
+			<div>
+				<div id="_idContainer188" class="IMG---Figure">
+					<img src="image/B16780_12_8.jpg" alt="Figure 12.8 – How to find the process IDs for processes containing a certain text pattern"/>
+				</div>
+			</div>
+			<p class="figure-caption">Figure 12.8 – How to find the process IDs for processes containing a certain text pattern</p>
+			<p>The process IDs are the same as the ones that we got when we ran with Gunicorn, which you can also see in the preceding screenshot. </p>
+			<p>To stop the app, you can use the <strong class="source-inline">kill</strong> command, as follows:</p>
+			<p class="source-code">kill -9 54222</p>
+			<p>Now that we have checked that our app runs with our WSGI server, it is time to set up our web server.</p>
+			<p>As mentioned before, even though we will use the simplest possible configuration to make things easy for us, we will still be using one of the most powerful web servers available.</p>
+			<p>Let's start by installing it. From the command line, while logged in to your server, run the following command:</p>
+			<p class="source-code">sudo apt install nginx</p>
+			<p>We now want to create a configuration file for our app. Installing nginx does several things, one of which is creating a <strong class="source-inline">sites-enabled</strong> folder. We want to create our configuration file<a id="_idIndexMarker622"/> there, with basic options. We can use any text editor for<a id="_idIndexMarker623"/> that; a simple one to use that you can usually find on Linux machines is the <strong class="source-inline">nano</strong> editor. Running it as a command followed by a filename opens that file for editing (or creates one if it doesn't exist).</p>
+			<p>From the command line, run the following command to open and edit our file:</p>
+			<p class="source-code">sudo nano /etc/nginx/sites-enabled/dash_app</p>
+			<p>You should get an empty file, and you can copy and paste the following code, but make sure to replace the IP address after <strong class="source-inline">server_name</strong> with your own IP address:</p>
+			<p class="source-code">server {</p>
+			<p class="source-code">    listen 80;</p>
+			<p class="source-code">    server_name <strong class="bold">172.105.72.121</strong>;</p>
+			<p class="source-code">    location / {</p>
+			<p class="source-code">        proxy_pass http://127.0.0.1:8000;</p>
+			<p class="source-code">        proxy_set_header Host $host;</p>
+			<p class="source-code">        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;</p>
+			<p class="source-code">    }</p>
+			<p class="source-code">  }</p>
+			<p>This code contains configuration for the <strong class="source-inline">server</strong> context, as you can see. It tells it to listen on port <strong class="source-inline">80</strong>, which is the default port for web servers. It also defines the <strong class="source-inline">server_name</strong> as the IP address. Later on, you can use this to define your own domain name.</p>
+			<p>It then defines the behavior of the server for <strong class="source-inline">location /</strong> under another block. The most important thing for us is that we are making nginx a proxy server with the <strong class="source-inline">proxy_pass</strong> directive<a id="_idIndexMarker624"/> and telling it to listen to the URL and port that Gunicorn<a id="_idIndexMarker625"/> is listening to. So, now, the cycle should be complete. Our web server will be sending and receiving requests and responses through the correct URL and port, where the interface with our Python code is handled by Gunicorn.</p>
+			<p>Installing nginx creates a default configuration file, which we need to unlink with the following command:</p>
+			<p class="source-code">sudo unlink /etc/nginx/sites-enabled/default</p>
+			<p>We just need to reload nginx after making this change. Keep this in mind when you make any changes in the future. You should reload nginx for any changes to take place, which you can do with the following command:</p>
+			<p class="source-code">sudo nginx -s reload</p>
+			<p>Now, we can run our app with <strong class="source-inline">gunicorn app:server</strong>, and then, using our browser, we can navigate to our IP address and see the app online, as can be seen in the following screenshot:</p>
+			<div>
+				<div id="_idContainer189" class="IMG---Figure">
+					<img src="image/B16780_12_9.jpg" alt="Figure 12.9 – The app deployed on a public address"/>
+				</div>
+			</div>
+			<p class="figure-caption">Figure 12.9 – The app deployed on a public address</p>
+			<p>Congratulations! Your<a id="_idIndexMarker626"/> app is now available to anyone with an internet<a id="_idIndexMarker627"/> connection; it is on a public server, and you can share your work with the world. </p>
+			<p>What happens after that? How do you make changes, and what if there were upgrades to the packages that you used?</p>
+			<p>We tackle some simple guidelines that might be helpful to follow for the maintenance phase, after we have deployed our app.</p>
+			<h1 id="_idParaDest-169"><a id="_idTextAnchor169"/>Managing maintenance and updates</h1>
+			<p>Several things<a id="_idIndexMarker628"/> will probably need to be managed and handled after publishing your app, and we cover a few of them.</p>
+			<h2 id="_idParaDest-170"><a id="_idTextAnchor170"/>Fixing bugs and making changes</h2>
+			<p>This should<a id="_idIndexMarker629"/> follow the same workflow we established at the beginning of this <a id="_idIndexMarker630"/>chapter. Any changes to our code, whether bug fixes or additions to our functionality, should be done the same way. We edit code locally, make sure it is running correctly, and then push to the central Git repository. Then, from the server, we pull the changes and rerun the app.</p>
+			<h2 id="_idParaDest-171"><a id="_idTextAnchor171"/>Updating Python packages</h2>
+			<p>There are several <a id="_idIndexMarker631"/>packages that our app depends on, and you will <a id="_idIndexMarker632"/>most likely have even more in your daily work. Those packages will release updates every now and then, and you need to make sure that they are up to date. Some of those updates are security updates and need to be handled as soon as possible, while others introduce new options to packages. In general, you can run <strong class="source-inline">pip install --upgrade &lt;package_name&gt;</strong> to achieve this, but you will still need to check if the new functionality might change the way your app is running or whether it will break your existing code. Well-maintained packages usually publish any such breaking changes and also provide instructions for upgrading, if needed.</p>
+			<p>Once you have decided to upgrade packages, you can run the upgrade locally to first test your app and make sure it is running with the new version, as follows: </p>
+			<ol>
+				<li value="1">From the command line, go into the app's folder on your local machine, as follows:<p class="source-code"><strong class="bold">cd /path/to/your/app</strong></p></li>
+				<li>Activate the virtual environment, like this:<p class="source-code"><strong class="bold">source /bin/activate</strong></p></li>
+				<li>You should now see the name of your environment in parentheses <strong class="source-inline">(env_name)</strong> and you are now ready to upgrade the package of your choice, as follows:<p class="source-code"><strong class="bold">pip install --upgrade  &lt;package_name&gt;</strong></p></li>
+				<li>Assuming everything went fine, run your app, and make sure it is running as expected by executing the following command:<p class="source-code"><strong class="bold">python app.py</strong></p></li>
+				<li>If everything went well, you now need to update your <strong class="source-inline">requirements.txt</strong> file to reflect the new version of the package, and possibly modified versions of other dependencies. We first use the <strong class="source-inline">pip freeze</strong> command. This takes all the available packages in the current environment, as well as their dependencies, together with the right version number and prints them out to <strong class="source-inline">stdout</strong>. Now, we want to take this output and redirect it to the <strong class="source-inline">requirements.txt</strong> file to overwrite it with the updated requirements. We can do those two<a id="_idIndexMarker633"/> steps in one go, but it's good to familiarize yourself with the output of the<a id="_idIndexMarker634"/> first command first, which can be seen here:<p class="source-code"><strong class="bold">pip freeze &gt; requirements.txt</strong></p></li>
+				<li>Commit the changes to the Git repository and push to GitHub. The <strong class="source-inline">git add</strong> command adds the file(s) to the staging area, which means they are now ready to be added to the history of the repository. The next step is to commit those additions with the <strong class="source-inline">git commit</strong> command, which also takes a message in which you state what has been done. We then submit the changes to the online repository with the <strong class="source-inline">push</strong> command, as follows:<p class="source-code"><strong class="bold">git add requirements.txt</strong></p><p class="source-code"><strong class="bold">git commit -m 'Update requirements file'</strong></p><p class="source-code"><strong class="bold">git push</strong></p></li>
+				<li>Now that you have the latest <strong class="source-inline">requirements.txt</strong> file on your central Git repository you can pull it to your server, just as we did in this chapter. After logging in to your server, moving into your project's folder, and activating its virtual environment, you can pull the changes. The <strong class="source-inline">git pull</strong> command does two things. First, it fetches the latest changes of the repository from the remote server. Then, it merges the changes into the local copy, and you get the updated app. The command is shown here:<p class="source-code"><strong class="bold">git pull</strong></p></li>
+				<li>The change we fetched and merged in this case was the updated <strong class="source-inline">requirements.txt</strong> file. We now run the following command to install our packages on the server using the new versions:<p class="source-code"><strong class="bold">pip install -r requirements.txt</strong></p><p class="source-code"><strong class="bold">gunicorn app:server</strong></p></li>
+			</ol>
+			<p>This should start your <a id="_idIndexMarker635"/>app again, with the latest updates included. While<a id="_idIndexMarker636"/> we changed the requirements file in this case, we could have also changed the app's file, or maybe added new data. Whatever the change, this is the general cycle that we go through to incorporate those changes.</p>
+			<p>Now that you have a new component to handle—your server—you will also be managing and maintaining it as well.</p>
+			<h2 id="_idParaDest-172"><a id="_idTextAnchor172"/>Maintaining your server</h2>
+			<p>The following list<a id="_idIndexMarker637"/> provides a very brief and oversimplified set of <a id="_idIndexMarker638"/>things that you might be interested in, without instructions. The proper way is to learn more about Linux system administration, but these are likely things you will want to manage and can easily find guides and documentation for:</p>
+			<ul>
+				<li><strong class="bold">Adding a custom domain</strong>: You <a id="_idIndexMarker639"/>probably want a nice name for your app, and not an IP address. This is straightforward, and you need to buy a domain name from a registrar and make the necessary changes to enable that. You can find many examples and guides on Linode's<a id="_idIndexMarker640"/> documentation on how to achieve that.</li>
+				<li><strong class="bold">Setting up a security certificate</strong>: This is important and has become straightforward and<a id="_idIndexMarker641"/> free to do. Many guides and examples are available for that as well.</li>
+				<li><strong class="bold">Updating packages</strong>: As we <a id="_idIndexMarker642"/>did the first time we logged in, it's good to constantly update your server's packages and especially make sure you have the latest security updates.</li>
+				<li><strong class="bold">More security</strong>: The <a id="_idIndexMarker643"/>only security measure we took was adding a limited user, which was added to the <strong class="source-inline">sudo</strong> group. There are other things that can be done as well, such as hardening your SSH access with authentication key pairs and configuring a firewall, among other actions.</li>
+			</ul>
+			<p>We made a big leap in this chapter, and we quickly explored very powerful tools and techniques, so let's <a id="_idIndexMarker644"/>recap on what we covered in this chapter.</p>
+			<h1 id="_idParaDest-173"><a id="_idTextAnchor173"/>Summary</h1>
+			<p>We started by establishing a simple workflow to manage the cycle of development, deployment, and updates. We defined three main components for this workflow and how they relate to one another. We discussed the relationship between local workstations, a central Git repository, and a web server, and set some guidelines on how work should flow between them.</p>
+			<p>We then created a hosting account, set up a virtual server, and got ready to do work on the server locally. Then, we explored how we can access the server locally through SSH, and ran some basic security and administration tasks. We cloned our repository and saw that it can run on the server exactly as we do locally.</p>
+			<p>We then discussed the two other required components for our app to be available publicly. We ran our app slightly differently by using a WSGI server. The last step was to install and configure a web server, using the simplest setup possible. Our app was then accessible on a public IP.</p>
+			<p>Finally, we explored which ongoing maintenance tasks might be interesting. Most importantly, we ran through the process of upgrading our Python packages, changing a file, committing it to Git, pushing it to the online repository, and merging the changes to our server. This is definitely something that you will be doing continuously.</p>
+			<p>Our final chapter of the book will be about other directions that you might be interested in exploring and other areas that we haven't covered. You now know your way around Dash and can very easily navigate and find out whatever you need to know, yet there are many other things to explore. We will take a quick tour of those options in the last chapter.</p>
+		</div>
+	</body></html>
