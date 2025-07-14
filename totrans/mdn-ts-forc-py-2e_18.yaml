@@ -1,0 +1,1214 @@
+- en: '15'
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Strategies for Global Deep Learning Forecasting Models
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: All through the last few chapters, we have been building up deep learning for
+    time series forecasting. We started with the basics of deep learning, saw the
+    different building blocks, practically used some of those building blocks to generate
+    forecasts on a sample household, and finally, talked about attention and Transformers.
+    Now, let’s slightly alter our trajectory and take a look at global models for
+    deep learning. In *Chapter 10*, *Global Forecasting Models*, we saw why global
+    models make sense and also saw how we can use such models in the machine learning
+    context. We even got good results in our experiments. In this chapter, we will
+    look at how we can apply similar concepts, but from a deep learning perspective.
+    We will look at different strategies that we can use to make global deep learning
+    models work better.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In this chapter, we will be covering these main topics:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Creating global deep learning forecasting models
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Using time-varying information
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Using static/meta information
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Using the scale of the time series
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Balancing the sampling procedure
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Technical requirements
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: You will need to set up the **Anaconda** environment by following the instructions
+    in the *Preface* to get a working environment with all the libraries and datasets
+    required for the code in this book. Any additional libraries will be installed
+    while running the notebooks.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'You will need to run these notebooks:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`02-Preprocessing_London_Smart_Meter_Dataset.ipynb` in `Chapter02`'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`01-Setting_up_Experiment_Harness.ipynb` in `Chapter04`'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`01-Feature_Engineering.ipynb` in `Chapter06`'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The associated code for the chapter can be found at [https://github.com/PacktPublishing/Modern-Time-Series-Forecasting-with-Python-/tree/main/notebooks/Chapter15](https://github.com/PacktPublishing/Modern-Time-Series-Forecasting-with-Python-/tree/main/notebooks/Chapter15).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Creating global deep learning forecasting models
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In *Chapter 10*, *Global Forecasting Models*, we talked in detail about why
+    a global model makes sense. We talked about the benefits regarding increased *sample
+    size*, *cross-learning*, *multi-task learning*, the regularization effect that
+    comes with it, and reduced *engineering complexity*. All of these are relevant
+    for a deep learning model as well. Engineering complexity and sample size become
+    even more important because deep learning models are data-hungry and take quite
+    a bit more engineering effort and training time than other machine learning models.
+    I would go to the extent that in the deep learning context, in most practical
+    cases where we have to forecast at scale, global models are the only deep learning
+    paradigm that makes sense.
+  prefs: []
+  type: TYPE_NORMAL
+- en: So, why did we spend all that time looking at individual models? Well, it’s
+    easier to grasp the concept at that level, and the skills and knowledge we gained
+    at that level are very easily transferred to a global modeling paradigm. In *Chapter
+    13*, *Common Modeling Patterns for Time Series*, we saw how we can use a dataloader
+    to sample windows from a single time series to train the model. To make the model
+    a global model, all we need to do is to change the dataloader so that instead
+    of sampling windows from a single time series, we sample from many time series.
+    The sampling process can be thought of as a two-step process (although in practice,
+    we do it in a single step, it is intuitive to think of it as two)—first, sample
+    the time series we need to pick the window from, and then, sample the window from
+    that time series. By doing that, we are training a single deep learning model
+    to forecast all the time series together.
+  prefs: []
+  type: TYPE_NORMAL
+- en: To make our lives easier, we are going to use the open-source libraries PyTorch
+    Forecasting and `neuralforecast` from Nixtla in this text. We will be using PyTorch
+    Forecasting for pedagogical purposes because it does provide more flexibility,
+    but `neuralforecast` is more current and actively maintained and therefore more
+    recent architectures will be added there. In *Chapter 16*, we will see how we
+    can use `neuralforecast` to do forecasting, but for now, let’s pick PyTorch Forecasting
+    and move ahead.
+  prefs: []
+  type: TYPE_NORMAL
+- en: PyTorch Forecasting aims to make time series forecasting with deep learning
+    easy for both research and real-world cases alike. PyTorch Forecasting also has
+    implementations for some state-of-the-art forecasting architectures, and we will
+    come back to those in *Chapter 16*, *Specialized Deep Learning Architectures for
+    Forecasting*. But now, let’s use the high-level API in PyTorch Forecasting. This
+    will significantly reduce our work in preparing `PyTorch` datasets. The `TimeSeriesDataset`
+    class in PyTorch Forecasting takes care of a lot of boilerplate code dealing with
+    different transformations, missing values, padding, and so on. We will be using
+    this framework in this chapter when we look at different strategies to implement
+    global deep learning forecasting models.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Notebook alert**:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'To follow along with the complete code, use the notebook named `01-Global_Deep_Learning_Models.ipynb`
+    in the `Chapter15` folder. There are two variables in the notebook that act as
+    a switch—`TRAIN_SUBSAMPLE = True` makes the notebook run for a subset of 10 households.
+    `train_model = True` makes the notebook train different models (warning: training
+    models on the full data takes upward of 3 hours each). `train_model = False` loads
+    the trained model weights and predicts on them.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Preprocessing the data
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'We start by loading the necessary libraries and the dataset. We are using the
+    preprocessed and feature-engineered dataset we created in *Chapter 6*, *Feature
+    Engineering for Time Series Forecasting*. There are different kinds of features
+    in the dataset and to make our feature assignment standardized, we use `namedtuple`.
+    `namedtuple()` is a factory method in collections that lets you create subclasses
+    of `tuple` with named fields. These named fields can be accessed using dot notation.
+    We define `namedtuple` like this:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Let’s also quickly establish what these names mean:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`target`: The column name of what we are trying to forecast.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`index_cols`: The columns that we need to make as an index for quick access
+    to data.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`static_categoricals`: These are columns that are categorical in nature and
+    do not change with time. They are specific to each time series. For instance,
+    the *Acorn group* in our dataset is `static_categorical` because it is categorical
+    in nature and is a value pertaining to a household.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`static_reals`: These are columns that are numeric in nature and do not change
+    with time. They are specific to each time series. For instance, the average energy
+    consumption in our dataset is numeric in nature and pertains to a single household.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`time_varying_known_categoricals`: These are columns that are categorical in
+    nature and change with time and we know the future values. They can be seen as
+    quantities that keep varying with time. A prime example would be holidays, which
+    are categorical and vary with time, and we know the future holidays.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`time_varying_known_reals`: These are columns that are numeric in nature and
+    change with time and we know the future values. A prime example would be temperature,
+    which is numeric and varies with time, and we know the future values (provided
+    the source we are getting the weather from allows for forecasted weather data
+    as well).'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`time_varying_unknown_reals`: These are columns that are numeric in nature
+    and change with time and we don’t know the future values. The target we are trying
+    to forecast is an excellent example.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`group_ids`: These columns uniquely identify each time series in the DataFrame.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Once defined, we can assign different values to each of these names, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: The way of setting up a problem is slightly different in `neuralforecast` but
+    the principles are the same. The different types of variables we define remain
+    the same conceptually and just the parameter names we use to define them are different.
+    PyTorch Forecasting needs the target to be included in `time_varying_unknown_reals`
+    but `neuralforecast` doesn’t. All these minor differences will be covered when
+    we use `neuralforecast` to generate forecasts.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We can see that we are not using all the features as we did with machine learning
+    models (*Chapter 10*, *Global Forecasting Models*). There are two reasons for
+    that:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Since we are using sequential deep learning models, a lot of the information
+    we are trying to capture using rolling features and so on is already available
+    to the model.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Unlike robust gradient-boosted decision tree models, deep learning models aren’t
+    that robust to noise. So, irrelevant features would make the model worse.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: There are a few preprocessing steps that are needed to make the dataset we have
+    compatible with PyTorch Forecasting. PyTorch Forecasting needs a continuous time
+    index as a proxy for time. Although we have a `timestamp` column, it has datetimes.
+    So, we need to convert it to a new column, `time_idx`. The complete code is in
+    the notebook, but the essence of the code is simple. We combine the train and
+    test DataFrames and use a formula using the `timestamp` column to derive a new
+    `time_idx` column. The formula is such that it increments every successive timestamp
+    by one and is consistent between `train` and `test`. For instance, `time_idx`
+    of the last timestep in `train` is `256`, and `time_idx` of the first timestep
+    in `test` would be `257`. In addition to that, we also need to convert the categorical
+    columns into `object` data types to play nicely with `TimeSeriesDataset` from
+    PyTorch Forecasting.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'For our experiments, we have chosen to have 2 days (96 timesteps) as the window
+    and predict one single step ahead. To enable early stopping, we would need a validation
+    set as well. **Early stopping** is a way of regularization (a technique to prevent
+    overfitting, *Chapter 5*) where we keep monitoring the validation loss and stop
+    training when the validation loss starts to increase. We have selected the last
+    day of training (48 timesteps) as the validation data and 1 whole month as the
+    final test data. But when we prepare these DataFrames, we need to take care of
+    something: we have chosen two days as our history, and to forecast the first timestep
+    in the validation or test set, we need the last two days of history along with
+    it. So, we split our DataFrames as shown in the following diagram (the exact code
+    is in the notebook):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 15.1 – Train-validation-test split ](img/B22389_15_01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 15.1: Train-validation-test split'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now, before using `TimeSeriesDataset` on our data, let’s try to understand what
+    it does and what the different parameters involved are.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Understanding TimeSeriesDataset from PyTorch Forecasting
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: '`TimeSeriesDataset` automates the following tasks and more:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Scaling numeric features and encoding categorical features:'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Scaling the numeric features to have the same mean and variance helps gradient
+    descent-based optimization to converge faster and better.
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Categorical features need to be encoded as numbers so that we can handle them
+    the right way inside the deep learning models.
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Normalizing the target variable:'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: In a global model context, the target variable can have different scales for
+    different time series. For instance, a particular household typically has higher
+    energy consumption, and some other households may be vacant and have little to
+    no energy consumption. Scaling the target variable to a single scale helps the
+    deep learning model to focus on learning the patterns rather than capturing the
+    variance in scale.
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Efficiently converting the DataFrame into a dictionary of PyTorch tensors:'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The dataset also takes in the information about different columns and converts
+    the DataFrame into a dictionary of PyTorch tensors, separately handling the static
+    and time-varying information.
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'These are the major parameters of `TimeSeriesDataset`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`data`: This is the pandas DataFrame holding all the data such that each row
+    is uniquely identified with `time_idx` and `group_ids`.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`time_idx`: This refers to the column name with the continuous time index we
+    created earlier.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`target`, `group_ids`, `static_categoricals`, `static_reals`, `time_varying_known_categoricals`,
+    `time_varying_known_reals`, `time_varying_unknown_categoricals`, and `time_varying_unknown_reals`:
+    We already discussed all these parameters in the *Preprocessing the data* section.
+    These hold the same meaning.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`max_encoder_length`: This sets the maximum window length given to the encoder.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`min_decoder_length`: This sets the minimum window given in the decoding context.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`target_normalizer`: This takes in a Transformer that normalizes the targets.
+    There are a few normalizers built into PyTorch Forecasting—`TorchNormalizer`,
+    `GroupNormalizer`, and `EncoderNormalizer`. `TorchNormalizer` does standard and
+    robust scaling of the targets as a whole, whereas `GroupNormalizer` does the same
+    but with each group separately (a group is defined by `group_ids`). `EncoderNormalizer`
+    does the scaling at runtime by normalizing using the values in each window.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`categorical_encoders`: This parameter takes in a dictionary of scikit-learn
+    Transformers as a category encoder. By default, the category encoding is similar
+    to `LabelEncoder`, which replaces each unique categorical value with a number,
+    adding an additional category for unknown and `NaN` values.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: For the full documentation, please refer to [https://pytorch-forecasting.readthedocs.io/en/stable/data.html#time-series-data-set](https://pytorch-forecasting.readthedocs.io/en/stable/data.html#time-series-data-set).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Initializing TimeSeriesDataset
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'Now that we know the major parameters, let’s initialize a time series dataset
+    using our data:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Note that we have used `GroupNormalizer` so that each household is scaled separately
+    using its own mean and standard deviation using the following well-known formula:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_15_001.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: '`TimeSeriesDataset` also makes it easy to declare validation and test datasets
+    as well using a factory method, `from_dataset`. It takes in another time series
+    dataset as an argument and uses the same parameters, scalers, and so on, and creates
+    new datasets:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: Notice that we concatenate the history to both `val_df` and `test_df` to make
+    sure we can predict on the entire validation and test period.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Creating the dataloader
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'All that is left to do is to create the dataloader from `TimeSeriesDataset`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Before we proceed, let’s solidify our understanding of the PyTorch Forecasting
+    dataloader with the help of an example. The `train` dataloader we just created
+    has split the DataFrame into a dictionary of PyTorch tensors. We have chosen `512`
+    as a batch size and can inspect the dataloader using the following code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'We will get an output as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 15.2 – Shapes of tensors in a batch of a train dataloader ](img/B22389_15_02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 15.2: Shapes of tensors in a batch of a train dataloader'
+  prefs: []
+  type: TYPE_NORMAL
+- en: We can see that the dataloader and `TimeSeriesDataset` have split the DataFrame
+    into PyTorch tensors and packed them into a dictionary with the encoder and decoder
+    sequences separate. We can also see that the categorical and continuous features
+    are also separated.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The main *keys* we will be using from this dictionary are `encoder_cat`, `encoder_cont`,
+    `decoder_cat`, and `decoder_cont`. The `encoder_cat` and `decoder_cat` keys have
+    zero dimensions because we haven’t declared any categorical features.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Visualizing how the dataloader works
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'Let’s try to unpeel what happened here one level deeper and understand what
+    `TimeSeriesDataset` has done visually:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 15.3 – TimeSeriesDataset – an illustration of how it works ](img/B22389_15_03.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 15.3: TimeSeriesDataset—an illustration of how it works'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let’s assume we have a time series, *x*[1] to *x*[6] (this would be the target
+    as well as `time_varying_unknown` in the `TimeSeriesDataset` terminology). We
+    have a time-varying real, *f*[1] to *f*[6], and a time-varying categorical, *c*[1]
+    to *c*[2]. In addition to that, we also have a static real, *r*, and a static
+    categorical, *s*. If we set the encoder and decoder length as `3`, we will have
+    the tensors constructed as shown in *Figure 15.3*. Notice how the static categorical
+    and real are repeated for all timesteps. These different tensors are constructed
+    so that the model encoder can be trained using the encoder tensors and the decoder
+    tensors are used in the decoding process.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now, let’s proceed with building our first global model.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Building the first global deep learning forecasting model
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: PyTorch Forecasting uses PyTorch and PyTorch Lightning in the backend to define
+    and train deep learning models. The models that can be used seamlessly with PyTorch
+    Forecasting are essentially PyTorch Lightning models. However, the recommended
+    approach is to inherit `BaseModel` from PyTorch Forecasting. The developer of
+    PyTorch Forecasting has excellent documentation and tutorials to help new users
+    use it the way they want. One tutorial worth mentioning here is titled *How to
+    use custom data and implement custom models and metrics* (the link is in the *Further
+    reading* section).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'I have slightly modified the basic model from the tutorial to make it more
+    flexible. The implementation can be found in `src/dl/ptf_models.py` under the
+    name `SingleStepRNNModel`. The class takes in two parameters:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`network_callable`: This is a callable that, when initialized, becomes a PyTorch
+    model (inheriting `nn.Module`).'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`model_params`: This is a dictionary containing all the parameters necessary
+    to initialize `network_callable`.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The structure is pretty simple. The `__init__` function initializes `network_callable`
+    into a PyTorch model under the `network` attribute. The `forward` function sends
+    the input to the network, formats the returned output the way PyTorch Forecasting
+    wants, and returns it. It is a very short model because the bulk of the heavy
+    lifting is done by `BaseModel`, which handles the loss calculation, logging, gradient
+    descent, and so on. The benefit we get by defining a model this way is that we
+    can now define standard PyTorch models and pass it to this model to make it work
+    well with PyTorch Forecasting.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In addition to this, we also define an abstract class called `SingleStepRNN`,
+    which takes in a set of parameters and initializes the corresponding network that
+    is specified by the parameters. If the parameter specifies an LSTM, with two layers,
+    then it will be initialized and saved under the `rnn` attribute. It also defines
+    a fully connected layer under the `fc` attribute, which turns the output of the
+    RNN into the prediction. The `forward` method is an abstract method that needs
+    to be overwritten in any class subclassing this class.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Defining our first RNN model
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'Now that we have the necessary setup, let’s define our first model inheriting
+    the `SingleStepRNN` class we defined:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: This is the most straightforward implementation. We take `encoder_cont` from
+    the dictionary and pass it through the RNN, and then use a fully connected layer
+    on the last hidden state from the RNN to generate the prediction. If we take the
+    example in *Figure 15.3*, we used *x*[1] to *x*[3] as the history and trained
+    the model to predict *x*[4] (because we are using `min_decoder_length=1`, there
+    will be just one timestep in the decoder and target).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Initializing the RNN model
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'Now, let’s initialize the model using some parameters. I have defined two dictionaries
+    for parameters:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`model_params`: This has all the parameters necessary for the `SingleStepRNN`
+    model to be initialized.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`other_params`: These are all the parameters, such as `learning_rate`, `loss`,
+    and so on, that we pass on to `SingleStepRNNModel`.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Now, we can initialize the PyTorch Forecasting model using a factory method
+    it supports—`from_dataset`. This factory method lets us pass a dataset and infer
+    some parameters from the dataset instead of filling everything in all the time:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs: []
+  type: TYPE_PRE
+- en: Training the RNN model
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'Training the model is just like we have been doing in previous chapters because
+    this is a PyTorch Lightning model. We can follow these steps:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Initialize the trainer with early stopping and model checkpoints:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Fit the model:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Load the best model after training:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: The training can run for some time. To save you some time, I have included the
+    trained weights for each of the models we are using, and if the `train_model`
+    flag is `False`, it will skip training and load the saved weights.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Forecasting with the trained model
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'Now, after training, we can predict on the `test` dataset as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'We store the predictions in a DataFrame and evaluate them using our standard
+    metrics: `MAE`, `MSE`, `meanMASE`, and `Forecast Bias`. Let’s see the results:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![A close up of numbers  Description automatically generated](img/B22389_15_04.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 15.4: Aggregate results using the baseline global model'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'This is not a very good model because we know from *Chapter 10*, *Global Forecasting
+    Models*, that the baseline global model using LightGBM was as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: MAE = 0.079581
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: MSE = 0.027326
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: meanMASE = 1.013393
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Forecast Bias = 28.718087
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Apart from Forecast Bias, our global model is nowhere close to the best. Let’s
+    refer to the **global machine learning model** as **GFM**(**ML**) and the current
+    model as **GFM**(**DL**) for the rest of our discussion. Now, let’s start looking
+    at some strategies to make the global model better.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Using time-varying information
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: The GFM(ML) used all the available features. So, obviously, that model had access
+    to a lot more information than the GFM(DL) we have built until now. The GFM(DL)
+    we just built only takes in the history and nothing else. Let’s change that by
+    including time-varying information. We will just use time-varying real features
+    this time because dealing with categorical features is a topic I want to leave
+    for the next section.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We initialize the training dataset the same way as before, but we add `time_varying_known_reals=feat_config.time_varying_known_reals`
+    to the initialization parameters. Now that we have all the datasets created, let’s
+    move on to setting up the model.
+  prefs: []
+  type: TYPE_NORMAL
+- en: To set up the model, we need to understand one concept. We are now using the
+    history of the target and time-varying known features. In *Figure 15.3*, we saw
+    how `TimeSeriesDataset` arranges the different kinds of variables in PyTorch tensors.
+    In the previous section, we used only `encoder_cont` because there were no other
+    variables to worry about. But now, we have time-varying variables along with it,
+    which brings an added complication. If we take a step back and think about it,
+    in the single-step-ahead forecasting context, we can see that the time-varying
+    variables and the history of the target cannot be of the same timestep.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let’s use a visual example to elucidate:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 15.5 – Using time-varying variables for training ](img/B22389_15_05.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 15.5: Using time-varying variables for training'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Following the same spirit of the example from *Figure 15.3*, but reducing it
+    to fit our context here, we have a time series, *x*[1] to *x*[4], and a time-varying
+    real variable, *f*[1] to *f*[4]. So, for `max_encoder_length=3` and `min_decoder_length=1`,
+    we would have `TimeSeriesDataset` make the tensors, as shown in *Step 1* in *Figure
+    15.5*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now, for each timestep, we have the time-varying variable, *f*, and the history,
+    *x*, in `encoder_cont`. The time-varying variable, *f*, is a variable for which
+    we know the future values as well and therefore, there is no causal constraint
+    on that variable. That means that for predicting the timestep, *t*, we can use
+    *f*[t] because it is known. However, the history of the target variable is not.
+    We do not know the future because it is the very quantity we are trying to forecast.
+    That means that there is a causal constraint on *x* and, because of this, we cannot
+    use *x*[t] to predict timestep *t*. But the way the tensors are formed right now,
+    we have *f* and *x* aligned on timesteps and if we passed them through a model,
+    we would be essentially cheating because we would be using *x*[t] to predict timestep
+    *t*. Ideally, there should be an offset between the history, *x*, and the time-varying
+    feature, *f*, such that at timestep *t*, the model sees *x*[t][-1], then sees
+    *f*[t], and then predicts *x*[t].
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'To achieve that, we do the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Concatenate `encoder_cont` and `decoder_cont` because we need to use *f*[4]
+    to predict timestep *t* = 4 (*Step 2* in *Figure 15.5*).
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Shift the target history, *x*, forward by one timestep so that *f*[t] and *x*[t][-1]
+    are aligned (*Step 3* in *Figure 15.5*).
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Drop the first timestep because we don’t have the history to go with the first
+    timestep (*Step 4* in *Figure 15.5*).
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'This is exactly what we need to implement in our `forward` method in the new
+    model we defined, `DynamicFeatureRNNModel`, as well:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE12]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Now, let’s train this new model and see how it performs. The exact code is
+    in the notebook and is exactly the same as before:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 15.6 – Aggregate results using the time-varying features ](img/B22389_15_06.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 15.6: Aggregate results using the time-varying features'
+  prefs: []
+  type: TYPE_NORMAL
+- en: It looks like having temperature as a feature did make the model slightly better,
+    but there’s still a long way to go. Not to worry; we have other features to use.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Using static/meta information
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: There are some features such as the Acorn group, whether dynamic pricing is
+    enabled, and so on, that are specific to a household, which will help the model
+    learn patterns specific to these groups. Naturally, including that information
+    makes intuitive sense.
+  prefs: []
+  type: TYPE_NORMAL
+- en: However, as we discussed in *Chapter 10*, *Global Forecasting Models*, categorical
+    features do not play well with machine learning models because they aren’t numerical.
+    In that chapter, we discussed a few ways of encoding categorical features into
+    numerical representations. We can use any of those in a deep learning model as
+    well. But there is one way of handling categorical features that is unique to
+    deep learning models—**embedding vectors**.
+  prefs: []
+  type: TYPE_NORMAL
+- en: One-hot encoding and why it is not ideal
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: One of the ways of converting categorical features to numerical representation
+    is one-hot encoding. It encodes the categorical features in a higher dimension,
+    placing the categorical values equally distant in that space. The size of the
+    dimension it requires to encode the categorical values is equal to the cardinality
+    of the categorical variable. For a more detailed discussion on one-hot encoding,
+    refer to *Chapter 10*, *Global Forecasting Models*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The representation that we would get after the one-hot encoding of a categorical
+    feature is what we call a **sparse representation**. If the cardinality of the
+    categorical feature (number of unique values) is *C*, each row representing a
+    value of the categorical feature would have *C* - 1 zeros. So, the representation
+    is predominantly zeros and hence is called a sparse representation. This causes
+    the overall dimension required to effectively encode a categorical feature to
+    be equal to the cardinality of the vector. Therefore, one-hot encoding of a categorical
+    feature with 5,000 unique values instantly adds 5,000 dimensions to the problem
+    you are solving.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In addition to that, one-hot encoding is also completely uninformed. It places
+    each categorical value equidistant from each other without any regard for the
+    possible similarity between those values. For instance, if we were encoding the
+    days in a week, one-hot encoding would place each day in a completely different
+    dimension, making them equidistant from each other. But if we think about it,
+    Saturday and Sunday should be closer together than the other weekdays on account
+    of them being the weekend, right? This kind of information is not captured through
+    one-hot encoding.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Embedding vectors and dense representations
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: An embedding vector is a similar representation, but instead of a sparse representation,
+    it strives to give us a dense representation of a categorical feature. We can
+    achieve this by using an embedding layer. The embedding layer can be thought of
+    as a mapping between each categorical value and a numerical vector, and this vector
+    can have a much lower dimension than the cardinality of the categorical feature.
+    The only question that remains is “*How do we know what vector to choose for each
+    categorical value?*”
+  prefs: []
+  type: TYPE_NORMAL
+- en: The good news is that we need not because the embedding layer is trained along
+    with the rest of the network. So, while training a model for some task, the model
+    itself figures out what the best vector representation is for each categorical
+    value. This approach is really popular in natural language processing, where thousands
+    of words are embedded into dimensions as small as 200 or 300\. In PyTorch, we
+    can accomplish this by using `nn.Embedding`, which is a module that is a simple
+    lookup table that stores the embeddings of fixed discrete values and size.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'There are two mandatory parameters while initializing:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`num_embeddings`: This is the size of the dictionary of embeddings. In other
+    words, this is the cardinality of the categorical feature.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`embedding_dim`: This is the size of each embedding vector.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Now, let’s come back to global modeling. Let’s first introduce the static categorical
+    features. Please note that we are also including the time-varying categorical
+    because now we know how to deal with categorical features in a deep learning model.
+    The code to initialize the dataset is the same, with the addition of the following
+    two parameters to the initialization:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`static_categoricals=feat_config.static_categoricals`'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`time_varying_known_categoricals=feat_config.time_varying_known_categoricals`'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Defining a model with categorical features
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Now that we have the datasets, let’s look at how we can define the `__init__`
+    function in our new model, `StaticDynamicFeatureRNNModel`. In addition to invoking
+    the parent model, which sets up the standard RNN and fully connected layer, we
+    also set up the embedding layers using an input, `embedding_sizes`. `embedding_sizes`
+    is a list of tuples (*cardinality and embedding size*) for each categorical feature:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE13]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'We used `nn.ModuleList` to store a list of `nn.Embedding` modules, one for
+    each categorical feature. While initializing this model, we will need to give
+    `embedding_sizes` as input. The embedding size required for each categorical feature
+    is technically a hyperparameter that we can tune. But there are a few rules of
+    thumb to get you started. The idea behind these thumb rules is that the bigger
+    the cardinality of the categorical feature, the larger the embedding size required
+    to encode the information in them. Also, the embedding size can be much smaller
+    than the cardinality of the categorical feature. The rule of thumb that we have
+    adopted is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_15_002.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Therefore, we create the `embedding_sizes` list of tuples using the following
+    code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE14]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Now, turning our attention toward the `forward` method, it is going to be similar
+    to the previous model, but with an additional part to handle the categorical features.
+    We essentially use the embedding layers to convert the categorical features into
+    embeddings and concatenate them with the continuous features:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE15]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Now, let’s train this new model with static features and see how it performs:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 15.7 – Aggregate results using the static and time-varying features
+    ](img/B22389_15_07.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 15.7: Aggregate results using the static and time-varying features'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Adding the static variables also improved our model. Now, let’s look at another
+    strategy that adds another key piece of information to the model.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Using the scale of the time series
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: We used `GroupNormlizer` in `TimeSeriesDataset` to scale each household using
+    its own mean and standard deviation. We did this because we wanted to make the
+    target zero mean and unit variance so that the model does not waste effort trying
+    to change its parameters to capture the scale of individual household consumption.
+    Although this is a good strategy, we do have some information loss here. There
+    may be patterns that are specific to households whose consumption is on the larger
+    side and some other patterns that are specific to households that consume much
+    less. But now, they are both lumped in together and the model tries to learn common
+    patterns. In such a scenario, these unique patterns seem like noise to the model
+    because there is no variable to explain them.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The bottom line is that there is information in the scale that we removed, and
+    adding that information back would be beneficial. So, how do we add it back? Definitely
+    not by including the unscaled targets, which brings back the disadvantage that
+    we were trying to get away from in the first place. A way to do it is to add the
+    scale information as static-real features to the model. We would have kept track
+    of the mean and standard deviation of each household when we scaled them in the
+    first place (because we need them to do the inverse transformation and get back
+    the original targets). All we need to do is make sure we include them as a static
+    real variable so that the model has access to the scale information while learning
+    the patterns in the time series dataset.
+  prefs: []
+  type: TYPE_NORMAL
+- en: PyTorch Forecasting makes this easier for us by having a handy parameter in
+    `TimeSeriesDataset` called `add_target_scales`. If you make it `True`, then `encoder_cont`
+    and `decoder_cont` will also have the mean and standard deviation of individual
+    time series.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Nothing changes in our existing model; all we need to do is add this parameter
+    to `TimeSeriesDataset` while initializing it and train and predict using the model.
+    Let’s see how that worked out for us:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 15.8 – Aggregate results using the static, time-varying, and scale
+    features ](img/B22389_15_08.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 15.8: Aggregate results using the static, time-varying, and scale features'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The scale information has improved the model yet again. With that, let’s look
+    at one of the last strategies we will be covering in this book.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Balancing the sampling procedure
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'We saw a few strategies for improving a global deep learning model by adding
+    new types of features. Now, let’s look at a different aspect that is relevant
+    in a global modeling context. In an earlier section, when we were talking about
+    global deep learning models, we talked about how the process by which we sample
+    a window of sequence to feed to our model can be thought of as a two-step process:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Sampling a time series out of a set of time series.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Sampling a window out of that time series.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Let’s use an analogy to make the concept clearer. Imagine we have a large bowl
+    that we have filled with *N* balls. Each ball in the bowl represents a time series
+    in the dataset (a household in our dataset). Now, each ball, *i*, has *M*[i] chits
+    of paper representing all the different windows of samples we can draw from it.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In the batch sampling we use by default, we open all the balls, dump all the
+    chits into the bowl, and discard the balls. Now, with our eyes closed, we pick
+    *B* chits out of this bowl and set them aside. This is a batch that we sample
+    from our dataset. We do not have any information that separates the chits from
+    each other so the probability of picking any chit is equal, which can be formulated
+    as:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_15_003.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Now, let’s add something to our analogy to the data. We know that we have different
+    kinds of time series—different lengths, different levels of consumption, and so
+    on. Let’s pick one aspect, the length of the series, for our example (although
+    it applies to other aspects as well). So, if we discretize the length of our time
+    series, we end up with different bins; let’s assign a color for each bin. So,
+    now we have *C* different-colored balls in the bowl and the chits of paper also
+    are colored accordingly.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In our current sampling strategy (where we dump all the chits of paper, now
+    colored, and pick *B* chits at random), we would end up replicating the probability
+    distribution of our bowl in a batch. It is not a stretch to understand that if
+    the bowl has more of the longer time series than shorter ones, the chits we draw
+    will also have that bias. Consequently, the batch will also be biased toward a
+    long time series. What happens because of that?
+  prefs: []
+  type: TYPE_NORMAL
+- en: In mini-batch stochastic gradient descent (we saw this in *Chapter 11*, *Introduction
+    to Deep Learning*), we do a gradient update every mini-batch, and we use this
+    gradient to update the model parameters so that we move closer to the minima of
+    the loss function. Therefore, if a mini-batch is biased toward a particular type
+    of case, then the gradient updates would be biased toward a solution that works
+    better for them. There are good parallels to be drawn here to imbalanced learning.
+    Longer time series and shorter time series may have different patterns, and having
+    this sampling imbalance causes the model to learn patterns that work well for
+    the longer time series and not so well for the shorter ones.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Visualizing the data distribution
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'We calculated the length of each household (`LCLid`) and binned them into `10`
+    bins—`bin_0` for the shortest bin and `bin_9` for the longest bin:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE16]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Let’s visualize the distribution of the bins in the original data:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 15.9 – Distribution of length of time series ](img/B22389_15_09.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 15.9: Distribution of length of time series'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We can see that `bin_5` and `bin_6` are the most common lengths while `bin_0`
+    is the least common. Now, let’s get the first 50 batches from the dataloader and
+    plot them as a stacked bar chart to check the distribution in each batch:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 15.10 – Stacked bar chart of batch distribution ](img/B22389_15_10.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 15.10: Stacked bar chart of batch distribution'
+  prefs: []
+  type: TYPE_NORMAL
+- en: We can see that the same distribution you saw in *Figure 15.9* is replicated
+    in the batch distributions as well with `bin_5` and `bin_6` leading the pack.
+    `bin_0` is barely making an appearance and LCLids that are in `bin_0` would not
+    have been learned that well.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Tweaking the sampling procedure
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Now what do we do? Let’s step into the analogy of bowls with chits inside for
+    a bit. We were picking a ball at random, and we saw that the resulting distribution
+    was identical to the original distribution of colors. Therefore, to get a more
+    balanced distribution of colors in a batch, we need to sample different colored
+    chits at different probabilities. In other words, we should be sampling more from
+    colors that have low representation in the original distribution and less from
+    colors that dominate the original representation.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let’s look at the process by which we are selecting the chits from the bowl
+    from another perspective. We know that the probability of selecting each chit
+    in the bowl is equal. So, another way to select chits from the bowl is by using
+    a uniform random number generator. We pick a chit from the bowl, generate a random
+    number between 0 and 1 (*p*), and select the chit if the random number is less
+    than 0.5 (*p* < 0.5). So, it is equally likely that we select or reject the chit.
+    We continue this until we get *B* samples. Although a bit more inefficient than
+    the previous procedure, this sampling process approximates the original procedure
+    closely. The advantage here is that we have a threshold now with which we can
+    tweak our sampling to suit our needs. Having a lower threshold makes the chit
+    harder to accept under this sampling procedure, and having a higher threshold
+    makes it easier to accept.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now that we have a threshold with which we can tweak the sampling procedure,
+    all we need to do is find out the right thresholds for each of the chits so that
+    the resulting batch has a uniform representation of all the colors.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In other words, we need to find and assign the right weight to each LCLid such
+    that the resulting batch will have an even distribution of all length bins.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How do we do that? There is a very simple strategy for that. We want the weights
+    to be lower for length bins that have a lot of samples, and higher for length
+    bins that have fewer samples. We can get this kind of weight by taking the inverse
+    of the count of each bin. If there are *C* LCLids in a bin, the weight of the
+    bin can be 1/*C*. The *Further reading* section has a link where you can read
+    more about weighted random sampling and the different algorithms used for the
+    purpose.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`TimeSeriesDataset` has an internal index, which is a DataFrame with all the
+    samples it can draw from the dataset. We can use that to construct our array of
+    weights:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE17]'
+  prefs: []
+  type: TYPE_PRE
+- en: This way ensures that the `probabilities` array has the same length as the internal
+    index over which `TimeSeriesDataset` samples and that is a mandatory requirement
+    when using this technique—each possible window should have a corresponding weight
+    attached to it.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now that we have this weight, there is an easy way to put this into practice.
+    We can use `WeightedRandomSampler` from PyTorch, which has been created specifically
+    for this purpose:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE18]'
+  prefs: []
+  type: TYPE_PRE
+- en: Using and visualizing the dataloader with WeightedRandomSampler
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Now, we can use this sampler in the dataloaders we create from `TimeSeriesDataset`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE19]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Let’s visualize the first 50 batches like before and see the difference:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 15.11 – Stacked bar chart of batch distribution with weighted random
+    sampling ](img/B22389_15_11.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 15.11: Stacked bar chart of batch distribution with weighted random
+    sampling'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now, we can see a more uniform distribution of bins in each batch. Let’s also
+    see the results after training the model using this new dataloader:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 15.12 – Aggregate results using the static, time-varying, and scale
+    features along with batch samplers ](img/B22389_15_12.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 15.12: Aggregate results using the static, time-varying, and scale features
+    along with batch samplers'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Looks like the sampler also made a good improvement in the model in all metrics,
+    except `Forecast Bias`. Although we have not achieved better results than the
+    GFM(ML) (which had an MAE of 0.079581), we are close enough. Maybe with some hyperparameter
+    tuning, partitioning, or stronger models, we might reach closer to that number,
+    or we may not. We used a custom sampling option to make the length of the time
+    series balanced in a batch. We can use the same techniques to balance it on other
+    aspects such as the level of consumption, region, or any other aspect that seems
+    relevant. As always in machine learning, we will need to go with our experiments
+    to say anything for sure, and all we need to do is form our hypothesis about the
+    problem statement and construct experiments to validate that hypothesis.
+  prefs: []
+  type: TYPE_NORMAL
+- en: With that, we have come to the end of yet another practical-heavy (and compute-heavy)
+    chapter. Congratulations on making it through the chapter; feel free to go back
+    and refer to any points that haven’t quite landed yet.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Summary
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: After having built a strong foundation on deep learning models in the last few
+    chapters, we started to look at a new paradigm of global models in the context
+    of deep learning models. We learned how to use PyTorch Forecasting, an open-source
+    library for forecasting using deep learning, and used the feature-filled `TimeSeriesDataset`
+    to start developing our own models.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We started off with a very simple LSTM in the global context and saw how we
+    can add time-varying information, static information, and the scale of individual
+    time series to the features to make models better. We closed by looking at an
+    alternating sampling procedure for mini-batches that helps us present a more balanced
+    view of the problem in each batch. This chapter is by no means an exhaustive list
+    of all such techniques to make the forecasting models better. Instead, this chapter
+    aims to build the right kind of thinking that is necessary to work on your own
+    models and make them work better than before.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now that we have a strong foundation in deep learning and global models, it
+    is time to take a look at a few specialized deep learning architectures that have
+    been proposed over the years for time series forecasting in the next chapter.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Further reading
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'You can check out the following sources for further reading:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*How to use custom data and implement custom models and metrics* (PyTorch Forecasting):
+    [https://pytorch-forecasting.readthedocs.io/en/stable/tutorials/building.html](https://pytorch-forecasting.readthedocs.io/en/stable/tutorials/building.html)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*Random Sampling from Databases* by Frank Olken, pages 22–23: [https://dsf.berkeley.edu/papers/UCB-PhD-olken.pdf](https://dsf.berkeley.edu/papers/UCB-PhD-olken.pdf)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Join our community on Discord
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Join our community’s Discord space for discussions with authors and other readers:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[https://packt.link/mts](https://packt.link/mts)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/QR_Code15080603222089750.png)'
+  prefs: []
+  type: TYPE_IMG

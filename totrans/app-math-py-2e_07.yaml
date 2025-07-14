@@ -1,0 +1,3187 @@
+- en: '7'
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Using Regression and Forecasting
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: One of the most important tasks that a statistician or data scientist has is
+    to generate a systematic understanding of the relationship between two sets of
+    data. This can mean a *continuous* relationship between two sets of data, where
+    one value depends directly on the value of another variable. Alternatively, it
+    can mean a categorical relationship, where one value is categorized according
+    to another. The tool for working with these kinds of problems is *regression*.
+    In its most basic form, regression involves fitting a straight line through a
+    scatter plot of the two sets of data and performing some analysis to see how well
+    this line *fits* the data. Of course, we often need something more sophisticated
+    to model more complex relationships that exist in the real world.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Forecasting typically refers to learning trends in time series data with the
+    aim of predicting values in the future. Time series data is data that evolves
+    over a period of time, and usually exhibits a high degree of noise and oscillatory
+    behavior. Unlike more simple data, time series data usually has complex dependencies
+    between consecutive values; for instance, a value may depend on both of the previous
+    values, and perhaps even on the previous *noise*. Time series modeling is important
+    across science and economics, and there are a variety of tools for modeling time
+    series data. The basic technique for working with time series data is called **autoregressive
+    integrated moving average** (**ARIMA**). This model incorporates two underlying
+    components: an **autoregressive** (**AR**) component and a **moving average**
+    (**MA**) component, to construct a model for the observed data.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this chapter, we will learn how to model the relationship between two sets
+    of data, quantify how strong this relationship is, and generate forecasts about
+    other values (the future). Then, we will learn how to use logistic regression,
+    which is a variation of a simple linear model, in classification problems. Finally,
+    we will build models for time series data using ARIMA and build on these models
+    for different kinds of data. We will finish this chapter by using a library called
+    Prophet to automatically generate a model for time series data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the first three recipes, we will learn how to perform various kinds of regression
+    to simple data. In the next four recipes, we will learn about various techniques
+    for working with time series data. The final recipe deals with an alternative
+    means of summarizing time series data for various purposes using signature methods.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In this chapter, we will cover the following recipes:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Using basic linear regression
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Using multilinear regression
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Classifying using logarithmic regression
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Modeling time series data with ARMA
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Forecasting from time series data using ARIMA
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Forecasting seasonal data using ARIMA
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Using Prophet to model time series data
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Using signatures to summarize time series data
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Let’s get started!
+  prefs: []
+  type: TYPE_NORMAL
+- en: Technical requirements
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'In this chapter, as usual, we will need the NumPy package imported under the
+    `np` alias, the Matplotlib `pyplot` module imported as `plt`, and the Pandas package
+    imported as `pd`. We can do this using the following commands:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'We will also need some new packages in this chapter. The `statsmodels` package
+    is used for regression and time series analysis, the `scikit-learn` package (`sklearn`)
+    provides general data science and machine learning tools, and the Prophet package
+    (`prophet`) is used for automatically modeling time series data. These packages
+    can be installed using your favorite package manager, such as `pip`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The Prophet package can prove difficult to install on some operating systems
+    because of its dependencies. If installing `prophet` causes a problem, you might
+    want to try using the Anaconda distribution of Python and its package manager,
+    `conda`, which handles the dependencies more rigorously:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: Note
+  prefs: []
+  type: TYPE_NORMAL
+- en: Previous versions of the Prophet library (prior to version 1.0) were called
+    `fbprophet`, whereas the newer versions of Prophet are just `prophet`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Finally, we also need a small module called `tsdata` that is contained in the
+    repository for this chapter. This module contains a series of utilities for producing
+    sample time series data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The code for this chapter can be found in the `Chapter 07` folder of the GitHub
+    repository at [https://github.com/PacktPublishing/Applying-Math-with-Python-2nd-Edition/tree/main/Chapter%2007](https://github.com/PacktPublishing/Applying-Math-with-Python-2nd-Edition/tree/main/Chapter%2007).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Using basic linear regression
+  prefs: []
+  type: TYPE_NORMAL
+- en: Linear regression is a tool for modeling the dependence between two sets of
+    data so that we can eventually use this model to make predictions. The name comes
+    from the fact that we form a linear model (straight line) of one set of data based
+    on a second. In the literature, the variable that we wish to model is frequently
+    called the *response* variable, and the variable that we are using in this model
+    is the *predictor* variable.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this recipe, we’ll learn how to use the `statsmodels` package to perform
+    simple linear regression to model the relationship between two sets of data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Getting ready
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'For this recipe, we will need the `statsmodels.api` module imported under the
+    `sm` alias, the NumPy package imported as `np`, the Matplotlib `pyplot` module
+    imported as `plt`, and an instance of a NumPy default random number generator.
+    All this can be achieved with the following commands:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: Let’s see how to use the `statsmodels` package to perform basic linear regression.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'The following steps outline how to use the `statsmodels` package to perform
+    a simple linear regression on two sets of data:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'First, we generate some example data that we can analyze. We’ll generate two
+    sets of data that will illustrate a good fit and a less good fit:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE5]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE6]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE7]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE8]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE9]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'A good first step in performing regression analysis is to create a scatter
+    plot of the datasets. We’ll do this on the same set of axes:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE11]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE12]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE13]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE14]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE15]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE16]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE17]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE18]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'We need to use the `sm.add_constant` utility routine so that the modeling step
+    will include a constant value:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE19]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Now, we can create an `OLS` model for our first set of data and use the `fit`
+    method to fit the model. We then print a summary of the data using the `summary`
+    method:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE20]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE21]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'We repeat the model fitting for the second set of data and print the summary:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE22]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE23]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Now, we create a new range of ![](img/Formula_07_001.png) values using `linspace`
+    that we can use to plot the trend lines on our scatter plot. We need to add the
+    `constant` column to interact with the models that we have created:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE24]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Next, we use the `predict` method on the model objects so that we can use the
+    model to predict the response value at each of the ![](img/Formula_07_002.png)
+    values we generated in the previous step:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE25]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE26]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Finally, we plot the model data computed in the previous two steps on top of
+    the scatter plot:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE27]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE28]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'The scatter plot, along with the best fit lines (the models) we added, can
+    be seen in the following figure:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 7.1 - Scatter plot of data with lines of best fit computed using least
+    squares regression.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/7.1.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Figure 7.1 - Scatter plot of data with lines of best fit computed using least
+    squares regression.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The solid line indicates the line fitted to the well-correlated data (marked
+    by **x** symbols) and the dashed line indicates the line fitted to the poorly
+    correlated data (marked by dots). We can see in the plot that the two best-fit
+    lines are fairly similar, but the line fitted (dashed) to the data with lots of
+    noise has drifted away from the true model ![](img/Formula_07_003.png) defined
+    in *step 1*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How it works...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Elementary mathematics tells us that the equation of a straight line is given
+    by the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/Formula_07_004.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Here, ![](img/Formula_07_005.png) is the value at which the line meets the
+    ![](img/Formula_07_006.png)-axis, usually called the ![](img/Formula_07_007.png)-intercept,
+    and ![](img/Formula_07_008.png) is the gradient of the line. In the linear regression
+    context, we are trying to find a relationship between the response variable, ![](img/Formula_07_009.png),
+    and the predictor variable, ![](img/Formula_07_010.png), which has the form of
+    a straight line so that the following occurs:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/Formula_07_011.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Here, ![](img/Formula_07_012.png) and ![](img/Formula_07_013.png) are now parameters
+    that are to be found. We can write this in a different way, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/Formula_07_014.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Here, ![](img/Formula_07_015.png) is an error term, which, in general, depends
+    on ![](img/Formula_07_016.png). To find the “best” model, we need to find values
+    for the ![](img/Formula_07_017.png) and ![](img/Formula_07_018.png) parameters
+    for which the error term, ![](img/Formula_07_019.png), is minimized (in an appropriate
+    sense). The basic method for finding the values of the parameters such that this
+    error is minimized is the method of least squares, which gives its name to the
+    type of regression used here: *ordinary least squares*. Once we have used this
+    method to establish some relationship between a response variable and a predictor
+    variable, our next task is to assess how well this model actually represents this
+    relationship. For this, we form the *residuals* given by the following equation:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/Formula_07_020.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: We do this for each of the data points, ![](img/Formula_07_021.png) and ![](img/Formula_07_022.png).
+    In order to provide a rigorous statistical analysis of how well we have modeled
+    the relationship between the data, we need the residuals to satisfy certain assumptions.
+    First, we need them to be independent in the sense of probability. Second, we
+    need them to be normally distributed about 0 with a common variance (in practice,
+    we can relax these slightly and still make reasonable comments about the accuracy
+    of the model).
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this recipe, we generated response data from the predictor data using a linear
+    relationship. The difference between the two response datasets we created is the
+    “size” of the error at each value. For the first dataset, `y1`, the residuals
+    were normally distributed with a standard deviation of 0.5, whereas for the second
+    dataset, `y2`, the residuals have a standard deviation of 5.0\. We can see this
+    variability in the scatter plot shown in *Figure 7**.1*, where the data for `y1`
+    is generally very close to the best fit line – which closely matches the actual
+    relationship that was used to generate the data – whereas the `y2` data is much
+    further from the best-fit line.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The `OLS` object from the `statsmodels` package is the main interface for ordinary
+    least squares regression. We provide the response data and the predictor data
+    as arrays. In order to have a constant term in the model, we need to add a column
+    of ones in the predictor data. The `sm.add_constant` routine is a simple utility
+    for adding this constant column. The `fit` method of the `OLS` class computes
+    the parameters for the model and returns a results object (`model1` and `model2`)
+    that contains the parameters for the best fit model. The `summary` method creates
+    a string containing information about the model and various statistics about the
+    goodness of fit. The `predict` method applies the model to new data. As the name
+    suggests, it can be used to make predictions using the model.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'There are two basic statistics reported in the summary that give us information
+    about the fit. The first is the ![](img/Formula_07_023.png) value, or the adjusted
+    version, which measures the variability explained by the model against the total
+    variability. This number is defined as follows. First, define the following quantities:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/Formula_07_024.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Here, ![](img/Formula_07_025.png) are the residuals defined previously and
+    ![](img/Formula_07_026.png) is the mean of the data. We then define ![](img/Formula_07_027.png)
+    and its adjusted counterpart:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/Formula_07_028.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: In the latter equation, ![](img/Formula_07_029.png) is the size of the sample
+    and ![](img/Formula_07_030.png) is the number of variables in the model (including
+    the ![](img/Formula_07_031.png)-intercept ![](img/Formula_07_032.png)). A higher
+    value indicates a better fit, with a best possible value of 1\. Note that the
+    ordinary ![](img/Formula_07_033.png) value tends to be overly optimistic, especially
+    when the model contains more variables, so it is usually better to look at the
+    adjusted version.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The second is the F statistic p-value. This is a hypothesis test that at least
+    one of the coefficients of the model is non-zero. As with ANOVA testing (see *Testing
+    Hypotheses with ANOVA*, [*Chapter 6*](B19085_06.xhtml#_idTextAnchor226)), a small
+    p-value indicates that the model is significant, meaning that the model is more
+    likely to accurately model the data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this recipe, the first model, `model1`, has an adjusted ![](img/Formula_07_034.png)
+    value of 0.986, indicating that the model very closely fits the data, and a p-value
+    of 6.43e-19, indicating high significance. The second model has an adjusted ![](img/Formula_07_035.png)
+    value of 0.361, which indicates that the model less closely fits the data, and
+    a p-value of 0.000893, which also indicates high significance. Even though the
+    second model less closely fits the data, in terms of statistics, that is not to
+    say that it is not useful. The model is still significant, although less so than
+    the first model, but it doesn’t account for all of the variability (or at least
+    a significant portion of it) in the data. This could be indicative of additional
+    (non-linear) structures in the data, or that the data is less correlated, which
+    means there is a weaker relationship between the response and predictor data (due
+    to the way we constructed the data, we know that the latter is true).
+  prefs: []
+  type: TYPE_NORMAL
+- en: There’s more...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Simple linear regression is a good general-purpose tool in a statistician’s
+    toolkit. It is excellent for finding the nature of the relationship between two
+    sets of data that are known (or suspected) to be connected in some way. The statistical
+    measurement of how much one set of data depends on another is called *correlation*.
+    We can measure correlation using a correlation coefficient, such as *Spearman’s
+    rank correlation coefficient*. A high positive correlation coefficient indicates
+    a strong positive relationship between the data, such as that seen in this recipe,
+    while a high negative correlation coefficient indicates a strong negative relationship,
+    where the slope of the best-fit line through the data is negative. A correlation
+    coefficient of 0 means that the data is not correlated: there is no relationship
+    between the data.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: If the sets of data are clearly related but not in a linear (straight line)
+    relationship, then it might follow a polynomial relationship where, for example,
+    one value is related to the other squared. Sometimes, you can apply a transformation,
+    such as a logarithm, to one set of data and then use linear regression to fit
+    the transformed data. Logarithms are especially useful when there is a power-law
+    relationship between the two sets of data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The `scikit-learn` package also provides facilities for performing ordinary
+    least squares regression. However, their implementation does not offer an easy
+    way to generate goodness-of-fit statistics, which are often useful when performing
+    a linear regression in isolation. The `summary` method on the `OLS` object is
+    very convenient for producing all the required fitting information, along with
+    the estimated coefficients.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Using multilinear regression
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Simple linear regression, as seen in the previous recipe, is excellent for producing
+    simple models of a relationship between one response variable and one predictor
+    variable. Unfortunately, it is far more common to have a single response variable
+    that depends on many predictor variables. Moreover, we might not know which variables
+    from a collection make good predictor variables. For this task, we need multilinear
+    regression.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this recipe, we will learn how to use multilinear regression to explore the
+    relationship between a response variable and several predictor variables.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Getting ready
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'For this recipe, we will need the NumPy package imported as `np`, the Matplotlib
+    `pyplot` module imported as `plt`, the Pandas package imported as `pd`, and an
+    instance of the NumPy default random number generator created using the following
+    commands:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE29]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'We will also need the `statsmodels`.`api` module imported as `sm`, which can
+    be imported using the following command:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE30]'
+  prefs: []
+  type: TYPE_PRE
+- en: Let’s see how to fit a multilinear regression model to some data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'The following steps show you how to use multilinear regression to explore the
+    relationship between several predictors and a response variable:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'First, we need to create the predictor data to analyze. This will take the
+    form of a Pandas DataFrame with four terms. We will add the constant term at this
+    stage by adding a column of ones:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE31]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE32]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE33]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE34]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE35]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE36]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Next, we will generate the response data using only the first two variables:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE37]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE38]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Now, we’ll produce scatter plots of the response data against each of the predictor
+    variables:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE39]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE40]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE41]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE42]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE43]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Then, we’ll add axis labels and titles to each scatter plot since this is good
+    practice:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE44]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE45]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE46]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE47]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE48]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE49]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE50]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'The resulting plots can be seen in the following figure:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 7.2 - Scatter plots of the response data against each of the predictor
+    variables'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/7.2.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Figure 7.2 - Scatter plots of the response data against each of the predictor
+    variables
+  prefs: []
+  type: TYPE_NORMAL
+- en: As we can see, there appears to be some correlation between the response data
+    and the first two predictor columns, `X1` and `X2`. This is what we expect, given
+    how we generated the data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We use the same `OLS` class to perform multilinear regression; that is, providing
+    the response array and the predictor DataFrame:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE51]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE52]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'The first half of the output of the `print` statement is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE53]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'This gives us a summary of the model, various parameters, and various goodness-of-fit
+    characteristics such as the `R-squared` values (0.77 and 0.762), which indicate
+    that the fit is reasonable but not very good. The second half of the output contains
+    information about the estimated coefficients:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE54]'
+  prefs: []
+  type: TYPE_PRE
+- en: In the summary data, we can see that the `X3` variable is not significant since
+    it has a p-value of 0.66.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Since the third predictor variable is not significant, we eliminate this column
+    and perform the regression again:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE55]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE56]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE57]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: This results in a small increase in the goodness-of-fit statistics.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How it works...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Multilinear regression works in much the same way as simple linear regression.
+    We follow the same procedure here as in the previous recipe, where we use the
+    `statsmodels` package to fit a multilinear model to our data. Of course, there
+    are some differences behind the scenes. The model we produce using multilinear
+    regression is very similar in form to the simple linear model from the previous
+    recipe. It has the following form:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/Formula_07_036.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Here, ![](img/Formula_07_037.png) is the response variable, ![](img/Formula_07_038.png)
+    represents the predictor variables, ![](img/Formula_07_039.png) is the error term,
+    and ![](img/Formula_07_040.png) is the parameters to be computed. The same requirements
+    are also necessary for this context: residuals must be independent and normally
+    distributed with a mean of 0 and a common standard deviation.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this recipe, we provided our predictor data as a Pandas DataFrame rather
+    than a plain NumPy array. Notice that the names of the columns have been adopted
+    in the summary data that we printed. Unlike the first recipe, *Using basic linear
+    regression*, we included the constant column in this DataFrame, rather than using
+    the `add_constant` utility from `statsmodels`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the output of the first regression, we can see that the model is a reasonably
+    good fit with an adjusted ![](img/Formula_07_041.png) value of 0.762, and is highly
+    significant (we can see this by looking at the regression F statistic p-value).
+    However, looking closer at the individual parameters, we can see that both of
+    the first two predictor values are significant, but the constant and the third
+    predictor are less so. In particular, the third predictor parameter, `X3`, is
+    not significantly different from 0 and has a p-value of 0.66\. Given that our
+    response data was constructed without using this variable, this shouldn’t come
+    as a surprise. In the final step of the analysis, we repeat the regression without
+    the predictor variable, `X3`, which is a mild improvement to the fit.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Classifying using logarithmic regression
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Logarithmic regression solves a different problem from ordinary linear regression.
+    It is commonly used for classification problems where, typically, we wish to classify
+    data into two distinct groups, according to a number of predictor variables. Underlying
+    this technique is a transformation that’s performed using logarithms. The original
+    classification problem is transformed into a problem of constructing a model for
+    the **log-odds**. This model can be completed with simple linear regression. We
+    apply the inverse transformation to the linear model, which leaves us with a model
+    of the probability that the desired outcome will occur, given the predictor data.
+    The transform we apply here is called the **logistic function**, which gives its
+    name to the method. The probability we obtain can then be used in the classification
+    problem we originally aimed to solve.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this recipe, we will learn how to perform logistic regression and use this
+    technique in classification problems.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Getting ready
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'For this recipe, we will need the NumPy package imported as `np`, the Matplotlib
+    `pyplot` module imported as `plt`, the Pandas package imported as `pd`, and an
+    instance of the NumPy default random number generator to be created using the
+    following commands:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE58]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'We also need several components from the `scikit-learn` package to perform
+    logistic regression. These can be imported as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE59]'
+  prefs: []
+  type: TYPE_PRE
+- en: How to do it...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Follow these steps to use logistic regression to solve a simple classification
+    problem:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'First, we need to create some sample data that we can use to demonstrate how
+    to use logistic regression. We start by creating the predictor variables:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE60]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE61]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE62]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE63]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE64]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE65]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE66]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE67]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE68]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Now, we use two of our three predictor variables to create our response variable
+    as a series of Boolean values:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE69]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE70]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Next, we scatterplot the points, styled according to the response variable,
+    of the `var3` data against the `var1` data, which are the variables used to construct
+    the response variable:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE71]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE72]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE73]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE74]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE75]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE76]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE77]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE78]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE79]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'The resulting plot can be seen in the following figure:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 7.3 – Scatter plot of the var3 data against var1, with classification
+    marked'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/7.3.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Figure 7.3 – Scatter plot of the var3 data against var1, with classification
+    marked
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Next, we create a `LogisticRegression` object from the `scikit-learn` package
+    and fit the model to our data:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE80]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE81]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Next, we prepare some extra data, different from what we used to fit the model,
+    to test the accuracy of our model:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE82]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE83]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE84]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE85]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE86]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE87]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE88]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE89]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE90]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE91]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE92]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Then, we generate predicted results based on our logistic regression model:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE93]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Finally, we use the `classification_report` utility from `scikit-learn` to
+    print a summary of predicted classification against known response values to test
+    the accuracy of the model. We print this summary to the Terminal:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE94]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'The report that’s generated by this routine looks as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE95]'
+  prefs: []
+  type: TYPE_PRE
+- en: The report here contains information about the performance of the classification
+    model on the test data. We can see that the reported precision and recall are
+    good, indicating that there were relatively few false positive and false negative
+    identifications.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How it works...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Logistic regression works by forming a linear model of the *log-odds* ratio
+    (or *logit*), which, for a single predictor variable, ![](img/Formula_07_042.png),
+    has the following form:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/Formula_07_043.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Here, ![](img/Formula_07_044.png) represents the probability of a true outcome
+    in response to the given predictor, ![](img/Formula_07_045.png). Rearranging this
+    gives a variation of the logistic function for the probability:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/Formula_07_046.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: The parameters for the log-odds are estimated using a maximum likelihood method.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The `LogisticRegression` class from the `linear_model` module in `scikit-learn`
+    is an implementation of logistic regression that is very easy to use. First, we
+    create a new model instance of this class, with any custom parameters that we
+    need, and then use the `fit` method on this object to fit (or train) the model
+    to the sample data. Once this fitting is done, we can access the parameters that
+    have been estimated using the `get_params` method.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The `predict` method on the fitted model allows us to pass in new (unseen) data
+    and make predictions about the classification of each sample. We could also get
+    the probability estimates that are actually given by the logistic function using
+    the `predict_proba` method.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Once we have built a model for predicting the classification of data, we need
+    to validate the model. This means we have to test the model with some previously
+    unseen data and check whether it correctly classifies the new data. For this,
+    we can use `classification_report`, which takes a new set of data and the predictions
+    generated by the model and computes several summary values about the performance
+    of the model. The first reported value is the **precision**, which is the ratio
+    of the number of true positives to the number of predicted positives. This measures
+    how well the model avoids labeling values as positive when they are not. The second
+    reported value is the **recall**, which is the ratio of the number of true positives
+    to the number of true positives plus the number of false negatives. This measures
+    the ability of the model to find positive samples within the collection. A related
+    score (not included in the report) is the **accuracy**, which is the ratio of
+    the number of correct classifications to the total number of classifications.
+    This measures the ability of the model to correctly label samples.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The classification report we generated using the `scikit-learn` utility performs
+    a comparison between the predicted results and the known response values. This
+    is a common method for validating a model before using it to make actual predictions.
+    In this recipe, we saw that the reported precision for each of the categories
+    (`True` and `False`) was `1.00`, indicating that the model performed perfectly
+    in predicting the classification with this data. In practice, it is unlikely that
+    the precision of a model will be 100%.
+  prefs: []
+  type: TYPE_NORMAL
+- en: There’s more...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: There are lots of packages that offer tools for using logistic regression for
+    classification problems. The `statsmodels` package has the `Logit` class for creating
+    logistic regression models. We used the `scikit-learn` package in this recipe,
+    which has a similar interface. `scikit-learn` is a general-purpose machine learning
+    library and has a variety of other tools for classification problems.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Modeling time series data with ARMA
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Time series, as the name suggests, track a value over a sequence of distinct
+    time intervals. They are particularly important in the finance industry, where
+    stock values are tracked over time and used to make predictions – known as forecasting
+    – of the value at some point in the future. Good predictions coming from this
+    kind of data can be used to make better investments. Time series also appear in
+    many other common situations, such as weather monitoring, medicine, and any places
+    where data is derived from sensors over time.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Time series, unlike other types of data, do not usually have independent data
+    points. This means that the methods that we use for modeling independent data
+    will not be particularly effective. Thus, we need to use alternative techniques
+    to model data with this property. There are two ways in which a value in a time
+    series can depend on previous values. The first is where there is a direct relationship
+    between the value and one or more previous values. This is the *autocorrelation*
+    property and is modeled by an *AR* model. The second is where the noise that’s
+    added to the value depends on one or more previous noise terms. This is modeled
+    by an *MA* model. The number of terms involved in either of these models is called
+    the *order* of the model.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this recipe, we will learn how to create a model for stationary time series
+    data with ARMA terms.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Getting ready
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'For this recipe, we need the Matplotlib `pyplot` module imported as `plt` and
+    the `statsmodels` package `api` module imported as `sm`. We also need to import
+    the `generate_sample_data` routine from the `tsdata` package from this book’s
+    repository, which uses NumPy and Pandas to generate sample data for analysis:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE96]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'To avoid repeatedly setting colors in plotting functions, we do some one-time
+    setup to set the plotting color here:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE97]'
+  prefs: []
+  type: TYPE_PRE
+- en: With this set up, we can now see how to generate an ARMA model for some time
+    series data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Follow these steps to create an ARMA model for stationary time series data:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'First, we need to generate the sample data that we will analyze:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE98]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'As always, the first step in the analysis is to produce a plot of the data
+    so that we can visually identify any structure:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE99]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE100]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE101]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE102]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE103]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE104]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'The resulting plot can be seen in the following figure:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 7.4 - Plot of the time series data that we will analyze (there doesn’t
+    appear to be a trend in this data)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/7.4.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Figure 7.4 - Plot of the time series data that we will analyze (there doesn’t
+    appear to be a trend in this data)
+  prefs: []
+  type: TYPE_NORMAL
+- en: Here, we can see that there doesn’t appear to be an underlying trend, which
+    means that the data is likely to be stationary (a time series is said to be **stationary**
+    if its statistical properties do not vary with time. This often manifests in the
+    form of an upward or downward trend).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Next, we compute the augmented Dickey-Fuller test. This is a hypothesis test
+    for whether a time series is stationary or not. The null hypothesis is that the
+    time series is not stationary:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE105]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE106]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE107]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE108]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: The reported `adf_pvalue` is 0.000376 in this case, so we reject the null hypothesis
+    and conclude that the series is stationary.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Next, we need to determine the order of the model that we should fit. For this,
+    we’ll plot the **autocorrelation function** (**ACF**) and the **partial autocorrelation
+    function** (**PACF**) for the time series:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE109]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE110]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE111]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE112]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE113]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE114]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE115]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE116]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE117]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE118]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'The plots of the ACF and PACF for our time series can be seen in the following
+    figure. These plots suggest the existence of both AR and MA processes:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 7.5 - The ACF and PACF for the sample time series data'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/7.5.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Figure 7.5 - The ACF and PACF for the sample time series data
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Next, we create an ARMA model for the data, using the `ARIMA` class from the
+    `tsa` module. This model will have an order 1 AR component and an order 1 MA component:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE119]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Now, we fit the model to the data and get the resulting model. We print a summary
+    of these results to the Terminal:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE120]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE121]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'The summary data given for the fitted model is as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE122]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE123]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE124]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE125]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE126]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE127]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE128]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE129]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE130]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE131]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE132]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE133]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE134]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE135]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE136]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE137]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE138]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE139]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE140]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE141]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE142]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE143]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE144]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE145]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE146]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE147]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: Here, we can see that both of the estimated parameters for the AR and MA components
+    are significantly different from 0\. This is because the value in the `P >|z|`
+    column is 0 to 3 decimal places.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Next, we need to verify that there is no additional structure remaining in
+    the residuals (error) of the predictions from our model. For this, we plot the
+    ACF and PACF of the residuals:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE148]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE149]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE150]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE151]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE152]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE153]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE154]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE155]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE156]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE157]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE158]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'The ACF and PACF of the residuals can be seen in the following figure. Here,
+    we can see that there are no significant spikes at lags other than 0, so we conclude
+    that there is no structure remaining in the residuals:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 7.6 - The ACF and PACF for the residuals from our model'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/7.6.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Figure 7.6 - The ACF and PACF for the residuals from our model
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now that we have verified that our model is not missing any structure, we plot
+    the values that are fitted to each data point on top of the actual time series
+    data to see whether the model is a good fit for the data. We plot this model in
+    the plot we created in *step 2*:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE159]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE160]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE161]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'The updated plot can be seen in the following figure:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 7.7 – Plot of the fitted time series data over the observed time series
+    data'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/7.7.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Figure 7.7 – Plot of the fitted time series data over the observed time series
+    data
+  prefs: []
+  type: TYPE_NORMAL
+- en: The fitted values give a reasonable approximation of the behavior of the time
+    series but reduce the noise from the underlying structure.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How it works...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: The ARMA model that we used in this recipe is a basic means of modeling the
+    behavior of stationary time series. The two parts of an ARMA model are the AR
+    and MA parts, which model the dependence of the terms and noise, respectively,
+    on previous terms and noise. In practice, time series are usually not stationary,
+    and we have to perform some kind of transformation to make this the case before
+    we can fit an ARMA model.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'An order 1 AR model has the following form:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/Formula_07_047.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Here, ![](img/Formula_07_048.png) represents the parameters and ![](img/Formula_07_049.png)
+    is the noise at a given step. The noise is usually assumed to be normally distributed
+    with a mean of 0 and a standard deviation that is constant across all the time
+    steps. The ![](img/Formula_07_050.png) value represents the value of the time
+    series at the time step, ![](img/Formula_07_051.png). In this model, each value
+    depends on the previous value, although it can also depend on some constants and
+    some noise. The model will give rise to a stationary time series precisely when
+    the ![](img/Formula_07_052.png) parameter lies strictly between -1 and 1.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'An order 1 MA model is very similar to an AR model and is given by the following
+    equation:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/Formula_07_053.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Here, the variants of ![](img/Formula_07_054.png) are parameters. Putting these
+    two models together gives us an ARMA(1,1) model, which has the following form:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/Formula_07_055.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: In general, we can have an ARMA(p,q) model that has an order ![](img/Formula_07_056.png)
+    AR component and an order q MA component. We usually refer to the quantities,
+    ![](img/Formula_07_057.png) and ![](img/Formula_07_058.png), as the orders of
+    the model.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Determining the orders of the AR and MA components is the most tricky aspect
+    of constructing an ARMA model. The ACF and PACF give some information about this,
+    but even then, it can be quite difficult. For example, an AR process will show
+    some kind of decay or oscillating pattern on the ACF as lag increases, and a small
+    number of peaks on the PACF and values that are not significantly different from
+    zero beyond that. The number of peaks that appear on the PAF plot can be taken
+    as the order of the process. For an MA process, the reverse is true. There is
+    usually a small number of significant peaks on the ACF plot, and a decay or oscillating
+    pattern on the PACF plot. Of course, sometimes, this isn’t obvious.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this recipe, we plotted the ACF and PACF for our sample time series data.
+    In the autocorrelation plot in *Figure 7**.5* (top), we can see that the peaks
+    decay rapidly until they lie within the confidence interval of zero (meaning they
+    are not significant). This suggests the presence of an AR component. On the partial
+    autocorrelation plot in *Figure 7**.5* (bottom), we can see that there are only
+    two peaks that can be considered not zero, which suggests an AR process of order
+    1 or 2\. You should try to keep the order of the model as small as possible. Due
+    to this, we chose an order 1 AR component. With this assumption, the second peak
+    on the partial autocorrelation plot is indicative of decay (rather than an isolated
+    peak), which suggests the presence of an MA process. To keep the model simple,
+    we try an order 1 MA process. This is how the model that we used in this recipe
+    was decided on. Notice that this is not an exact process, and you might have decided
+    differently.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We use the augmented Dickey-Fuller test to test the likelihood that the time
+    series that we have observed is stationary. This is a statistical test, such as
+    those seen in [*Chapter 6*](B19085_06.xhtml#_idTextAnchor226), *Working with Data
+    and Statistics*, that generates a test statistic from the data. This test statistic,
+    in turn, determines a p-value that is used to determine whether to accept or reject
+    the null hypothesis. For this test, the null hypothesis is that a unit root is
+    present in the time series that’s been sampled. The alternative hypothesis – the
+    one we are really interested in – is that the observed time series is (trend)
+    stationary. If the p-value is sufficiently small, then we can conclude with the
+    specified confidence that the observed time series is stationary. In this recipe,
+    the p-value was 0.000 to 3 decimal places, which indicates a strong likelihood
+    that the series is stationary. Stationarity is an essential assumption for using
+    the ARMA model for the data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Once we have determined that the series is stationary, and decided on the orders
+    of the model, we have to fit the model to the sample data that we have. The parameters
+    of the model are estimated using a maximum likelihood estimator. In this recipe,
+    the learning of the parameters is done using the `fit` method, in *step 6*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The `statsmodels` package provides various tools for working with time series,
+    including utilities for calculating – and plotting – ACF and PACF of time series
+    data, various test statistics, and creating ARMA models for time series. There
+    are also some tools for automatically estimating the order of the model.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We can use the **Akaike information criterion** (**AIC**), **Bayesian information
+    criterion** (**BIC**), and **Hannan-Quinn Information Criterion** (**HQIC**) quantities
+    to compare this model to other models to see which model best describes the data.
+    A smaller value is better in each case.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs: []
+  type: TYPE_NORMAL
+- en: When using ARMA to model time series data, as in all kinds of mathematical modeling
+    tasks, it is best to pick the simplest model that describes the data to the extent
+    that is needed. For ARMA models, this usually means picking the smallest order
+    model that describes the structure of the observed data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: There’s more...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Finding the best combination of orders for an ARMA model can be quite difficult.
+    Often, the best way to fit a model is to test multiple different configurations
+    and pick the order that produces the best fit. For example, we could have tried
+    ARMA(0,1) or ARMA(1, 0) in this recipe, and compared it to the ARMA(1,1) model
+    we used to see which produced the best fit by considering the AIC statistic reported
+    in the summary. In fact, if we build these models, we will see that the AIC value
+    for ARMA(1,1) – the model we used in this recipe – is the “best” of these three
+    models.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Forecasting from time series data using ARIMA
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In the previous recipe, we generated a model for a stationary time series using
+    an ARMA model, which consists of an AR component and an MA component. Unfortunately,
+    this model cannot accommodate time series that have some underlying trend; that
+    is, they are not stationary time series. We can often get around this by *differencing*
+    the observed time series one or more times until we obtain a stationary time series
+    that can be modeled using ARMA. The incorporation of differencing into an ARMA
+    model is called an ARIMA model.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Differencing is the process of computing the difference between consecutive
+    terms in a sequence of data – so, applying first-order differencing amounts to
+    subtracting the value at the current step from the value at the next step (![](img/Formula_07_059.png)).
+    This has the effect of removing the underlying upward or downward linear trend
+    from the data. This helps to reduce an arbitrary time series to a stationary time
+    series that can be modeled using ARMA. Higher-order differencing can remove higher-order
+    trends to achieve similar effects.
+  prefs: []
+  type: TYPE_NORMAL
+- en: An ARIMA model has three parameters, usually labeled ![](img/Formula_07_060.png),
+    ![](img/Formula_07_061.png), and ![](img/Formula_07_062.png). The ![](img/Formula_07_063.png)
+    and ![](img/Formula_07_064.png) order parameters are the order of the AR component
+    and the MA component, respectively, just as they are for the ARMA model. The third
+    order parameter, ![](img/Formula_07_065.png), is the order of differencing to
+    be applied. An ARIMA model with these orders is usually written as ARIMA (![](img/Formula_07_066.png),
+    ![](img/Formula_07_067.png), ![](img/Formula_07_068.png)). Of course, we will
+    need to determine what order differencing should be included before we start fitting
+    the model.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this recipe, we will learn how to fit an ARIMA model to a non-stationary
+    time series and use this model to generate forecasts about future values.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Getting ready
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'For this recipe, we will need the NumPy package imported as `np`, the Pandas
+    package imported as `pd`, the Matplotlib `pyplot` module as `plt`, and the `statsmodels.api`
+    module imported as `sm`. We will also need the utility for creating sample time
+    series data from the `tsdata` module, which is included in this book’s repository:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE162]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'As in the previous recipe, we use the Matplotlib `rcparams` to set the color
+    for all plots in the recipe:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE163]'
+  prefs: []
+  type: TYPE_PRE
+- en: How to do it...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'The following steps show you how to construct an ARIMA model for time series
+    data and use this model to make forecasts:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'First, we load the sample data using the `generate_sample_data` routine:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE164]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE165]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'As usual, the next step is to plot the time series so that we can visually
+    identify the trend of the data:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE166]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE167]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE168]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE169]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE170]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'The resulting plot can be seen in the following figure. As we can see, there
+    is a clear upward trend in the data, so the time series is certainly not stationary:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 7.8 – Plot of the sample time series'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/7.8.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Figure 7.8 – Plot of the sample time series
+  prefs: []
+  type: TYPE_NORMAL
+- en: There is an obvious positive trend in the data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Next, we difference the series to see whether one level of differencing is
+    sufficient to remove the trend:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE171]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Now, we plot the ACF and PACF for the differenced time series:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE172]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE173]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE174]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE175]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE176]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE177]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE178]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE179]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'The ACF and PACF can be seen in the following figure. We can see that there
+    do not appear to be any trends left in the data and that there appears to be both
+    an AR component and an MA component:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 7.9 - ACF and PACF for the differenced time series'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/7.9.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Figure 7.9 - ACF and PACF for the differenced time series
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now, we construct the ARIMA model with order 1 differencing, an AR component,
+    and an MA component. We fit this to the observed time series and print a summary
+    of the model:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE180]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE181]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE182]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'The summary information that’s printed looks as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE183]'
+  prefs: []
+  type: TYPE_PRE
+- en: Here, we can see that all 3 of our estimated coefficients are significantly
+    different from 0 since all three have 0 to 3 decimal places in the `P>|z|` column.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now, we can use the `get_forecast` method to generate predictions of future
+    values and generate a summary DataFrame from these predictions. This also returns
+    the standard error and confidence intervals for predictions:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE184]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Next, we plot the forecast values and their confidence intervals on the figure
+    containing the time series data:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE185]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE186]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE187]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE188]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE189]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE190]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Finally, we add the actual future values to generate, along with the sample
+    in *step 1*, to the plot (it might be easier if you repeat the plot commands from
+    *step 1* to regenerate the whole plot here):'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE191]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE192]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'The final plot containing the time series with the forecast and the actual
+    future values can be seen in the following figure:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 7.10 - Sample time series with forecast values and actual future values
+    for comparison'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/7.10.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Figure 7.10 - Sample time series with forecast values and actual future values
+    for comparison
+  prefs: []
+  type: TYPE_NORMAL
+- en: Here, we can see that the actual future values are within the confidence interval
+    for the forecast values.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How it works...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: The ARIMA model – with orders ![](img/Formula_07_069.png), ![](img/Formula_07_070.png),
+    and ![](img/Formula_07_071.png) – is simply an ARMA (![](img/Formula_07_072.png),![](img/Formula_07_073.png))
+    model that’s applied to a time series. This is obtained by applying differencing
+    of order ![](img/Formula_07_074.png) to the original time series data. It is a
+    fairly simple way to generate a model for time series data. The `statsmodels`
+    `ARIMA` class handles the creation of a model, while the `fit` method fits this
+    model to the data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The model is fit to the data using a maximum likelihood method and the final
+    estimates for the parameters – in this case, one parameter for the AR component,
+    one for the MA component, the constant trend parameter, and the variance of the
+    noise. These parameters are reported in the summary. From this output, we can
+    see that the estimates for the AR coefficient (`0.9567`) and the MA constant (`-0.6407`)
+    are very good approximations of the true estimates that were used to generate
+    the data, which were `0.8` for the AR coefficient and `-0.5` for the MA coefficient.
+    These parameters are set in the `generate_sample_data` routine from the `tsdata.py`
+    file in the code repository for this chapter. This generates the sample data in
+    *step 1*. You might have noticed that the constant parameter (`1.0101`) is not
+    `0.2`, as specified in the `generate_sample_data` call in *step 1*. In fact, it
+    is not so far from the actual drift of the time series.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The `get_forecast` method on the fitted model (the output of the `fit` method)
+    uses the model to make predictions about the value after a given number of steps.
+    In this recipe, we forecast for up to 50 time steps beyond the range of the sample
+    time series. The output of the command in *step 6* is a DataFrame containing the
+    forecast values, the standard error for the forecasts, and the upper and lower
+    bounds for the confidence interval (by default, 95% confidence) of the forecasts.
+  prefs: []
+  type: TYPE_NORMAL
+- en: When you construct an ARIMA model for time series data, you need to make sure
+    you use the smallest order differencing that removes the underlying trend. Applying
+    more differencing than is necessary is called *over-differencing* and can lead
+    to problems with the model.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Forecasting seasonal data using ARIMA
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Time series often display periodic behavior so that peaks or dips in the value
+    appear at regular intervals. This behavior is called *seasonality* in the analysis
+    of time series. The methods we have used thus far in this chapter to model time
+    series data obviously do not account for seasonality. Fortunately, it is relatively
+    easy to adapt the standard ARIMA model to incorporate seasonality, resulting in
+    what is sometimes called a SARIMA model.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this recipe, we will learn how to model time series data that includes seasonal
+    behavior and use this model to produce forecasts.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Getting ready
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'For this recipe, we will need the NumPy package imported as `np`, the Pandas
+    package imported as `pd`, the Matplotlib `pyplot` module as `plt`, and the `statsmodels`
+    `api` module imported as `sm`. We will also need the utility for creating sample
+    time series data from the `tsdata` module, which is included in this book’s repository:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE193]'
+  prefs: []
+  type: TYPE_PRE
+- en: Let’s see how to produce an ARIMA model that takes seasonal variations into
+    account.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Follow these steps to produce a seasonal ARIMA model for sample time series
+    data and use this model to produce forecasts:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'First, we use the `generate_sample_data` routine to generate a sample time
+    series to analyze:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE194]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE195]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'As usual, our first step is to visually inspect the data by producing a plot
+    of the sample time series:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE196]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE197]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE198]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE199]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE200]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'The plot of the sample time series data can be seen in the following figure.
+    Here, we can see that there seem to be periodic peaks in the data:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 7.11 - Plot of the sample time series data'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/7.11.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Figure 7.11 - Plot of the sample time series data
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Next, we plot the ACF and PACF for the sample time series:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE201]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE202]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE203]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE204]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE205]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE206]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE207]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE208]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'The ACF and PACF for the sample time series can be seen in the following figure:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 7.12 - The ACF and PACF for the sample time series'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/7.12.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Figure 7.12 - The ACF and PACF for the sample time series
+  prefs: []
+  type: TYPE_NORMAL
+- en: These plots possibly indicate the existence of AR components, but also a significant
+    spike in the PACF with lag **7**.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Next, we difference the time series and produce plots of the ACF and PACF for
+    the differenced series. This should make the order of the model clearer:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE209]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE210]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE211]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE212]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE213]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE214]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE215]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE216]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE217]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE218]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE219]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'The ACF and PACF for the differenced time series can be seen in the following
+    figure. We can see that there is definitely a seasonal component with lag 7:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 7.13 -  Plot of the ACF and PACF for the differenced time series'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/7.13.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Figure 7.13 - Plot of the ACF and PACF for the differenced time series
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now, we need to create a `SARIMAX` object that holds the model, with an ARIMA
+    order of `(1, 1, 1)` and a SARIMA order of `(1, 0, 0, 7)`. We fit this model to
+    the sample time series and print summary statistics. We plot the predicted values
+    on top of the time series data:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE220]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE221]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE222]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE223]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'The first half of the summary statistics that are printed to the terminal are
+    as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE224]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'As before, the first half contains some information about the model, parameters,
+    and fit. The second half of the summary (here) contains information about the
+    estimated model coefficients:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE225]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'This model appears to be a reasonable fit, so we move ahead and forecast `50`
+    time steps into the future:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE226]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE227]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE228]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Finally, we add the forecast values to the plot of the sample time series,
+    along with the confidence interval for these forecasts:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE229]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE230]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE231]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE232]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE233]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE234]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'The final plot of the time series, along with the predictions and the confidence
+    interval for the forecasts, can be seen in the following figure:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 7.14 - Plot of the sample time series, along with the forecasts and
+    confidence interval'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/7.14.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Figure 7.14 - Plot of the sample time series, along with the forecasts and confidence
+    interval
+  prefs: []
+  type: TYPE_NORMAL
+- en: As we can see, the forecast evolution follows roughly the same upward trajectory
+    as the final portion of observed data, and the confidence region for predictions
+    expands quickly. We can see that the actual future values dip down again after
+    the end of the observed data but do stay within the confidence interval.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How it works...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Adjusting an ARIMA model to incorporate seasonality is a relatively simple
+    task. A seasonal component is similar to an AR component, where the lag starts
+    at some number larger than 1\. In this recipe, the time series exhibits seasonality
+    with period 7 (weekly), which means that the model is approximately given by the
+    following equation:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/Formula_07_075.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Here, ![](img/Formula_07_076.png) and ![](img/Formula_07_077.png) are the parameters
+    and ![](img/Formula_07_078.png) is the noise at time step ![](img/Formula_07_079.png).
+    The standard ARIMA model is easily adapted to include this additional lag term.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The SARIMA model incorporates this additional seasonality into the ARIMA model.
+    It has four additional order terms on top of the three for the underlying ARIMA
+    model. These four additional parameters are the seasonal AR, differencing, and
+    MA components, along with the period of seasonality. In this recipe, we took the
+    seasonal AR as order 1, with no seasonal differencing or MA components (order
+    0), and a seasonal period of 7\. This gives us the additional parameters (1, 0,
+    0, 7) that we used in *step 5* of this recipe.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Seasonality is clearly important in modeling time series data that is measured
+    over a period of time covering days, months, or years. It usually incorporates
+    some kind of seasonal component based on the time frame that they occupy. For
+    example, a time series of national power consumption measured hourly over several
+    days would probably have a 24-hour seasonal component since power consumption
+    will likely fall during the night hours.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Long-term seasonal patterns might be hidden if the time series data that you
+    are analyzing does not cover a sufficiently large time period for the pattern
+    to emerge. The same is true for trends in the data. This can lead to some interesting
+    problems when trying to produce long-term forecasts from a relatively short period
+    represented by observed data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The `SARIMAX` class from the `statsmodels` package provides the means of modeling
+    time series data using a seasonal ARIMA model. In fact, it can also model external
+    factors that have an additional effect on the model, sometimes called *exogenous
+    regressors* (we will not cover these here). This class works much like the `ARMA`
+    and `ARIMA` classes that we used in the previous recipes. First, we create the
+    model object by providing the data and orders for both the ARIMA process and the
+    seasonal process, and then use the `fit` method on this object to create a fitted
+    model object. We use the `get_forecasts` method to generate an object holding
+    the forecasts and confidence interval data that we can then plot, thus producing
+    *Figure 7**.14*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: There’s more...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: There is a small difference in the interface between the `SARIMAX` class used
+    in this recipe and the `ARIMA` class used in the previous recipe. At the time
+    of writing, the `statsmodels` package (v0.11) includes a second `ARIMA` class
+    that builds on top of the `SARIMAX` class, thus providing the same interface.
+    However, at the time of writing, this new `ARIMA` class does not offer the same
+    functionality as that used in this recipe.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Using Prophet to model time series data
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: The tools we have seen so far for modeling time series data are very general
+    and flexible methods, but they require some knowledge of time series analysis
+    in order to be set up. The analysis needed to construct a good model that can
+    be used to make reasonable predictions for the future can be intensive and time-consuming,
+    and may not be viable for your application. The Prophet library is designed to
+    automatically model time series data quickly, without the need for input from
+    the user, and make predictions for the future.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this recipe, we will learn how to use Prophet to produce forecasts from a
+    sample time series.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Getting ready
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'For this recipe, we will need the Pandas package imported as `pd`, the Matplotlib
+    `pyplot` package imported as `plt`, and the `Prophet` object from the Prophet
+    library, which can be imported using the following command:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE235]'
+  prefs: []
+  type: TYPE_PRE
+- en: Prior to version 1.0, the `prophet` library was called `fbprophet`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We also need to import the `generate_sample_data` routine from the `tsdata`
+    module, which is included in the code repository for this book:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE236]'
+  prefs: []
+  type: TYPE_PRE
+- en: Let’s see how to use the Prophet package to quickly generate models of time
+    series data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'The following steps show you how to use the Prophet package to generate forecasts
+    for a sample time series:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'First, we use `generate_sample_data` to generate the sample time series data:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE237]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE238]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'We need to convert the sample data into a DataFrame that Prophet expects:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE239]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE240]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE241]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE242]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Next, we make a model using the `Prophet` class and fit it to the sample time
+    series:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE243]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE244]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Now, we create a new DataFrame that contains the time intervals for the original
+    time series, plus the additional periods for the forecasts:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE245]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Then, we use the `predict` method to produce the forecasts along the time periods
+    we just created:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE246]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Finally, we plot the predictions on top of the sample time series data, along
+    with the confidence interval and the true future values:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE247]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE248]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE249]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE250]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE251]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE252]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE253]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE254]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE255]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE256]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'The plot of the time series, along with forecasts, can be seen in the following
+    figure:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 7.15 - Plot of sample time series data, along with forecasts and a
+    confidence interval'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/7.15.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Figure 7.15 - Plot of sample time series data, along with forecasts and a confidence
+    interval
+  prefs: []
+  type: TYPE_NORMAL
+- en: We can see that the fit of the data up to (approximately) October 2020 is pretty
+    good, but then a sudden dip in the observed data causes an abrupt change in the
+    predicted values, which continues into the future. This can probably be rectified
+    by tuning the settings of the Prophet prediction.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How it works...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Prophet is a package that’s used to automatically produce models for time series
+    data based on sample data, with little extra input needed from the user. In practice,
+    it is very easy to use; we just need to create an instance of the `Prophet` class,
+    call the `fit` method, and then we are ready to produce forecasts and understand
+    our data using the model.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The `Prophet` class expects the data in a specific format: a DataFrame with
+    columns named `ds` for the date/time index, and `y` for the response data (the
+    time series values). This DataFrame should have integer indices. Once the model
+    has been fit, we use `make_future_dataframe` to create a DataFrame in the correct
+    format, with appropriate date intervals, and with additional rows for future time
+    intervals. The `predict` method then takes this DataFrame and produces values
+    using the model to populate these time intervals with predicted values. We also
+    get other information, such as the confidence intervals, in this forecast’s DataFrame.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: There’s more...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Prophet does a fairly good job of modeling time series data without any input
+    from the user. However, the model can be customized using various methods from
+    the `Prophet` class. For example, we could provide information about the seasonality
+    of the data using the `add_seasonality` method of the `Prophet` class, prior to
+    fitting the model.
+  prefs: []
+  type: TYPE_NORMAL
+- en: There are alternative packages for automatically generating models for time
+    series data. For example, popular machine learning libraries such as TensorFlow
+    can be used to model time series data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Using signatures to summarize time series data
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Signatures are a mathematical construction that arises from rough path theory
+    – a branch of mathematics established by Terry Lyons in the 1990s. The signature
+    of a path is an abstract description of the variability of the path and, up to
+    “tree-like equivalence,” the signature of a path is unique (for instance, two
+    paths that are related by a translation will have the same signature). The signature
+    is independent of parametrization and, consequently, signatures handle irregularly
+    sampled data effectively.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Recently, signatures have found their way into the data science world as a means
+    of summarizing time series data to be passed into machine learning pipelines (and
+    for other applications). One of the reasons this is effective is because the signature
+    of a path (truncated to a particular level) is always a fixed size, regardless
+    of how many samples are used to compute the signature. One of the easiest applications
+    of signatures is for classification (and outlier detection). For this, we often
+    compute the **expected signature** – the component-wise mean of signatures – of
+    a family of sampled paths that have the same underlying signal, and then compare
+    the signatures of new samples to this expected signature to see whether they are
+    “close.”
+  prefs: []
+  type: TYPE_NORMAL
+- en: In terms of practical use, there are several Python packages for computing signatures
+    from sampled paths. We’ll be using the `esig` package in this recipe, which is
+    a reference package developed by Lyons and his team – the author is the maintainer
+    of this package at the time of writing. There are alternative packages such as
+    `iisignature` and `signatory` (based on PyTorch, but not actively developed).
+    In this recipe, we will compute signatures for a collection of paths constructed
+    by adding noise to two known signals and compare the expected signatures of each
+    collection to the signature of the true signal and one another.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Getting ready
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'For this recipe, we will make use of the NumPy package (imported as `np` as
+    usual) and the Matplotlib `pyplot` interface imported as `plt`. We will also need
+    the `esig` package. Finally, we will create an instance of the default random
+    number generator from the NumPy `random` library created as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE257]'
+  prefs: []
+  type: TYPE_PRE
+- en: The seed will ensure that the data generated will be reproducible.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it…
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Follow the steps below to compute signatures for two signals and use these
+    signatures to distinguish observed data from each signal:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'To start, let’s define some parameters that we will use in the recipe:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE258]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE259]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE260]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Next, we define a utility function that we can use to add noise to each signal.
+    The noise we add is simply Gaussian noise with mean 0 and variance defined previously:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE261]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE262]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Now, we define functions that describe the true signals over the interval ![](img/Formula_07_080.png)
+    with irregular parameter values that are defined by taking drawing increments
+    from an exponential distribution:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE263]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE264]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE265]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE266]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE267]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE268]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE269]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE270]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE271]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE272]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Let’s generate a sample signal and plot these to see what our true signals
+    look like on the plane:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE273]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE274]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE275]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE276]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE277]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE278]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE279]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE280]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE281]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE282]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE283]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE284]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE285]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE286]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE287]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE288]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE289]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE290]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE291]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE292]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE293]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE294]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE295]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE296]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'The resulting plot is shown in *Figure 7**.16*. On the first row, we can see
+    the plots of each component of the signal over the parameter interval. On the
+    second row, we can see the ![](img/Formula_07_081.png) component plotted against
+    the ![](img/Formula_07_082.png) component:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 7.16 - Components (top row) of signals a and b and the signals on
+    the plane (bottom row)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/7.16.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Figure 7.16 - Components (top row) of signals a and b and the signals on the
+    plane (bottom row)
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now, we use the `stream2sig` routine from the `esig` package to compute the
+    signature of the two signals. This routine takes the stream data as the first
+    argument and the depth (which determines the level at which the signature is truncated)
+    as the second argument. We use the depth set in *step 1* for this argument:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE297]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE298]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE299]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'This will print the two signatures (as NumPy arrays) as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE300]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Now, we generate several noisy signals using our `make_noisy` routine from
+    *step 2*. Not only do we randomize the parametrization of the interval but also
+    the number of samples:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE301]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE302]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE303]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE304]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE305]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE306]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE307]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE308]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Now, we compute the mean of each collection of signatures component by component
+    to generate an “expected signature.” We can compare these to the true signal signatures
+    and one another to illustrate the ability of signatures to discriminate between
+    the two signals:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE309]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE310]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE311]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'This will print out the two expected signatures, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE312]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Finally, we print the maximum difference (in absolute value) between each expected
+    signature and the corresponding true signal signature and between the two expected
+    signatures:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE313]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE314]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE315]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE316]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE317]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE318]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'The results are shown here:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE319]'
+  prefs: []
+  type: TYPE_PRE
+- en: We can see that the difference between the expected signature and the true signature
+    in each case is relatively small, whereas the difference between the two expected
+    signatures is relatively large.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How it works…
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'The signature of a path ![](img/Formula_07_083.png) (taking values in the ![](img/Formula_07_084.png)-dimensional
+    real space) over an interval ![](img/Formula_07_085.png) is an element of the
+    **free tensor algebra** over ![](img/Formula_07_086.png) (in this notation, ![](img/Formula_07_087.png)
+    denotes the value of the path at time ![](img/Formula_07_088.png). You may prefer
+    to think of this as ![](img/Formula_07_089.png)). We denote this signature as
+    ![](img/Formula_07_090.png). Formality aside, we realize the signature as a sequence
+    of elements as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/Formula_07_091.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'The superscripts denote the index within the free tensor. For example, the
+    indices with two terms ![](img/Formula_07_092.png) (degree 2) are like the rows
+    and columns of a matrix. The first term of the signature is always 1\. The following
+    ![](img/Formula_07_093.png)-terms are given by the increments in each of the component
+    directions: if we write the path ![](img/Formula_07_094.png) as a vector ![](img/Formula_07_095.png),
+    then these terms are given by the following formula:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/Formula_07_096.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'The higher order terms are given by iterated integrals of these component functions:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/Formula_07_097.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: The full signature of a path is an infinite sequence – so for practical uses,
+    we usually truncate at a particular *depth* that determines the maximum size of
+    indices, such as ![](img/Formula_07_098.png) here.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'This iterated integral definition is not especially useful in practice. Fortunately,
+    when we sample a path and make the modest assumption that the path is linear between
+    successive samples, then we can compute the signature by computing the product
+    of tensor exponentials of increments. Concretely, if ![](img/Formula_07_099.png)
+    are sample values taken from our path ![](img/Formula_07_100.png) at ![](img/Formula_07_101.png),
+    respectively, all lying between ![](img/Formula_07_102.png) and ![](img/Formula_07_103.png),
+    then (assuming ![](img/Formula_07_104.png) is linear between ![](img/Formula_07_105.png)
+    and ![](img/Formula_07_106.png)) the signature is given by the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/Formula_07_107.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Here, the ![](img/Formula_07_108.png) symbol denotes multiplication in the
+    free tensor algebra (this multiplication is defined by the concatenation of indices
+    – so, for instance, the ![](img/Formula_07_109.png)-th value on the left and the
+    ![](img/Formula_07_110.png)-th value on the right will contribute to the ![](img/Formula_07_111.png)-th
+    value in the result). Remember that these are exponents of free tensor objects
+    – not the usual exponential function – which are defined using the familiar power
+    series:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/Formula_07_112.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: When the constant term of a tensor ![](img/Formula_07_113.png) is zero and we
+    truncate the tensor algebra to depth ![](img/Formula_07_114.png), then the value
+    of ![](img/Formula_07_115.png) is exactly equal to the sum of the first ![](img/Formula_07_116.png)
+    terms of this sum, which is a finite sum that can be computed efficiently.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The importance of the signature of a path in a data science context is from
+    the fact that the signature is representative of the path from the perspective
+    of functions. Any continuous function defined on the path ![](img/Formula_07_117.png)
+    is approximately (in a very precise sense) a linear function defined on the signature.
+    Thus, anything that can be learned about a path can also be learned from the signature.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The `esig` package is built on top of the `libalgebra` C++ library for computations
+    involving the free tensor algebra (and other kinds of algebraic objects). The
+    `stream2sig` routine from `esig` takes a sequence of path samples in the form
+    of an `N` (number of samples) x `d` (number of dimensions) NumPy array and returns
+    a flat NumPy array containing the components of the signature, laid out in sequence
+    as described here. The second argument to `stream2sig` is the depth parameter
+    ![](img/Formula_07_118.png), which we have chosen to be 2 in this recipe. The
+    size of the signature array is determined only by the dimension of the space and
+    the depth, and is given by the following formula:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/Formula_07_119.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: In the recipe, both of our paths were 2-dimensional, and signatures were computed
+    to depth 2 so the signature has ![](img/Formula_07_120.png) elements (notice that
+    the number of samples varied in each case and were generated randomly and irregularly,
+    yet the signature was the same size in each case).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now that the theory is out of the way, let’s look at the recipe. We define two
+    true paths (signals), which we called *signal a* and *signal b*. We draw samples
+    from each signal by drawing parameter values ![](img/Formula_07_121.png) with
+    differences taken from an exponential distribution so that (on average) ![](img/Formula_07_122.png).
+    Then, we feed these parameter values into the formula for the path (see *step
+    3*). In the latter steps, we also add Gaussian noise to generated paths with mean
+    0 and variance 0.1\. This guarantees that our 2 signals are irregularly sampled
+    and noisy – to demonstrate the robustness of signature calculations.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Signal a is defined by the following formula:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/Formula_07_123.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Because this is a nice (smooth) path over the interval ![](img/Formula_07_124.png),
+    we can compute the signature precisely using the iterated integrals to (approximately)
+    get the sequence:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/Formula_07_125.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'This is remarkably close to the computed signature for the signal as given
+    here:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE320]'
+  prefs: []
+  type: TYPE_PRE
+- en: We expect a reasonable amount of error because our sampling is fairly coarse
+    (only 100 points) and our parameter values might finish before ![](img/Formula_07_126.png)
+    because of the way we randomized.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Signal b is defined by the following formula:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/Formula_07_127.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'The component functions for this signal are also smooth, so we can compute
+    the signature by computing the iterated integrals. Following this procedure, we
+    see that the signature of the true signal is the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/Formula_07_128.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Comparing this to the compute value, we see that we’re fairly close:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE321]'
+  prefs: []
+  type: TYPE_PRE
+- en: Again, we expect some error because of coarse sampling and not covering the
+    parameter interval exactly (in *Figure 7**.16*, you can see that there are some
+    substantial “straight sections” indicating that the parameter values are spaced
+    far apart in some places on the plots for signal b).
+  prefs: []
+  type: TYPE_NORMAL
+- en: In *step 6*, we generate a number of signatures for noisy samples taken from
+    both signals, all with different and irregular time steps (the count of which
+    is also randomly drawn between 50 and 100) and Gaussian noise. These are stacked
+    into an array with `N = 50` rows and 7 columns (the size of the signature). We
+    compute the row-wise mean of each array of signatures using the `np.mean` routine
+    with `axis=0`. This produces an *expected signature* for each signal. We then
+    compare these expected signatures to the “true signature” computed in *step 5*
+    and one another. We can see that the difference between the two expected signatures
+    is significantly larger (not in the statistical sense) than the difference between
+    the expected and true signatures for each signal. This illustrates the discriminative
+    power of the signature for classifying time series data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: There’s more…
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: The example problem we addressed in the recipe is extremely simple. Signatures
+    have been used in a wide variety of contexts, including sepsis detection, handwriting
+    recognition, natural language processing, human action recognition, and drone
+    identification. Usually, signatures are used in tandem with a selection of “preprocessing
+    steps” that address various deficiencies in the sampled data. For example, in
+    the recipe, we deliberately chose signals that are bounded (and relatively small)
+    on the interval in question. In practice, data will likely be spread more widely
+    and in this case, the higher order terms in the signature can grow quite rapidly,
+    which can have important consequences for numerical stability. These preprocessing
+    steps include lead-lag transformations, pen-on-pen-off transformations, the missing
+    data transformation, and time integration. Each of these has a specific role in
+    making data more amenable to signature based methods.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Signatures contain a large amount of redundancy. Many of the higher order terms
+    can be computed from the others because of the geometry. This means that we can
+    reduce the number of terms we need without discarding any information about the
+    path. This reduction involves projecting the signature (in the free tensor algebra)
+    onto the log signature (in the free Lie algebra). The log signature is an alternative
+    representation of the path that has fewer terms than the signature. Many of the
+    properties remain true for log signatures, except that we lose linearity in the
+    approximation of functions (this may or may not be important for specific applications).
+  prefs: []
+  type: TYPE_NORMAL
+- en: See also
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'The theory of rough paths and signature methods is obviously too broad – and
+    rapidly expanding – to cover in such a short space. Here are some sources where
+    you can find additional information about signatures:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Lyons, T. and McLeod, A., 2022\. *Signature Methods in Machine* *Learning* [https://arxiv.org/abs/2206.14674](https://arxiv.org/abs/2206.14674)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Lyons, T., Caruana, M., and Lévy, T., 2004\. *Differential Equations Driven
+    by Rough Paths*, Springer, Ecole d’Eté de Probabilités de Saint-Flour XXXIV
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Several Jupyter notebooks walking through analyzing time series data using
+    signatures on the Datasig website: [https://datasig.ac.uk/examples](https://datasig.ac.uk/examples).'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Further reading
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'A good textbook on regression in statistics is the book *Probability and Statistics*
+    by Mendenhall, Beaver, and Beaver, as mentioned in [*Chapter 6*](B19085_06.xhtml#_idTextAnchor226),
+    *Working with Data and Statistics*. The following books provide a good introduction
+    to classification and regression in modern data science:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'James, G. and Witten, D., 2013\. *An Introduction To Statistical Learning:
+    With Applications In R*. New York: Springer.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Müller, A. and Guido, S., 2016\. *Introduction To Machine Learning With Python*.
+    Sebastopol: O’Reilly Media.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'A good introduction to time series analysis can be found in the following book:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Cryer, J. and Chan, K., 2008\. *Time Series Analysis*. New York: Springer.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL

@@ -1,0 +1,1277 @@
+- en: 'Chapter 2: Data Ingestion'
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '**Data ingestion** is the process of moving data from disparate operational
+    systems to a central location such as a data warehouse or a data lake to be processed
+    and made conducive for data analytics. It is the first step of the data analytics
+    process and is necessary for creating centrally accessible, persistent storage,
+    where data engineers, data scientists, and data analysts can access, process,
+    and analyze data to generate business analytics.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: You will be introduced to the capabilities of Apache Spark as a data ingestion
+    engine for both batch and real-time processing. Various data sources supported
+    by Apache Spark and how to access them using Spark's DataFrame interface will
+    be presented.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Additionally, you will learn how to use Apache Spark's built-in functions to
+    access data from external data sources, such as a **Relational Database Management
+    System** (**RDBMS**), and message queues such as Apache Kafka, and ingest them
+    into data lakes. The different data storage formats, such as structured, unstructured,
+    and semi-structured file formats, along with the key differences between them,
+    will also be explored. Spark's real-time streams processing engine called **Structured
+    Streaming** will also be introduced. You will learn to create end-to-end data
+    ingestion pipelines using batch processing as well as real-time stream processing.
+    Finally, will explore a technique to unify batch and streams processing, called
+    **Lambda Architecture**, and its implementation using Apache Spark.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this chapter, you will learn about the essential skills that are required
+    to perform both batch and real-time ingestion using Apache Spark. Additionally,
+    you will acquire the knowledge and tools required for building end-to-end scalable
+    and performant big data ingestion pipelines.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In this chapter, we will cover the following main topics:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Introduction to Enterprise Decision Support Systems
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Ingesting data from data sources
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Ingesting data into data sinks
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Using file formats for data storage in data lakes
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Building data ingestion pipelines in batches and real time
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Unifying batch and real-time data ingestion using Lambda architecture
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Technical requirements
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In this chapter, we will be using the Databricks Community Edition to run our
+    code. This can be found at [https://community.cloud.databricks.com](https://community.cloud.databricks.com).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Sign-up instructions can be found at [https://databricks.com/try-databricks](https://databricks.com/try-databricks).
+  prefs: []
+  type: TYPE_NORMAL
+- en: The code used in this chapter can be downloaded from [https://github.com/PacktPublishing/Essential-PySpark-for-Data-Analytics/tree/main/Chapter02](https://github.com/PacktPublishing/Essential-PySpark-for-Data-Analytics/tree/main/Chapter02).
+  prefs: []
+  type: TYPE_NORMAL
+- en: The datasets used for this chapter can be found at [](https://github.com/PacktPublishing/Essential-PySpark-for-Data-Analytics/tree/main/data)
+    .
+  prefs: []
+  type: TYPE_NORMAL
+- en: Introduction to Enterprise Decision Support Systems
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: An **Enterprise Decision Support System** (**Enterprise DSS**) is an end-to-end
+    data processing system that takes operational and transactional data generated
+    by a business organization and converts them into actionable insights. Every Enterprise
+    DSS has a few standard components, such as data sources, data sinks, and data
+    processing frameworks. An Enterprise DSS takes raw transactional data as its input
+    and converts this into actionable insights such as operational reports, enterprise
+    performance dashboards, and predictive analytics.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The following diagram illustrates the components of a typical Enterprise DSS
+    in a big data context:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 2.1 – The Enterprise DSS architecture'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/B16736_02_01.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Figure 2.1 – The Enterprise DSS architecture
+  prefs: []
+  type: TYPE_NORMAL
+- en: A big data analytics system is also an Enterprise DSS operating at much larger
+    *Volumes*, with more *Variety* of data, and arriving at much faster *Velocity*.
+    Being a type of Enterprise DSS, a big data analytics system has components that
+    are similar to that of a traditional Enterprise DSS. The first step of building
+    an Enterprise DSS is data ingestion from data sources into data sinks. You will
+    learn about this process throughout this chapter. Let's elaborate on the different
+    components of a big data analytics system, starting with data sources.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Ingesting data from data sources
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In this section, we will learn about various data sources that a big data analytics
+    system uses as a source of data. Typical data sources include transactional systems
+    such as RDBMSes, file-based data sources such as **data lakes**, and **message
+    queues** such as **Apache Kafka**. Additionally, you will learn about Apache Spark's
+    built-in connectors to ingest data from these data sources and also write code
+    so that you can view these connectors in action.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Ingesting from relational data sources
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: A **Transactional System**, or an **Operational System**, is a data processing
+    system that helps an organization carry out its day-to-day business functions.
+    These transactional systems deal with individual business transactions, such as
+    a point-of-service transaction at a retail kiosk, an order placed on an online
+    retail portal, an airline ticket booked, or a banking transaction. A historical
+    aggregate of these transactions forms the basis of data analytics, and analytics
+    systems ingest, store, and process these transactions over long periods. Therefore,
+    such Transactional Systems form the source of data of analytics systems and a
+    starting point for data analytics.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Transactional systems come in many forms; however, the most common ones are
+    RDBMSes. In the following section, we will learn how to ingest data from an RDBMS.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Relational data sources are a collection of relational databases and relational
+    tables that consist of rows and named columns. The primary programming abstraction
+    used to communicate with and query an RDBMS is called **Structured Query Language**
+    (**SQL**). External systems can communicate with an RDBMS via communication protocols
+    such as JDBC and ODBC. Apache Spark comes with a built-in JDBC data source that
+    can be used to communicate with and query data stored in RDBMS tables.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let''s take a look at the code required to ingest data from an RDBMS table
+    using PySpark, as shown in the following code snippet:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: In the previous code snippet, we use the `spark.read()` method to load data
+    from a JDBC data source by specifying the format to be `jdbc`. Here, we connect
+    to a popular open source RDBMS called `url` that specifies the `jdbc url` for
+    the MySQL server along with its `hostname`, `port number`, and `database name`.
+    The `driver` option specifies the JDBC driver to be used by Spark to connect and
+    communicate with the RDBMS. The `dtable`, `user`, and `password` options specify
+    the table name to be queried and the credentials that are needed to authenticate
+    with the RDBMS. Finally, the `show()` function reads sample data from the RDBMS
+    table and displays it onto the console.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Important note
+  prefs: []
+  type: TYPE_NORMAL
+- en: The previous code snippet, which uses dummy database credentials, shows them
+    in plain text. This poses a huge data security risk and is not a recommended practice.
+    The appropriate best practices to handle sensitive information such as using config
+    files or other mechanisms provided by big data software vendors such as obscuring
+    or hiding sensitive information should be followed.
+  prefs: []
+  type: TYPE_NORMAL
+- en: To run this code, you can either use your own MySQL server and configure it
+    with your Spark cluster, or you can use the sample code provided with this chapter
+    to set up a simple MySQL server. The required code can be found at [https://github.com/PacktPublishing/Essential-PySpark-for-Data-Analytics/blob/main/Chapter02/utils/mysql-setup.ipynb](https://github.com/PacktPublishing/Essential-PySpark-for-Data-Analytics/blob/main/Chapter02/utils/mysql-setup.ipynb).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs: []
+  type: TYPE_NORMAL
+- en: Apache Spark provides a JDBC data source and is capable of connecting to virtually
+    any RDBMS that supports JDBC connections and has a JDBC driver available. However,
+    it doesn't come bundled with any drivers; they need to be procured from the respective
+    RDBMS provider, and the driver needs to be configured to your Spark cluster to
+    be available to your Spark application.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Ingesting from file-based data sources
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: File-based data sources are very common when data is exchanged between different
+    data processing systems. Let's consider an example of a retailer who wants to
+    enrich their internal data sources with external data such as Zip Code data, as
+    provided by a postal service provider. This data between the two organizations
+    is usually exchanged via file-based data formats such as XML or JSON or more commonly
+    using a delimited plain-text or CSV formats.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Apache Spark supports various file formats, such as plain-text, CSV, JSON as
+    well as binary file formats such as Apache Parquet and ORC. These files need to
+    be located on a distributed filesystem such as **Hadoop Distributed File System**
+    (**HDFS**), or a cloud-based data lake such as **AWS S3**, **Azure Blob**, or
+    **ADLS** storage.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let''s take a look at how to ingest data from CSV files using PySpark, as shown
+    in the following block of code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: In the previous code snippet, we use the `spark.read()` function to read a CSV
+    file. We specify the `inferSchema` and `header` options to be `true`. This helps
+    Spark infer the column names and data type information by reading a sample set
+    of data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Important note
+  prefs: []
+  type: TYPE_NORMAL
+- en: The file-based data source needs to be on a distributed filesystem. The Spark
+    Framework leverages data parallel processing, and each Spark Executor tries to
+    read a subset of the data into its own local memory. Therefore, it is essential
+    that the file be located on a distributed filesystem and accessible by all the
+    Executors and the Driver. HDFS and cloud-based data lakes, such as AWS S3, Azure
+    Blob, and ADLS storage, are all distributed data storage layers that are good
+    candidates to be used as file-based data sources with Apache Spark.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Here, we read the CSV files from a `dbfs/` location, which is Databricks' proprietary
+    filesystem called **Databricks Filesystem** (**DBFS**). DBFS is an abstraction
+    layer that actually utilizes either AWS S3 or Azure Blob or ADLS storage underneath.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Tip
+  prefs: []
+  type: TYPE_NORMAL
+- en: Given that each Executor tries to read only a subset of data, it is important
+    that the file type being used is splittable. If the file cannot be split, an Executor
+    might try to read a file larger than its available memory, run out of memory,
+    and throw an "Out of Memory" error. One example of such an unsplittable file is
+    a `gzipped` CSV or a text file.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Ingesting from message queues
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Another type of data source commonly used in real-time streaming analytics is
+    a **message queue**. A message queue offers a publish-subscribe pattern of data
+    consumption, where a publisher publishes data to a queue while multiple subscribers
+    could consume the data asynchronously. In a **Distributed Computing** context,
+    a message queue needs to be distributed, fault-tolerant, and scalable, in order
+    to serve as a data source for a distributed data processing system.
+  prefs: []
+  type: TYPE_NORMAL
+- en: One such message queue is Apache Kafka, which is quite prominent in real-time
+    streaming workloads with Apache Spark. Apache Kafka is more than just a message
+    queue; it is an end-to-end distributed streams processing platform in itself.
+    However, for our discussion, we will consider Kafka to be just a distributed,
+    scalable, and fault-tolerant message queue.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let''s take a look at what the code to ingest from Kafka using PySpark looks
+    like, as shown in the following block of code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: In the previous code example, we use `spark.read()` to load data from a Kafka
+    server by providing its *hostname* and *port number*, a *topic* named `wordcount`*.*
+    We also specify that Spark should start reading *events* from the very beginning
+    of the queue, using the `StartingOffsets` option. Even though Kafka is more commonly
+    used for streaming use cases with Apache Spark, this preceding code example makes
+    use of Kafka as a data source for batch processing of data. You will learn to
+    use Kafka with Apache Spark for processing streams in the *Data ingestion in real
+    time using Structured Streaming* section.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Tip
+  prefs: []
+  type: TYPE_NORMAL
+- en: In Kafka terminology, an individual queue is called a *topic*, and each event
+    is called an *offset*. Kafka is a queue, so it serves events in the same order
+    in which they were published onto a topic, and individual consumers can choose
+    their own starting and ending offsets.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now that you are familiar with ingesting data from a few different types of
+    **data sources** using Apache Spark, in the following section, let's learn how
+    to ingest data into **d****ata sinks**.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Ingesting data into data sinks
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: A data sink, as its name suggests, is a storage layer for storing raw or processed
+    data either for short-term staging or long-term persistent storage. Though the
+    term of *data sink* is commonly used in real-time data processing, there is no
+    specific harm in calling any storage layer where ingested data lands a data sink.
+    Just like data sources, there are also different types of data sinks. You will
+    learn about a few of the most common ones in the following sections.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Ingesting into data warehouses
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: '**Data warehouses** are a specific type of persistent data storage most prominent
+    in Business Intelligence type workloads. There is an entire field of study dedicated
+    to Business Intelligence and data warehousing. Typically, a data warehouse uses
+    an RDBMS as its data store. However, a data warehouse is different from a traditional
+    database in that it follows a specific type of data modeling technique, called
+    **dimensional modeling**. Dimensional models are very intuitive for representing
+    real-world business attributes and are conducive for Business Intelligence types
+    of queries used in building business reports and dashboards. A data warehouse
+    could be built on any commodity RDBMS or using specialist hardware and software.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let''s use PySpark to save a DataFrame to an RDBMS table, as shown in the following
+    code block:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'In the previous block of code, we programmatically create a DataFrame with
+    two columns from a Python `List` object. Then, we save the Spark DataFrame to
+    a MySQL table using the `spark.write()` function, as shown in the following code
+    snippet:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: The preceding snippet of code to write data to an RDBMS is almost the same as
+    the one to read data from an RDBMS. We still need to use the MySQL JDBC driver
+    and specify the *hostname*, *port number*, *database name*, and *database credentials*.
+    The only difference is that here, we need to use the `spark.write()` function
+    instead of `spark.read()`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Ingesting into data lakes
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Data warehouses are excellent for intuitively representing real-world business
+    data and storing highly structured relational data in a way that is conducive
+    for Business Intelligence types of workloads. However, data warehouses fall short
+    when handling unstructured data that is required by data science and machine learning
+    types of workloads. Data warehouses are not good at handling the high *Volume*
+    and *Velocity* of big data. That's where data lakes step in to fill the gap left
+    by data warehouses.
+  prefs: []
+  type: TYPE_NORMAL
+- en: By design, data lakes are highly scalable and flexible when it comes to storing
+    various types of data, including highly structured relational data and unstructured
+    data such as images, text, social media, videos, and audio. Data lakes are also
+    adept at handling data in batches as well as in streams. With the emergence of
+    the cloud, data lakes have become very common these days, and they seem to be
+    the future of persistent storage for all big data analytics workloads. A few examples
+    of data lakes include Hadoop HDFS, AWS S3, Azure Blob or ADLS storage, and Google
+    Cloud Storage.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Cloud-based data lakes have a few advantages over their on-premises counterparts:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: They are on-demand and infinitely scalable.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: They are pay-per-use, thus saving you on upfront investments.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: They are completely independent of computing resources; so, storage can scale
+    independently of computing resources.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: They support both structured and unstructured data, along with simultaneous
+    batch and streaming, allowing the same storage layer to be used by multiple workloads.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Because of the preceding advantages, cloud-based data lakes have become prominent
+    over the past few years. Apache Spark treats these data lakes as yet another file-based
+    data storage. Therefore, working with data lakes using Spark is as simple as working
+    with any other file-based data storage layer.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let''s take a look at how easy it is to save data to a data lake using PySpark,
+    as shown in the following code example:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: In the preceding code block, we take the `wordcount_df` DataFrame that we created
+    in the previous section and save it to the data lake in CSV format using the DataFrame's
+    `write()` function. The `mode` option instructs `DataFrameWriter` to overwrite
+    any existing data in the specified file location; note that you could also use
+    `append` mode.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Ingesting into NoSQL and in-memory data stores
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Data warehouses have always been the traditional persistent storage layer of
+    choice for data analytics use cases, and data lakes are emerging as the new choice
+    to cater to a wider range of workloads. However, there are other big data analytics
+    use cases involving ultra-low latency query response times that require special
+    types of storage layers. Two such types of storage layers are NoSQL databases
+    and in-memory databases, which we will explore in this section.
+  prefs: []
+  type: TYPE_NORMAL
+- en: NoSQL databases for operational analytics at scale
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: NoSQL databases are an alternative to traditional relational databases, where
+    there is a requirement for handling messy and unstructured data. NoSQL databases
+    are very good at storing large amounts of unstructured data in the form of **Key-Value**
+    pairs and very efficient at retrieving the **Value** for any given **Key** in
+    constant time, at high concurrency.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let's consider a use case where a business wants to provide precalculated, hyper-personalized
+    content to their individual customers using millisecond query response times in
+    a highly concurrent manner. A NoSQL database such as Apache Cassandra or MongoDB
+    would be an ideal candidate for the use case.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs: []
+  type: TYPE_NORMAL
+- en: Apache Spark doesn't come out of the box with any connectors for NoSQL databases.
+    However, they are built and maintained by the respective database provider and
+    can be downloaded for the respective provider and then configured with Apache
+    Spark.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In-memory database for ultra-low latency analytics
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: In-memory databases store data purely in memory only, and persistent storage
+    such as disks are not involved. This property of in-memory databases makes them
+    faster in terms of data access speeds compared to their disk-based counterparts.
+    A few examples of in-memory databases include **Redis** and **Memcached**. Since
+    system memory is limited and data stored in memory is not durable over power cycles,
+    in-memory databases are not suitable for the persistent storage of large amounts
+    of historical data, which is typical for big data analytics systems. They do have
+    their use in real-time analytics involving ultra-low latency response times.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let's consider the example of an online retailer wanting to show the estimated
+    shipment delivery time of a product to a customer at the time of checkout on their
+    online portal. Most of the parameters that are needed to estimate delivery lead
+    time can be precalculated. However, certain parameters, such as customer Zip Code
+    and location, are only available when the customer provides them during checkout.
+    Here, data needs to be instantly collected from the web portal, processed using
+    an ultra-fast event processing system, and the results need to be calculated and
+    stored in an ultra-low latency storage layer to be accessed and served back to
+    the customer via the web app. All this processing should happen in a matter of
+    seconds, and an in-memory database such as Redis or Memcached would serve the
+    purpose of an ultra-low latency data storage layer.
+  prefs: []
+  type: TYPE_NORMAL
+- en: So far, you have learned about accessing data from a few different data sources
+    and ingesting them into various data sinks. Additionally, you have learned that
+    you do not have much control over the data source. However, you do have complete
+    control of your data sinks. Choosing the right data storage layer for certain
+    high concurrency, ultra-low latency use cases is important. However, for most
+    big data analytics use cases, data lakes are becoming the de facto standard as
+    the preferred persistent data storage layer.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Another key factor for optimal data storage is the actual format of the data.
+    In the following section, we will explore a few data storage formats and their
+    relative merits.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Using file formats for data storage in data lakes
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: The file format you choose to store data in a data lake is key in determining
+    the ease of data storage and retrieval, query performance, and storage space.
+    So, it is vital that you choose the optimal data format that can balance these
+    factors. Data storage formats can be broadly classified into structured, unstructured,
+    and semi-structured formats. In this section, we will explore each of these types
+    with the help of code examples.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Unstructured data storage formats
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Unstructured data is any data that is not represented by a predefined data model
+    and can be either human or machine-generated. For instance, unstructured data
+    could be data stored in plain text documents, PDF documents, sensor data, log
+    files, video files, images, audio files, social media feeds, and more.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Unstructured data might contain important patterns, and extracting these patterns
+    could lead to valuable insights. However, storing data in unstructured format
+    is not very useful due to the following reasons:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Unstructured data might not always have an inherent compression mechanism and
+    can take up large amounts of storage space.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Externally compressing unstructured files saves space but expends the processing
+    power for the compression and decompression of files.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Storing and accessing unstructured files is somewhat difficult because they
+    inherently lack any schema information.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Given the preceding reasons, it makes sense to ingest unstructured data and
+    convert it into a structured format before storing it inside the data lake. This
+    makes the downstream processing of data easier and more efficient. Let''s take
+    a look at an example where we take a set of unstructured image files and convert
+    them into a DataFrame of image attributes. Then, we store them using the CSV file
+    format, as shown in the following code snippet:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'In the previous code block, the following occurs:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: We load a set of images files using Spark's built-in `image` format; the result
+    is a Spark DataFrame of image attributes.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: We use the `printSchema()` function to take a look at the DataFrame's schema
+    and discover that the DataFrame has a single nested column named `image` with
+    `origin`, `height`, `width`, `nChannels`, and more, as its inner attributes.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Then, we bring up the inner attributes to the top level using the `image` prefix
+    with each inner attribute, such as `image.origin`, and create a new DataFrame
+    named `image_df` with all of the image's individual attributes as top-level columns.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Now that we have our final DataFrame, we write it out to the data lake using
+    the CSV format.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Upon browsing the data lake, you can see that the process writes a few CSV files
+    to the data lake with file sizes of, approximately, 127 bytes.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Tip
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: The number of files written out to storage depends on the number of partitions
+    of the DataFrame. The number of DataFrame partitions depends on the number of
+    executors cores and the `spark.sql.shuffle.partitions` Spark configuration. This
+    number also changes every time the DataFrame undergoes a shuffle operation. In
+    Spark 3.0, **Adaptive Query Execution** automatically manages the optimal number
+    of shuffle partitions.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'Along with file sizes, query performance is also an important factor when considering
+    the file format. So, let''s run a quick test where we perform a moderately complex
+    operation on the DataFrame, as shown in the following block of code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs: []
+  type: TYPE_PRE
+- en: The previous block of code, first, creates a new column with every row value
+    as the maximum width among all rows. Then, it filters out the row that has this
+    maximum value for the `width` column. The query is moderately complex and typical
+    of the kind of queries used in data analytics. In our sample test case, the query
+    running on an unstructured binary file took, approximately, *5.03 seconds*. In
+    the following sections, we will look at the same query on other file formats and
+    compare query performances.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Semi-structured data storage formats
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: In the preceding example, we were able to take a binary image file, extract
+    its attributes, and store them in CSV format, which makes the data structured
+    but still keeps it in a human-readable format. CSV format is another type of data
+    storage format called semi-structured data format. Semi-structured data formats,
+    like unstructured data formats, do not have a predefined data model. However,
+    they organize data in a way that makes it easier to infer schema information from
+    the files themselves, without any external metadata being supplied. They are a
+    popular data format for the exchange of data between distinct data processing
+    systems. Examples of semi-structured data formats include CSV, XML, and JSON.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let''s take a look an example of how we can use PySpark to handle semi-structured
+    data, as shown in the following code block:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs: []
+  type: TYPE_PRE
+- en: The previous code example takes the CSV files generated during the previous
+    image processing example and loads them as a Spark DataFrame. We have enabled
+    options to infer column names and data types from the actual data. The `printSchema()`
+    function shows that Spark was able to infer column data types correctly for all
+    columns except for the binary data column from the semi-structured files. The
+    `show()` function shows that a DataFrame was correctly reconstructed from the
+    CSV files along with column names.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let''s run a moderately complex query on the `csv_df` DataFrame, as shown in
+    the following block of code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs: []
+  type: TYPE_PRE
+- en: In the preceding block of code, we perform a few DataFrame operations to get
+    the row with the maximum value for the `width` column. The code took *1.24 seconds*
+    to execute using CSV data format, compared to the similar code that we executed
+    in the *Unstructured Data Storage Formats* section, which took, approximately,
+    *5 seconds*. Thus, seemingly, semi-structured file formats are better than unstructured
+    files for data storage, as it is relatively easier to infer schema information
+    from this data storage format.
+  prefs: []
+  type: TYPE_NORMAL
+- en: However, pay attention to the results of the `show()` function in the preceding
+    code snippet. The data column containing binary data is inferred incorrectly as
+    string type, and the column data is truncated. Therefore, it should be noted that
+    semi-structured formats are not suitable for representing all data types, and
+    they could also lose information with certain data types during the conversion
+    from one data format into another.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Structured data storage formats
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Structured data follows a predefined data model and has a tabular format with
+    well-defined rows and named columns along with defined data types. A few examples
+    of structured data formats are relational database tables and data generated by
+    transactional systems. Note that there are also file formats that are fully structured
+    data along with their data models, such as Apache Parquet, Apache Avro, and ORC
+    files, that can be easily stored on data lakes.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Apache Parquet** is a binary, compressed, and columnar storage format that
+    was designed to be efficient at data storage as well as query performance. Parquet
+    is a first-class citizen of the Apache Spark framework, and Spark''s in-memory
+    storage format, called **Tungsten**, was designed to take full advantage of the
+    Parquet format. Therefore, you will get the best performance and efficiency out
+    of Spark when your data is stored in Parquet format.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs: []
+  type: TYPE_NORMAL
+- en: A Parquet file is a binary file format, meaning that the contents of the file
+    have a binary encoding. Therefore, they are not human-readable, unlike text-based
+    file formats such as JSON or CSV. However, one advantage of this is that they
+    are easily interpreted by machines without losing any time during the encoding
+    and decoding processes.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let''s convert the `image_df` DataFrame, containing image attribute data from
+    the *Unstructured data storage formats* section, into Parquet format, as shown
+    in the following code block:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs: []
+  type: TYPE_PRE
+- en: The previous block of code loads binary image files into a Spark DataFrame and
+    writes the data back into the data lake in Parquet format. The result of the `show()`
+    function reveals that the binary data in the *data* column was not truncated and
+    has been preserved from the source image files as-is.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let''s perform a moderately complex operation, as shown in the following block
+    of code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs: []
+  type: TYPE_PRE
+- en: The preceding code block extracts the row with the maximum value for the column
+    named `width`. The query takes, approximately, *4.86 seconds* to execute, as compared
+    to over *5 seconds* with the original unstructured image data. Therefore, this
+    makes the structured Parquet file format the optimal format to be used to store
+    data in data lakes with Apache Spark. Seemingly, the semi-structured CSV files
+    took less time to execute the query, but they also truncated the data, making
+    it not the right fit for every use case. As a general rule of thumb, the Parquet
+    data format is recommended for almost all Apache Spark use cases, that is, unless
+    a specific use case calls for another type of data storage format.
+  prefs: []
+  type: TYPE_NORMAL
+- en: So far, you have seen that choosing the right data format can affect the correctness,
+    ease of use, storage efficiency, query performance, and scalability of the data.
+    Additionally, there is another factor that needs to be considered when storing
+    data into data lakes no matter which data format you use. This technique is called
+    **data partitioning** and can really make or break your downstream query performance.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Put simply, data partitioning is the process of physically dividing your data
+    across multiple folders or partitions. Apache Spark uses this partition information
+    to only read the relevant data files required by the query into memory. This mechanism
+    is called **partition pruning**. You will learn more about data partitioning in
+    [*Chapter 3*](B16736_03_Final_JM_ePub.xhtml#_idTextAnchor056), *Data Cleansing
+    and Integration*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: So far, you have learned about the individual components of an Enterprise DSS,
+    namely, data sources, data sinks, and data storage formats. Additionally, you
+    gained a certain level of familiarity with the Apache Spark Framework as a big
+    data processing engine in the previous chapter. Now, let's put this knowledge
+    to use and build an end-to-end data ingestion pipeline in the following section.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Building data ingestion pipelines in batch and real time
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: An end-to-end data ingestion pipeline involves reading data from data sources
+    and ingesting it into a data sink. In the context of big data and data lakes,
+    data ingestion involves a large number of data sources and, thus, requires a data
+    processing engine that is highly scalable. There are specialist tools available
+    in the market that are purpose-built for handling data ingestion at scale, such
+    as StreamSets, Qlik, Fivetran, Infoworks, and more, from third-party vendors.
+    In addition to this, cloud providers have their own native offerings such as AWS
+    Data Migration Service, Microsoft Azure Data Factory, and Google Dataflow. There
+    are also free and open source data ingestion tools available that you could consider
+    such as Apache Sqoop, Apache Flume, Apache Nifi, to name a few.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Tip
+  prefs: []
+  type: TYPE_NORMAL
+- en: Apache Spark is good enough for ad hoc data ingestion, but it is not a common
+    industry practice to use Apache Spark as a dedicated data ingestion engine. Instead,
+    you should consider a dedicated, purpose-built data ingestion tool for your dedicated
+    data ingestion needs. You can either choose from third-party vendors or choose
+    to manage one of the open source offerings by yourself.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this section, we will explore Apache Spark's capabilities for data ingestion
+    in both a batch and streams processing manner.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Data ingestion using batch processing
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Batch processing refers to processing one group or batch of data at a time.
+    Batch processes are scheduled to run at specified intervals without any user intervention.
+    Customarily, batch processes are run at night, after business hours. The simple
+    reason for this is that batch processes tend to read a large number of transactions
+    from the operational systems, which adds a lot of load to the operational systems.
+    This is undesirable because operational systems are critical for the day-to-day
+    operations of a business, and we do not want to unnecessarily burden the transactional
+    system with workloads that are non-critical to daily business operations.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Additionally, batch processing jobs tend to be repetitive as they run at regular
+    intervals, bringing in the new set of data generated after the last successful
+    batch process has been run. Batch processing can be of two types, namely, **full
+    data load** and **incremental data load**.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Full data loads
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: A full data load involves completely overwriting an existing dataset. This is
+    useful for datasets that are relatively small in size and that do not change often.
+    It is also an easier process to implement, as we just have to scan the entire
+    source dataset and completely overwrite the destination dataset. There is no need
+    to maintain any state information regarding the previous data ingestion job. Let's
+    take an example of a dimensional table from a data warehouse, such as a calendar
+    table or a table containing the data of all the physical stores of a retailer.
+    These tables do not change often and are relatively small, making them ideal candidates
+    for full data loads. Though easy to implement, full data loads have their drawbacks
+    when it comes to dealing with very large source datasets that change regularly.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let's consider the transactional data of a large retailer with more than a thousand
+    stores all over the country, generating about 500 transactions per month per store.
+    This translates to, approximately, 15,000 transactions ingested into the data
+    lake per day. This number quickly adds up when we also consider historical data.
+    Let's say that we just started building our data lake, and so far, we have only
+    about 6 months of transactional data ingested. Even at this scale, we already
+    have 3 million transactional records in our dataset, and completely truncating
+    and loading the dataset is not a trivial task.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Another important factor to consider here is that typically, operational systems
+    only retain historical data for small time intervals. Here, a full load means
+    losing history from the data lake as well. At this point, you should consider
+    an incremental load for data ingestion.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Incremental data loads
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: During an incremental data load, we only ingest the new set of data that was
+    created in the data source after the previous case of successful data ingestion.
+    This incremental dataset is generally referred to as the delta. An incremental
+    load ingests datasets that are smaller in size compared to a full load, and since
+    we already maintain the full historical data in our delta lake, incremental doesn't
+    need to depend on the data source maintaining a full history.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Building on the same retailer example from earlier, let's assume that we run
+    our incremental batch load once per night. In this scenario, we only need to ingest
+    15,000 transactions into the data lake per day, which is pretty easy to manage.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Designing an incremental data ingestion pipeline is not as simple compared
+    to a full load pipeline. State information about the previous run of the incremental
+    job needs to be maintained so that we can identify all of the new records from
+    the data source that have not already been ingested into the data lake. This state
+    information is stored in a special data structure, called a *watermark* table.
+    This watermark table needs to be updated and maintained by the data ingestion
+    job. A typical data ingestion pipeline is illustrated as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 2.2 – Data ingestion'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/B16736_02_02.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Figure 2.2 – Data ingestion
+  prefs: []
+  type: TYPE_NORMAL
+- en: The preceding diagram shows a typical data ingestion pipeline using Apache Spark,
+    along with the watermark table for incremental loads. Here, we ingest raw transactional
+    data from source systems using Spark's built-in data sources, process them using
+    DataFrame operations and then send the data back to a data lake.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Expanding on the retail example from the previous section, let's build an end-to-end
+    data ingestion pipeline with batch processing using PySpark. One of the prerequisites
+    for building a data pipeline is, of course, data, and for this example, we will
+    make use of the *Online Retail* dataset made available by *UC Irvine Machine Learning
+    Repository*. The dataset is available in CSV format in the GitHub repository mentioned
+    in the *Technical requirements* section of this chapter. The *Online Retail* dataset
+    contains transactional data for an online retailer.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We will download the dataset, consisting of two CSV files, and upload them to
+    the *Databricks Community Edition* notebook environment via the upload interface
+    that is present within the notebook's file menu. Once the dataset has been uploaded,
+    we will make a note of the file location.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs: []
+  type: TYPE_NORMAL
+- en: If you are using your own Spark environment, make sure that you have the datasets
+    available at a location that is accessible for your Spark cluster.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now we can get started with the actual code for the data ingestion pipeline,
+    as shown in the following code example:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE12]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'In the preceding code block, we loaded the CSV files with the `header` and
+    `inferSchema` options enabled. This creates a Spark DataFrame with eight columns
+    along with their respective data types and column names. Now, let''s ingest this
+    data into the data lake in Parquet format, as shown in the following code block:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE13]'
+  prefs: []
+  type: TYPE_PRE
+- en: Here, we save the `retail_df` Spark DataFrame, containing raw retail transactions,
+    to the data lake in Parquet format using the DataFrameWriter's `write()` function.
+    We also specify the `mode` option to `overwrite` and, essentially, implement a
+    full data load.
+  prefs: []
+  type: TYPE_NORMAL
+- en: One thing to note here is that the entire data ingestion job is a mere **10**
+    lines of code, and this can easily be scaled up to tens of millions of records,
+    processing up to many petabytes of data. This is the power and simplicity of Apache
+    Spark, which has made it the de facto standard for big data processing in a very
+    short period of time. Now, how would you actually scale the preceding data ingestion
+    batch job and then, eventually, productionize it?
+  prefs: []
+  type: TYPE_NORMAL
+- en: Apache Spark was built from the ground up to be scalable, and its scalability
+    is entirely dependent on the number of cores available to a job on the cluster.
+    So, to scale your Spark job, all you need to do is to allocate more processing
+    cores to the job. Most commercially available Spark-as-a-managed-service offerings
+    provide a nifty **Autoscaling** functionality. With this autoscaling functionality,
+    you just need to specify the minimum and the maximum number of nodes for your
+    cluster, and **Cluster Manager** dynamically figures out the optimal number of
+    cores for your job.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Most commercial Spark offerings also come with a built-in **Job Scheduler**
+    and support directly scheduling notebooks as jobs. External schedulers, ranging
+    from the rudimentary **crontab** to sophisticated job orchestrators such as **Apache
+    Airflow**, can also be used to productionize your Spark jobs. This really makes
+    the process of cluster capacity planning easier for you, freeing up your time
+    to focus on actual data analytics rather than spending your time and energy on
+    capacity planning, tuning, and maintaining Spark clusters.
+  prefs: []
+  type: TYPE_NORMAL
+- en: So far, in this section, you have viewed an example of a full load batch ingestion
+    job that loads the entire data from the data source and then overwrites the dataset
+    in the data lake. You would need to add a little more business logic to maintain
+    the ingestion job's state in a watermark data structure and then calculate the
+    delta to perform an incremental load. You could build all this logic by yourself,
+    or, alternatively, you could simply use Spark's structured streaming engine to
+    do the heavy lifting for you, as discussed in the following section.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Data ingestion in real time using structured streaming
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Often, businesses need to make tactical decisions in real time along with strategic
+    decision-making in order to stay competitive. Therefore, the need to ingest data
+    into a data lake arises in real time. However, keeping up with the fast data *Velocity*
+    of big data requires a robust and scalable streams processing engine. Apache Spark
+    has one such streams processing engine, called **Structured Streaming**, which
+    we will explore next.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Structured Streaming primer
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: '**Structured Streaming** is a Spark streams processing engine based on the
+    Spark SQL engine. Just like all other components of Spark, Structured Streaming
+    is also scalable and fault-tolerant. Since Structured Streaming is based on the
+    Spark SQL engine, you can use the same Spark DataFrame API that you have already
+    been using for batch processing for streams processing, too. Structured Streaming
+    supports all of the functions and constructs supported by the DataFrame API.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Structured Streaming treats each incoming stream of data just like tiny a batch
+    of data, called a *micro-batch,* and keeps appending each micro-batch to the target
+    dataset. Structured Streaming's programming model continuously processes micro-batches,
+    treating each micro-batch just like a batch job. So, an existing Spark batch job
+    can be easily converted into a streaming job with a few minor changes. Structured
+    Streaming is designed to provide maximum throughput, which means that a Structured
+    Streaming job can scale out to multiple nodes on a cluster and process very large
+    amounts of incoming data in a distributed fashion.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Structured Streaming comes with additional fault tolerance to failures and guarantees
+    exactly once semantics. To achieve this, Structured Streaming keeps track of the
+    data processing progress. It keeps track of the offsets or events processed at
+    any point in time using concepts such as **checkpointing** and **write-ahead logs**.
+    Write-ahead logging is a concept from relational databases and is used to provide
+    atomicity and durability to databases. In this technique, records are first written
+    to the log before any changes are written to the final database. Checkpointing
+    is another technique in Structured Streaming, where the position of the current
+    offset being read is recorded on a persistent storage system.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Together, these techniques enable Structured Streaming to keep a record of the
+    position of the last offset processed within the stream, giving it the ability
+    to resume processing the stream exactly where it left off, just in case the streaming
+    job fails.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs: []
+  type: TYPE_NORMAL
+- en: We recommended that checkpoints are stored in persistent storage with high availability
+    and partition tolerance support, such as a cloud-based data lake.
+  prefs: []
+  type: TYPE_NORMAL
+- en: These techniques of checkpointing, write-ahead logs, and repayable streaming
+    data sources, along with streaming data sinks that support the reprocessing of
+    data, enable Structured Streaming to guarantee that every event of the stream
+    is processed exactly once.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs: []
+  type: TYPE_NORMAL
+- en: Structured Streaming's micro-batch processing model is not suitable for processing
+    an event as soon as it occurs at the source. There are other streams processing
+    engines such as Apache Flink or Kafka Streams that are more suitable for ultra-low
+    latency streams processing.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Loading data incrementally
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: Since Structured Streaming has built-in mechanisms to help you to easily maintain
+    the state information that is required for an incremental load, you can simply
+    choose Structured Streaming for all your incremental loads and really simplify
+    your architectural complexity. Let's build a pipeline to perform incremental loads
+    in a real-time streaming fashion.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Typically, our data ingestion starts with data already loaded onto a data source
+    such as a data lake or a message queue such as Kafka. Here, we, first, need to
+    load some data into a Kafka topic. You can start with an existing Kafka cluster
+    with some data already in a topic, or you can set up a quick Kafka server and
+    load the *Online Retail* dataset using the code provided at [https://github.com/PacktPublishing/Essential-PySpark-for-Data-Analytics/blob/main/Chapter02/utils/kafka-setup.ipynb](https://github.com/PacktPublishing/Essential-PySpark-for-Data-Analytics/blob/main/Chapter02/utils/kafka-setup.ipynb).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let''s take a look at how to perform real-time data ingestion from Kafka into
+    a data lake using Structured Streaming, as shown in the following snippets of
+    code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE14]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'In the preceding block of code, we declare all the columns that we intend to
+    read from a Kafka event along with their data types. Structured Streaming requires
+    that the data schema be declared upfront. Once the schema has been defined, we
+    can start reading data from a Kafka topic and load it into a Spark DataFrame,
+    as shown in the following block of code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE15]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'In the preceding code block, we start reading a stream of events from a Kafka
+    topic, called `retail_events`, and tell Kafka that we want to start loading the
+    events from the beginning of the stream using the `startingOffsets` option. The
+    events in a Kafka topic follow a key-value pattern. This means that our actual
+    data is encoded within a JSON object in the `value` column that we need to extract,
+    as shown in the following code block:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE16]'
+  prefs: []
+  type: TYPE_PRE
+- en: In the preceding code block, we extract the data using the `from_json()` function
+    by passing in the data schema object that we defined earlier. This results in
+    a `retail_df` DataFrame that has all of the columns of the event that we require.
+    Additionally, we append an `EventTime` column from the Kafka topic, which shows
+    when the event actually arrived in Kafka. This could be of some use later, during
+    further data processing. Since this DataFrame was created using the `readStream()`
+    function, Spark inherently knows this is a Streaming DataFrame and makes Structured
+    Streaming APIs available to this DataFrame.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Once we have extracted the raw event data from the Kafka stream, we can persist
+    it to the data lake, as shown in the following block of code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE17]'
+  prefs: []
+  type: TYPE_PRE
+- en: In the preceding code block, we make use of the `writeStream()` function that
+    is available to Streaming DataFrames to save data to the data lake in a streaming
+    fashion. Here, we write data in Parquet format, and the resultant data on the
+    data lake will be a set of `.parquet` files. Once saved, these Parquet files are
+    no different from any other Parquet files, whether created by batch processing
+    or streams processing.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Additionally, we use `outputMode` as `append` to indicate that we will treat
+    this as an unbounded dataset and will keep appending new Parquet files. The `checkpointLocation`
+    option stores the Structured Streaming write-ahead log and other checkpointing
+    information. This makes it an incremental data load job as the stream only picks
+    up new and unprocessed events based on the offset information stored at the checkpoint
+    location.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs: []
+  type: TYPE_NORMAL
+- en: Structured Streaming supports `complete` and `update` modes in addition to `append`
+    mode. A description of these modes and when to use them can be found in Apache
+    Spark's official documentation at [https://spark.apache.org/docs/latest/structured-streaming-programming-guide.html#output-modes](https://spark.apache.org/docs/latest/structured-streaming-programming-guide.html#output-modes).
+  prefs: []
+  type: TYPE_NORMAL
+- en: But what if you need to run the incremental data load job as a less frequent
+    batch process instead of running it in a continuous streaming manner?
+  prefs: []
+  type: TYPE_NORMAL
+- en: Well, Structured Streaming supports this too via the `trigger` option. We can
+    use `once=True` for this option, and the streaming job will process all new and
+    unprocessed events when the job is externally triggered and then stop the stream
+    when there are no new events to be processed. We can schedule this job to run
+    periodically based on a time interval and it will just behave like a batch job
+    but with all the benefits of an incremental load.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In summary, the Spark SQL engine's DataFrame API is both powerful and easy to
+    use for batch data processing and streams processing. There are slight differences
+    between the functions and utilities provided between a static DataFrame and streaming
+    DataFrame. However, for the most part, the programming models between batch processing
+    and streams processing that use DataFrames are very similar. This minimizes the
+    learning curve and helps to unify batch and streams processing using Apache Spark's
+    unified analytics engine.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now, in the next section, let's examine how to implement a unified data processing
+    architecture with Apache Spark using a concept called **Lambda Architecture**.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Unifying batch and real time using Lambda Architecture
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Both batch and real-time data processing are important elements of any modern
+    Enterprise DSS, and an architecture that seamlessly implements both these data
+    processing techniques can help increase throughput, minimize latency, and allow
+    you to get to fresh data much more quickly. One such architecture is called **Lambda
+    Architecture**, which we will examine next.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Lambda Architecture
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Lambda Architecture is a data processing technique that is used to ingest,
+    process, and query both historical and real-time data with a single architecture.
+    Here, the goal is to increase throughput, data freshness, and fault tolerance
+    while maintaining a single view of both historical and real-time data for end
+    users. The following diagram illustrates a typical Lambda Architecture:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 2.3 – Lambda Architecture'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/B16736_02_03.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Figure 2.3 – Lambda Architecture
+  prefs: []
+  type: TYPE_NORMAL
+- en: As shown in the preceding diagram, a Lambda Architecture consists of three main
+    components, namely, the **Batch Layer**, the **Speed Layer**, and the **Serving
+    Layer**. We will discuss each of these layers in the following sections.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The Batch layer
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: The Batch layer is like any typical ETL layer involving the batch processing
+    of data from the source system. This layer usually involves scheduled jobs that
+    run periodically, typically, at night.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Apache Spark can be used to build batch processing jobs or Structured Streaming
+    jobs that get triggered on a schedule, and it can also be used for the batch layer
+    to build historical data in the data lake.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The Speed layer
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: The Speed layer continuously ingests data from the same data source as the Batch
+    layer from the data lake into real-time views. The Speed layer continuously delivers
+    the latest data that the Batch layer cannot provide yet due to its inherent latency.
+    Spark Structured Steaming can be used to implement low latency streaming jobs
+    to continuously ingest the latest data from the source system.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The Serving layer
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: The Serving layer combines the historical data from the Batch layer and the
+    latest data from the Speed layer into a single view to support ad hoc queries
+    by end users. Spark SQL makes a good candidate for the Serving layer as it can
+    help users query historical data from the Batch layer, as well as the latest data
+    from the Speed layer, and present the user with a unified view of data for low-latency,
+    ad hoc queries.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In the previous sections, you implemented data ingestion jobs for batch as
+    well as streaming using Apache Spark. Now, let''s explore how you can combine
+    the two views to give users a single unified view, as shown in the following code
+    snippet:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE18]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'In the preceding code block, we create two DataFrames, one from the `union`
+    function to unite these two DataFrames and then create a **Spark Global Temp View**
+    using the combined DataFrame. The result is a view that is accessible across all
+    **Spark Sessions** across the cluster, which gives you a unified view of data
+    across both the batch and speed layers, as shown in the following line of code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE19]'
+  prefs: []
+  type: TYPE_PRE
+- en: The preceding line of code is a SQL query that queries data from the Spark global
+    view, which acts as the **Serving Layer** and can be presented to end users for
+    ad hoc queries across both the latest data and historical data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this way, you can make use of Apache Spark's SQL engine's DataFrame, Structured
+    Streaming, and SQL APIs to build a Lambda Architecture that improves data freshness,
+    throughput, and provides a unified view of data. However, the Lambda Architecture
+    is somewhat complex to maintain because there are two separate data ingestion
+    pipelines for batch and real-time processing along with two separate data sinks.
+    Indeed, there is an easier way to unify the batch and speed layers using an open
+    source storage layer called **Delta Lake**. You will learn about this in [*Chapter
+    3*](B16736_03_Final_JM_ePub.xhtml#_idTextAnchor056), *Data Cleansing and Integration*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Summary
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In this chapter, you learned about Enterprise DSS in the context of big data
+    analytics and its components. You learned about various types of data sources
+    such as RDBMS-based operational systems, message queues, and file sources, and
+    data sinks, such as data warehouses and data lakes, and their relative merits.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Additionally, you explored different types of data storage formats such as unstructured,
+    structured, and semistructured and learned about the benefits of using structured
+    formats such as Apache Parquet with Spark. You were introduced to data ingestion
+    in a batch and real-time manner and learned how to implement them using Spark
+    DataFrame APIs. We also introduced Spark's Structured Streaming framework for
+    real-time streams processing, and you learned how to use Structured Streaming
+    to implement incremental data loads using minimal programming overheads. Finally,
+    you explored the Lambda Architecture to unify batch and real-time data processing
+    and its implementation using Apache Spark. The skills learned in this chapter
+    will help you to implement scalable and performant distributed data ingestion
+    pipelines via Apache Spark using both batch and streams processing models.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the next chapter, you will learn about the techniques to process, cleanse,
+    and integrate the raw data that was ingested into a data lake in this chapter
+    into clean, consolidated, and meaningful datasets that are ready for end users
+    to perform business analytics on and generate meaningful insights.
+  prefs: []
+  type: TYPE_NORMAL

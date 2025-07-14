@@ -1,0 +1,1198 @@
+- en: '5'
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Working with Genomes
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Many tasks in computational biology are dependent on the existence of reference
+    genomes. If you are performing sequence alignment, finding genes, or studying
+    the genetics of populations, you will be directly or indirectly using a reference
+    genome. In this chapter, we will develop some recipes for working with reference
+    genomes and dealing with references of varying quality, which can range from high
+    quality (by high quality, we only refer to the state of the genome’s assembly,
+    which is the focus of this chapter), as with the human genome, to problematic
+    with non-model species. We will also learn how to deal with genome annotations
+    (working with databases that will point us to interesting features in the genome)
+    and extract sequence data using the annotation information. We will also try to
+    find some gene orthologs across species. Finally, we will access a **Gene Ontology**
+    (**GO**) database.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In this chapter, we will cover the following recipes:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Working with high-quality reference genomes
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Dealing with low-quality reference genomes
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Traversing genome annotations
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Extracting genes from a reference using annotations
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Finding orthologues with the Ensembl REST API
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Retrieving gene ontology information from Ensembl
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Technical requirements
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: If you are running this chapter’s content via Docker, you can use the `tiagoantao/bioinformatics_genomes`
+    image. If you are using Anaconda, the required software for this chapter will
+    be introduced in each relevant section.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Working with high-quality reference genomes
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In this recipe, you will learn about a few general techniques to manipulate
+    reference genomes. As an illustrative example, we will study the GC content –
+    the fraction of the genome that is based on guanine-cytosine in *Plasmodium falciparum*,
+    the most important parasite species that causes malaria. Reference genomes are
+    normally made available as FASTA files.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Getting ready
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Organism genomes come in widely different sizes, ranging from viruses such as
+    HIV, which is 9.7 kbp, to bacteria such as *E. coli*, to protozoans such as *Plasmodium
+    falciparum*, which has a 22 Mbp spread across 14 chromosomes, mitochondrion, and
+    apicoplast, to the fruit fly with three autosomes, a mitochondrion, and X/Y sex
+    chromosomes, to humans with their three Gbp pairs spread across 22 autosomes,
+    X/Y chromosomes, and mitochondria, all the way up to *Paris japonica*, a plant
+    with 150 Gbp of the genome. Along the way, you have different ploidy and sex chromosome
+    organizations.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Tip
+  prefs: []
+  type: TYPE_NORMAL
+- en: As you can see, different organisms have very different genome sizes. This difference
+    can be of several orders of magnitude. This can have significant implications
+    for your programming style. Working with a large genome will require you to be
+    more conservative with memory. Unfortunately, larger genomes would benefit from
+    more speed-efficient programming techniques (as you have much more data to analyze);
+    these are conflicting requirements. The general rule is that you have to be much
+    more careful with efficiency (both speed and memory) with larger genomes.
+  prefs: []
+  type: TYPE_NORMAL
+- en: To make this recipe less of a burden, we will use a small eukaryotic genome
+    from *Plasmodium falciparum*. This genome still has many typical features of larger
+    genomes (for example, multiple chromosomes). Therefore, it’s a good compromise
+    between complexity and size. Note that with a genome that’s the size of *Plasmodium
+    falciparum*, it will be possible to perform many operations by loading the whole
+    genome in memory. However, we opted for a programming style that can be used with
+    bigger genomes (for example, mammals) so that you can use this recipe in a more
+    general way, but feel free to use more memory-intensive approaches with small
+    genomes like this.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We will use Biopython, which you installed in [*Chapter 1*](B17942_01.xhtml#_idTextAnchor020),
+    *Python and the Surrounding Software Ecology*. As usual, this recipe is available
+    in this book’s Jupyter notebook as `Chapter05/Reference_Genome.py`, in the code
+    bundle for this book. We will need to download the reference genome – you can
+    find the up-to-date location in the aforementioned notebook. To generate the chart
+    at the end of this recipe, we will need `reportlab`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: Now, we’re ready to begin.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Follow these steps:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We will start by inspecting the description of all of the sequences in the
+    reference genome’s FASTA file:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'This code should look familiar from the previous chapter, [*Chapter 3*](B17942_03.xhtml#_idTextAnchor068),
+    *Next-Generation Sequencing*. Let’s take a look at part of the output:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B17942_05_001.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 5.1 – The output showing the FASTA descriptions for the reference genome
+    of Plasmodium falciparum
+  prefs: []
+  type: TYPE_NORMAL
+- en: Different genome references will have different description lines, but they
+    will generally contain important information. In this example, you can see that
+    we have chromosomes, mitochondria, and apicoplast. We can also view the chromosome
+    sizes, but we will take the value from the sequence length instead.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let’s parse the description line to extract the chromosome number. We will
+    retrieve the chromosome size from the sequence and compute the `GC` content across
+    chromosomes on a window basis:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: Here, we have performed a windowed analysis of all chromosomes, similar to what
+    we did in [*Chapter 3*](B17942_03.xhtml#_idTextAnchor068), *Next-Generation Sequencing*.
+    We started by defining a window size of 50 kbp. This is appropriate for *Plasmodium
+    falciparum* (feel free to vary its size), but you will want to consider other
+    values for genomes with chromosomes that are orders of magnitude different from
+    this.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note that we are re-reading the file. With such a small genome, it would have
+    been feasible (in *Step 1*) to do an in-memory load of the whole genome. By all
+    means, feel free to try this programming style for small genomes – it’s faster!
+    However, our code is designed to be reused with larger genomes.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note that in the `for` loop, we ignore the mitochondrion and apicoplast by parsing
+    the `SO` entry to the description. The `chrom_sizes` dictionary will maintain
+    the size of chromosomes.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: The `chrom_GC` dictionary is our most interesting data structure and will contain
+    a list of a fraction of the `GC` content for each 50 kbp window. So, for chromosome
+    1, which has a size of 640,851 bp, there will be 14 entries because this chromosome’s
+    size is 14 blocks of 50 kbp.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Be aware of two unusual features of the *Plasmodium falciparum* genome: the
+    genome is very AT-rich – that is, GC-poor. Therefore, the numbers that you will
+    get will be very low. Also, chromosomes are ordered based on size (as is common)
+    but starting with the smallest size. The usual convention is to start with the
+    largest size (such as with genomes in humans).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now, let’s create a genome plot of the `GC` distribution. We will use shades
+    of blue for the `GC` content. However, for high outliers, we will use shades of
+    red. For low outliers, we will use shades of yellow:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: The first line converts the return of the `keys` method into a list. This was
+    redundant in Python 2, but not in Python 3, where the `keys` method has a specific
+    `dict_keys` return type.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We draw the chromosomes in order (hence the sort). We need the size of the biggest
+    chromosome (14, in *Plasmodium falciparum*) to make sure that the size of chromosomes
+    is printed with the correct scale (the `biggest_chrom` variable).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Then, we create an A4-sized representation of an organism with a PNG output.
+    Note that we draw very small telomeres of 10 bp. This will produce a rectangular-like
+    chromosome. You can make the telomeres bigger, giving them a roundish representation,
+    or you may have the arguably better idea of using the correct telomere size for
+    your species.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We declare that anything with a `GC` content below 17.5% or above 22.0% will
+    be considered an outlier. Remember that for most other species, this will be much
+    higher.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Then, we print these chromosomes: they are bounded by telomeres and composed
+    of 50 kbp chromosome segments (the last segment is sized with the remainder).
+    Each segment will be colored in blue, with a red-green component based on the
+    linear normalization between two outlier values. Each chromosome segment will
+    either be 50 kbp or potentially smaller if it’s the last one of the chromosome.
+    The output is shown in the following diagram:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B17942_05_002.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 5.2 – The 14 chromosomes of Plasmodium falciparum, color-coded with the
+    GC content (red is more than 22%, yellow less than 17%, and the blue shades represent
+    a linear gradient between both numbers)
+  prefs: []
+  type: TYPE_NORMAL
+- en: Tip
+  prefs: []
+  type: TYPE_NORMAL
+- en: Biopython code evolved before Python was such a fashionable language. In the
+    past, the availability of libraries was quite limited. The usage of `reportlab`
+    can be seen mostly as a legacy issue. I suggest that you learn just enough from
+    it to use it with Biopython. If you are planning on learning a modern plotting
+    library in Python, then the standard bearer is Matplotlib, as we learned in [*Chapter
+    2*](B17942_02.xhtml#_idTextAnchor040)*, Getting to Know NumPy, pandas, Arrow,
+    and Matplotlib*. Alternatives include Bokeh, HoloViews, or Python’s version of
+    ggplot (or even more sophisticated visualization alternatives, such as Mayavi,
+    **Visualization Toolkit** (**VTK**), and even the Blender API).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Finally, you can print the image inline in the notebook:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: And that completes this recipe!
+  prefs: []
+  type: TYPE_NORMAL
+- en: There’s more...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: '*Plasmodium falciparum* is a reasonable example of a eukaryote with a small
+    genome that allows you to perform a small data exercise with enough features,
+    while still being useful for most eukaryotes. Of course, there are no sex chromosomes
+    (such as X/Y in humans), but these should be easy to process because reference
+    genomes do not deal with ploidy issues.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*Plasmodium falciparum* does have a mitochondrion, but we will not deal with
+    it here due to space constraints. Biopython does have the functionality to print
+    circular genomes, which you can also use with bacteria. With regards to bacteria
+    and viruses, these genomes are much easier to process because their size is very
+    small.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: See also
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Here are some sources you can learn more from:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: You can find many reference genomes of model organisms in Ensembl at [http://www.ensembl.org/info/data/ftp/index.xhtml](http://www.ensembl.org/info/data/ftp/index.xhtml).
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: As usual, **National Center for Biotechnology Information** (**NCBI**) also
+    provides a large list of genomes at [http://www.ncbi.nlm.nih.gov/genome/browse/](http://www.ncbi.nlm.nih.gov/genome/browse/).
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: There are plenty of websites dedicated to a single organism (or a set of related
+    organisms). Apart from PlasmoDB ([http://plasmodb.org/plasmo/](http://plasmodb.org/plasmo/)),
+    which you downloaded the *Plasmodium falciparum* genome from, you will find VectorBase
+    ([https://www.vectorbase.org/](https://www.vectorbase.org/)) in the next recipe
+    for disease vectors. FlyBase ([http://flybase.org/](http://flybase.org/)) for
+    *Drosophila melanogaster* is also worth mentioning, but do not forget to search
+    for your organism of interest.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Dealing with low-quality genome references
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Unfortunately, not all reference genomes will have the quality of *Plasmodium
+    falciparum*. Apart from some model species (for example, humans, or the common
+    fruit fly *Drosophila melanogaster*) and a few others, most reference genomes
+    could use some improvement. In this recipe, we will learn how to deal with reference
+    genomes of lower quality.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Getting ready
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'In keeping with the malaria theme, we will use the reference genomes of two
+    mosquitoes that are vectors of malaria: *Anopheles gambiae* (which is the most
+    important vector of malaria and can be found in Sub-Saharan Africa) and *Anopheles
+    atroparvus*, a malaria vector in Europe (while the disease has been eradicated
+    in Europe, this vector is still around). The *Anopheles gambiae* genome is of
+    reasonable quality. Most chromosomes have been mapped, although the Y chromosome
+    still needs some work. There is a fairly large unknown chromosome, probably composed
+    of bits of X and Y chromosomes, as well as midgut microbiota. This genome has
+    a reasonable amount of positions that are not called (that is, you will find *N*s
+    instead of ACTGs). The *Anopheles atroparvus* genome is still in the scaffold
+    format. Unfortunately, this is what you will find for many non-model species.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note that we will up the ante a bit. The *Anopheles* genome is one order of
+    magnitude bigger than the *Plasmodium falciparum* genome (but still one order
+    of magnitude smaller than most mammals).
+  prefs: []
+  type: TYPE_NORMAL
+- en: We will use Biopython, which you installed in [*Chapter 1*](B17942_01.xhtml#_idTextAnchor020),
+    *Python and the Surrounding Software Ecology*. As usual, this recipe is available
+    in this book’s Jupyter notebook at `Chapter05/Low_Quality.py`, in the code bundle
+    for this book. At the start of the notebook, you can find the most up-to-date
+    location of both genomes, along with the code to download them.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Follow these steps:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let’s start by listing the chromosomes of the *Anopheles gambiae* genome:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'This will produce an output that will include the organism chromosomes (along
+    with a few unmapped supercontigs not depicted):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: The code is quite straightforward. We use the `gzip` module because the files
+    of larger genomes are normally compressed. We can see four chromosome arms (`2L`,
+    `2R`, `3L`, and `3R`), the mitochondria (`Mt`), the `X` chromosome, and the `Y`
+    chromosome, which is quite small and has a name that all but indicates that it
+    may not be in the best state. Also, the unknown (`UNKN`) chromosome is a large
+    proportion of the reference genome, to the tune of a chromosome arm.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Do not perform this with *Anopheles atroparvus*; otherwise, you will get more
+    than a thousand entries, courtesy of the scaffold status.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now, let’s check the uncalled positions (`Ns`) and their distribution for the
+    *Anopheles gambiae* genome:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: The preceding code will take some time to run, so please be patient; we will
+    inspect every base pair of autosomes. As usual, we will reopen and re-read the
+    file to save memory.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We have two dictionaries: one dictionary that contains chromosome sizes and
+    another that contains the distribution of the sizes of runs of `Ns`. To calculate
+    the runs of `Ns`, we must traverse all autosomes (noting when an `N` position
+    starts and ends). Then, we must print the basic statistics of the distribution
+    of `Ns`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs: []
+  type: TYPE_PRE
+- en: So, for the `2L` chromosome arm (with a size of 49 Mbp), 1.7% are `N` calls
+    divided by `957` runs. The biggest run is `28884` bps. Note that the `X` chromosome
+    has the highest fraction of positions with `Ns`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now, let’s turn our attention to the *Anopheles Atroparvus* genome. Let’s count
+    the number of scaffolds, along with the distribution of scaffold sizes:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'This code is similar to what we looked at previously, but we print slightly
+    more detailed statistics using NumPy, so we get the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs: []
+  type: TYPE_PRE
+- en: Thus, we have `1371` scaffolds (against seven entries on the *Anopheles gambiae*
+    genome) with a median size of `7811.5` (a mean of `17,0678.2`). The biggest scaffold
+    is 5.8 Mbp, while the smallest scaffold is 1,004 bp. The tenth percentile for
+    size is `1537.1`, while the ninetieth is `39644.7`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Finally, let’s plot the fraction of the scaffold – that is, `N` – as a function
+    of its size:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'The preceding code will generate the output shown in the following diagram,
+    in which we split the chart into three parts based on the scaffold size: one for
+    scaffolds with less than 4,800 bp, one for scaffolds between 4,800 and 540,000
+    bp, and one for larger ones. The fraction of `Ns` is very low for small scaffolds
+    (always below 3.5%); for medium scaffolds, it has a large variance (sizes between
+    0% and above 90%), and a tighter variance (between 0% and 25%) for the largest
+    scaffolds:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B17942_05_003.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 5.3 – The fraction of scaffolds that are N as a function of their size
+  prefs: []
+  type: TYPE_NORMAL
+- en: There’s more...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Sometimes, reference genomes carry extra information. For example, the *Anopheles
+    gambiae* genome is soft masked. This means that some procedures were run on the
+    genome to identify areas of low complexity (which are normally more problematic
+    to analyze). This can be annotated by capitalization: ACTG will be high complexity,
+    whereas actg will be low.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Reference genomes with lots of scaffolds are more than an inconvenient hassle.
+    For example, very small scaffolds (say, below 2,000 bp) may have mapping problems
+    when using an aligner (such as **Burrows-Wheeler Aligner** (**BWA**)), especially
+    at the extremes (most scaffolds will have mapping problems at their extremes,
+    but these will be of a much larger proportion of the scaffold if it’s small).
+    If you are using a reference genome like this to align, you will want to consider
+    ignoring the pair information (assuming that you have paired-end reads) when mapping
+    to small scaffolds, or at least measure the impact of the scaffold size on the
+    performance of your aligner. In any case, the general idea is that you should
+    be careful because the scaffold size and number will rear their ugly head from
+    time to time.
+  prefs: []
+  type: TYPE_NORMAL
+- en: With these genomes, only complete ambiguity (`N`) was identified. Note that
+    other genome assemblies will give you an intermediate code between the total **ambiguity
+    and certainty** (**ACTG**).
+  prefs: []
+  type: TYPE_NORMAL
+- en: See also
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Here are some resources you can learn more from:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Tools such as RepeatMasker can be used to find areas of the genome with low
+    complexity. Check out [http://www.repeatmasker.org/](http://www.repeatmasker.org/)
+    for more information.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: IUPAC ambiguity codes may be useful to have in hand when processing other genomes.
+    Check out [http://www.bioinformatics.org/sms/iupac.xhtml](http://www.bioinformatics.org/sms/iupac.xhtml)
+    for more information.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Traversing genome annotations
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Having a genome sequence is interesting, but we will want to extract features
+    from it, such as genes, exons, and coding sequences. This type of annotation information
+    is made available in **Generic Feature Format** (**GFF**) and **General Transfer
+    Format** (**GTF**) files. In this recipe, we will learn how to parse and analyze
+    GFF files while using the annotation of the *Anopheles gambiae* genome as an example.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Getting ready
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Use the `Chapter05/Annotations.py` notebook file, which is provided in the code
+    bundle for this book. The up-to-date location of the GFF file that we will be
+    using can be found at the top of the notebook.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'You will need to install `gffutils`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE12]'
+  prefs: []
+  type: TYPE_PRE
+- en: Now, we’re ready to start.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Follow these steps:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let’s start by creating an annotation database with `gffutils`, based on our
+    GFF file:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE13]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: The `gffutils` library creates a SQLite database to store annotations efficiently.
+    Here, we will try to create the database, but if it already exists, we will use
+    the existing one. This step can be time-consuming.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now, let’s list all the available feature types and count them:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE14]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: These features will include contigs, genes, exons, transcripts, and so on. Note
+    that we will use the `gffutils` package’s `featuretypes` function. It will return
+    a generator, but we will convert it into a list (it’s safe to do so here).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let’s list all seqids:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE15]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: This will show us that there is annotation information for all chromosome arms
+    and sex chromosomes, mitochondrion, and the unknown chromosome.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now, let’s extract a lot of useful information per chromosome, such as the
+    number of genes, number of transcripts per gene, number of exons, and so on:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE16]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: We will traverse all seqids while extracting all protein-coding genes (using
+    `region`). In each gene, we count the number of alternative transcripts. If there
+    are none (note that this is probably an annotation issue and not a biological
+    one), we count the exons (`children`). If there are several transcripts, we count
+    the exons per transcript. We also account for the span size to check for the gene
+    that spans the largest region.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We follow a similar procedure to find the gene and the largest number of exons.
+    Finally, we print a dictionary that contains the distribution of the number of
+    alternative transcripts per gene (`num_mRNAs`) and the distribution of the number
+    of exons per transcript (`num_exons`).
+  prefs: []
+  type: TYPE_NORMAL
+- en: There’s more...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: There are many variations of the GFF/GTF format. There are different GFF versions
+    and many unofficial variations. If possible, choose GFF version 3\. However, the
+    ugly truth is that you will find it very difficult to process files. The `gffutils`
+    library tries as best as it can to accommodate this. Indeed, much of the documentation
+    for this library is concerned with helping you process all kinds of awkward variations
+    (refer to [https://pythonhosted.org/gffutils/examples.xhtml](https://pythonhosted.org/gffutils/examples.xhtml)).
+  prefs: []
+  type: TYPE_NORMAL
+- en: There is an alternative to using `gffutils` (either because your GFF file is
+    strange or because you do not like the library interface or its dependency on
+    a SQL backend). Parse the file yourself manually. If you look at the format, you
+    will notice that it’s not very complex. If you are only performing a one-off operation,
+    then maybe manual parsing is good enough. Of course, one-off operations tend to
+    not be that good in the long run.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Also, note that the quality of annotations tends to vary a lot. As the quality
+    increases, so does the complexity. Just check the human annotation for an example
+    of this. You can expect that, over time, as our knowledge of organisms evolves,
+    the quality and complexity of annotations will increase.
+  prefs: []
+  type: TYPE_NORMAL
+- en: See also
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Here are some resources you can learn more from:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The GFF spec can be found at [https://www.sanger.ac.uk/resources/software/gff/spec.xhtml](https://www.sanger.ac.uk/resources/software/gff/spec.xhtml).
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Probably the best explanation of the GFF format, along with the most common
+    versions and GTF, can be found at [http://gmod.org/wiki/GFF3](http://gmod.org/wiki/GFF3).
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Extracting genes from a reference using annotations
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In this recipe, we will learn how to extract a gene sequence with the help of
+    an annotation file to get its coordinates against a reference FASTA. We will use
+    the *Anopheles gambiae* genome, along with its annotation file (as per the previous
+    two recipes). First, we will extract the **voltage-gated sodium channel** (**VGSC**)
+    gene, which is involved in resistance to insecticides.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Getting ready
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'If you have followed the previous two recipes, you will be ready. If not, download
+    the *Anopheles gambiae* FASTA file, along with the GTF file. You also need to
+    prepare the `gffutils` database:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE17]'
+  prefs: []
+  type: TYPE_PRE
+- en: As usual, you will find all of this in the `Chapter05/Getting_Gene.py` notebook
+    file.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Follow these steps:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let’s start by retrieving the annotation information for our gene:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE18]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '`gene_id` was retrieved from VectorBase, an online database for the genomics
+    of disease vectors. For other specific cases, you will need to know the ID of
+    your gene (which will be dependent on the species and database). The output will
+    be as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE19]'
+  prefs: []
+  type: TYPE_PRE
+- en: Note that the gene is on the `2L` chromosome arm and coded in the positive direction
+    (the `+` strand).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let’s hold the sequence for the `2L` chromosome arm in memory (it’s just a
+    single chromosome, so we will indulge):'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE20]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'The output will be as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE21]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Let’s create a function to construct a gene sequence for a list of `CDSs`:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE22]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: This function will receive a chromosome sequence (in our case, the `2L` arm),
+    a list of coding sequences (retrieved from the annotation file), and the strand.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We have to be very careful with the start and end of the sequence (note that
+    the GFF file is 1-based, whereas the Python array is 0-based). Finally, we return
+    the reverse complement if the strand is negative.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Although we have the `gene_id` at hand, we only want one of the transcripts
+    of the three available for this gene, so we need to choose one:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE23]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Now, let’s get the coding sequence for our transcript, then get the gene sequence,
+    and translate it:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE24]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Let’s get the gene that is coded in the negative strand direction. We will
+    just take the gene next to VGSC (which happens to be the negative strand):'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE25]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: Here, I avoided getting all of the information about the gene and just hardcoded
+    the transcript ID. The point is that you should make sure your code works, irrespective
+    of the strand.
+  prefs: []
+  type: TYPE_NORMAL
+- en: There’s more...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: This is a simple recipe that exercises several concepts that have been presented
+    in this chapter and [*Chapter 3*](B17942_03.xhtml#_idTextAnchor068), *Next Generation
+    Sequencing*. While it’s conceptually trivial, it’s unfortunately full of booby
+    traps.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Tip
+  prefs: []
+  type: TYPE_NORMAL
+- en: When using different databases, be sure that the genome assembly versions are
+    synchronized. It would be a serious and potentially silent bug to use different
+    versions. Remember that different versions (at least on the major version number)
+    have different coordinates. For example, position 1,234 on chromosome 3 on build
+    36 of the human genome will probably refer to a different SNP than 1,234 on build
+    38\. With human data, you will probably find a lot of chips on build 36, and plenty
+    of whole genome sequences on build 37, whereas the most recent human assembly
+    is build 38\. With our *Anopheles* example, you will have versions 3 and 4 around.
+    This will happen with most species. So, be aware!
+  prefs: []
+  type: TYPE_NORMAL
+- en: There is also the issue of 0-indexed arrays in Python versus 1-indexed genomic
+    databases. Nonetheless, be aware that some genomic databases may also be 0-indexed.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'There are also two sources of confusion: the transcript versus the gene choice,
+    as in more rich annotation databases. Here, you will have several alternative
+    transcripts (if you want to look at a rich-to-the-point-of-confusing database,
+    refer to the human annotation database). Also, fields tagged with `exon` will
+    contain more information compared to the coding sequence. For this purpose, you
+    will want the CDS field.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Finally, there is the strand issue, where you will want to translate based on
+    the reverse complement.
+  prefs: []
+  type: TYPE_NORMAL
+- en: See also
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Here are some resources you can learn more from:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: You can download MySQL tables for Ensembl at [http://www.ensembl.org/info/data/mysql.xhtml](http://www.ensembl.org/info/data/mysql.xhtml).
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The UCSC genome browser can be found at [http://genome.ucsc.edu/](http://genome.ucsc.edu/).
+    Be sure to check the download area at [http://hgdownload.soe.ucsc.edu/downloads.xhtml](http://hgdownload.soe.ucsc.edu/downloads.xhtml).
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: With a reference to genomes, you can find GTFs of model organisms in Ensembl
+    at [http://www.ensembl.org/info/data/ftp/index.xhtml](http://www.ensembl.org/info/data/ftp/index.xhtml).
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: A simple explanation of CDSs and exons can be found at [https://www.biostars.org/p/65162/](https://www.biostars.org/p/65162/).
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Finding orthologues with the Ensembl REST API
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In this recipe, we will learn how to look for orthologues for a certain gene.
+    This simple recipe will not only introduce orthology retrieval but also how to
+    use REST APIs on the web to access biological data. Last, but surely not least,
+    it will serve as an introduction to how to access the Ensembl database using the
+    programmatic API.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In our example, we will try to find any orthologue for the human `horse` genome.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Getting ready
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: This recipe will not require any pre-downloaded data, but since we are using
+    web APIs, internet access will be needed. The amount of data that can be transferred
+    will be limited.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We will also make use of the `requests` library to access Ensembl. The request
+    API is an easy-to-use wrapper for web requests. Of course, you can use the standard
+    Python libraries, but these are much more cumbersome.
+  prefs: []
+  type: TYPE_NORMAL
+- en: As usual, you can find this content in the `Chapter05/Orthology.py` notebook
+    file.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Follow these steps:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We will start by creating a support function to perform a web request:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE26]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: We start by importing the `requests` library and specifying the root URL. Then,
+    we create a simple function that will take the functionality to be called (see
+    the following examples) and generate a complete URL. It will also add optional
+    parameters and specify the payload to be of the JSON type (just to get a default
+    JSON answer). It will return the response in JSON format. This is typically a
+    nested Python data structure of lists and dictionaries.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Then, we will check all the available species on the server, which is around
+    110 at the time of writing this book:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE27]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: Note that this will construct a URL starting with the `http://rest.ensembl.org/info/species`
+    prefix for the REST request. The preceding link will not work on your browser,
+    by the way; it should only be used via a REST API.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now, let’s try to find any `HGNC` databases on the server related to human
+    data:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE28]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: We restrict the search to human-related databases (`homo_sapiens`). We also
+    filter databases starting with `HGNC` (this filtering uses the SQL notation).
+    `HGNC` is the HUGO database. We want to make sure that it’s available because
+    the HUGO database is responsible for curating human gene names and maintaining
+    our LCT identifier.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now that we know that the LCT identifier is probably available, we want to
+    retrieve the Ensembl ID for the gene, as shown in the following code:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE29]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: Tip
+  prefs: []
+  type: TYPE_NORMAL
+- en: Different databases, as you probably know by now, will have different IDs for
+    the same object. We will need to resolve our LCT identifier to the Ensembl ID.
+    When you deal with external databases that relate to the same objects, ID translation
+    between databases will probably be your first task.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Just for your information, we can now get the sequence of the area containing
+    the gene. Note that this is probably the whole interval, so if you want to recover
+    the gene, you will have to use a procedure similar to what we used in the previous
+    recipe:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE30]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'We can also inspect other databases known to Ensembl; refer to the following
+    gene:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE31]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: You will find different kinds of databases, such as the **Vertebrate Genome
+    Annotation** (**Vega**) project, UniProt (see [*Chapter 8*](B17942_08.xhtml#_idTextAnchor209),
+    *Using the Protein Data Bank*), and WikiGene.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let’s get the orthologues for this gene on the `horse` genome:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE32]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: We could have acquired the orthologues directly for the `horse` genome by specifying
+    a `target_species` parameter on `do_request`. However, this code allows you to
+    inspect all the available orthologues.
+  prefs: []
+  type: TYPE_NORMAL
+- en: You will get quite a lot of information about an orthologue, such as the taxonomic
+    level of orthology (Boreoeutheria – placental mammals is the closest phylogenetic
+    level between humans and horses), the Ensembl ID of the orthologue, the dN/dS
+    ratio (non-synonymous to synonymous mutations), and the CIGAR string (refer to
+    the previous chapter, [*Chapter 3*](B17942_03.xhtml#_idTextAnchor068), *Next-Generation
+    Sequencing*) of differences among sequences. By default, you will also get the
+    alignment of the orthologous sequence, but I have removed it to unclog the output.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Finally, let’s look for the `horse_id` Ensembl record:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE33]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: From this point onward, you can use the previous recipe methods to explore the
+    LCT `horse` orthologue.
+  prefs: []
+  type: TYPE_NORMAL
+- en: There’s more...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: You can find a detailed explanation of all the functionalities available at
+    [http://rest.ensembl.org/](http://rest.ensembl.org/). This includes all the interfaces
+    and Python code snippets, among other languages.
+  prefs: []
+  type: TYPE_NORMAL
+- en: If you are interested in paralogues, this information can be retrieved quite
+    trivially from the preceding recipe. On the call to `homology/id`, just replace
+    the type with `paralogues`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'If you have heard of Ensembl, you have probably heard of an alternative service
+    from UCSC: the Genome Browser ([http://genome.ucsc.edu/](http://genome.ucsc.edu/)).
+    From the perspective of the user interface, they are on the same level. From a
+    programmatic perspective, Ensembl is probably more mature. Accessing NCBI Entrez
+    databases was covered in [*Chapter 3*](B17942_03.xhtml#_idTextAnchor068), *Next
+    Generation Sequencing*.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Another completely different strategy to interface programmatically with Ensembl
+    will be to download raw tables and inject them into a local MySQL database. Be
+    aware that this will be quite an undertaking in itself (you will probably just
+    want to load a very small subset of tables). However, if you intend to be very
+    intensive in terms of usage, you may have to consider creating a local version
+    of part of the database. If this is the case, you may want to reconsider the UCSC
+    alternative, as it’s as good as Ensembl from the local database perspective.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Retrieving gene ontology information from Ensembl
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'In this recipe, you will learn how to use gene ontology information again by
+    querying the Ensembl REST API. Gene ontologies are controlled vocabularies for
+    annotating genes and gene products. These are made available as trees of concepts
+    (with more general concepts near the top of the hierarchy). There are three domains
+    for gene ontologies: the cellular component, the molecular function, and the biological
+    process.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Getting ready
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: As with the previous recipe, we do not require any pre-downloaded data, but
+    since we are using web APIs, internet access will be needed. The amount of data
+    that will be transferred will be limited.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'As usual, you can find this content in the `Chapter05/Gene_Ontology.py` notebook
+    file. We will make use of the `do_request` function, which was defined in *Step
+    1* of the previous recipe (*Finding orthologues with the Ensembl REST API*). To
+    draw GO trees, we will use `pygraphviz`, a graph-drawing library:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE34]'
+  prefs: []
+  type: TYPE_PRE
+- en: OK – we’re all set.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Follow these steps:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let’s start by retrieving all GO terms associated with the LCT gene (you learned
+    how to retrieve the Ensembl ID in the previous recipe). Remember that you will
+    need the `do_request` function from the previous recipe:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE35]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Note the free-form definition and the varying namespace for each term. The
+    first two of the reported items in the loop are as follows (this may change when
+    you run it, because the database may have been updated):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE36]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Let’s concentrate on the `lactase activity` molecular function and retrieve
+    more detailed information about it (the following `go_id` comes from the previous
+    step):'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE37]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: We print the `lactase activity` record (which is currently a node of the GO
+    tree molecular function) and retrieve a list of potential parents. There is a
+    single parent for this record. We retrieve it and print the number of children.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let’s retrieve all the general terms for the `lactase activity` molecular function
+    (again, the parent and all other ancestors):'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE38]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: We retrieve the `ancestor` list by following the `is_a` relationship (refer
+    to the GO sites in the *See also* section for more details on the types of possible
+    relationships).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let’s define a function that will create a dictionary with the ancestor relationship
+    for a term, along with some summary information for each term returned in a pair:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE39]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Finally, we will print a tree of relationships for the `lactase activity` term.
+    For this, we will use the `pygraphivz` library:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE40]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'The following output shows the ontology tree for the `lactase activity` term:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 5.4 – An ontology tree for the “lactase activity” term (the terms
+    at the top are more general); the top of the tree is molecular_function; for all
+    ancestral nodes, the number of extra offspring is also noted (or enumerated, if
+    less than three) ](img/B17942_05_004.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 5.4 – An ontology tree for the “lactase activity” term (the terms at
+    the top are more general); the top of the tree is molecular_function; for all
+    ancestral nodes, the number of extra offspring is also noted (or enumerated, if
+    less than three)
+  prefs: []
+  type: TYPE_NORMAL
+- en: There’s more...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: If you are interested in gene ontologies, your main port of call will be [http://geneontology.org](http://geneontology.org),
+    where you will find much more information on this topic. Apart from `molecular_function`,
+    gene ontology also has a *biological process* and a *cellular component*. In our
+    recipes, we have followed the hierarchical relationship *is a*, but others do
+    exist partially. For example, “mitochondrial ribosome” (GO:0005761) is a cellular
+    component and is part of “mitochondrial matrix” (refer to [http://amigo.geneontology.org/amigo/term/GO:0005761#display-lineage-tab](http://amigo.geneontology.org/amigo/term/GO:0005761#display-lineage-tab)
+    and click on **Graph Views**).
+  prefs: []
+  type: TYPE_NORMAL
+- en: As with the previous recipe, you can download the MySQL dump of a gene ontology
+    database (you may prefer to interact with the data in that way). For this, see
+    [http://geneontology.org/page/download-go-annotations](http://geneontology.org/page/download-go-annotations).
+    Again, expect to allocate some time to understanding the relational database schema.
+    Also, note that there are many alternatives to Graphviz for plotting trees and
+    graphs. We will return to this topic later in this book.
+  prefs: []
+  type: TYPE_NORMAL
+- en: See also
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Here are some resources you can learn more from:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: As mentioned previously, more so than Ensembl, the main resource for gene ontologies
+    is [http://geneontology.org](http://geneontology.org).
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: For visualization, we are using the `pygraphviz` library, which is a wrapper
+    on top of Graphviz ( [http://www.graphviz.org](http://www.graphviz.org)).
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: There are very good user interfaces for GO data, such as AmiGO ([http://amigo.geneontology.org](http://amigo.geneontology.org))
+    and QuickGO ([http://www.ebi.ac.uk/QuickGO/](http://www.ebi.ac.uk/QuickGO/)).
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: One of the most common analyses performed with GO is gene enrichment analysis
+    to check whether some GO terms are overexpressed or underexpressed in a certain
+    gene set. The [geneontology.org](http://geneontology.org) server uses Panther
+    ([http://go.pantherdb.org/](http://go.pantherdb.org/)), but other alternatives
+    are available (such as DAVID, at [http://david.abcc.ncifcrf.gov/](http://david.abcc.ncifcrf.gov/)).
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL

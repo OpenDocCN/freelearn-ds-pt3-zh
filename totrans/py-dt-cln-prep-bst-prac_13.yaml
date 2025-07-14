@@ -1,0 +1,1924 @@
+- en: '13'
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Image and Audio Preprocessing with LLMs
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In this chapter, we delve into the preprocessing of unstructured data, specifically
+    focusing on images and audio. We explore various techniques and models designed
+    to extract meaningful information from these types of media. The discussion includes
+    a detailed examination of image preprocessing methods, the use of **optical character
+    recognition** (**OCR**) for extracting text from images, the capabilities of the
+    BLIP model for generating image captions, and the application of the Whisper model
+    for converting audio into text.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In this chapter, we’ll cover the following topics:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The current era of image preprocessing
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Extracting text from images
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Handling audio data
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Technical requirements
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'The complete code for this chapter can be found in the following GitHub repository:
+    [https://github.com/PacktPublishing/Python-Data-Cleaning-and-Preparation-Best-Practices/tree/main/chapter13](https://github.com/PacktPublishing/Python-Data-Cleaning-and-Preparation-Best-Practices/tree/main/chapter13).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let''s install the necessary libraries we will use in this chapter:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: The current era of image preprocessing
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In the era of advanced visual models, such as diffusion models, and models such
+    as OpenAI’s CLIP, preprocessing has become crucial to ensure the quality, consistency,
+    and suitability of images for training and inference. These models require images
+    to be in a format that maximizes their ability to learn intricate patterns and
+    generate high-quality results. In this section, we will go through all the preprocessing
+    steps to make your images ready for the subsequent tasks.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Across this section, we will use a common use case, which is to prepare images
+    for training a diffusion model. You can find the code for this exercise in the
+    GitHub repository: [https://github.com/PacktPublishing/Python-Data-Cleaning-and-Preparation-Best-Practices/blob/main/chapter13/1.image_prerpocessing.py](https://github.com/PacktPublishing/Python-Data-Cleaning-and-Preparation-Best-Practices/blob/main/chapter13/1.image_prerpocessing.py).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let’s start by loading some images.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Loading the images
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Perform the following steps to load the images:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'First, we load the required packages for this exercise:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: Then, we load the images into our environment. We’ll use the Python Pillow library
+    to handle loading the images.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'Next, we create a function to load an image from a URL. This function fetches
+    the image from the given URL and loads it into a `PIL` image object using `BytesIO`
+    to handle the byte data:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Then, we’ll create a helper function to display our images. We will be using
+    this function across the chapter:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Now, we’ll pass the image URL to our `load_image_from_url` function. Here,
+    we are using a random image URL from Unsplash, but you can use any image you have
+    access to:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Let’s display the original image that we just loaded using the function we
+    created:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'This will display the following output image:'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '![Figure 13.1 – Original image before any preprocessing](img/B19801_13_1.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 13.1 – Original image before any preprocessing
+  prefs: []
+  type: TYPE_NORMAL
+- en: Image preprocessing is crucial for preparing visual data for ingestion by **machine
+    learning** (**ML**) models. Let’s delve deeper into each technique, explaining
+    the concepts and demonstrating their application with Python code.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Resizing and cropping
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Effective preprocessing can significantly enhance the performance of AI and
+    ML models by ensuring that the most relevant features are highlighted and easily
+    detectable in the images. **Cropping** is a technique that can help the model
+    focus on relevant features. The main idea is to trim or cut away the outer edges
+    of an image to improve framing, focus on the main subject, or eliminate unwanted
+    elements. The size of the crop depends on the specific requirements of the task.
+    For example, in object detection, the crop should focus on the object of interest,
+    while in image classification, the crop should ensure that the main subject is
+    centered and occupies most of the frame.
+  prefs: []
+  type: TYPE_NORMAL
+- en: There are many different techniques for cropping images from a simple fixed-size
+    cropping to more involved object-aware cropping. **Fixed-size cropping** involves
+    adjusting all images to a predetermined size, ensuring uniformity across the dataset,
+    which is useful for applications that require standardized input sizes, such as
+    training certain types of neural networks. However, it may result in the loss
+    of important information if the main subject is not centered. **Aspect ratio preservation**
+    avoids distortion by maintaining the original image’s aspect ratio while cropping,
+    which is achieved through padding (adding borders to the image to reach the desired
+    dimensions) or scaling (resizing the image while maintaining its aspect ratio,
+    followed by cropping to the target size). **Center cropping** involves cropping
+    the image around its center, assuming the main subject is generally located in
+    the middle, and is commonly used in image classification tasks where the main
+    subject should occupy most of the frame. **Object-aware cropping** uses algorithms
+    to detect the main subject within the image and crop around it, ensuring that
+    the main subject is always emphasized, regardless of its position within the original
+    image. This technique is particularly useful in object detection and recognition
+    tasks.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Resizing** is a fundamental step in image preprocessing for AI and ML tasks,
+    focusing on adjusting the dimensions of an image to a standard size required by
+    the model. This process is crucial for ensuring that the input data is consistent
+    and suitable for the specific requirements of various AI and ML algorithms.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let’s add some steps to the image preprocessing pipeline we started in the
+    previous section to see the effects of cropping and resizing. The following function
+    resizes the image to a specified target size (256x256 pixels in this case). We
+    expect the image to appear uniformly sized down to fit within the target dimensions:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Let’s print the resulting image using the following code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'This will display the following output:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 13.2 – Image after resizing and cropping](img/B19801_13_2.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 13.2 – Image after resizing and cropping
+  prefs: []
+  type: TYPE_NORMAL
+- en: As we can see from *Figure 13**.2*, the image is resized to a square of 256x256
+    pixels, altering the aspect ratio of the original image that was not square. Thus,
+    resizing ensures a uniform input size for all data, which facilitates the batch
+    processing and the passing of data to models for training.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Next, we will discuss the normalization of images, which is not far from the
+    normalization of features discussed in previous chapters.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Normalizing and standardizing the dataset
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: To ensure data consistency and help the training of models converge faster,
+    we can force the input data to a common range of values. This adjustment involves
+    scaling the input data between `0` and `1`, also known as **standardization**
+    or **normalizing** using the mean and standard deviation of the dataset.
+  prefs: []
+  type: TYPE_NORMAL
+- en: For most deep learning models, forcing pixel values to the range `[0, 1]` or
+    `[-1, 1]` is standard practice. This can be achieved by dividing pixel values
+    by 255 (for `[0, 1]`) or by subtracting the mean and dividing by the standard
+    deviation (for `[-1, 1]`). In image classification tasks, this tactic ensures
+    that the input images have consistent pixel values. For example, in a dataset
+    of handwritten digits (such as MNIST), normalizing or standardizing the pixel
+    values helps the model learn the patterns of the digits more effectively. In object
+    detection tasks, it helps in accurately detecting and classifying objects within
+    an image. However, normalization and standardization are not limited to image
+    preprocessing; they are a fundamental step in preparing data for any ML problem.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let’s expand the previous example by adding the normalization and the standardization
+    step. The first function performs the normalization to ensure that the pixel values
+    are in a common scale, in this case, between the range `[0, 1]` and we do that
+    by dividing by 255:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The normalized image can be seen in the following figure:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 13.3 – Picture after normalization](img/B19801_13_3.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 13.3 – Picture after normalization
+  prefs: []
+  type: TYPE_NORMAL
+- en: As we can see from *Figure 13**.3*, visually, the image remains the same, at
+    least to the human eye. Normalization does not alter the relative intensity of
+    the pixels; it only scales them to a different range so the content and details
+    should remain unchanged.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let’s move on to the standardization exercise. Before standardization, pixel
+    values are in the range `[0, 255]` and follow the natural distribution of image
+    intensities. The idea with standardization is that all the pixel values will be
+    transformed to have a mean of `0` and a standard deviation of `1`. Let’s see how
+    we can do that in the following code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs: []
+  type: TYPE_PRE
+- en: In this case, the appearance of the image might change since standardization
+    shifts the mean to `0` and scales the values. This can make the image look different,
+    possibly more contrasted, or with changed brightness. However, the image content
+    should still be recognizable.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 13.4 – Picture after standardization](img/B19801_13_4.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 13.4 – Picture after standardization
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Apart from the transformed image shown in *Figure 13**.4*, the mean and standard
+    deviation for the values are printed here:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs: []
+  type: TYPE_PRE
+- en: This confirms that the standardization has correctly scaled the pixel values.
+    Let’s now move on to the data augmentation part.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Data augmentation
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: '**Data augmentation** aims to create more variability in the dataset by applying
+    random transformations, such as rotation, flipping, translation, color jittering,
+    and contrast adjustment. This artificially expands the dataset with modified versions
+    of existing images, which helps with model generalization and performance, especially
+    when working with limited data.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Common augmentation techniques include geometric transformations, such as rotation,
+    flipping, and scaling, which change the spatial orientation and size of the images.
+    For example, rotating an image by 15 degrees or flipping it horizontally can create
+    new perspectives for the model to learn from. Color space alterations, such as
+    adjusting brightness, contrast, or hue, can simulate different lighting conditions
+    and improve the model’s ability to recognize objects in varying environments.
+    Adding noise or blur can help the model become more resilient to imperfections
+    and distortions in real-world data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let’s go back to our example to see how we can create image variations:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'First, we will define the transformations that we will apply to the image:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '**Rotation range**: Randomly rotate the image within a range of 40 degrees.'
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Width shift range**: Randomly shift the image horizontally by 20% of the
+    width.'
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Height shift range**: Randomly shift the image vertically by 20% of the height.'
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Shear range**: Randomly apply shearing transformations.'
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Zoom range**: Randomly zoom in or out by 20%.'
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Horizontal flip**: Randomly flip the image horizontally.'
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Fill mode**: Define how to fill in newly created pixels after a transformation.
+    (Here, using “nearest” pixel values.)'
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Let’s create a function to apply these transformations:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Then, we will apply the transformations we just defined to the image:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE12]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'This will display the following image:'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '![Figure 13.5 – Picture augmentation](img/B19801_13_5.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 13.5 – Picture augmentation
+  prefs: []
+  type: TYPE_NORMAL
+- en: As we can see from *Figure 13**.5*, the image has some significant changes;
+    however, the image still remains recognizable and the concept in the picture remains
+    the same.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs: []
+  type: TYPE_NORMAL
+- en: As we are using some random parameters in the data augmentation phase, you may
+    produce a slightly different image at this stage.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Data augmentation’s importance lies in its ability to increase dataset diversity,
+    which by extension helps prevent overfitting, as the model learns to recognize
+    patterns and features from a wider range of examples rather than memorizing the
+    training data. Let’s move on to the next part and dive deep into the noise reduction
+    options.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Noise reduction
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: '**Noise** in images refers to the random variations in pixel values that can
+    distort the visual quality of an image and by extension affect the performance
+    of models during training. These variations often appear as tiny, irregular spots
+    or textures, such as random dots, patches, or a gritty texture, disrupting the
+    smoothness and clarity of the image. They often make the image look less sharp
+    and can obscure important details, which can be problematic for both visual interpretation
+    and for models that rely on clear, accurate data for training.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Noise reduction** attempts to reduce the random variations and make the data
+    simpler. The minimization of these random variations in pixel values helps improve
+    image quality and model accuracy as they can mislead models during training. In
+    the following subsections, we expand on some common denoising techniques used
+    in the data field, including Gaussian smoothing, non-local means denoising, and
+    wavelet denoising.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Gaussian smoothing
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: '**Gaussian blur** (or **Gaussian smoothing**) applies a Gaussian filter to
+    the image, which works by taking the pixel values within a specified neighborhood
+    around each pixel and averaging them. The filter assigns higher weights to the
+    pixels closer to the center of the neighborhood and lower weights to those farther
+    away, following the Gaussian distribution. The denoised image will appear smoother
+    but with slightly blurred edges, making it useful in applications where slight
+    blurring is acceptable or desired, such as artistic effects or before edge detection
+    algorithms to reduce noise. Let’s see the code for applying Gaussian smoothing
+    to the image:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE13]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Let’s display the denoised image:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE14]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The denoised image can be seen in *Figure 13**.6*:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 13.6 – Denoised images – Gaussian blur on the median blur on the right](img/B19801_13_6.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 13.6 – Denoised images – Gaussian blur on the median blur on the right
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the next section, we will discuss the bilateral filter.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The bilateral filter
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'The **bilateral filter** smoothens images by considering both spatial and intensity
+    differences. It averages the pixel values based on their spatial closeness and
+    color similarity. Let’s have a look at the code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE15]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The `bilateralFilter` function takes some arguments that we need to explain:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`9`: This is the diameter of each pixel neighborhood used during filtering.
+    A larger value means that more pixels will be considered in the computation, resulting
+    in a stronger smoothing effect.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`75`: This is the filter sigma in the color space. A larger value means that
+    farther colors within the pixel neighborhood will be mixed, resulting in larger
+    areas of semi-equal color.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`75`: This is the filter sigma in the coordinate space. A larger value means
+    farther pixels will influence each other if their colors are close enough. It
+    controls the amount of smoothing.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Let’s use the function and see the resulting output:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE16]'
+  prefs: []
+  type: TYPE_PRE
+- en: The denoised image can be seen in *Figure 13**.7*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 13.7 – Denoised images – left bilateral filter, right non-local mean
+    denoising](img/B19801_13_7_Merged.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 13.7 – Denoised images – left bilateral filter, right non-local mean
+    denoising
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the next section, we will discuss the non-local means denoising.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Non-local means denoising
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: '**Non-local means denoising** reduces noise by comparing patches of the image
+    and averaging similar patches, even if they are far apart. This method works by
+    comparing small patches of pixels across the entire image, rather than just neighboring
+    pixels. Unlike simpler methods that only consider nearby pixels, non-local means
+    denoising searches the image for patches that are similar, even if they are located
+    far apart. When a match is found, the method averages these similar patches together
+    to determine the final pixel value.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: This approach is particularly effective at preserving fine details and textures
+    because it can recognize and retain patterns that are consistent throughout the
+    image, rather than just smoothing over everything indiscriminately. By averaging
+    only the patches that are truly similar, it reduces noise while maintaining the
+    integrity of important image features, making it an excellent choice for applications
+    where detail preservation is crucial.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let’s have a look at the code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE17]'
+  prefs: []
+  type: TYPE_PRE
+- en: The `fastNlMeansDenoisingColored` function applies the non-local means denoising
+    algorithm to the image. The `h=10` argument reflects the filtering strength. A
+    higher value removes more noise but may also remove some image details. The size
+    in pixels of the template patch used to compute weights is reflected in the `templateWindowSize`
+    variable. This value should be an odd number. A greater value means more smoothing.
+    Finally, `searchWindowSize``=21` means the size of the window in pixels used to
+    compute a weighted average for a given pixel should be odd. A greater value means
+    more smoothing.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Why use an odd number for window sizes, such as `templateWindowSize` and`searchWindowSize`?
+  prefs: []
+  type: TYPE_NORMAL
+- en: The primary reason for using an odd number is to ensure that there is a clear
+    center pixel within the window. For example, in a 3x3 window (where 3 is an odd
+    number), the center pixel is the one at position “(2,2)”. This center pixel is
+    crucial because the algorithm often calculates how similar the surrounding pixels
+    are in comparison to this central pixel. If an even-sized window were used, there
+    would be no single, central pixel, as shown in *Figure 13**.8*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 13.8 – Use an odd number for window sizes](img/B19801_13_8.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 13.8 – Use an odd number for window sizes
+  prefs: []
+  type: TYPE_NORMAL
+- en: Using an odd number simplifies the computation of weights and distances between
+    the central pixel and its neighbors. This simplification is essential in algorithms
+    such as non-local means, where the distances between pixels influence the weight
+    given to each pixel in the averaging process. An odd-sized window naturally allows
+    for straightforward indexing and less complex calculations.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Regarding the `searchWindowSize` parameter, this defines the area within which
+    the algorithm looks for similar patches to the one currently being processed.
+    Having an odd-sized window for this search area ensures that there is a central
+    pixel around which the search is centered. This helps in accurately identifying
+    similar patches and applying the denoising effect uniformly across the image.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The denoised image can be seen in the previous section in *Figure 13**.7*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the next section, we will discuss the last method, the median blur.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Median blur
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: '**Median blur** replaces each pixel’s value with the median value of the neighboring
+    pixels. This method is particularly effective for removing “salt-and-pepper” noise,
+    where pixels are randomly set to black or white, as we will see later. Let’s first
+    denoise the image with the median blur method and then we will see how this method
+    solves the salt-and-pepper effect.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The following function performs the `medianBlur` function, which requires the
+    input image to be in an 8-bit unsigned integer format (`uint8`), where pixel values
+    range from `0` to `255`. By multiplying the image by 255, the pixel values are
+    scaled to the range `[``0, 255]`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE18]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Let’s display the denoised image using the following code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE19]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The denoised image can be seen in *Figure 13**.9*:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 13.9 – Denoised images – median blur](img/B19801_13_9.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 13.9 – Denoised images – median blur
+  prefs: []
+  type: TYPE_NORMAL
+- en: As promised, let’s now discuss the salt-and-pepper noise effect.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Salt-and-pepper noise
+  prefs:
+  - PREF_H4
+  type: TYPE_NORMAL
+- en: '**Salt-and-pepper noise** is a type of impulse noise characterized by the presence
+    of randomly distributed black-and-white pixels in an image. This noise can be
+    caused by various factors, such as errors in data transmission, malfunctioning
+    camera sensors, or environmental conditions during image acquisition. The black
+    pixels are referred to as “pepper noise,” while the white pixels are known as
+    “salt noise.” This noise type is particularly detrimental to image quality as
+    it can obscure important details and make edge detection and image restoration
+    challenging.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'To showcase this, we have created a function that adds this noise effect to
+    the original image so that we can then denoise it:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE20]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'This function takes three arguments:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`image`: The input image to which noise will be added'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`salt_prob`: The probability of a pixel being turned into salt noise (white)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`pepper_prob`: The probability of a pixel being turned into pepper noise (black)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: This function adds salt-and-pepper noise to an image. It starts by creating
+    a copy of the input image to avoid altering the original. To introduce salt noise
+    (white pixels), it calculates the number of pixels to be affected based on the
+    `salt_prob` parameter, generates random coordinates for these pixels, and sets
+    them to white. Similarly, for pepper noise (black pixels), it calculates the number
+    of affected pixels using the `pepper_prob` parameter, generates random coordinates,
+    and sets these pixels to black. The noisy image is then returned.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'To apply this effect on the data you need to set the following flag to `True`.
+    The flag can be found in the code after the `add_salt_and_pepper_noise` function
+    definition:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE21]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The image with the noise can be seen in *Figure 13**.10*:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 13.10 – Salt-and-pepper noise](img/B19801_13_10.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 13.10 – Salt-and-pepper noise
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now, let’s apply the different denoising techniques we’ve learned so far to
+    the preceding image. The different denoising effects can be seen in *Figure 13**.11*
+    and *Figure 13**.12*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 13.11 – Left: Gaussian blur, right: median blur](img/B19801_13_11_Merged.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 13.11 – Left: Gaussian blur, right: median blur'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 13.12 – Left: bilateral filter, right: non-local means denoising](img/B19801_13_12_Merged.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 13.12 – Left: bilateral filter, right: non-local means denoising'
+  prefs: []
+  type: TYPE_NORMAL
+- en: As we can see, the median blur method really excels at removing this kind of
+    noise, whereas all the other methods really struggle to remove it. In the next
+    part of the chapter, we will discuss some image use cases that are becoming more
+    popular in the data world, such as creating image captions and extracting text
+    from images.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Extracting text from images
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: When discussing ways to extract text from images, the OCR technology is the
+    one that comes to mind. The OCR technology allows us to handle textual information
+    embedded in images, allowing for the digitization of printed documents, automating
+    data entry, and enhancing accessibility.
+  prefs: []
+  type: TYPE_NORMAL
+- en: One of the primary benefits of OCR technology today is its ability to significantly
+    reduce the need for manual data entry. For example, businesses can convert paper
+    documents into digital formats using OCR, which not only saves physical storage
+    space but also enhances document management processes. This conversion makes it
+    easier to search, retrieve, and share documents, streamlining operations and improving
+    productivity.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In transportation, particularly with self-driving cars, OCR technology is used
+    to read road signs and number plates. This capability is vital for navigation
+    and ensuring compliance with traffic regulations. By accurately interpreting signage
+    and vehicle identification, OCR contributes to the safe and efficient functioning
+    of autonomous vehicles.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Moreover, OCR technology is employed in social media monitoring to detect brand
+    logos and text in images. This application is particularly beneficial for marketing
+    and brand management, as it enables companies to track brand visibility and engagement
+    across social platforms. For instance, brands can use OCR to identify unauthorized
+    use of their logos or monitor the spread of promotional materials, thereby enhancing
+    their marketing strategies and protecting their brand identity.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let’s see how we can apply OCR in the data world with an open source solution.
+  prefs: []
+  type: TYPE_NORMAL
+- en: PaddleOCR
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: '**PaddleOCR** is an open source OCR tool developed by PaddlePaddle, which is
+    Baidu’s deep learning platform. The repository provides end-to-end OCR capabilities,
+    including text detection, text recognition, and multilingual support ([https://github.com/PaddlePaddle/PaddleOCR](https://github.com/PaddlePaddle/PaddleOCR)).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The PaddleOCR process has a lot of steps in place that can be seen in the following
+    *Figure 13**.13*:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 13.13 – OCR process step by step](img/B19801_13_13.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 13.13 – OCR process step by step
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let’s break down the process step by step:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The process begins with an input image that may contain text.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '**Image preprocessing**: The image may undergo various preprocessing steps,
+    such as resizing, converting to grayscale, and noise reduction, to enhance text
+    visibility.'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '**Text detection**: The model detects regions of the image that contain text.
+    This may involve algorithms such as **Efficient and Accurate Scene Text** (**EAST**)
+    or **Differentiable Binarization** (**DB**) to find bounding boxes around the
+    text.'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '**Text recognition**: The detected text regions are fed into a recognition
+    model (often a **convolutional neural network** (**CNN**) followed by a **long
+    short-term model** (**LSTM**) or a transformer) to convert the visual text into
+    digital text.'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '**Post-processing**: The recognized text may be further refined through spell-checking,
+    grammar correction, or contextual analysis to improve accuracy.'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '**Extracted text**: The final output consists of extracted digital text ready
+    for further use.'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '**Annotated image**: Optionally, an annotated version of the original image
+    can be generated, showing the detected text regions along with the recognized
+    text.'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: It may seem complicated initially but luckily, most of these steps are abstracted
+    away from the user and are handled by the PaddleOCR package automatically. Let’s
+    introduce a use case for OCR to extract text from YouTube video thumbnails.
+  prefs: []
+  type: TYPE_NORMAL
+- en: YouTube thumbnails
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**YouTube thumbnails** are small, clickable images that represent a video on
+    the platform. They serve as the visual preview that users see before clicking
+    to watch a video. Thumbnails are crucial for attracting viewers, as they often
+    play a significant role in influencing whether someone decides to watch the content.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'By analyzing the text present in thumbnails, such as video titles and promotional
+    phrases, stakeholders can gain insights into viewer engagement and content trends.
+    For instance, a marketing team can collect thumbnails from a range of videos and
+    employ OCR to extract keywords and phrases that frequently appear in high-performing
+    content. This analysis can reveal which terms resonate most with audiences, enabling
+    creators to optimize their future thumbnails and align their messaging with popular
+    themes. Additionally, the extracted text can inform **search engine optimization**
+    (**SEO**) strategies by identifying trending keywords to incorporate into video
+    titles, descriptions, and tags, ultimately enhancing video discoverability. In
+    our case, we have provided a folder on the GitHub repository with YouTube thumbnails
+    from the channel I am cohosting called **Vector Lab**, discussing Gen AI and ML
+    concepts. Here’s a link to the images folder on GitHub: [https://github.com/PacktPublishing/Python-Data-Cleaning-and-Preparation-Best-Practices/tree/main/chapter13/images](https://github.com/PacktPublishing/Python-Data-Cleaning-and-Preparation-Best-Practices/tree/main/chapter13/images).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The images in the folder look like the following figure and the idea is to pass
+    all these images and extract the text depicted on the image.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 13.14 – Example YouTube thumbnail](img/B19801_13_14.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 13.14 – Example YouTube thumbnail
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let’s see how we can achieve that:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We’ll start by initializing PaddleOCR:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE22]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: The `use_angle_cls=True` flag enables the use of an angle classifier in the
+    OCR process. The angle classifier helps improve the accuracy of text recognition
+    by determining the orientation of the text in the image. This is particularly
+    useful for images where text might not be horizontally aligned (e.g., rotated
+    or skewed text).
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: The `lang='en'` parameter specifies the language for OCR. In this case, `'en'`
+    indicates that the text to be recognized is in English. PaddleOCR supports multiple
+    languages and sets the appropriate language in case you want to perform OCR in
+    a language other than English.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'Next, we define the path to the folder containing images to extract the text
+    from:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE23]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Then, we specify the supported image extensions. In our case, we only have
+    `.png`, but you can add any image type in the folder:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE24]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Next, we get all paths to the images in the folder that we will use to load
+    the images:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE25]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Then, we create an empty DataFrame to store the results:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE26]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'We use the following code to check if there are no image paths returned, which
+    would mean that either there are no images in the folder or the images that exist
+    in the folder don’t have any of the supported extensions:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE27]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'def process_image(image_path):'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: result = ocr.ocr(image_path, cls=True)
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: extracted_text = ""
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'for line in result[0]:'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: extracted_text += line[1][0] + " "
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: print(f"Extracted Text from {os.path.basename(image_path)}:\n{extracted_text}\n")
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: df.loc[len(df)] = [image_path, extracted_text]
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '[PRE28]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Optionally, we can save the DataFrame to a CSV file using the following code:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE29]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: The results can be seen in *Figure 13**.15*, where we have the path to the image
+    on the left and the extracted text on the right.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 13.15 – OCR output](img/B19801_13_15.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 13.15 – OCR output
+  prefs: []
+  type: TYPE_NORMAL
+- en: The results are great; however, we can see that there are some misspellings
+    in certain cases, probably due to the font of the text in the images. The key
+    thing to understand here is that we don’t have to deal with the images anymore,
+    but only with the text, thereby significantly simplifying our challenge. Based
+    on what we learned in [*Chapter 12*](B19801_12.xhtml#_idTextAnchor277), *Text
+    Preprocessing in the Era of LLMs* we can now manipulate and clean the text in
+    various ways, such as chunking it, embedding it, or passing it through **large
+    language models** (**LLMs**), as we will see in the next part.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Using LLMs with OCR
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: OCR technology, despite its advancements, often produces errors, especially
+    with complex layouts, low-quality images, or unusual fonts. These errors include
+    misrecognized characters and incorrect word breaks. So, the idea is to pass the
+    OCR-extracted text through an LLM to correct these errors as LLMs understand context
+    and can improve grammar and readability. Moreover, raw OCR output may be inconsistently
+    formatted and hard to read; LLMs can reformat and restructure text, ensuring coherent
+    and well-structured content. This automated proofreading reduces the need for
+    manual intervention, saving time and minimizing human error. LLMs also standardize
+    the text, making it consistent and easier to integrate into other systems, such
+    as databases and analytical tools.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this section, we will expand the thumbnail example to pass the extracted
+    text through an LLM to clean it. To run this example, you need to do the following
+    setup first.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Hugging Face setup
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'In order to run this example, you will need to have an account with Hugging
+    Face and a token to authenticate. To do that, follow these steps:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Go to [https://huggingface.co](https://huggingface.co).
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Create an account if you don’t have one.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Go to **Settings**.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Then, click on **Access Tokens**. You should see the following page:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '![Figure 13.16 – Creating a new access token in Hugging Face](img/B19801_13_16.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 13.16 – Creating a new access token in Hugging Face
+  prefs: []
+  type: TYPE_NORMAL
+- en: Click on the **Create new token** button to generate a new personal token.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Remember to copy and keep this token as we will need to paste it in the code
+    file to authenticate!
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Now, we are ready to dive into the code.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Cleaning text with LLMs
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'Let’s have a look at the code that you can find in the GitHub repository: [https://github.com/PacktPublishing/Python-Data-Cleaning-and-Preparation-Best-Practices/blob/main/chapter13/3.ocr_with_llms.py](https://github.com/PacktPublishing/Python-Data-Cleaning-and-Preparation-Best-Practices/blob/main/chapter13/3.ocr_with_llms.py):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We start by reading in the OCR-extracted text that we wrote in the previous
+    step:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE30]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'We then initialize the Hugging Face model. In this case, we are using `Mistral-Nemo-Instruct-2407`,
+    but you can replace it with any LLM you have access to:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE31]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '**Hugging Face** is a platform that provides a diverse repository of pretrained
+    models, which can be accessed and integrated easily using user-friendly APIs.
+    Hugging Face models come with detailed documentation and benefit from continuous
+    innovation driven by a collaborative community. I see it as being similar to how
+    GitHub serves as a repository for code; Hugging Face functions as a repository
+    for ML models. Importantly, many models on Hugging Face are available for free,
+    making it a cost-effective option for individuals and researchers.'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: In contrast, there are many other paid models available, such as Azure OpenAI,
+    which provides access to models such as GPT-3 and GPT-4\. These models can be
+    accessed on a paid model, and you have to manage the authentication process, which
+    is different from authenticating with Hugging Face.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'Add your Hugging Face API token, which was created in the previous setup section:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE32]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: prompt_template = PromptTemplate(
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: input_variables=["text"],
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: template='''
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'Correct the following text for spelling errors and return only the corrected
+    text in lowercase. Respond using JSON format, strictly according to the following
+    schema:'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '{{"corrected_text": "corrected text in lowercase"}}'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'Examples: Three examples are provided to guide the model:'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'Input: Shows the input text needing correction.'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'Output: Provides the expected JSON format for the corrected text. This helps
+    the model learn what is required and encourages it to follow the same format when
+    generating its responses.'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'Examples:'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'Input: "Open vs Proprietary LLMs"'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'Output: {{"corrected_text": "open vs proprietary llms"}}'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'Input: "HOW TO MITIGATE SaCURITY RISKS IN AI AND ML SYSTEM VECTOR LAB"'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'Output: {{"corrected_text": "how to mitigate security risks in ai and ml system
+    vector lab"}}'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'Input: "BUILDING DBRX-CLASS CUSTOM LLMS WITH MOSAIC A1 TRAINING VECTOR LAB"'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'Output: {{"corrected_text": "building dbrx-class custom llms with mosaic a1
+    training vector lab"}}'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'Text to Correct: Placeholder {text} that will be replaced with the actual input
+    text when calling the model.'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'Text to correct:'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '{text}'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'Final Instruction: Specifies that the output should be in JSON format only,
+    which reinforces the expectation that the model should avoid unnecessary explanations
+    or additional text.'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'Output (JSON format only):'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: ''''''''
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: )
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'PromptTemplate class for use with a language model to correct spelling errors
+    in text. The PromptTemplate class is initialized with two key parameters: input_variables
+    and template. The input_variables parameter specifies the input variable as ["text"],
+    which represents the text that will be corrected. The template parameter contains
+    the prompt structure sent to the model. This structure includes clear instructions
+    for the model to correct spelling errors and return the output in lowercase, formatted
+    as JSON. The JSON schema specifies the expected output format, ensuring consistency
+    in responses. The template also provides three examples of input text and their
+    corresponding corrected output in JSON format, guiding the model on how to process
+    similar requests. The {text} placeholder in the template will be replaced with
+    the actual input text when the model is invoked. The final instruction emphasizes
+    that the output should be strictly in JSON format, avoiding any additional text
+    or explanations.'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '[PRE33]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'We initialize the model from Hugging Face using the model name and API token
+    that we specified earlier:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE34]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'We then combine the prompt template and the model, creating a chain that will
+    take input text, apply the prompt, and create output:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE35]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'We use `llm_chain` to generate a response:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE36]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Finally, we apply text correction to the `Extracted` `Text` column:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE37]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Let’s present some of the results:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE38]'
+  prefs: []
+  type: TYPE_PRE
+- en: import os
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: import pandas as pd
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: from PIL import Image
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: import matplotlib.pyplot as plt
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: from transformers import BlipProcessor, BlipForConditionalGeneration, AutoTokenizer,
+    AutoModelForSeq2SeqLM
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: from langchain import PromptTemplate, LLMChain
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: from langchain.llms import HuggingFaceHub
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '[PRE39]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: folder_path = 'chapter13/images'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '[PRE40]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: supported_extensions = ('.png', '.jpg', '.jpeg')
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '[PRE41]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: image_paths = [os.path.join(folder_path, file) for file in os.listdir(folder_path)
+    if file.lower().endswith(supported_extensions)]
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '[PRE42]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: df = pd.DataFrame(columns=['Image Path', 'Generated Caption', 'Refined Caption'])
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '[PRE43]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: blip_model = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-captioning-base")
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: blip_processor = BlipProcessor.from_pretrained("Salesforce/blip-image-captioning-base")
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '[PRE44]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'llm_model_name = "google/flan-t5-small" # You can play with any other model
+    from hugging phase as well'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: tokenizer = AutoTokenizer.from_pretrained(llm_model_name)
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: model = AutoModelForSeq2SeqLM.from_pretrained(llm_model_name)
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '[PRE45]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: api_token = "add_your_hugging_face_token"
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'prompt_template = PromptTemplate(input_variables=["text"], template="Refine
+    and correct the following caption: {text}")'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: huggingface_llm = HuggingFaceHub(repo_id=llm_model_name, huggingfacehub_api_token=api_token)
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: llm_chain = LLMChain(prompt=prompt_template, llm=huggingface_llm)
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '[PRE46]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'def refine_caption(caption):'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: prompt = prompt_template.format(text=caption)
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: refined_caption = llm_chain.run(prompt)
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: return refined_caption
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '[PRE47]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'def generate_caption(image_path):'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: image = Image.open(image_path).convert("RGB")
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: inputs = blip_processor(images=image, return_tensors="pt")
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: outputs = blip_model.generate(inputs)
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: caption = blip_processor.decode(outputs[0], skip_special_tokens=True)
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: return caption
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '[PRE48]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'if not image_paths:'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: print("No images found in the specified folder.")
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'else:'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'for image_path in image_paths:'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: caption = generate_caption(image_path)
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: print(f"Generated Caption for {os.path.basename(image_path)}:\n{caption}\n")
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: refined_caption = refine_caption(caption)
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: print(f"Refined Caption:\n{refined_caption}\n")
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: df.loc[len(df)] = [image_path, caption, refined_caption]
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '[PRE49]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: import torch
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: from transformers import WhisperProcessor, WhisperForConditionalGeneration
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: import librosa
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '[PRE50]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: processor = WhisperProcessor.from_pretrained("openai/whisper-large-v2")
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: model = WhisperForConditionalGeneration.from_pretrained("openai/whisper-large-v2")
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '[PRE51]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: audio_path = "chapter13/audio/3.chain orchestrator.mp3"
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '[PRE52]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: audio, rate = librosa.load(audio will be a NumPy array containing the audio
+    samples.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '[PRE53]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: input_features = processor(audio, sampling_rate=rate, return_tensors="pt").input_features
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '[PRE54]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'with torch.no_grad():'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: predicted_ids = model.generate(input_features)
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '[PRE55]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: transcription = processor.batch_decode(predicted_ids, skip_special_tokens=True)[0]
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '[PRE56]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '"As you can see, you need what we call a chain orchestrator to coordinate all
+    the steps. So all the steps from raising the question all the way to the response.
+    And the most popular open source packages are Lama Index and LangChain that we
+    can recommend. Very nice. So these chains, these steps into the RAG application
+    or any other LLM application, you can have many steps happening, right? So you
+    need this chain to help them orchestrate"'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '[PRE57]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: import torch
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: import pandas as pd
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: from transformers import WhisperProcessor, WhisperForConditionalGeneration,
+    AutoModelForSequenceClassification, AutoTokenizer
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: import librosa
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: import numpy as np
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '[PRE58]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: whisper_processor = WhisperProcessor.from_pretrained("openai/whisper-large-v2")
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: whisper_model = WhisperForConditionalGeneration.from_pretrained("openai/whisper-large-v2")
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '[PRE59]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: emotion_model_name = "j-hartmann/emotion-english-distilroberta-base"
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: emotion_tokenizer = AutoTokenizer.from_pretrained(emotion_model_name)
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: emotion_model = AutoModelForSequenceClassification.from_pretrained(emotion_model_name)
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '[PRE60]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'audio_path = "chapter13/audio/3.chain orchestrator.mp3" # Replace with your
+    actual audio file path'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '[PRE61]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: audio, rate = librosa.load(audio_path, sr=16000)
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '[PRE62]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'def split_audio(audio, rate, chunk_duration=30):'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: chunk_length = int(rate * chunk_duration)
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: num_chunks = int(np.ceil(len(audio)/chunk_length))
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: return [audio[i*chunk_length:(i+1)*chunk_length] for i in range(num_chunks)]
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '[PRE63]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'def transcribe_audio(audio_chunk, rate):'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: input_features = whisper_processor(audio_chunk, sampling_rate=rate, return_tensors="pt").input_features
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'with torch.no_grad():'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: predicted_ids = whisper_model.generate(input_features)
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: transcription = whisper_processor.batch_decode(predicted_ids, skip_special_tokens=True)[0]
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: return transcription
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '[PRE64]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'def detect_emotion(text):'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: inputs = emotion_tokenizer(text, return_tensors="pt", truncation=True, padding=True,
+    max_length=512)
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: outputs = emotion_model(inputs)
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: predicted_class_id = torch.argmax(outputs.logits, dim=-1).item()
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: emotions = emotion_model.config.id2label
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: return emotions[predicted_class_id]
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '[PRE65]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'audio_chunks = split_audio(audio, rate, chunk_duration=30) # 30-second chunks'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '[PRE66]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: df = pd.DataFrame(columns=['Chunk Index', 'Transcription', 'Emotion'])
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '[PRE67]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'for i, audio_chunk in enumerate(audio_chunks):'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: transcription = transcribe_audio(audio_chunk,rate)
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: emotion = detect_emotion(transcription)
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '# Append results to DataFrame'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: df.loc[i] = [i, transcription, emotion]
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '[PRE68]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: Chunk Index  Emotion
+  prefs: []
+  type: TYPE_NORMAL
+- en: 0            0  neutral
+  prefs: []
+  type: TYPE_NORMAL
+- en: 1            1  neutral
+  prefs: []
+  type: TYPE_NORMAL
+- en: 2            2  neutral
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE69]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'model_name = "mistralai/Mistral-Nemo-Instruct-2407" # Using Mistral for instruction-following'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '[PRE70]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'api_token = "" # Replace with your actual API token'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '[PRE71]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: prompt_template = PromptTemplate(
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: input_variables=["text"],
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: template='''This is the transcribed text from a YouTube video. Write the key
+    highlights from this video in bullet format.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '{text}'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'Output:'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: ''''''''
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: )
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'huggingface_llm = HuggingFaceHub(repo_id=model_name, huggingfacehub_api_token=api_token,
+    model_kwargs={"task": "text-generation"})'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: llm_chain = LLMChain(prompt=prompt_template, llm=huggingface_llm)
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '[PRE72]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'def transcribe_audio(audio_chunk, rate):'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: input_features = whisper_processor(audio_chunk,
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: sampling_rate=rate,
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: return_tensors="pt").input_features
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'with torch.no_grad():'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: predicted_ids = \
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: whisper_model.generate(input_features)
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: transcription = whisper_processor.batch_decode(
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: predicted_ids, skip_special_tokens=True)[0]
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: return transcription
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '[PRE73]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'def generate_highlights(text):'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'try:'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: response = llm_chain.run(text)
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'return response.strip() # Clean up any whitespace around the response'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'except Exception as e:'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'print(f"Error generating highlights: {e}")'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'return "error" # Handle errors gracefully'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '[PRE74]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'audio_chunks = split_audio(audio, rate, chunk_duration=30) # 30-second chunks'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '[PRE75]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: transcriptions = [transcribe_audio(chunk, rate) for chunk in audio_chunks]
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '[PRE76]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: full_transcription = " ".join(transcriptions)
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '[PRE77]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: highlights = generate_highlights(full_transcription)
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '[PRE78]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Chain Orchestrator: Required to coordinate all steps in a LLM (Large Language
+    Model) application, such as RAG (Retrieval-Augmented Generation).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Popular Open Source Packages: Lama Index and LangChain are recommended for
+    this purpose.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Modularization: Chains allow for modularization of the process, making it easier
+    to update or change components like LMs or vector stores without rebuilding the
+    entire application.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Rapid Advancements in JNNIA
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE79]'
+  prefs: []
+  type: TYPE_PRE

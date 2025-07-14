@@ -1,0 +1,1120 @@
+- en: 'Chapter 4: Real-Time Data Analytics'
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In the modern big data world, data is being generated at a tremendous pace,
+    that is, faster than any of the past decade's technologies can handle, such as
+    batch processing ETL tools, data warehouses, or business analytics systems. It
+    is essential to process data and draw insights in real time for businesses to
+    make tactical decisions that help them to stay competitive. Therefore, there is
+    a need for real-time analytics systems that can process data in real or near real-time
+    and help end users get to the latest data as quickly as possible.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this chapter, you will explore the architecture and components of a real-time
+    big data analytics processing system, including message queues as data sources,
+    Delta as the data sink, and Spark's Structured Streaming as the stream processing
+    engine. You will learn techniques to handle late-arriving data using stateful
+    processing Structured Streaming. The techniques for maintaining an exact replica
+    of source systems in a data lake using **Change Data Capture** (**CDC**) will
+    also be presented. You will learn how to build multi-hop stream processing pipelines
+    to progressively improve data quality from raw data to cleansed and enriched data
+    that is ready for data analytics. You will gain the essential skills to implement
+    a scalable, fault-tolerant, and near real-time analytics system using Apache Spark.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In this chapter, we will cover the following main topics:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Real-time analytics systems architecture
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Stream processing engines
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Real-time analytics industry use cases
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Simplifying the Lambda Architecture using Delta Lake
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: CDC
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Multi-hop streaming pipelines
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Technical requirements
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'In this chapter, you will be using the Databricks Community Edition to run
+    your code. This can be found at [https://community.cloud.databricks.com](https://community.cloud.databricks.com):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Sign-up instructions can be found at [https://databricks.com/try-databricks](https://databricks.com/try-databricks).
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The code and data used in this chapter can be downloaded from [https://github.com/PacktPublishing/Essential-PySpark-for-Scalable-Data-Analytics/tree/main/Chapter04](https://github.com/PacktPublishing/Essential-PySpark-for-Scalable-Data-Analytics/tree/main/Chapter04).
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Before we dive deeper into implementing real-time stream processing data pipelines
+    with Apache Spark, first, we need to understand the general architecture of a
+    real-time analytics pipeline and its various components, as described in the following
+    section.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Real-time analytics systems architecture
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'A real-time data analytics system, as the name suggests, processes data in
+    real time. This is because it is generated at the source, making it available
+    for business users with the minimal latency possible. It consists of several important
+    components, namely, streaming data sources, a stream processing engine, streaming
+    data sinks, and the actual real-time data consumers, as illustrated in the following
+    diagram:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 4.1 – Real-time data analytics'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/B16736_04_01.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Figure 4.1 – Real-time data analytics
+  prefs: []
+  type: TYPE_NORMAL
+- en: The preceding diagram depicts a typical real-time data analytics systems architecture.
+    In the following sections, we will explore each of the components in more detail.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Streaming data sources
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Similar to any of the other **enterprise decision support Systems**, a **real-time
+    data analytics system** also starts with data sources. Businesses generate data
+    continuously in real time; therefore, any data source used by a batch processing
+    system is also a streaming data source. The only difference is in how often you
+    ingest data from the data source. In batch processing mode, data is ingested periodically,
+    whereas, in a real-time streaming system, data is continuously ingested from the
+    same data source. However, there are a few considerations to bear in mind before
+    continuously ingesting data from a data source. These can be described as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Can the data source keep up with the demands of a real-time streaming analytics
+    engine? Or will the streaming engine end up taxing the data source?
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Can the data source communicate with the streaming engine asynchronously and
+    replay events in any arbitrary order that the streaming engine requires?
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Can the data source replay events in the exact order that they occurred at the
+    source?
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The preceding three points bring up some important requirements regarding streaming
+    data sources. A streaming data source should be distributed and scalable in order
+    to keep up with the demands of a real-time streaming analytics system. Note that
+    it must be able to replay events in any arbitrary order. This is so that the streaming
+    engine has the flexibility to process events in any order or restart the process
+    in the case of any failures. For certain real-time use cases, such as CDC, it
+    is important that you replay events in the exact same order they occurred at the
+    source in order to maintain data integrity.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Due to the previously mentioned reasons, no operating system is fit to be a
+    streaming data source. In the cloud and big data works, it is recommended that
+    you use a scalable, fault-tolerant, and asynchronous message queue such as Apache
+    Kafka, AWS Kinesis, Google Pub/Sub, or Azure Event Hub. Cloud-based data lakes
+    such as AWS S3, Azure Blob, and ADLS storage or Google Cloud Storage are also
+    suitable as streaming data sources to a certain extent for certain use cases.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now that we have an understanding of streaming data sources, let''s take a
+    look at how to ingest data from a data source such as a data lake in a streaming
+    fashion, as shown in the flowing code snippet:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: In the previous code, we define a streaming DataFrame that reads one file at
+    a time from a data lake location. The `readStream()` method of the `DataStreamReader`
+    object is used to create the streaming DataFrame. The data format is specified
+    as CSV, and the schema information is defined using the `eventSchema` object.
+    Finally, the location of the CSV files within the data lake is specified using
+    the `load()` function. The `maxFilesPerTrigger` option specifies that only one
+    file must be read by the stream at a time. This is useful for throttling the rate
+    of stream processing, if required, because of the compute resource constraints.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Once we have the streaming DataFrame created, it can be further processed using
+    any of the available functions in the DataFrame API and persisted to a streaming
+    data sink, such as a data lake. We will cover this in the following section.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Streaming data sinks
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Once data streams are read from their respective streaming sources and processed,
+    they need to be stored onto some form of persistent storage for further downstream
+    consumption. Although any regular data sink could act as a streaming data sink,
+    a number of considerations apply when choosing a streaming data sink. Some of
+    these considerations include the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: What are the latency requirements for data consumption?
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: What kind of data will consumers be consuming in the data stream?
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Latency is an important factor when choosing the streaming data source, the
+    data sink, and the actual streaming engine. Depending on the latency requirements,
+    you might need to choose an entirely different end-to-end streaming architecture.
+    Streaming use cases can be classified into two broad categories, depending on
+    the latency requirements:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Real-time transactional systems
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Near real-time analytics systems
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Real-time transactional systems
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: Real-time transactional systems are operational systems that are, typically,
+    interested in processing events pertaining to a single entity or transaction at
+    a time. Let's consider an example of an online retail business where a customer
+    visits an e-tailer's and browses through a few product categories in a given session.
+    An operational system would be focused on capturing all of the events of that
+    particular session and maybe display a discount coupon or make a specific recommendation
+    to that user in real time. In this kind of scenario, the latency requirement is
+    ultra-low and, usually, ranges in sub-seconds. These kinds of use cases require
+    an ultra-low latency streaming engine along with an ultra-low latency streaming
+    sink such as an in-memory database, such as **Redis** or **Memcached**, for instance.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Another example of a real-time transactional use case would be a CRM system
+    where a customer service representative is trying to make an upsell or cross-sell
+    recommendation to a live customer online. Here, the streaming engine needs to
+    fetch certain precalculated metrics for a specific customer from a data store,
+    which contains information about millions of customers. It also needs to fetch
+    some real-time data points from the CRM system itself in order to generate a personalized
+    recommendation for that specific customer. All of this needs to happen in a matter
+    of seconds. A `CustomerID`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Important note
+  prefs: []
+  type: TYPE_NORMAL
+- en: Spark's Structured Streaming, with its micro-batch style of stream processing
+    model, isn't well suited for real-time stream processing use cases where there
+    is an ultra-low latency requirement to process events as they happen at the source.
+    Structured Streaming has been designed for maximum throughput and scalability
+    rather than for ultra-low latency. Apache Flink or another streaming engine that
+    was purpose-built would be a good fit for real-time transactional use cases.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now that you have gained an understanding of real-time analytics engines along
+    with an example of a real-time analytics use case, in the following section, we
+    will take a look at a more prominent and practical way of processing analytics
+    in near real time.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Near real-time analytics systems
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: Near real-time analytics systems are analytics systems that process an aggregate
+    of records in near real time and have a latency requirement ranging from a few
+    seconds to a few minutes. These systems are not interested in processing events
+    for a single entity or transaction but generate metrics or KPIs for an aggregate
+    of transactions to depict the state of business in real time. Sometimes, these
+    systems might also generate sessions of events for a single transaction or entity
+    but for later offline consumption.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Since this type of real-time analytics system processes a very large volume
+    of data, throughput and scalability are of key importance here. Additionally,
+    since the processed output is either being fed into a Business Intelligence system
+    for real-time reporting or into persistent storage for consumption in an asynchronous
+    manner, a data lake or a data warehouse is an ideal streaming data sink for this
+    kind of use case. Examples of near real-time analytics use cases are presented,
+    in detail, in the *Real-time analytics industry use cases* section. Apache Spark
+    was designed to handle near real-time analytics use cases that require maximum
+    throughput for large volumes of data with scalability.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now that you have an understanding of streaming data sources, data sinks, and
+    the kind of real-time use cases that Spark's Structured Streaming is better suited
+    to solve, let's take a deeper dive into the actual streaming engines.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Stream processing engines
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: A stream processing engine is the most critical component of any real-time data
+    analytics system. The role of the stream processing engine is to continuously
+    process events from a streaming data source and ingest them into a streaming data
+    sink. The stream processing engine can process events as they arrive in a real
+    real-time fashion or group a subset of events into a small batch and process one
+    micro-batch at a time in
+  prefs: []
+  type: TYPE_NORMAL
+- en: a near real-time manner. The choice of the engine greatly depends on the type
+    of use case and the processing latency requirements. Some examples of modern streaming
+    engines include Apache Storm, Apache Spark, Apache Flink, and Kafka Streams.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Apache Spark comes with a stream processing engine called **Structured Streaming**,
+    which is based on Spark''s SQL engine and DataFrame APIs. Structured Streaming
+    uses the micro-batch style of processing and treats each incoming micro-batch
+    as a small Spark DataFrame. It applies DataFrame operations to each micro-batch
+    just like any other Spark DataFrame. The programming model for Structured Streaming
+    treats the output dataset as an unbounded table and processes incoming events
+    as a stream of continuous micro-batches. Structured Streaming generates a query
+    plan for each micro-batch, processes them, and then appends them to the output
+    dataset, treating it just like an unbounded table, as illustrated in the following
+    diagram:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 4.2 – The Structured Streaming programming model'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/B16736_04_02.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Figure 4.2 – The Structured Streaming programming model
+  prefs: []
+  type: TYPE_NORMAL
+- en: As shown in the preceding diagram, Structured Streaming treats each incoming
+    micro-batch of data like a small Spark DataFrame and appends it to the end of
+    an existing Streaming DataFrame. An elaboration of Structured Streaming's programming
+    model, with examples, was presented in the *Ingesting data in real time using
+    Structured Streaming* section of [*Chapter 2*](B16736_02_Final_JM_ePub.xhtml#_idTextAnchor032),
+    *Data Ingestion*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Structured Streaming can simply process streaming events as they arrive in micro-batches
+    and persist the output to a streaming data sink. However, in real-world scenarios,
+    the simple model of stream processing might not be practical because of **Late-Arriving
+    Data**. Structured Streaming also supports a stateful processing model to deal
+    with data that is either arriving late or is out of order. You will learn more
+    about handling late-arriving data in the *Handling late-arriving data* section.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Real-time data consumers
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: The final component of a real-time data analytics system is the actual data
+    consumer. Data consumers can be actual business users that consume real-time data
+    by the means of ad hoc Spark SQL queries, via interactive operational dashboards
+    or other systems that take the output of a streaming engine and further process
+    it. Real-time business dashboards are consumed by business users, and typically,
+    these have slightly higher latency requirements as a human mind can only comprehend
+    data at a given rate. Structured Streaming is a good fit for these use cases and
+    can write the streaming output to a database where it can be further fed into
+    a Business Intelligence system.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The output of a streaming engine can also be consumed by other business applications
+    such as a mobile app or a web app. Here, the use case could be something such
+    as hyper-personalized user recommendations, where the processed output of a streaming
+    engine could be further passed on to something such as an online inference engine
+    for generating personalized user recommendations. Structured Streaming can be
+    used for these use cases as long as the latency requirements are in the range
+    of a few seconds to a few minutes.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In summary, real-time data analytics has a few important components such as
+    the streaming data sources and sinks, the actual streaming engine, and the final
+    real-time data consumers. The choice of data source, data sink, and the actual
+    engine in your architecture depends on your actual real-time data consumers, the
+    use case that is being solved, the processing latency, and the throughput requirements.
+    Now, in the following section, we'll take a look at some examples of real-world
+    industry use cases that leverage real-time data analytics.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Real-time analytics industry use cases
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: There is an actual need for and an advantage to processing data in real time,
+    so companies are quickly shifting from batch processing to real-time data processing.
+    In this section, let's take a look at a few examples of real-time data analytics
+    by industry verticals.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Real-time predictive analytics in manufacturing
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: With the advent of the **Internet of Things** (**IoT**), manufacturing and other
+    industries are generating a high volume of IoT data from their machines and heavy
+    equipment. This data can be leveraged in few different ways to improve the way
+    industries work and help them to save costs. One such example is predictive maintenance,
+    where IoT data is continuously ingested from industrial equipment and machinery,
+    data science, and machine learning techniques that have been applied to the data
+    to identify patterns that can predict equipment or part failures. When this process
+    is performed in real time, it can help to predict equipment and part failures
+    before they actually happen. In this way, maintenance can be performed proactively,
+    preventing downtime and thus preventing any lost revenue or missed manufacturing
+    targets.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Another example is the construction industry where IoT data, such as equipment
+    uptime, fuel consumption, and more, can be analyzed to identify any underutilized
+    equipment and any equipment that can be redirected in real time for optimal utilization.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Connected vehicles in the automotive sector
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Modern vehicles come with a plethora of connected features that definitely make
+    the life of a consumer much easier and more convenient. Vehicle telematics, as
+    well as user data generated by such vehicles, can be used for a variety of use
+    cases or to further provide convenience features for the end user, such as real-time
+    personalized in-vehicle content and services, advanced navigation and route guidance,
+    and remote monitoring. Telematics data can be used by the manufacturer to unlock
+    use cases such as predicting a vehicle's maintenance window or part failure and
+    proactively alerting ancillary vendors and dealerships. Predicting part failures
+    and better managing vehicle recalls helps automotive manufacturers with huge costs.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Financial fraud detection
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Modern-day personal finance is rapidly moving from physical to digital, and
+    with that comes the novel threat of digital financial threats such as fraud and
+    identity theft. Therefore, there is a need for financial institutions to proactively
+    assess millions of transactions in real time for fraud and to alert and protect
+    the individual consumer of such fraud. Highly scalable, fault-tolerant real-time
+    analytics systems are required to detect and prevent financial fraud at such a
+    scale.
+  prefs: []
+  type: TYPE_NORMAL
+- en: IT security threat detection
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Consumer electronics manufactures of online connected devices, as well as corporations,
+    have to continuously monitor their end users' devices for any malicious activity
+    to safeguard the identity and assets of their end users. Monitoring petabytes
+    of data requires real-time analytics systems that can process millions of records
+    per second in real time.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Based on the previously described industry use cases, you might observe that
+    real-time data analytics is becoming more and more prominent by the day. However,
+    real-time data analytics systems don't necessarily negate the need for the batch
+    processing of data. It is very much required for enriching real-time data streams
+    with static data, generating lookups that add context to real-time data, and generating
+    features that are required for real-time data science and machine learning use
+    cases. In [*Chapter 2*](B16736_02_Final_JM_ePub.xhtml#_idTextAnchor032), *Data
+    Ingestion*, you learned about an architecture that could efficiently unify batch
+    and real-time processing, called the **Lambda Architecture**. In the following
+    section, you will learn how to further simplify the Lambda Architecture using
+    Structured Streaming in combination with Delta Lake.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Simplifying the Lambda Architecture using Delta Lake
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'A typical Lambda Architecture has three major components: a batch layer, a
+    streaming layer, and a serving layer. In [*Chapter 2*](B16736_02_Final_JM_ePub.xhtml#_idTextAnchor032),
+    *Data Ingestion*, you were able to view an implementation of the Lambda Architecture
+    using Apache Spark''s unified data processing framework. The Spark DataFrames
+    API, Structured Streaming, and SQL engine help to make Lambda Architecture simpler.
+    However, multiple data storage layers are still required to handle batch data
+    and streaming data separately. These separate data storage layers could be easily
+    consolidated by using the Spark SQL engine as the service layer. However, that
+    might still lead to multiple copies of data and might require further consolidation
+    of data using additional batch jobs in order to present the user with a single
+    consistent and integrated view of data. This issue can be overcome by making use
+    of Delta Lake as a persistent data storage layer for the Lambda Architecture.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Since Delta Lake comes built with ACID transactional and isolation properties
+    for write operations, it can provide the seamless unification of batch and streaming
+    data, further simplifying the Lambda Architecture. This is illustrated in the
+    following diagram:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 4.3 – A Lambda Architecture with Apache Spark and Delta Lake'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/B16736_04_03.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Figure 4.3 – A Lambda Architecture with Apache Spark and Delta Lake
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In the preceding diagram, a simplified Lambda Architecture is presented. Here,
+    batch data, as well as streaming data, is simultaneously ingested using batch
+    processing with Apache Spark and Structured Streaming, respectively. Ingesting
+    both batch and streaming data into a single Delta Lake table greatly simplifies
+    the Lambda Architecture. Once the data has been ingested into Delta Lake, it is
+    instantly available for further downstream use cases such as ad hoc data exploration
+    via Spark SQL queries, near real-time Business Intelligence reports and dashboards,
+    and data science and machine learning use cases. Since processed data is continuously
+    streamed into Delta Lake, it can be consumed in both a streaming and batch manner:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let''s take a look at how this simplified Lambda Architecture can be implemented
+    using Apache Spark and Delta Lake, as illustrated in the following block of code:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: In the preceding code snippet, we create a Spark DataFrame by reading a CSV
+    file stored on the data lake using the `read()` function. We specify the options
+    to infer the headers and schema from the semi-structured CSV file itself. The
+    result of this is a Spark DataFrame, named `retail_batch_df`, that is a pointer
+    to the data and structure of the retail data stored in the CSV files.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'Now, let''s convert this CSV data into Delta Lake format and store it as a
+    Delta table on the data lake, as shown in the following block of code:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: In the preceding code snippet, we save the `retail_batch_df` Spark DataFrame
+    to the data lake as a Delta table using the `write()` function along with the
+    `saveAsTable()` function. The format is specified as `delta`, and a location for
+    the table is specified using the `path` option. The result is a Delta table named
+    `online_retail` with its data stored, in Delta Lake format, on the data lake.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: Tip
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: When a Spark DataFrame is saved as a table, with a location specified, the table
+    is called an external table. As a best practice, it is recommended that you always
+    create external tables because the data of an external table is preserved even
+    if the table definition is deleted.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'In the preceding block of code, we performed an initial load of the data using
+    Spark''s batch processing:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now, let''s load some incremental data into the same Delta table defined previously,
+    named `online_retail`, using Spark''s Structured Streaming. This is illustrated
+    in the following block of code:'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: In the preceding code snippet, we read a set of CSV files stored on the data
+    lake in a streaming fashion using the `readStream()` function. Structured Streaming
+    requires the schema of data being read to be specified upfront, which we supply
+    using the `schema` option. The result is a Structured Streaming DataFrame named
+    `retail_stream_df`.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'Now, let''s ingest this stream of data into the same Delta table, named `online_retail`,
+    which was created earlier during the initial load. This is shown in the following
+    block of code:'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: In the preceding code block, the streaming `retail_stream_df` DataFrame is being
+    ingested into the existing Delta table named `online_retail` using Structured
+    Streaming's `writeStream()` function. The `outputMode` option is specified as
+    `append`. This is because we want to continuously append new data to the existing
+    Delta table. Since Structured Streaming guarantees `checkpointLocation` needs
+    to be specified. This is so that Structured Streaming can track the progress of
+    the processed data and restart exactly from the point where it left in the case
+    of failures or if the streaming process restarts.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: A Delta table stores all the required schema information in the Delta Transaction
+    Log. This makes registering Delta tables with a metastore completely optional,
+    and it is only required while accessing Delta tables via external tools or via
+    Spark SQL.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: You can now observe from the previous blocks of code that the combination of
+    Spark's unified batch and stream processing already simplifies Lambda Architecture
+    by using a single unified analytics engine. With the addition of Delta Lake's
+    transactional and isolation properties and batch and streaming unification, your
+    Lambda Architecture can be further simplified, giving you a powerful and scalable
+    platform that allows you to get to your freshest data in just a few seconds to
+    a few minutes. One prominent use case of streaming data ingestion is maintaining
+    a replica of the source transactional system data in the data lake. This replica
+    should include all the delete, update, and insert operations that take place in
+    the source system. Generally, this use case is termed CDC and follows a pattern
+    similar to the one described in this section. In the following section, we will
+    dive deeper into implementing CDC using Apache Spark and Delta Lake.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Change Data Capture
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Generally, operational systems do not maintain historical data for extended
+    periods of time. Therefore, it is essential that an exact replica of the transactional
+    system data be maintained in the data lake along with its history. This has a
+    few advantages, including providing you with a historical audit log of all your
+    transactional data. Additionally, this huge wealth of data can help you to unlock
+    novel business use cases and data patterns that could take your business to the
+    next level.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Maintaining an exact replica of a transactional system in the data lake means
+    capturing all of the changes to every transaction that takes place in the source
+    system and replicating it in the data lake. This process is generally called CDC.
+    CDC requires you to not only capture all the new transactions and append them
+    to the data lake but also capture any deletes or updates to the transactions that
+    happen in the source system. This is not an ordinary feat to achieve on data lakes,
+    as data lakes have meager to no support at all for updating or deleting arbitrary
+    records. However, CDC on data lakes is made possible with Delta Lake's full support
+    to insert, update, and delete any number of arbitrary records. Additionally, the
+    combination of Apache Spark and Delta Lake makes the architecture simple.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let''s implement a CDC process using Apache Spark and Delta Lake, as illustrated
+    in the following block of code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: In the preceding code snippet, we perform an initial load of a static set of
+    data into a Delta table using batch processing with Spark. We simply use Spark
+    DataFrame's `read()` function to read a set of static CSV files and save them
+    into a Delta table using the `saveAsTable()` function. Here, we use the `path`
+    option to define the table as an external table. The result is a delta table with
+    a static set of initial data from the source table.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Here, the question is how did we end up with transactional data from an operational
+    system, which typically happens to be RDBMS, in the form of a set of text files
+    in the data lake? The answer is a specialist set of tools that are purpose-built
+    for reading CDC data from operational systems and converting and staging them
+    onto either a data lake or a message queue or another database of choice. Some
+    examples of such CDC tools include Oracle's Golden Gate and AWS Database Migration
+    Service.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs: []
+  type: TYPE_NORMAL
+- en: Apache Spark can handle CDC data and ingest it seamlessly into Delta Lake; however,
+    it is not suited for building end-to-end CDC pipelines, including ingesting from
+    operational sources. There are open source and proprietary tools specifically
+    built for this purpose, such as StreamSets, Fivetran, Apache Nifi, and more.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now that we have an initial set of static transactional data loaded into a
+    Delta table,let''s ingest some real-time data into the same Delta table, as shown
+    in the following block of code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: In the preceding code snippet, we define a streaming DataFrame from a location
+    on the data lake. Here, the assumption is that a third-party CDC tool is constantly
+    adding new files to the location on the data lake with the latest transactional
+    data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now, we can merge the change data into the existing Delta table, as shown in
+    the following block of code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'In the preceding code block, the following happens:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: We recreate a definition for the existing Delta table using the Delta Lake location
+    and the `DeltaTable.forPath()` function. The result is a pointer to the Delta
+    table in Spark's memory, named `deltaTable`.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Then, we define a function named `upsertToDelta()` that performs the actual
+    `merge` or `upsert` operation into the existing Delta table.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: The existing Delta table is aliased using the letter of `a`, and the Spark DataFrame
+    containing new updates from each streaming micro-batch is aliased as letter `b`.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: The incoming updates from the streaming micro-batch might actually contain duplicates.
+    The reason for the duplicates is that a given transaction might have undergone
+    multiple updates by the time its data reaches Structured Streaming. Therefore,
+    there is a need to deduplicate the streaming micro-batch prior to merging into
+    the Delta table. This is achieved by applying the `dropDuplicates()` function
+    on the streaming micro-batch DataFrame.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: The streaming updates are then merged into the Delta table by applying the `merge()`
+    function on the existing Delta table. An equality condition is applied to the
+    key columns of both the DataFrames, and all matching records from the streaming
+    micro-batch updates are updated in the existing Delta table using the `whenMatchedUpdateAll()`
+    function.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Any records from the streaming micro-batch that don't already exist in the target
+    Delta table are inserted using the `whenNotMatchedInsertAll()` function.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: It is necessary to deduplicate the streaming updates coming in the form of micro-batches
+    as a given transaction might have undergone multiple updates by the time our streaming
+    job actually gets to process it. It is a common industry practice to select the
+    latest update per transaction based on the key column and the latest timestamp.
+    In the absence of such a timestamp column in the source table, most CDC tools
+    have the functionality to scan records in the correct order that they were created
+    or updated and insert their own timestamp column.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: In this way, using a simple `merge()` function, change data can be easily merged
+    into an existing Delta table stored on any data lake. This functionality greatly
+    simplifies the architectural complexity of CDC use cases that are implemented
+    in real-time analytics systems.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Important note
+  prefs: []
+  type: TYPE_NORMAL
+- en: It is imperative that events arrive in the exact same order they were created
+    at the source for CDC use cases. For instance, a delete operation cannot be applied
+    prior to an insert operation. This would lead to incorrect data outright. Certain
+    message queues do not preserve the order of events as they arrive in the queue,
+    and care should be taken to preserve event ordering.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Behind the scenes, Spark automatically scales the merge process, making it scalable
+    to even petabytes of data. In this way, Delta Lake brings data warehouse-like
+    functionality to cloud-based data lakes that weren't actually designed to handle
+    analytics types of use cases.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Tip
+  prefs: []
+  type: TYPE_NORMAL
+- en: A Delta merge might progressively get slower as the data size in the target
+    Delta table increases. A Delta merge's performance can be improved by using an
+    appropriate data partitioning scheme and specifying data partition column(s) in
+    the merge clause. In this way, a Delta merge will only select those partitions
+    that actually need to be updated, thus greatly improving merge performance.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Another phenomenon that is unique to a real-time streaming analytics use case
+    is late-arriving data. When an event or an update to an event arrives at the streaming
+    engine a little later than expected, it is called late-arriving data. A capable
+    streaming engine needs to be able to handle late-arriving data or data arriving
+    out of order. In the following section, we will explore handling late-arriving
+    data in more detail.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Handling late-arriving data
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Late-arriving data is a situation that is unique to real-time streaming analytics,
+    where events related to the same transaction do not arrive in time to be processed
+    together, or they arrive out of order at the time of processing. Structured Streaming
+    supports stateful stream processing to handle such scenarios. We will explore
+    these concepts further next.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Stateful stream processing using windowing and watermarking
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Let''s consider the example of an online retail transaction where a user is
+    browsing through the e-tailer''s website. We would like to calculate the user
+    session based on one of the two following events taking place: either the users
+    exit the e-tailer''s portal or a timeout occurs. Another example is that a user
+    places an order and then subsequently updates the order, and due to the network
+    or some other delay, we receive the update first and then the original order creation
+    event. Here, we would want to wait to receive any late or out-of-order data before
+    we go ahead and save the data to the final storage location.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: In both of the previously mentioned scenarios, the streaming engine needs to
+    be able to store and manage certain state information pertaining to each transaction
+    in order to account for late-arriving data. Spark's Structured Streaming can automatically
+    handle late-arriving data by implementing stateful processing using the concept
+    of **Windowing**.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Before we dive deeper into the concept of windowing in Structured Screaming,
+    you need to understand the concept of event time. **Event time** is the timestamp
+    at which an event of a transaction is generated at the source. For instance, the
+    timestamp at which an order is placed becomes the event time for the order creation
+    event. Similarly, if the same transaction is updated at the source, then the update
+    timestamp becomes the event time for the update event of the transaction. Event
+    time is an important parameter for any stateful processing engine in order to
+    determine which event took place first.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Using windowing, Structured Steaming maintains a state for each key and updates
+    the state for a given key if a new event for the same key arrives, as illustrated
+    in the following diagram:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 4.4 – Stateful stream processing'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/B16736_04_04.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Figure 4.4 – Stateful stream processing
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the preceding illustration, we have a stream of transactional events of orders
+    being placed. Each of **O1**, **O2**, and **O3**, indicates the order numbers,
+    and **T**, **T+03**, and so on, indicates timestamps at which orders were created.
+    The input stream has a steady stream of order-related events being generated.
+    We define a stateful window of **10** minutes with a sliding interval of every
+    **5** minutes. What we are trying to achieve here in the window is to update the
+    count of each unique order placed. As you can see, at each **5**-minute interval,
+    any new events of the same order get an updated count. This simple illustration
+    depicts how stateful processing works in a stream processing scenario.
+  prefs: []
+  type: TYPE_NORMAL
+- en: However, there is one problem with this type of stateful processing; that is,
+    the state seems to be perpetually maintained, and over a period of time, the state
+    data itself might grow to be too huge to fit into the cluster memory. It is also
+    not practical to maintain the state perpetually. This is because real-world scenarios
+    rarely ever require the state to be maintained for extended periods of time. Therefore,
+    we need a mechanism to expire the state after a certain time interval. Structured
+    Streaming has the ability to define a watermark that governs for how long the
+    individual state is maintained per key, and it drops the state as soon as the
+    watermark expires for a given key.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs: []
+  type: TYPE_NORMAL
+- en: In spite of defining a watermark, the state could still grow to be quite large,
+    and Structured Streaming has the ability to spill the state data onto the executor's
+    local disk when needed. Structured Streaming can also be configured to use an
+    external state store such as RocksDB in order to maintain state data for a very
+    large number of keys ranging in the millions.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The following code blocks show the implementation details of arbitrary stateful
+    processing with Spark''s Structured Streaming using the event time, windowing,
+    and watermarking:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let's implement the concepts of `InvoiceTime` by converting the `InvoiceDate`
+    column from `StringType` into `TimestampType`.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Next, we will perform some stateful processing on the `raw_stream_df` Streaming
+    DataFrame by defining windowing and watermarking functions on it, as shown in
+    the following block of code:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'The following observations can be drawn from the preceding code snippet:'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: We define a watermark on the `raw_stream_df` streaming DataFrame for `1` minute.
+    This specifies that Structured Streaming should accumulate a state for each key
+    for only a duration of `1` minute. The watermark duration depends entirely on
+    your use case and how late your data is expected to arrive.
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: We define a group by function on the key column, named `InvoiceNo`, and define
+    the desired window for our stateful operation as `30` seconds with a sliding window
+    of every `10` seconds. This means that our keys will be aggregated every `10`
+    seconds after the initial `30`-second window.
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: We define the aggregation functions to be `max` on the timestamp column and
+    `count` on the key column.
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: The streaming process will write data to the streaming sink as soon as the watermark
+    expires for each key.
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Once the stateful stream has been defined using windowing and watermarking
+    functions, we can quickly verify whether the stream is working as expected, as
+    shown in the following code snippet:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: The previous code block writes the output of the stateful processing streaming
+    DataFrame to a memory sink and specifies a `queryName` property. The stream gets
+    registered as an in-memory table with the specified query name, and it can be
+    easily queried using Spark SQL to quickly verify the correctness of the code.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: In this way, making use of windowing and watermarking functionalities provided
+    by Structured Streaming, stateful stream processing can be implemented using Structured
+    Streaming and late-arriving data can be easily handled. Another aspect to pay
+    attention to in all of the previous code examples presented in this chapter, so
+    far, is how the streaming data progressively gets transformed from its raw state
+    into a processed state and further into an aggregated state. This methodology
+    of progressively transforming data using multiple streaming processes is generally
+    called a **multi-hop architecture**. In the following section, we will explore
+    this methodology further.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Multi-hop pipelines
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: A multi-hop pipeline is an architecture for building a series of streaming jobs
+    chained together so that each job in the pipeline processes the data and improves
+    the quality of the data progressively. A typical data analytics pipeline consists
+    of multiple stages, including data ingestion, data cleansing and integration,
+    and data aggregation. Later on, it consists of data science and machine learning-related
+    steps, including feature engineering and machine learning training and scoring.
+    This process progressively improves the quality of data until it is finally ready
+    for end user consumption.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'With Structured Streaming, all these stages of the data analytics pipelines
+    can be chained together into a **Directed Acyclic Graph** (**DAG**) of streaming
+    jobs. In this way, new raw data continuously enters one end of the pipeline and
+    gets progressively processed by each stage of the pipeline. Finally, end user
+    ready data exits from the tail end of the pipeline. A typical multi-hop architecture
+    is presented in the following diagram:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 4.5 – The Multi-hop pipeline architecture'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/B16736_04_05.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Figure 4.5 – The Multi-hop pipeline architecture
+  prefs: []
+  type: TYPE_NORMAL
+- en: The previous diagram represents a multi-hop pipeline architecture, where raw
+    data is ingested into the data lake and is processed in order to improve its quality
+    through each stage of the data analytics pipeline until it is finally ready for
+    end user use cases. End user use cases could be Business Intelligence and reporting,
+    or they can be for further processing into predictive analytics use cases using
+    data science and machine learning techniques.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Although it seems like a simple architecture to implement, a few key prerequisites
+    have to be met for the seamless implementation of multi-hop pipelines, without
+    frequent developer intervention. The prerequisites are as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: For the stages of the pipelines to be chained together seamlessly, the data
+    processing engine needs to support exactly-once data processing guarantees resiliency
+    to data loss upon failures.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: The data processing engine needs to have capabilities to maintain watermark
+    data. This is so that it is aware of the progress of data processed at a given
+    point in time and can seamlessly pick up new data arriving in a streaming manner
+    and process it.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: The underlying data storage layer needs to support transactional and isolation
+    guarantees so that there is no need for any developer intervention of any bad
+    or incorrect data clean-up upon job failures.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Apache Spark's Structured Streaming solves the previously mentioned points,
+    *1* and *2*, as it guarantees exactly-once data processing semantics and has built-in
+    support for checkpointing. This is to keep track of the data processing progress
+    and also to help with restarting a failed job exactly at the point where it left
+    off. Point *3* is supported by Delta Lake with its ACID transactional guarantees
+    and support for simultaneous batch and streaming jobs.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let''s implement an example multi-hop pipeline using Structured Streaming and
+    Delta Lake, as shown in the following blocks of code:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: In the preceding code block, we create a raw streaming DataFrame by ingesting
+    source data from its raw format into the data lake in Delta Lake format. The `checkpointLocation`
+    provides the streaming job with resiliency to failures whereas Delta Lake for
+    the target location provides transactional and isolation guarantees for `write`
+    operations.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'Now we can further process the raw ingested data using another job to further
+    improve the quality of data, as shown in the following code block:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: In the preceding block of code, we convert a string column into a timestamp
+    column and persist the cleansed data into Delta Lake. This is the second stage
+    of our multi-hop pipeline, and typically, this stage reads from the Delta table
+    generated by the previous raw data ingestion stage. Again, the use of a checkpoint
+    location here helps to perform the incremental processing of data, processing
+    any new records added to the raw Delta table as they arrive.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'Now we can define the final stage of the pipeline where we aggregate the data
+    to create highly summarized data that is ready for end user consumption, as shown
+    in the following code snippet:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE12]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: In the preceding code block, integrated and cleansed data is aggregated into
+    the highest level of summary data. This can be further consumed by Business Intelligence
+    or data science and machine learning use cases. This stage of the pipeline also
+    makes use of the checkpoint location and Delta table for resiliency to job failures
+    and keep the tracking of new data that needs to be processed when it arrives.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: Therefore, with the combination of Apache Spark's Structured Streaming and Delta
+    Lake, implementing multi-hop architecture becomes seamless and efficient. The
+    different stages of a multi-hop could be implemented as a single monolithic job
+    containing multiple streaming processes. As a best practice, the individual streaming
+    processes for each stage of the pipeline are broken down into multiple independent
+    streaming jobs, which can be further chained together into a DAG using an external
+    orchestrator such as Apache Airflow. The advantage of the latter is easier maintenance
+    of the individual streaming jobs and the minimized downtime of the overall pipeline
+    when an individual stage of the pipeline needs to be updated or upgraded.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Summary
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In this chapter, you were introduced to the need for real-time data analytics
+    systems and the advantages they have to offer in terms of getting the freshest
+    data to business users, helping businesses improve their time to market, and minimizing
+    any lost opportunity costs. The architecture of a typical real-time analytics
+    system was presented, and the major components were described. A real-time analytics
+    architecture using Apache Spark's Structured Streaming was also depicted. A few
+    examples of prominent industry use cases of real-time data analytics were described.
+    Also, you were introduced to a simplified Lambda Architecture using the combination
+    of Structured Streaming and Delta Lake. The use case for CDC, including its requirements
+    and benefits, was presented, and techniques for ingesting CDC data into Delta
+    Lake were presented along with working examples leveraging Structured Streaming
+    for implementing a CDC use case.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Finally, you learned a technique for progressively improving data quality from
+    data ingestion into highly aggregated and summarized data, in near real time,
+    called multi-hop pipelines. You also examined a simple implementation of multi-hop
+    pipelines using the powerful combination of Structured Streaming and Delta Lake.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This concludes the data engineering section of this book. The skills you have
+    learned so far will help you to embark on a data analytics journey starting with
+    raw transactional data from operational source systems, ingesting it into data
+    lakes, cleansing the data, and integrating the data. Also, you should be familiar
+    with building end-to-end data analytics pipelines that progressively improve the
+    quality of data in a real-time streaming fashion and result in pristine, highest-level
+    aggregated data that can be readily consumed by Business Intelligence and reporting
+    use cases.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the following chapters, you will build on the data engineering concepts learned
+    thus far and delve into the realm of predictive analytics using Apache Spark's
+    data science and machine learning capabilities. In the next chapter, we will begin
+    with the concepts of exploratory data analysis and feature engineering.
+  prefs: []
+  type: TYPE_NORMAL

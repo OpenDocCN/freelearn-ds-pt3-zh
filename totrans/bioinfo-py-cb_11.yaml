@@ -1,0 +1,630 @@
+- en: '10'
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Machine Learning for Bioinformatics
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Machine learning is used in a wide variety of contexts and computational biology
+    is not an exception. Machine learning has countless applications in the field,
+    probably the oldest and most known being the use of **Principal Component Analysis**
+    (**PCA**) to study population structure using genomics. There are many other potential
+    applications as this is a burgeoning field. In this chapter, we are going to introduce
+    machine learning concepts from a bioinformatics perspective.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Given that machine learning is a very complex topic that could easily fill a
+    book, here we intend to take an intuitive approach that will allow you to broadly
+    understand how some machine learning techniques can be useful to tackle biological
+    problems. If you find these techniques useful, you will understand the fundamental
+    concepts and can proceed to more detailed literature.
+  prefs: []
+  type: TYPE_NORMAL
+- en: If you are using Docker, and because all the libraries in this chapter are fundamental
+    for data analysis, they all can be found on the Docker image `tiagoantao/bioinformatics_ml`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In this chapter, we will cover the following recipes:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Introducing scikit-learn with a PCA example
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Using clustering over PCA to classify samples
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Exploring breast cancer traits using Decision Trees
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Predicting breast cancer outcomes using Random Forests
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Introducing scikit-learn with a PCA example
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: PCA is a statistical procedure that’s used to perform a reduction of the dimension
+    of a number of variables to a smaller subset that is linearly uncorrelated. In
+    [*Chapter 6*](B17942_06.xhtml#_idTextAnchor154), we saw a PCA implementation based
+    on using an external application. In this recipe, we will implement the same PCA
+    for population genetics but will use the `scikit-learn` library. Scikit-learn
+    is one of the fundamental Python libraries for machine learning and this recipe
+    is an introduction to the library. PCA is a form of unsupervised machine learning
+    – we don’t provide information about the class of the sample. We will discuss
+    supervised techniques in the other recipes of this chapter.
+  prefs: []
+  type: TYPE_NORMAL
+- en: As a reminder, we will compute PCA for 11 human populations from the HapMap
+    project.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Getting ready
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'You will need to run the first recipe from [*Chapter 6*](B17942_06.xhtml#_idTextAnchor154)
+    in order to generate the `hapmap10_auto_noofs_ld_12` PLINK file (with alleles
+    recorded as 1 and 2). From a population genetics perspective, we require LD-pruned
+    markers to produce a reliable PCA. We will not risk using the offspring here because
+    it would probably bias the result. Our recipe will require the `pygenomics` library,
+    which can be installed using the following command:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: The code is in the `Chapter10/PCA.py` notebook.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Take a look at the following steps:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We start by loading the metadata for our samples. In our case, we will be loading
+    the human population that each sample belongs to:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'We now get the order of individuals along with the number of SNPs that we will
+    be processing:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'We create the array that will be fed to the PCA:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: Finally, we compute the PCA with up to eight components. We then get the 8-D
+    coordinates for all samples using a `transform` method.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Finally, we plot the PCA:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '![Figure 10.1 - PC1 to PC8 for our dataset as produced by scikit-learn ](img/B17942_10_01.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 10.1 - PC1 to PC8 for our dataset as produced by scikit-learn
+  prefs: []
+  type: TYPE_NORMAL
+- en: There’s more...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: For publication in scientific journals, I would recommend using the recipe in
+    [*Chapter 6*](B17942_06.xhtml#_idTextAnchor154), simply because it’s based on
+    a published and highly regarded method. That being said, the results from this
+    code are qualitatively similar and cluster data in a very similar fashion (the
+    inversion of direction on the vertical axis, if you compare it with the figure
+    in [*Chapter 6*](B17942_06.xhtml#_idTextAnchor154), is irrelevant when interpreting
+    a PCA chart).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Using clustering over PCA to classify samples
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: PCA in genomics allows us to see how samples cluster. In many cases, individuals
+    from the same population will be in the same area of the chart. But we would like
+    to go further and predict where new individuals fall in terms of populations.
+    To do that, we will start with PCA data, as it does dimensionality reduction –
+    making working with the data easier – and then apply a K-Means clustering algorithm
+    to predict where new samples fall. We will use the same dataset as in the recipe
+    above. We will use all our samples save one to train the algorithm, and then we
+    will predict where the remaining sample falls.
+  prefs: []
+  type: TYPE_NORMAL
+- en: K-Means clustering can be an example of a supervised algorithm. In these types
+    of algorithms, we need a training dataset so that the algorithm is able to learn.
+    After training the algorithm, it will be able to predict a certain outcome for
+    new samples. In our case, we are hoping that we can predict the population.
+  prefs: []
+  type: TYPE_NORMAL
+- en: WARNING
+  prefs: []
+  type: TYPE_NORMAL
+- en: The current recipe intends to serve as a gentle introduction to supervised algorithms
+    and the concepts behind them. The way we are training the algorithm is far from
+    optimal. The issue of properly training a supervised algorithm will be alluded
+    to in the last recipe of this chapter.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Getting ready
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: We will be using the same data as in the previous recipe. The code for this
+    recipe can be found in `Chapter10/Clustering.py`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Let’s have a look:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We start by loading the population information – this is similar to what we
+    did in the previous recipe:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'We now load all sample data – SNPs – into a NumPy array:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'We separate the array into two datasets, namely, a training case with all individuals
+    except one, and a case to test with a single individual:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: Our test case is individual Y076/NA19124, who we know belongs to the Yoruban
+    population.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We now compute the PCA for the training set that we will use for K-Means clustering:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Here is the output, which will be useful to check clustering results:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 10.2 - PC1 and PC2 with populations color-coded ](img/B17942_10_02.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 10.2 - PC1 and PC2 with populations color-coded
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Before we start computing K-means clustering, let’s write a function to plot
+    the clustering surface from running the algorithm:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Let’s now fit the algorithm with our samples. Because we have 11 populations,
+    we will train for 11 clusters:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Here is the output:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 10.3 - The cluster surface for 11 clusters ](img/B17942_10_03.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 10.3 - The cluster surface for 11 clusters
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'If you compare with the figure here, you can intuitively see that the clustering
+    makes little sense: it doesn’t map to the known populations very well. One could
+    argue that this clustering algorithm with 11 clusters is not very useful.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: TIP
+  prefs: []
+  type: TYPE_NORMAL
+- en: There are many other clustering algorithms implemented in scikit-learn, and
+    in several scenarios, they might perform better than K-means. You can find them
+    at [https://scikit-learn.org/stable/modules/clustering.xhtml](https://scikit-learn.org/stable/modules/clustering.xhtml).
+    It is doubtful that, in this specific case, any alternative would perform much
+    better for 11 clusters.
+  prefs: []
+  type: TYPE_NORMAL
+- en: While it seems K-means clustering cannot resolve the 11 populations, maybe it
+    can still provide some predictions if we use a different number of clusters. Simply
+    by looking at the chart, we see four separate blocks. What would be the result
+    if we used four clusters?
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE12]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Here is the output:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 10.4 - The cluster surface for four clusters ](img/B17942_10_04.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 10.4 - The cluster surface for four clusters
+  prefs: []
+  type: TYPE_NORMAL
+- en: The four groups are now mostly clear. But do they make intuitive sense? If they
+    do, we can make use of this clustering approach. And in fact, they do. The cluster
+    on the left is composed of African populations, the top cluster European ones,
+    and the bottom one East Asians. The middle one is the most cryptic as it contains
+    both Gujarati and Mexican descendants, but that mix comes originally from PCA
+    and it is not caused by clustering itself.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let’s see how prediction does for the single case we left out:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE13]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: Our sample is predicted to be in cluster 1\. We need to dig a little deeper
+    now.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let’s find out what cluster 1 means. We take the last individual from the training
+    set, who is also a Yoruba, and see to which cluster he is allocated:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE14]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: It is indeed cluster 1, so the prediction is correct.
+  prefs: []
+  type: TYPE_NORMAL
+- en: There’s more...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: It is worth reiterating that we are trying to achieve an intuitive understanding
+    of machine learning. At this stage, you should have a grasp of what you can gain
+    from supervised learning, and also example usage of a clustering algorithm. There
+    is much more to be said about the procedure to train a machine learning algorithm,
+    something that we will partially unveil in the last recipe.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Exploring breast cancer traits using Decision Trees
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: One of the first problems that we have when we receive a dataset is deciding
+    what to start analyzing. At the very beginning, there is quite often a feeling
+    of loss about what to do first. Here, we will present an exploratory approach
+    based on Decision Trees. The big advantage of Decision Trees is that they will
+    give us the rules that constructed the decision tree, allowing us a first tentative
+    understanding of what is going on with our data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this example, we will be using a dataset with trait observations from patients
+    with breast cancer. The dataset with 699 data entries includes information such
+    as clump thickness, uniformity of cell size, or type of chromatin. The outcome
+    is either a benign or malignant tumor. The features are encoded with values from
+    0 to 10\. More information about the project can be found at [http://archive.ics.uci.edu/ml/datasets/breast+cancer+wisconsin+%28diagnostic%29](http://archive.ics.uci.edu/ml/datasets/breast+cancer+wisconsin+%28diagnostic%29).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Getting ready
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'We are going to download the data along with the documentation:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE15]'
+  prefs: []
+  type: TYPE_PRE
+- en: The data file is formatted as a CSV file. Information about the content can
+    be found in the second downloaded file.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The code for this recipe can be found in `Chapter10/Decision_Tree.py`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Follow these steps:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The first thing we do is to remove a small fraction of individuals that have
+    incomplete data:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE16]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: TIP
+  prefs: []
+  type: TYPE_NORMAL
+- en: Removing individuals with incomplete data is adequate in this case because they
+    are a small fraction of the dataset, and we are only doing exploratory analysis.
+    For cases with lots of missingness or when we are trying to do something more
+    rigorous, you will have to use methods to deal with missing data, which we will
+    not explore here.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We are now going to read the data, giving names to all columns:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE17]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'We will now separate the features from the outcome and recode the outcome using
+    0 and 1:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE18]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Let’s now create a Decision Tree based on this data with a max depth of 3:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE19]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Let’s start by seeing which features are the most important:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE20]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'The following are the features ranked by importance:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE21]'
+  prefs: []
+  type: TYPE_PRE
+- en: Remember that this is just exploratory analysis. In the next recipe, we will
+    try to produce more reliable rankings. The reason why the bottom features are
+    zero is we asked for a max depth of 3 and in that case, it is possible that not
+    all features are used.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We can do some native analysis of the accuracy of our implementation:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE22]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: We get a performance of 96%. We shouldn’t be testing the algorithm with its
+    own training set as this is quite circular. We will revisit that in the next recipe.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Finally, let’s plot the decision tree:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE23]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'This results in the following output:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 10.5 - The decision tree for the breast cancer dataset ](img/B17942_10_05.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 10.5 - The decision tree for the breast cancer dataset
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let’s look at the root node to start: it has a criterion of `uniformity_cell_size
+    < 2.5` and a classification of benign. The main feature of splitting the tree
+    is the uniformity of the cell size. The classification of benign at the top node
+    comes simply from the fact that most samples on the dataset are benign. Now look
+    at the right node from the root: it has 265 samples, most of which are malignant
+    and with criteria of `uniformity_cell_shape < 2.5`.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: These rules allow you to have an initial understanding of what might be driving
+    the dataset. Decision Trees are not very precise, so take these as your initial
+    step.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Predicting breast cancer outcomes using Random Forests
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'We are now going to predict the outcomes for some patients using Random Forests.
+    A random forest is an ensemble method (it will use several instances of other
+    machine learning algorithms) that uses many decision trees to arrive at robust
+    conclusions about the data. We are going to use the same example as in the previous
+    recipe: breast cancer traits and outcomes.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'This recipe has two main goals: to introduce you to random forests and issues
+    regarding the training of machine learning algorithms.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Getting ready
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: The code for this recipe can be found in `Chapter10/Random_Forest.py`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it…
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Take a look at the code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We start, as in the previous recipe, by getting rid of samples with missing
+    information:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE24]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'We now load the cleaned data:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE25]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'We separate the data read in features and outcomes:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE26]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'We create a classifier and fit the data to it:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE27]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'The most important parameter here is `n_estimators`: we are requesting the
+    Forest be constructed with 200 trees.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We now rank the features in order of importance:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE28]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Here is the output:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE29]'
+  prefs: []
+  type: TYPE_PRE
+- en: The result is non-deterministic, meaning that you might have different results.
+    Also, note that the Random Forest has quite different numbers than the Decision
+    Tree of the previous recipe. This is to be expected as the Decision Tree is a
+    single estimator where the Forest weighs 200 trees and is more reliable.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We can score this case:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE30]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: I get a result of 97.95%. You might get a slightly different value as the algorithm
+    is stochastic. As we said in the previous recipe, getting a score from the training
+    set is quite circular and far from best practice.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In order to have a more realistic view of the accuracy of the algorithm, we
+    need to separate our data into two parts – a training set and a test set:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE31]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'The output is the following (remember that you will get different values):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE32]'
+  prefs: []
+  type: TYPE_PRE
+- en: If you only train with 1% of the data, you only get 71% accuracy, whereas if
+    you train with more, the accuracy goes above 90%. Note that accuracy does not
+    monotonically increase with the size of the training set. Deciding on the size
+    of the training set is a complex affair with various issues causing unexpected
+    side effects.
+  prefs: []
+  type: TYPE_NORMAL
+- en: There’s more...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: We only scratched the surface of training and testing machine learning algorithms.
+    For example, supervised datasets are normally split into 3, not 2 (training, test,
+    and cross-validation). There are many more issues that you need to consider in
+    order to train your algorithm and many more types of algorithms. In this chapter,
+    we tried to develop basic intuition to understand machine learning, but this is
+    nothing more than your starting point if you intend to follow this route.
+  prefs: []
+  type: TYPE_NORMAL

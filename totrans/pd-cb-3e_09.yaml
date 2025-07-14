@@ -1,0 +1,1348 @@
+- en: '9'
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Temporal Data Types and Algorithms
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Properly working with temporal data (i.e., dates and times) may appear straightforward,
+    but, the further you dive into it, the further you realize how surprisingly complex
+    it is. Here are just a few issues that come to mind:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Some users measure time in the span of years; others measure in nanoseconds
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Some users ignore timezones; others need to coordinate events around the world
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Not every country has multiple timezones, even if they are wide enough to have
+    them (e.g., China)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Not every country observes daylight saving time; those that do cannot agree
+    on when
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: In countries that observe daylight saving time, not every region participates
+    (e.g., Arizona in the United States (US))
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Different operating systems and versions time differently (see also the Year
+    2038 problem at [https://en.wikipedia.org/wiki/Year_2038_problem](https://en.wikipedia.org/wiki/Year_2038_problem))
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: These problems are really just the tip of the iceberg, and, in spite of all
+    of the potential data quality problems, temporal data is invaluable for purposes
+    of monitoring, trend detection, and forecasting. Fortunately, pandas makes it
+    so that you don’t need to be an expert in dates and times to draw insights from
+    your data. By using the features and abstractions pandas offers, you can very
+    easily cleanse and interpolate your temporal data so that you can focus less on
+    the “problems” of dates and times, and more on the insights that your data has
+    to offer.
+  prefs: []
+  type: TYPE_NORMAL
+- en: While we introduced some of the temporal types pandas has to offer back in *Chapter
+    3*, *Data Types*, in the section *Temporal types – datetime*, this chapter will
+    start by focusing on things that pandas offers to augment the utility of those
+    types. Beyond that, we will talk about the different ways you can cleanse and
+    interpolate your temporal data, before finishing the chapter with a focus on practical
+    applications.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We are going to cover the following recipes in this chapter:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Timezone handling
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: DateOffsets
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Datetime selection
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Resampling
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Aggregating weekly crime and traffic accidents
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Calculating year over year changes in crime by category
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Accurately measuring sensor-collected events with missing values
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Timezone handling
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: By far, the most common mistakes with temporal data that I come across stem
+    from a misunderstanding of timezones. On the East Coast of the US where I live,
+    I’ve witnessed many users try to read what they think is a date of 2024-01-01
+    out of a database, yet ironically end up with a date of 2023-12-31 in their analysis.
+    While that is only offset by a day, the effects of that misalignment can greatly
+    skew summaries that group dates into weekly, monthly, quarterly, or yearly buckets.
+  prefs: []
+  type: TYPE_NORMAL
+- en: For those that have been bitten by an issue like that before, you may have already
+    come to realize that the source system you were communicating with probably did
+    give you a timestamp of 2024-01-01 00:00:00, presumed to be at midnight UTC. Somewhere
+    along the line, an analyst on the East Coast of the US where I live may have had
+    that translated into their *local* time, which is either four hours offset from
+    UTC during daylight saving time, or five hours offset during standard time. As
+    a result, the timestamp ended up being viewed as 2023-12-31 20:00:00 or 2023-12-31
+    19:00:00 in EDT/EST, respectively, and the user may have inadvertently tried to
+    convert that to a date.
+  prefs: []
+  type: TYPE_NORMAL
+- en: To avoid these types of issues when working with temporal data, it is critical
+    to understand when you are working with *timezone-aware* datetimes (i.e., those
+    tied to a timezone like UTC or `America/New_York`), and *timezone-naive* objects,
+    which have no timezone information attached to them. In this recipe, we will show
+    you how to create and recognize both types of datetimes, while also diving deeper
+    into the utilities pandas offers that let you convert between different timezones,
+    and from timezone-aware to timezone-naive.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Back in *Chapter 3*, *Data Types*, we learned how to create a `pd.Series` with
+    datetime data. Let’s take a closer look at that same example:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: These timestamps represent events that occurred at or close to midnight on days
+    ranging from January 1 through January 3, 2024\. However, what these datetimes
+    cannot tell us is *where* these events occurred; midnight in New York City happens
+    at a different point in time than in Dubai, so it is tough to pinpoint an exact
+    point in time that these events happened. Without that extra metadata, these datetimes
+    are *timezone-naive*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'For programmatic confirmation that your datetimes are timezone-naive, you can
+    use `pd.Series.dt.tz`, which will return `None`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'With the `pd.Series.dt.tz_localize` method, we could assign an **Internet Assigned
+    Numbers Authority (IANA**) timezone identifier to these datetimes to make them
+    *timezone-aware*. For example, to specify that these events happened on the East
+    Coast of the US, we could write:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'If you try to use `pd.Series.dt.tz` on this `pd.Series`, it will report back
+    that you are working with a timezone of `America/New_York`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE7]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Now that our `pd.Series` is timezone-aware, the datetimes contained therein
+    can be mapped to a point in time anywhere around the world. By using `pd.Series.dt.tz_convert`,
+    you can easily translate these events into another timezone:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE9]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'As a matter of practice, it is usually best to keep your datetimes attached
+    to a timezone, which will mitigate the risk of being misinterpreted on a different
+    date or at a different point in time. However, not all systems and databases that
+    you may interact with will be able to retain this information, forcing you to
+    drop it for interoperability. In case such a need arises, you could do this by
+    passing `None` as an argument to `pd.Series.dt.tz_localize`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE11]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'If you are forced to drop the timezone from your datetime, I would strongly
+    recommend storing the timezone as a string in another column in your `pd.DataFrame`
+    and database:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE12]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE13]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'When roundtripping data like this, you can recreate the original `pd.Series`
+    by applying the value from the `timezone` column to the data in the `datetime`
+    column. For added safety, the following code sample uses the combination of `pd.Series.drop_duplicates`
+    with `pd.Series.squeeze` to extract the single value of `America/Los_Angeles`
+    from the `timezone` column before passing it to `pd.Series.dt.tz_localize`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE14]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE15]'
+  prefs: []
+  type: TYPE_PRE
+- en: DateOffsets
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In the *Temporal types – Timedelta* recipe back in *Chapter 3*, *Data Types*,
+    we introduced the `pd.Timedelta` type and mentioned how it could be used to shift
+    datetimes by a finite duration, like 10 seconds or 5 days. However, a `pd.Timedelta`
+    cannot be used to offset a date or datetime by say *one month* because a month
+    does not always represent the same duration of time. In the Gregorian calendar,
+    months can range in duration from 28–31 days. The month of February is usually
+    28 days but extends to 29 days for every year that is divisible by 4, unless the
+    year is divisible by 100 but not by 400.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Thinking about these issues all of the time would be rather tedious. Fortunately,
+    pandas takes care of all of the mundane details and just lets you shift dates
+    according to a calendar through the use of the `pd.DateOffset` object, which we
+    will explore in this recipe.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'To build a foundational knowledge of how this works, let’s start with a very
+    simple `pd.Series` containing the first few days of 2024:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE16]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE17]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Shifting these dates by one month would typically mean keeping the same day
+    of the month, but just placing the dates in February instead of January. With
+    `pd.DateOffset`, you can pass in an argument to `months=` that dictates the number
+    of months you want to move the dates by; so, let’s see how it looks with an argument
+    of `1`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE18]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE19]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Shifting by two months would mean moving these dates from January to March.
+    We shouldn’t really care that there were 31 days in January but 29 in February
+    2024; the `pd.DateOffset` takes care of this for us:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE20]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE21]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'For dates that wouldn’t exist (e.g., trying to shift January 30 to February
+    30), `pd.DateOffset` will try and match to the closest date that does exist within
+    the target month:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE22]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE23]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'You can also step backward through the calendar with a negative argument to
+    `months=`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE24]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE25]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The `pd.DateOffset` is flexible enough to accept more than just one keyword
+    argument at a time. For instance, if you wanted to offset your dates by one month,
+    two days, three hours, four minutes, and five seconds, you could do that all in
+    one expression:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE26]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE27]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Alongside the `pd.DateOffset` class, pandas offers you the ability to shift
+    dates to the beginning or the end of a period with various classes exposed in
+    the `pd.offsets` module. For instance, if you want to shift your dates to the
+    end of the month, you can use `pd.offsets.MonthEnd`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE28]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE29]'
+  prefs: []
+  type: TYPE_PRE
+- en: '`pd.offsets.MonthBegin` will move the dates to the beginning of the next month:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE30]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE31]'
+  prefs: []
+  type: TYPE_PRE
+- en: '`pd.offsets.SemiMonthBegin`, `pd.offsets.SemiMonthEnd`, `pd.offsets.QuarterBegin`,
+    `pd.offsets.QuarterEnd`, `pd.offsets.YearBegin`, and `pd.offsets.YearEnd` all
+    offer similar behavior to shift your dates to the beginning or end of different
+    periods.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: There’s more…
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: The `pd.DateOffset`, by default, works against the Gregorian calendar, but different
+    subclasses of this can provide more customized functionality.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'One of the most used subclasses is the `pd.offsets.BusinessDay`, which, by
+    default, only counts the standard “business days” of Monday through Friday when
+    offsetting dates. To see how this works, let’s consider the day of the week each
+    of our dates in `ser` fall on:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE32]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE33]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Now, let’s see what happens when we add three business days to our dates:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE34]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE35]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'We can use the same `pd.Series.dt.day_name` method to check the new days of
+    the week that these dates fall on:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE36]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE37]'
+  prefs: []
+  type: TYPE_PRE
+- en: After having added three business days, our dates that started on Monday and
+    Tuesday ended up falling on the Thursday and Friday of the same week, respectively.
+    The Wednesday date we started with was pushed to the Monday of the following week,
+    as neither Saturday nor Sunday qualifies as a business day.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'If you work with a business that has different business days from Monday to
+    Friday, you could use the `pd.offsets.CustomBusinessDay` to set up your own rules
+    for how offsetting should work. The argument to `weekmask=` will dictate the days
+    of the week that are considered business days:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE38]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE39]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'You can even add a `holidays=` argument to account for days when your business
+    may be closed:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE40]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE41]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'For the Gregorian calendar, we have already seen `pd.offsets.MonthEnd` and
+    `pd.offsets.MonthBegin` classes that help you move dates to the beginning or end
+    of a month, respectively. Similar classes exist for you to use when attempting
+    to shift dates toward the beginning or end of business months:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE42]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE43]'
+  prefs: []
+  type: TYPE_PRE
+- en: Datetime selection
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Back in *Chapter 2*, *Selection and Assignment*, we discussed the many robust
+    ways that pandas allows you to select data from a `pd.Series` or `pd.DataFrame`
+    by interacting with their associated row `pd.Index`. If you happen to create a
+    `pd.Index` using datetime data, it ends up being represented as a special subclass
+    called a `pd.DatetimeIndex`. This subclass overrides some functionality of the
+    `pd.Index.loc` method to give you more flexible selection options tailored to
+    temporal data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: '`pd.date_range` is a convenient function that helps you quickly generate a
+    `pd.DatetimeIndex`. One of the ways to use this function is to specify a starting
+    date with the `start=` parameter, specify a step frequency with the `freq=` parameter,
+    and specify the desired length of your `pd.DatetimeIndex` with the `periods=`
+    argument.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'For instance, to generate a `pd.DatetimeIndex` that starts on December 27,
+    2023, and provides 5 days in total with 10 days between each record, you would
+    write:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE44]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE45]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'A frequency string of `"2W"` will generate dates spaced two weeks apart. If
+    the `start=` parameter is a Sunday, the dates will begin from that date exactly;
+    otherwise, the next Sunday begins the sequence:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE46]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE47]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'You could even control the day of the week being used to anchor the dates by
+    appending a suffix like `"-WED"`, which will generate dates on Wednesday instead
+    of Sunday:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE48]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE49]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'A `freq=` argument of `"WOM-3THU"` will give you the third Thursday of every
+    month:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE50]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE51]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The first and fifteenth day of each month can be generated with an argument
+    of `"SMS"`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE52]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE53]'
+  prefs: []
+  type: TYPE_PRE
+- en: As you can see, there are countless frequency strings that can be used to describe
+    what pandas refers to as **date offsets**. For a more complete listing, be sure
+    to reference the pandas documentation at [https://pandas.pydata.org/pandas-docs/stable/user_guide/timeseries.html#dateoffset-objects](https://pandas.pydata.org/pandas-docs/stable/user_guide/timeseries.html#dateoffset-objects).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Each element of the `pd.DatetimeIndex` is actually a `pd.Timestamp`. When using
+    this for selection from a `pd.Series` or `pd.DataFrame`, users may at first be
+    tempted to write something like the following to select all records up to and
+    including a date like 2024-01-18:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE54]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE55]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Similarly, users may be tempted to write the following to select a range of
+    dates:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE56]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE57]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'However, these methods of selecting from a `pd.DatetimeIndex` are rather verbose.
+    For convenience, pandas lets you pass in strings to represent the desired dates,
+    instead of `pd.Timestamp` instances:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE58]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE59]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'You also are not required to specify the entire date in YYYY-MM-DD format.
+    For instance, if you wanted to select all of the dates that fall in February 2024,
+    you could just pass the string `2024-02` to your `pd.Series.loc` call:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE60]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE61]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Slicing will be intelligent enough to recognize this pattern, making it easy
+    to select all of the records in both February and March:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE62]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE63]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'You can take this abstraction a step further and select an entire year:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE64]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE65]'
+  prefs: []
+  type: TYPE_PRE
+- en: There’s more…
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'A `pd.DatetimeIndex` can also be associated with a timezone by providing a
+    `tz=` argument:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE66]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE67]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'When using strings to select from a timezone-aware `pd.DatetimeIndex`, be aware
+    that pandas will implicitly convert your string argument into the timezone of
+    the `pd.DatetimeIndex`. For instance, the following code will only select one
+    element from our data:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE68]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE69]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Whereas the following code will correctly select both elements:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE70]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE71]'
+  prefs: []
+  type: TYPE_PRE
+- en: These both work in spite of the fact that our dates are five hours offset from
+    UTC, and our string makes no indication of the expected timezone. In this way,
+    pandas makes it very easy to express selection from a `pd.DatetimeIndex`, whether
+    it is timezone-aware or timezone-naive.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Resampling
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Back in *Chapter 8*, *Group By*, we went in-depth into the group by functionality
+    that pandas has to offer. A Group By allows you to *split* your data based on
+    unique value combinations in your dataset, *apply* an algorithm to those splits,
+    and combine the results back together.
+  prefs: []
+  type: TYPE_NORMAL
+- en: A *resample* is very similar to a Group By, with the only difference happening
+    during the *split* phase. Instead of generating groups from unique value combinations,
+    a resample lets you take datetimes and group them into increments like *every
+    5 seconds* or *every 10 minutes*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Let’s once again reach for the `pd.date_range` function we were introduced
+    to back in the *Datetime selection* recipe, but this time, we are going to generate
+    a `pd.DatetimeIndex` with a frequency of seconds instead of days:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE72]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE73]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'If viewing this data every second was deemed too granular, `pd.Series.resample`
+    can be used to *downsample* the data into a different increment, like *every 3
+    seconds*. Resampling also requires the use of an aggregation function to dictate
+    what happens to all records that fall within each increment; for simplicity, we
+    can start with summation:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE74]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE75]'
+  prefs: []
+  type: TYPE_PRE
+- en: In this particular case, `resample` creates buckets using the ranges of `[00:00:00-00:00:03)`,
+    `[00:00:03-00:00:06)`, `[00:00:06-00:00:09)`, and `[00:00:09-00:00:12)`. For each
+    of those intervals, the left square bracket indicates that the interval is closed
+    on the left side (i.e., it includes those values). By contrast, the right parentheses
+    indicate an open interval that does not include the value.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Technically speaking, all of these intervals created by the resample with a
+    frequency of `"3s"` are “left-closed” by default, but the `closed=` argument can
+    be used to change that behavior, effectively producing intervals with the values
+    of `(23:59:57-00:00:00]`, `(00:00:00-00:00:03]`, `(00:00:03-00:00:06]`, and `(00:00:06-00:00:09]`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE76]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE77]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'With the frequency of `"3s"`, the left value of the interval is used as the
+    value in the resulting row index. That behavior can also be changed through the
+    use of the `label=` argument:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE78]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE79]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'One last caveat you may want to be aware of is that the default values for
+    the `closed=` and `label=` arguments depend upon the frequency that you have chosen.
+    Our frequency of `"3s"` creates left-closed intervals, and uses the left interval
+    value in the row index. However, if we had chosen a frequency that is oriented
+    toward the end of a period, like `ME` or `YE` (month-end and year-end, respectively),
+    pandas will instead produce right-closed intervals and use the right label:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE80]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE81]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'While we are on the topic of downsampling, let’s take a look at a different
+    frequency, like days (`"D"`). At this level, `pd.Series.resample` can be a convenient
+    way to aggregate daily events into weekly buckets. To see how this works, let’s
+    just look at the first 10 days of 2024:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE82]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE83]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Without looking up which day of the week each of these falls on, we can use
+    `pd.DatetimeIndex.dt.day_name()` to ground ourselves:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE84]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE85]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'By default, resampling into weekly buckets will create periods that *end* on
+    a Sunday:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE86]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE87]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'You are free, however, to pick any day of the week for your period to end on.
+    In the US, considering Saturday to be the end of the week is arguably more common
+    than Sunday:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE88]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE89]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Though, you can pick any day of the week:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE90]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE91]'
+  prefs: []
+  type: TYPE_PRE
+- en: Now that we have covered the topic of *downsampling* (i.e., going from a more
+    granular to a less granular frequency), let’s take a look at going in the opposite
+    direction with the process of *upsampling*. Our data shows events that happen
+    every day, but what if we wanted to create a time series that measured events
+    every 12 hours?
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Fortunately, the API to achieve this is not all that different. You can still
+    use `pd.Series.resample` to start, but will subsequently want to chain in a call
+    to `pandas.core.resample.Resampler.asfreq`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE92]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE93]'
+  prefs: []
+  type: TYPE_PRE
+- en: Intervals generated during the *upsample*, which have no associated activity,
+    are assigned a missing value. Left alone, there is likely not a ton of value to
+    upsampling like this. However, pandas offers a few ways to fill in this missing
+    data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The first approach to handle missing data may be to forward fill or backward
+    fill values, so that missing values are just replaced with whatever record came
+    `preceding or following`, respectively.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'A forward fill will generate values of `[0, 0, 1, 1, 2, 2, ...]`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE94]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE95]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Whereas a backward fill yields `[0, 1, 1, 2, 2, 3, ...]`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE96]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE97]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'An arguably more robust solution can be had in the form of *interpolation*,
+    where the values preceding and following a missing value can be used to mathematically
+    guess the missing value. The default interpolation will be *linear*, essentially
+    taking the average of the value before and after each missing value:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE98]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE99]'
+  prefs: []
+  type: TYPE_PRE
+- en: There’s more…
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: In the introduction to this recipe, we mentioned that a resample was similar
+    to a Group By. In fact, you could rewrite a resample using `pd.DataFrame.groupby`
+    with a `pd.Grouper` argument.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let’s once again look at a `pd.Series` with 10 records occurring every second:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE100]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE101]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'A resample into three-second increments looks as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE102]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE103]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'This would be rewritten to get the same result by passing in `"3s"` to the
+    `freq=` argument of a `pd.Grouper`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE104]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE105]'
+  prefs: []
+  type: TYPE_PRE
+- en: There is no requirement that you use `pd.DataFrame.resample`, and, in fact,
+    you will find that the `pd.Grouper` approach works better when you must also group
+    by non-datetime values. We will see this in action in the *Calculating year-over-year
+    changes in crime by category* recipe later in this chapter.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Aggregating weekly crime and traffic accidents
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: So far in this chapter, we have taken a basic tour of pandas’ offerings for
+    dealing with temporal data. Starting with small sample datasets has made it easy
+    to visually inspect the output of our operations, but we are now at the point
+    where we can start focusing on applications to “real world” datasets.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The Denver crime dataset is huge, with over 460,000 rows each marked with a
+    datetime of when the crime was reported. As you will see in this recipe, we can
+    use pandas to easily resample these events and ask questions like *How many crimes
+    were reported in a given week*?.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'To start, let’s read in the crime dataset, setting our index as the `REPORTED_DATE`.
+    This dataset was saved using pandas extension types, so there is no need to specify
+    the `dtype_backend=` argument:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE106]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE107]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'To count the number of crimes per week, we need to form a group for each week,
+    which we know we can do with `pd.DataFrame.resample`. Chaining a call to the `.size`
+    method will count the number of crimes within each week for us:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE108]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE109]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'We now have the weekly crime count as a `pd.Series` with the new index incrementing
+    one week at a time. There are a few things that happen by default that are very
+    important to understand. Sunday is chosen as the last day of the week and is also
+    the date used to label each element in the resulting `pd.Series`. For instance,
+    the first index value, January 8, 2012, is a Sunday. There were 877 crimes committed
+    during that week ending on the 8th. The week of Monday, January 9, to Sunday,
+    January 15, recorded 1,071 crimes. Let’s do some sanity checks and ensure that
+    our resampling is doing this:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE110]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE111]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE112]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE113]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'To get an overall understanding of the trend, it would be helpful to create
+    a plot from our resampled data:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE114]'
+  prefs: []
+  type: TYPE_PRE
+- en: '![](img/B31091_09_01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'The Denver crime dataset has all crime and traffic accidents together in one
+    table and separates them through the binary columns `IS_CRIME` and `IS_TRAFFIC`.
+    Using `pd.DataFrame.resample`, we can select just these two columns and summarize
+    them over a given period. For a quarterly summary, you would write:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE115]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE116]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Once again, a line plot to understand the trend may be more helpful:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE117]'
+  prefs: []
+  type: TYPE_PRE
+- en: '![](img/B31091_09_02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Calculating year-over-year changes in crime by category
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Often, users want to know *How much did this change year over year?* or *…quarter
+    over quarter?*. In spite of the frequency with which these questions are asked,
+    writing algorithms to try and answer them can be rather complex and time-intensive.
+    Fortunately, pandas gives you much of this functionality out of the box, trivializing
+    much of the effort.
+  prefs: []
+  type: TYPE_NORMAL
+- en: To try and make things more complicated, in this recipe, we are going to ask
+    the question of *how much did it change by category*? Adding *by category* into
+    the equation will prevent us from directly using `pd.DataFrame.resample`, but
+    as you will see, pandas can still very easily help you answer these detailed types
+    of questions.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Let’s read in the crime dataset, but this time, we are not going to set the
+    `REPORTED_DATE` as our index:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE118]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE119]'
+  prefs: []
+  type: TYPE_PRE
+- en: By now, you should be comfortable enough with reshaping to answer questions
+    like, *How many crimes happened in a given year?*. But what if we wanted to drill
+    into that analysis and decide how it changed within each `OFFENSE_CATEGORY_ID`?
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Since `pd.DataFrame.resample` just works with a `pd.DatetimeIndex`, it cannot
+    be used to help us group by `OFFENSE_CATEGORY_ID` and `REPORTED_DATE`. However,
+    the combination of `pd.DataFrame.groupby` with a `pd.Grouper` argument can help
+    us express this:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE120]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE121]'
+  prefs: []
+  type: TYPE_PRE
+- en: As a technical aside, the `observed=True` argument suppresses a warning about
+    using categorical data types in a Group By in the pandas 2.x release; future readers
+    may not need to specify this argument, as it will become the default.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'To add in the “year over year” component, we can try out the `pd.Series.pct_change`
+    method, which expresses each record as a percentage of the one directly preceding
+    it:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE122]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE123]'
+  prefs: []
+  type: TYPE_PRE
+- en: Unfortunately, this is not giving us exactly what we want. If you look closely
+    at the first `yoy_change` value for all-other-crimes, it shows 0.183541\. However,
+    this value is taken by dividing 1999 by 1689, with 1689 coming from the aggravated-assault
+    category. By default, `pd.Series.pct_change` is not doing anything intelligent
+    – it just divides the current row by the former.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Fortunately, there is a way to fix that, by once again using a Group By. Because
+    our `OFFENSE_CATEGORY_ID` is the first index level, we can use a second Group
+    By with `level=0` and call the `.pct_change` method on that. This will prevent
+    us from accidentally comparing `all-other-crimes` to `aggravated-assault`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE124]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE125]'
+  prefs: []
+  type: TYPE_PRE
+- en: For a more visual representation, we may want to plot out the total crime and
+    year-over-year change side by side for all of our different groups, building off
+    of what we learned about visualizations back in *Chapter 6*, *Visualization*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'For brevity and to save some visual space, we are just going to plot a few
+    crime types:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE126]'
+  prefs: []
+  type: TYPE_PRE
+- en: '![](img/B31091_09_03.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Accurately measuring sensor-collected events with missing values
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Missing data can have an immense impact on your data analysis, but it may not
+    always be clear when and to what extent. With detailed and high-volume transactions,
+    it won’t always be immediately obvious that a dataset is incomplete. Extra attention
+    must be paid to measure and appropriately impute missing transactions; otherwise,
+    any aggregations performed on such datasets may show an incomplete or even entirely
+    wrong picture of what happened.
+  prefs: []
+  type: TYPE_NORMAL
+- en: For this recipe, we are going to use the *Smart Green Infrastructure Monitoring
+    Sensors - Historical* dataset provided by the Chicago Data Portal. This dataset
+    contains a collection of sensors that measured different environmental factors
+    in the city of Chicago, like water runoff and temperature. In theory, the sensors
+    should have constantly run and reported back values, but in practice, they were
+    prone to intermittent outages that resulted in a loss of data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'While the Chicago Data Portal provides the source data as a CSV file spanning
+    the years 2017 and 2018, for this book, we are going to work with a curated Parquet
+    file that only covers the months of June 2017 through October 2017\. This alone
+    provides almost 5 million rows of data, which we can load with a simple `pd.read_parquet`
+    call:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE127]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE128]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The `Measurement Time` column should contain the datetime data for when each
+    event occurred, but upon closer inspection, you will see that pandas did not recognize
+    this as a datetime type:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE129]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE130]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'As such, the first step in exploring our data will be to convert this to the
+    real datetime type using `pd.to_datetime`. While it isn’t clear from the data
+    itself, the Chicago Data Portal documentation notes that these values are local
+    to the Chicago timezone, which we can use `pd.Series.dt.tz_localize` to set:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE131]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE132]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'As mentioned, this dataset collects feedback from sensors that measure different
+    environmental factors, like water runoff and temperature. Inspecting the `Measurement
+    Type` and `Units` column should give us a better idea of what we are looking at:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE133]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE134]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Because the different sensors produce different measurements for different
+    types of data, we must be careful not to compare more than one sensor at a time.
+    For this analysis, we are going to just focus on the `TM1 Temp Sensor`, which
+    only measures the temperature using a unit of millivolts. Additionally, we are
+    going to single in on one `Data Stream ID`, which the Chicago Data Portal documents
+    as:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: An identifier for the measurement type and location. All records with the same
+    value should be comparable.
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+- en: '[PRE135]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE136]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'For this analysis, we are going to only look at `Data Stream ID` `39176`. After
+    filtering, we are also going to set `Measurement Time` as our row index and sort
+    it:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE137]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE138]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The `Measurement Value` column contains the actual millivolts reading from
+    the sensors. Let’s start by resampling to the daily level and using mean aggregation
+    on that column to try and understand our data at a higher level:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE139]'
+  prefs: []
+  type: TYPE_PRE
+- en: '![](img/B31091_09_04.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Almost immediately, we can see some issues with our data. Most notably, there
+    are two gaps where the lines break toward the end of July and middle of October,
+    which are almost assuredly records that were not collected due to the sensors
+    being down.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let’s try narrowing our date range so that we can more clearly see what days
+    are missing from our dataset:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE140]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE141]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'As you can see, we have no data collected at all for July 31, 2017\. To fix
+    this, we can simply chain in a call to `pd.Series.interpolate`, which will fill
+    in the missing days with the average of the values directly preceding and following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE142]'
+  prefs: []
+  type: TYPE_PRE
+- en: '![](img/B31091_09_05.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Voila! Now, we no longer have any gaps in our data collection, yielding a visually
+    appealing, fully drawn-in visual.
+  prefs: []
+  type: TYPE_NORMAL
+- en: There’s more…
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: How you handle missing data also depends on the aggregation function that you
+    are using. In this recipe, the mean is a relatively forgiving function; missing
+    transactions can be masked by the fact that they do not materially change the
+    average being produced.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'However, if we were looking to measure the daily summation of our readings,
+    we would still have some more work to do. For starters, let’s see what a daily-resampled
+    summation of these readings looks like:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE143]'
+  prefs: []
+  type: TYPE_PRE
+- en: '![](img/B31091_09_06.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Things look more dire than in the case of wanting the average. We still see
+    huge dips in late July and October, which we know go back to a lack of data. However,
+    when we dive into the data at the end of July that we saw before, the summation
+    will reveal a few more interesting things about our data:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE144]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE145]'
+  prefs: []
+  type: TYPE_PRE
+- en: It wasn’t just the day of July 31 when we had an outage. The mean aggregation
+    we did before masked the fact that the sensors went down sometime after 15:50:46
+    on July 30 and did not come back online until 15:21:33 on August 1 – an outage
+    of almost 2 full days.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Another interesting thing to try and measure is the expected frequency with
+    which our data should be populated. From an initial glance at our data, it appears
+    as if each minute should supply a data point, but if you try to measure how many
+    events were collected each hour, you will see a different story:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE146]'
+  prefs: []
+  type: TYPE_PRE
+- en: '![](img/B31091_09_07.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Many of the hourly intervals appear to have close to 60 events collected, although
+    surprisingly, only 1 hour actually collected a full 60:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE147]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE148]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'To fix this, let’s try once again to resample our data by the minute and interpolate
+    where results are missing:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE149]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE150]'
+  prefs: []
+  type: TYPE_PRE
+- en: There is a slight caveat users should be aware of with the summation of missing
+    values. By default, pandas will sum all missing values to `0` instead of a missing
+    value. In the case of our resample to minutes, the data point at 2017-10-30 23:57:00
+    had no values to sum, so pandas returned the value of `0` instead of a missing
+    value indicator.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We need a missing value indicator for the resample to work. Luckily, we can
+    still get this by providing the `sum` method with a `min_count=` argument that
+    is `1` (or greater), essentially establishing how many non-missing values must
+    be seen to yield a non-missing result:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE151]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE152]'
+  prefs: []
+  type: TYPE_PRE
+- en: As you can see, the value for 2017-10-30 23:57:00 now shows as `3293`, which
+    was interpolated by taking both the preceding and following values.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'With that out of the way, let’s now confirm that we always see 60 events per
+    hour:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE153]'
+  prefs: []
+  type: TYPE_PRE
+- en: '![](img/B31091_09_08.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'That check looks good, so now, we can try to downsample again back to the daily
+    level and see what the overall summation trend looks like:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE154]'
+  prefs: []
+  type: TYPE_PRE
+- en: '![](img/B31091_09_09.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: This is a drastically different graph from what we started with. We not only
+    removed the extreme outliers from influencing the *y*-axis of our graph but we
+    can also see a general lift in the lower bounds of values. In our original graph,
+    the lower bound of the total millivolts measured was commonly in the range of
+    3.5–4 million per day, but now, our lower bound appears somewhere around 4.74
+    million.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In effect, by paying attention to and handling missing values in our time series
+    data, we were able to yield many different insights from our dataset. In relatively
+    few lines of code, pandas has helped us clearly and concisely get our data to
+    a much better place than where we started.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Join our community on Discord
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Join our community’s Discord space for discussions with the authors and other
+    readers:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[https://packt.link/pandas](https://packt.link/pandas)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/QR_Code5040900042138312.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Leave a Review!
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Thank you for purchasing this book from Packt Publishing—we hope you enjoy it!
+    Your feedback is invaluable and helps us improve and grow. Once you’ve completed
+    reading it, please take a moment to leave an Amazon review; it will only take
+    a minute, but it makes a big difference for readers like you.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Scan the QR code below to receive a free ebook of your choice.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[https://packt.link/NzOWQ](Chapter_9.xhtml)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/QR_Code1474021820358918656.png)'
+  prefs: []
+  type: TYPE_IMG

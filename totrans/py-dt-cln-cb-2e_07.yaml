@@ -1,0 +1,1432 @@
+- en: '7'
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Identifying and Fixing Missing Values
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: I think I speak for many data analysts and scientists when I write, rarely is
+    there something so seemingly small and trivial that is of as much consequence
+    as a missing value. We spend a good deal of our time worrying about missing values
+    because they can have a dramatic, and surprising, effect on our analysis. This
+    is most likely to happen when missing values are not random, but are correlated
+    with a dependent variable. For example, if we are doing a longitudinal study of
+    earnings, but individuals with lower education are more likely to skip the earnings
+    question each year, there is a decent chance that this will bias our parameter
+    estimate for education.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Of course, identifying missing values is not even half of the battle. We then
+    need to decide how to handle them. Do we remove any observation with a missing
+    value for one or more variables? Do we impute a value based on a sample-wide statistic
+    like the mean? Or assign a value based on a more targeted statistic, like the
+    mean for those in a certain class? Do we think of this differently for time series
+    or longitudinal data where the nearest temporal value might make the most sense?
+    Or should we use a more complex multivariate technique for imputing values, perhaps
+    based on regression or *k*-nearest neighbors?
+  prefs: []
+  type: TYPE_NORMAL
+- en: The answer to all of the preceding questions is, “yes.” At some point we will
+    want to use each of these techniques. We will want to be able to answer why or
+    why not to all of these possibilities when making a final choice about missing
+    value imputation. Each will make sense depending on the situation.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We will go over techniques in this chapter for identifying the missing values
+    for each variable, and for observations where values for a large number of the
+    variables are absent. We will then explore strategies for imputing values, such
+    as setting values to the overall mean, to the mean for a given category, and forward
+    filling. We also examine multivariate techniques for imputing values and discuss
+    when they are appropriate.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Specifically, we will explore the following recipes in this chapter:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Identifying missing values
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Cleaning missing values
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Imputing values with regression
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Using *k*-nearest neighbors for imputation
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Using random forest for imputation
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Using PandasAI for imputation
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Technical requirements
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: You will need pandas, NumPy, and Matplotlib to complete the recipes in this
+    chapter. I used pandas 2.1.4, but the code will run on pandas 1.5.3 or later.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The code in this chapter can be downloaded from the book’s GitHub repository,
+    [https://github.com/PacktPublishing/Python-Data-Cleaning-Cookbook-Second-Edition](https://github.com/PacktPublishing/Python-Data-Cleaning-Cookbook-Second-Edition).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Identifying missing values
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Since identifying missing values is such an important part of the workflow of
+    analysts, any tool we use needs to make it easy to regularly check for such values.
+    Fortunately, pandas makes it quite simple to identify missing values.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Getting ready
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: We will work with the **National Longitudinal Survey** (**NLS**) data in this
+    chapter. The NLS data has one observation per survey respondent. Data for employment,
+    earnings, and college enrollment for each year are stored in columns with suffixes
+    representing the year, such as `weeksworked21` and `weeksworked22` for weeks worked
+    in `2021` and `2022` respectively.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We will also work with the COVID-19 data again. This dataset has one observation
+    for each country with total COVID-19 cases and deaths, as well as some demographic
+    data for each country.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Data note**'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The National Longitudinal Survey of Youth is conducted by the United States
+    Bureau of Labor Statistics. This survey started with a cohort of individuals in
+    1997 who were born between 1980 and 1985, with annual follow-ups each year through
+    2023\. For this recipe, I pulled 104 variables on grades, employment, income,
+    and attitudes toward the government from the hundreds of data items on the survey.
+    NLS data can be downloaded from [nlsinfo.org/](https://nlsinfo.org).
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*Our World in Data* provides COVID-19 data for public use at [https://ourworldindata.org/covid-cases](https://ourworldindata.org/covid-cases).
+    The dataset includes total cases and deaths, tests administered, hospital beds,
+    and demographic data such as median age, gross domestic product, and life expectancy.
+    The dataset used in this recipe was downloaded on March 3, 2024.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: We will use pandas functions to identify both missing values and logical missing
+    values (non-missing values that nonetheless connote missing values).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let’s start by loading the NLS and COVID-19 data:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Next, we count the number of missing values for each variable. We can use the
+    `isnull` method to test if each value is missing. It will return True if the value
+    is missing and False if not. We can then use `sum` to count the number of True
+    values, since `sum` will treat each True value as 1 and False value as 0\. We
+    indicate `axis=0` to sum over columns rather than across rows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE2]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE3]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE4]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 43 of the 231 countries have null values for `aged_65_older`. We have `life_expectancy`
+    for almost all countries.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'If we want the number of missing values for each row, we can specify `axis=1`
+    when summing. The following code creates a Series, `demovarsmisscnt`, with the
+    number of missing values for the demographic variables for each country. 178 countries
+    have values for all of the variables, but 16 are missing values for 4 of the 5
+    variables, and 4 are missing values for all of the variables:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE6]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Let’s take a look at a few of the countries with 4 or more missing values.
+    There is very little demographic data available for these countries:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE8]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Let’s also check the missing values for total cases and deaths. There is one
+    missing value for cases per million of the population and one missing value for
+    deaths per million:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE10]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'We can easily check if one country is missing both cases per million and deaths
+    per million. We see that `230` countries are not missing either, and just one
+    country is missing both:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE12]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Sometimes we have logical missing values that we need to transform into actual
+    missing values. This happens when the dataset designers use valid values as codes
+    for missing values. These are often values like 9, 99, or 999, based on the allowable
+    number of digits for the variable. Or it might be a more complicated coding scheme
+    where there are codes for different reasons for there being missing values. For
+    example, on the NLS dataset the codes reveal why the respondent did not provide
+    an answer for a question: -3 is an invalid skip, -4 is a valid skip, and -5 is
+    a non-interview.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The last 4 columns on the NLS DataFrame have data on the highest grade completed
+    for the respondent’s mother and father, parental income, and the mother’s age
+    when the respondent was born. Let’s examine logical missing values for those columns,
+    starting with `motherhighgrade`.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE13]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE14]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'There are 523 invalid skips and 165 valid skips. Let’s look at a few individuals
+    that have at least one of these non-response values for these four variables:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE15]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE16]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'For our analysis, the reason why there is a non-response is not important.
+    Let’s just count the number of non-responses for each of the columns, regardless
+    of the reason for the non-response:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE17]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE18]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'We should set these values to missing before using these columns in our analysis.
+    We can use `replace` to set all values between -5 and -1 to missing. When we check
+    for actual missing values we get the expected counts:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE19]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE20]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: How it works...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: We made good use of lambda functions and `transform` in *step 8* and *step 9*
+    to search for values in a specified range across multiple columns. `transform`
+    works in much the same way as `apply`. Both are methods of DataFrames or of Series,
+    allowing us to pass one or more columns of data to a function. In this case, we
+    use a lambda function, but we could have also used a named function, as we did
+    in the *Changing Series values conditionally* recipe in *Chapter 6*, *Cleaning
+    and Exploring Data with Series Operations*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This recipe demonstrated some very handy pandas techniques to identify the number
+    of missing values for each variable, and observations with a large number of missing
+    values. We also examined how to find logical missing values and convert them to
+    actual missing values. Next, we will take our first look at cleaning missing values.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Cleaning missing values
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: We go over some of the most straightforward approaches for handling missing
+    values in this recipe. This includes dropping observations where there are missing
+    values; assigning a sample-wide summary statistic, such as the mean, to the missing
+    values; and assigning values based on the mean value for an appropriate subset
+    of the data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'We will find and then remove observations from the NLS data that have mainly
+    missing data for key variables. We will also use pandas methods to assign alternative
+    values to missing values, such as the variable mean:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let’s load the NLS data and select some of the educational data.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE21]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE22]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'We can use the techniques we explored in the previous recipe to identify missing
+    values. `schoolrecord.isnull().sum(axis=0)` gives us the number of missing values
+    for each column. The overwhelming majority of observations have missing values
+    for `satverbal`, 7,578 out of 8,984\. Only 31 observations have missing values
+    for `highestdegree`:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE23]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE24]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'We can create a Series, `misscnt`, with the number of missing variables for
+    each observation with `misscnt = schoolrecord.isnull().sum(axis=1)`. 949 observations
+    have 7 missing values for the educational data, and 10 are missing values for
+    all 8 columns. In the following code we also take a look at a few observations
+    with 7 or more missing values. It looks like `highestdegree` is often the one
+    variable that is present, which is not surprising given that we have already discovered
+    that `highestdegree` is rarely missing:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE25]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE26]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE27]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE28]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Let’s drop observations that have missing values for 7 or more variables, out
+    of 8\. We can accomplish this by setting the `thresh` parameter of `dropna` to
+    `2`. This will drop observations that have fewer than 2 non-missing values. We
+    get the expected number of observations after the `dropna`; `8984`-`949`-`10`
+    = `8025`:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE29]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE30]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE31]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE32]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: There are a fair number of missing values for `gpaoverall`, 2,980, though we
+    have valid values for two-thirds of the observations `((8984-2980)/8984)`. We
+    might be able to salvage this as a variable if we do a good job of imputing missing
+    values. This is likely more desirable than just removing these observations. We
+    do not want to lose that data if we can avoid it, particularly if individuals
+    with a missing `gpaoverall` are different from others in ways that will matter
+    for our predictions.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The most straightforward approach is to assign the overall mean for `gpaoverall`
+    to the missing values. The following code uses the pandas Series `fillna` method
+    to assign all missing values of `gpaoverall` to the Series mean value. The first
+    argument to `fillna` is the value you want for all missing values, in this case,
+    `schoolrecord.gpaoverall.mean()`. Note that we need to remember to set the `inplace`
+    parameter to True to actually overwrite the existing values:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE33]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE34]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE35]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE36]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE37]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE38]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: The mean is unchanged, of course, but there is a substantial reduction in the
+    standard deviation, from 62 to 50\. This is a disadvantage of using the dataset
+    mean for all missing values.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The NLS data also has a fair number of missing values for `wageincome20`. The
+    following code shows that 3,783 observations have missing values. We make a deep
+    copy with the `copy` method, setting `deep` to True. We would not normally do
+    this, but in this case we don’t want to change the values of `wageincome20` in
+    the underlying DataFrame. We don’t want to do that here because we will try a
+    different method of imputing values in the next couple of code blocks:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE39]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE40]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE41]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE42]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Rather than assigning the mean value of `wageincome` to the missing values,
+    we could use another common technique for imputing values. We could assign the
+    nearest non-missing value from a preceding observation. We can use the `ffill`
+    method of the Series object to do this (note that this does not impute a value
+    for the first observation as there is no preceding value to use):'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE43]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE44]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE45]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE46]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '**Note**'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'If you have used `ffill` in pandas versions prior to 2.2.0, you might remember
+    the following syntax:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`wageincome.fillna(method="ffill", inplace=True)`'
+  prefs: []
+  type: TYPE_NORMAL
+- en: This syntax was deprecated, starting with pandas 2.2.0\. That is also true for
+    the backward fill syntax, which we will use next.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We could have done a backward fill instead by using the `bfill` method. This
+    sets missing values to the nearest following value. This produces the following:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE47]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE48]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE49]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE50]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE51]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE52]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE53]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE54]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: If missing values are randomly distributed then forward or backward filling
+    has one advantage over using the mean. It is more likely to approximate the distribution
+    of the non-missing values for the variable. Notice that the standard deviation
+    did not drop much after backward filling.
+  prefs: []
+  type: TYPE_NORMAL
+- en: There are times when it makes sense to base our imputation of values on the
+    mean or median value for similar observations; say those that have the same value
+    for a related variable. Let’s try that in the next step.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In the NLS DataFrame, weeks worked in 2020 is correlated with highest degree
+    earned. The following code shows how the mean value of weeks worked changes with
+    degree attainment. The mean for weeks worked is 38, but it is much lower for those
+    without a degree (28) and much higher for those with a professional degree (48).
+    In this case, it may be a better choice to assign 28 to missing values for weeks
+    worked for individuals who have not attained a degree, rather than 38:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE55]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE56]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE57]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE58]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'The following code assigns the mean value of weeks worked across observations
+    with the same degree attainment level for those observations missing weeks worked.
+    We do this by using `groupby` to create a groupby DataFrame, `groupby([''highestdegree''])[''weeksworked20'']`.
+    We then use `fillna` within `transform` to fill missing values with the mean for
+    the highest degree group. Notice that we make sure to only do this imputation
+    for observations where the highest degree information is not missing, `nls97.highestdegree.notnull()`.
+    We will still have missing values for observations missing both highest degree
+    and weeks worked:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE59]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE60]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: How it works...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: When there is very little data available it can make sense to remove an observation
+    from our analysis. We did that in *step 4*. Another common approach is the one
+    we used in *step 5*, assigning the overall dataset mean for the variable to missing
+    values. We saw in that example one of the disadvantages of that approach. We can
+    end up with a significantly reduced variance in our variable.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In *step 9* we assigned values based on the mean value of that variable for
+    a subset of our data. If we are imputing values for variable X[1], and X[1] is
+    correlated with X[2], we can use the relationship between X[1] and X[2] to impute
+    a value for X[1] that might make more sense than the dataset mean. This is pretty
+    straightforward when X[2] is categorical. In this case we can impute the mean
+    value of X[1] for the associated value of X[2].
+  prefs: []
+  type: TYPE_NORMAL
+- en: These imputation strategies—removing observations with missing values, assigning
+    a dataset mean or median, using forward or backward filling, or using a group
+    mean for a correlated variable—are fine for many predictive analytics projects.
+    They work best when the missing values are not correlated with a target or dependent
+    variable. When that is true, imputing values allows us to retain the other information
+    from those observations without biasing our estimates.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Sometimes, however, that is not the case and more complicated imputation strategies
+    are required. The next few recipes explore multivariate techniques for cleaning
+    missing data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: See also
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Don’t worry if your understanding of what we did in *step 10*, using `groupby`
+    and `transform`, is still a little shaky. We do much more with `groupby`, `transform`,
+    and `apply` in *Chapter 9*, *Fixing Messy Data When Aggregating*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Imputing values with regression
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: We ended the previous recipe by assigning a group mean to missing values rather
+    than the overall sample mean. As we discussed, this is useful when the variable
+    that determines the groups is correlated with the variable that has the missing
+    values. Using regression to impute values is conceptually similiar to this, but
+    we typically use it when the imputation will be based on two or more variables.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Regression imputation replaces a variable’s missing values with values predicted
+    by a regression model of correlated variables. This particular kind of imputation
+    is known as deterministic regression imputation, since the imputed values all
+    lie on the regression line, and no error or randomness is introduced.
+  prefs: []
+  type: TYPE_NORMAL
+- en: One potential drawback of this approach is that it can substantially reduce
+    the variance of the variable with missing values. We can use stochastic regression
+    imputation to address this drawback. We explore both approaches in this recipe.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Getting ready
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: We will work with the `statsmodels` module to run a linear regression model
+    in this recipe. `statsmodels` is typically included with scientific distributions
+    of Python, but if you do not already have it, you can install it with `pip install
+    statsmodels`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: The `wageincome20` column on the NLS dataset has a number of missing values.
+    We can use linear regression to impute values. The wage income value is the reported
+    earnings for 2020.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We start by loading the NLS data again and checking for missing values for
+    `wageincome20` and columns that might be correlated with `wageincome20`. We also
+    load the `statsmodels` library:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE61]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE62]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'We are missing values for `wageincome20` for more than 3,000 observations.
+    There are fewer missing values for the other variables. Let’s convert the `highestdegree`
+    column to numeric so that we can use it in a regression model:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE63]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE64]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'As we have already discovered, we need to replace logical missing values for
+    `parentincome` with actual missing values. After that, we can run some correlations.
+    Each of the variables has some positive correlation with `wageincome20`, particularly
+    `hdegnum`:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE65]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE66]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'We should check to see if observations with missing values for wage income
+    are different in some important way from those with non-missing values. The following
+    code shows that these observations have significantly lower degree attainment
+    levels, parental income, and weeks worked. This is a clear case where assigning
+    the overall mean would not be the best choice:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE67]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE68]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE69]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE70]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: Notice that we just work here with rows that have positive values for weeks
+    worked. It does not make sense for someone who did not work in 2020 to have a
+    wage income in 2020.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let’s try regression imputation instead. We start by replacing missing `parentincome`
+    values with the mean. We collapse `hdegnum` into those attaining less than a college
+    degree, those with a college degree, and those with a post-graduate degree. We
+    set those up as dummy variables, with `0` or `1` values when `False` or `True`.
+    This is a tried and true method for treating categorical data in regression analysis.
+    It allows us to estimate different y-intercepts based on group membership.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: (*Scikit-learn* has preprocessing features that can help us with tasks like
+    these. We go over some of them in the next chapter.)
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE71]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Next, we define a function, `getlm`, to run a linear model using the `statsmodels`
+    module. The function has parameters for the name of the target or dependent variable,
+    `ycolname`, and for the names of the features or independent variables, `xcolnames`.
+    Much of the work is done by the `statsmodels` `fit` method, `OLS(y, X).fit()`:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE72]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: Now we can use the `getlm` function to get the parameter estimates and the model
+    summary. All of the coefficients are positive and significant at the 95% level,
+    having *p*-values less than `0.05`. As expected, wage income increases with number
+    of weeks worked and with parental income. Having a college degree gives a $18.5K
+    boost to earnings, compared with not having a college degree. A post-graduate
+    degree bumps up the earnings prediction even more, almost $45.6K more than for
+    those with less than a college degree. (The coefficients on `degcol` and `degadv`
+    are interpreted as relative to those without a college degree since that is the
+    omitted dummy variable.)
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE73]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE74]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: We use this model to impute values for wage income where they are missing. We
+    need to add a constant for the predictions since our model included a constant.
+    We can convert the predictions to a DataFrame and then join it with the rest of
+    the NLS data. Let’s also take a look at some of the predictions to see if they
+    make sense.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE75]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE76]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'We should look at some summary statistics for our wage income imputation and
+    compare that with the actual wage income values. (Remember that the `wageincomeimp`
+    column has the actual value for `wageincome20` when it was not missing, and imputed
+    values otherwise.) The mean for `wageincomeimp` is somewhat less than that for
+    `wageincome20`, which we anticipated given that folks with missing wage income
+    had lower values for correlated variables. But the standard deviation is also
+    lower. This can happen with deterministic regression imputation:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE77]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE78]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: Stochastic regression imputation adds a normally distributed error to the predictions
+    based on the residuals from our model. We want this error to have a mean of zero
+    with the same standard deviation as our residuals. We can use NumPy’s normal function
+    for that with `np.random.normal(0, lm.resid.std(), nls97.shape[0])`. The `lm.resid.std()`
+    gets us the standard deviation of the residuals from our model. The final parameter
+    value, `nls97.shape[0]`, indicates how many values to create; in this case we
+    want a value for every row in our data.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'We can join those values with our data and then add the error, `randomadd`,
+    to our prediction. We set a seed so that we can reproduce the results:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE79]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'This should increase the variance but not have much of an effect on the mean.
+    Let’s confirm that. We first need to replace missing wage income values with the
+    stochastic prediction:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE80]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE81]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: That seems to have worked. The imputed variable based on our stochastic prediction
+    has pretty much the same standard deviation as the wage income variable.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How it works...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Regression imputation is a good way to take advantage of all the data we have
+    to impute values for a column. It is often superior to the imputation methods
+    we examined in the previous recipe, particularly when missing values are not random.
+    Deterministic regression imputation does, however, have two important limitations:
+    it assumes a linear relationship between the regressors (our predictor variables)
+    and the variable to be imputed, and it can substantially reduce the variance of
+    the imputed variable, as we saw in *steps 8 and 9*.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: If we use stochastic regression imputation we will not artificially reduce our
+    variance. We did this in *step 10*. This gave us better results, though it did
+    not address the possible issue of a non-linear relationship between regressors
+    and the imputed variable.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Before we started using machine learning widely for this work, regression imputation
+    was our go to multivariate approach for imputation. We now have the option of
+    using algorithms like *k*-nearest neighbors and random forest for this task, which
+    have advantages over regression imputation in some cases. KNN imputation, unlike
+    regression imputation, does not assume a linear relationship between variables,
+    or that those variables are normally distributed. We explore KNN imputation in
+    the next recipe.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Using k-nearest neighbors for imputation
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '**k-Nearest Neighbors** (**KNN**) is a popular machine learning technique because
+    it is intuitive and easy to run and yields good results when there is not a large
+    number of variables and observations. For the same reasons, it is often used to
+    impute missing values. As its name suggests, KNN identifies the *k* observations
+    whose variables are most similar to each observation. When used to impute missing
+    values, KNN uses the nearest neighbors to determine what fill values to use.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Getting ready
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: We will work with the KNN imputer from scikit-learn version 1.3.0\. If you do
+    not already have scikit-learn, you can install it with `pip install scikit-learn`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: We can use KNN imputation to do the same imputation we did in the previous recipe
+    on regression imputation.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We start by importing the `KNNImputer` from `scikit-learn` and loading the
+    NLS data again:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE82]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Next, we prepare the variables. We collapse degree attainment into three categories—less
+    than college, college, and post-college degree—each category represented by a
+    different dummy variable. We also convert logical missing values for parent income
+    to actual missing values:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE83]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Let’s create a DataFrame with just wage income and a few correlated variables.
+    We also select only those rows with positive values for weeks worked:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE84]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE85]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: We are now ready to use the `fit_transform` method of the KNN imputer to get
+    values for all missing values in the passed DataFrame, `wagedata`. `fit_transform`
+    returns a NumPy array with all the non-missing values from `wagedata`, plus the
+    imputed ones. We convert this array into a DataFrame using the same index as `wagedata`.
+    This will make it easy to join the data in the next step. (This will be a familiar
+    step to folks who have some experience using scikit-learn. We will go over it
+    in more detail in the next chapter.)
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: We need to specify the value to use for number of nearest neighbors, for *k*.
+    We use a general rule of thumb for determining *k*, the square root of the number
+    of observations divided by 2 (sqrt(*N*)/2). That gives us 38 for *k* in this case.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE86]'
+  prefs: []
+  type: TYPE_PRE
+- en: We join the imputed data with the original NLS wage data and take a look at
+    a few observations. Notice that with KNN imputation that we did not need to do
+    any pre-imputation for missing values of correlated variables. (With regression
+    imputation, we set parent income to the dataset mean.)
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE87]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE88]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: Let’s take a look at summary statistics for the original and imputed variables.
+    Not surprisingly, the imputed wage income mean is lower than the original mean.
+    As we discovered in the previous recipe, observations with missing wage income
+    have lower degree attainment, weeks worked, and parental income. We also lose
+    some of the variance in wage income.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE89]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE90]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: That was easy! The preceding steps gave us reasonable imputations for wage income,
+    and also for other variables with missing values, with minimal data preparation
+    on our part.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How it works...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Most of the work in this recipe was done in *step 4*, when we passed our DataFrame
+    to the `fit_transform` method of the KNN imputer. The KNN imputer returned a NumPy
+    array with imputations for missing values for all columns in our data, including
+    wage income. It did this imputation based on values for the *k* most similar observations.
+    We converted the NumPy array into a DataFrame that we joined with the initial
+    DataFrame in *step 5*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: KNN does imputations without making any assumptions about the distribution of
+    the underlying data. With regression imputation, the standard assumptions for
+    linear regression apply, that there is a linear relationship between variables
+    and that they are distributed normally. If this is not the case, KNN is likely
+    a better approach to imputation.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We did need to make an initial assumption about an appropriate value for *k*,
+    what is known as a hyperparameter. Model builders generally do hyperparameter
+    tuning to find the best value of *k*. Hyperparameter tuning for KNN is beyond
+    the scope of this book, but I step the reader through it in my book *Data Cleaning
+    and Exploration with Machine Learning*. We made a reasonable assumption about
+    a good value for *k* in *step 4*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: There’s more...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Despite these advantages, KNN imputation does have limitations. As we just discussed,
+    we had to tune the model with an initial assumption about a good value for *k*,based
+    only on our knowledge of the size of the dataset. There is some risk of overfitting—fitting
+    the data with non-missing values for the target variable so well that our estimates
+    for the missing values are unreliable—as we increase the value of *k*. Hyperparameter
+    tuning can help us identify the best value for *k*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: KNN is also computationally expensive and may be impractical for very large
+    datasets. Finally, KNN imputation may not perform well when the correlation is
+    weak between the variable to be imputed and the predictor variables, or when those
+    variables are very highly correlated. An alternative to KNN for imputation, random
+    forest imputation, can help us avoid the disadvantages of both KNN and regression
+    imputation. We explore random forest imputation next.
+  prefs: []
+  type: TYPE_NORMAL
+- en: See also
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: There is a fuller discussion of KNN, and examples with real-world data, in my
+    book *Data Cleaning and Exploration with Machine Learning*. That discussion will
+    give you a better understanding of how the algorithm works, and will contrast
+    it with other non-parametric machine learning algorithms, such as random forest.
+    We look at random forest for imputing values in the next recipe.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Using random forest for imputation
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Random forest is an ensemble learning method, using bootstrap aggregating, also
+    known as bagging, to improve model accuracy. It makes predictions by repeatedly
+    taking the mean of multiple trees, yielding progressively better estimates. We
+    will use the MissForest algorithm in this recipe, which is an application of the
+    random forest algorithm to missing value imputation.
+  prefs: []
+  type: TYPE_NORMAL
+- en: MissForest starts by filling in the median or mode (for continuous or categorical
+    variables respectively) for missing values, then uses random forest to predict
+    values. Using this transformed dataset, with missing values replaced by initial
+    predictions, MissForest generates new predictions, perhaps replacing the initial
+    prediction with a better one. MissForest will typically go through at least 4
+    iterations of this process.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Getting ready
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: You will need to install the `MissForest` and `MiceForest` modules to run the
+    code in this recipe. You can install both with `pip`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Running MissForest is even easier than using the KNN imputer, which we used
+    in the previous recipe. We will impute values for the same wage income data that
+    we worked with previously.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let’s start by importing the `MissForest` module and loading the NLS data.
+    We import `missforest`, and also `miceforest`, which we discuss in later steps:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE91]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'We should do the same data cleaning that we did in the previous recipe:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE92]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Now we are ready to run MissForest. Notice that the process is remarkably similar
+    to our process for using the KNN imputer:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE93]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Let’s take a look at a few of our imputed values and some summary statistics.
+    The imputed values have a lower mean. This is not surprising given that we have
+    already learned that the missing values are not distributed randomly, as individuals
+    with lower degree attainment and weeks worked are more likely to have missing
+    values for wage income:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE94]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE95]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE96]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE97]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: MissForest uses the random forest algorithm to generate highly accurate predictions.
+    Unlike KNN, it does not require tuning with an initial value for *k*. It also
+    is computationally less expensive than KNN. Perhaps most importantly, random forest
+    imputation is less sensitive to low or very high correlation among variables,
+    though that was not an issue in this example.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How it works...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: We largely follow the same process here as we did with KNN imputation in the
+    previous recipe. We start by cleaning the data a bit, extracting a numeric variable
+    from the highest degree text, and replacing logical missing values for parental
+    income with actual missing values.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We then pass our data to the `fit_transform` method of a `MissForest` imputer.
+    This method returns a DataFrame with imputed values for all columns.
+  prefs: []
+  type: TYPE_NORMAL
+- en: There’s more...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: We could have used Multiple Imputation by Chained Equations (MICE), which can
+    be implemented using random forests, for our imputation instead. One advantage
+    of this approach is that MICE adds a random component to imputations, likely further
+    reducing the possibility of overfitting even over `missforest`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`miceforest` can be run in much the same way as `missforest`.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We create a `kernel` with the `miceforest` instance we created in *step 1*:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE98]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE99]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE100]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Then we can view the results of our imputation:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE101]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE102]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: This produces very similar results as `missforest`. Both approaches are excellent
+    choices for missing value imputation.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Using PandasAI for imputation
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Many of the missing value imputation tasks we have explored in this chapter
+    can also be completed using PandasAI. As we have discussed in previous chapters,
+    AI tools can help us check the work we have done with traditional tools and can
+    suggest alternative approaches that did not occur to us. It always makes sense,
+    though, to look under the hood and be sure we understand what PandasAI, or other
+    AI tools, are doing.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We will use PandasAI in this recipe to identify missing values, impute missing
+    values based on summary statistics, and assign missing values based on machine
+    learning algorithms.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Getting ready
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: We will work with PandasAI in this recipe. It can be installed with `pip install`
+    `pandasai`. You also need to get a token from [openai.com](https://openai.com)
+    to send a request to the OpenAI API.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: In this recipe, we will carry out many of the tasks we have done earlier in
+    this chapter using AI tools instead.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We start by importing the `pandas` and `numpy` libraries and `OpenAI` and `pandasai`.
+    We will work a fair bit with the PandasAI `SmartDataFrame` module in this recipe.
+    We will also load the NLS data:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE103]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'We do the same data cleaning on the parent income and highest degree variables
+    that we did in previous recipes:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE104]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'We create a DataFrame with just the wage and degree data, and then a `SmartDataframe`
+    from PandasAI:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE105]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Show non-missing counts, averages, and standard deviations for all the variables.
+    We send a natural language command to the `chat` method of the `SmartDataFrame`
+    object to do that. Since `hdegnum` (highest degree) is a categorical variable,
+    `chat` does not show means or standard deviations:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE106]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE107]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Let’s impute values for the missing values based on the average for each variable.
+    The `chat` method will return a pandas DataFrame in this case. There are no longer
+    missing values for the income and weeks worked variables, but PandasAI figured
+    out that the degree categorical variable should not be imputed based on average:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE108]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE109]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: Let’s look again at the values for highest degree. Notice that the most frequent
+    value is `2`, which you may recall from earlier recipes represents high school
+    completion.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE110]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE111]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'We can set missing values for the degree variables to their most frequent non-missing
+    value, which is not an uncommon way to handle missing values for categorical variables.
+    All of the missing values now have a value of `2`:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE112]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE113]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: We could have used the built-in `SmartDataframe` function, `impute_missing_values`,
+    instead. This will use forward fill to impute missing values. No values are imputed
+    for the highest degree variable, `hdegnum`.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE114]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE115]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: We can use KNN for missing value imputation for the income and weeks worked
+    variables. We start over with an unchanged DataFrame. After the imputation, the
+    `wageincome20` mean is lower than it was originally, as shown in *step 4*. This
+    is not surprising, since we have seen in other recipes that individuals with missing
+    `wageincome20` have lower values for other values correlated with `wageincome20`.
+    The reduction in the standard deviation for `wageincome20` and `parentincome`
+    is not great. The mean and standard deviation for `weeksworked20` are largely
+    unchanged, which is good.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE116]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE117]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: How it works...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Whenever we pass a natural language command to the `chat` method of a `SmartDataframe`,
+    pandas code is generated to run that command. Some of that is very familiar code
+    to generate summary statistics. However, it also can generate code to run machine
+    learning algorithms such as KNN or random forest. As discussed in previous chapters,
+    it is always a good idea to review the `pandasai.log` file after running `chat`
+    to understand the code that was created.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This recipe demonstrated how to use PandasAI to identify and impute values where
+    they are missing. AI tools, particularly large language models, make it easy to
+    pass natural language commands to generate code like the code we created earlier
+    in this chapter.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Summary
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: We have explored the most popular approaches for missing value imputation in
+    this chapter, and have discussed the advantages and disadvantages of each approach.
+    Assigning an overall sample mean is not usually a good approach, particularly
+    when observations with missing values are different from other observations in
+    important ways. We also can substantially reduce our variance. Forward or backward
+    filling allows us to maintain the variance in our data, but works best when the
+    proximity of observations is meaningful, such as with time series or longitudinal
+    data. In most non-trivial cases we will want to use a multivariate technique,
+    such as regression, KNN, or random forest imputation. We examined all these approaches
+    in this chapter, and for the next chapter, we will learn about encoding, transforming,
+    and scaling features.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Leave a review!
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Enjoying this book? Help readers like you by leaving an Amazon review. Scan
+    the QR code below to get a free eBook of your choice.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/Review_copy.png)'
+  prefs: []
+  type: TYPE_IMG

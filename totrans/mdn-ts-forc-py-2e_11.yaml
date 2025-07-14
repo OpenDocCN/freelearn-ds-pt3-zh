@@ -1,0 +1,1273 @@
+- en: '9'
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Ensembling and Stacking
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In the previous chapter, we looked at a few machine learning algorithms and
+    used them to generate forecasts on the London Smart Meters dataset. Now that we
+    have multiple forecasts for all the households in the dataset, how do we come
+    up with a single forecast by choosing or combining these different forecasts?
+    At the end of the day, we can only have one forecast that will be used for planning
+    whatever task for which you are forecasting. That is what we will be doing in
+    this chapter—we will learn how to leverage combinatorial and mathematical optimization
+    to come up with a single forecast.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In this chapter, we will cover the following topics:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Strategies for combining forecasts
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Stacking or blending
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Technical requirements
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: You will need to set up the Anaconda environment following the instructions
+    in the *Preface* of the book to get a working environment with all the libraries
+    and datasets required for the code in this book. Any additional library will be
+    installed while running the notebooks.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'You will need to run the following notebooks before using the code in this
+    chapter:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`02-Preprocessing_London_Smart_Meter_Dataset.ipynb` in `Chapter02`'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`01-Setting_up_Experiment_Harness.ipynb` in `Chapter04`'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`02-Baseline_Forecasts_using_darts.ipynb` in `Chapter04`'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`01-Feature_Engineering.ipynb` in `Chapter06`'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`02-Dealing_with_Non-Stationarity.ipynb` in `Chapter07`'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`02a-Dealing_with_Non-Stationarity-Train+Val.ipynb` in `Chapter07`'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`00-Single_Step_Backtesting_Baselines.ipynb` in `Chapter08`'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`01-Forecasting_with_ML.ipynb` in `Chapter08`'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`01a-Forecasting_with_ML_for_Test_Dataset.ipynb` in `Chapter08`'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`02-Forecasting_with_Target_Transformation.ipynb` in `Chapter08`'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`02a-Forecasting_with_Target_Transformation(Test).ipynb` in `Chapter08`'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The code for this chapter can be found at [https://github.com/PacktPublishing/Modern-Time-Series-Forecasting-with-Python-/tree/main/notebooks/Chapter09](https://github.com/PacktPublishing/Modern-Time-Series-Forecasting-with-Python-/tree/main/notebooks/Chapter09).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Combining forecasts
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'We have generated forecasts using many techniques—some univariate, some machine
+    learning, and so on. But at the end of the day, we would need a single forecast,
+    and that means choosing a forecast or combining a variety. The most straightforward
+    option is to choose the algorithm that does the best in the validation dataset,
+    which in our case is `LightGBM`. We can think of this *selection* as another function
+    that takes the forecasts that we generated as inputs and combines them into a
+    final forecast. Mathematically, this can be represented as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*Y* = *F*(*Y*[1], *Y*[2], …, *Y*[N])'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Here, *F* is the function that combines *N* forecasts. We can use the *F* function
+    to choose the best-performing model in the validation dataset. However, this function
+    can be as complex as it wants to be, and choosing the right *F* function while
+    balancing bias and variance is a must.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Notebook alert:**'
+  prefs: []
+  type: TYPE_NORMAL
+- en: To follow along with the code, use the `01-Forecast_Combinations.ipynb` notebook
+    in the `Chapter09` folder.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We will start by loading all the forecasts (both the validation and test forecasts)
+    and the corresponding metrics for all the forecasts we have generated so far and
+    combining them into `pred_val_df` and `pred_test_df`. Now, we must reshape the
+    DataFrame using `pd.pivot` to get it into the shape we want. Up to this point,
+    we have been tracking multiple metrics. But to meet this objective, we will need
+    to choose one. For this exercise, we are going to choose the MAE as the metric.
+    The validation metrics can be combined and reshaped into `metrics_combined_df`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 9.1 – Reshaped predictions DataFrame ](img/B22389_09_01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 9.1: Reshaped predictions DataFrame'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now, let’s look at some different strategies for combining the forecasts.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Best fit
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'This strategy for choosing the best forecast is by far the most popular and
+    is as simple as choosing the best forecast for each time series based on the validation
+    metrics. This strategy has been made popular by many automated forecasting software
+    tools, which call this the “best fit” forecast. The algorithm is very simple:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Find the best-performing forecast for each time series using a validation dataset.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: For each time series, select the forecast from the same model for the test dataset.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'We can do this easily:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'This will create a new column called `best_fit` with the forecasts that have
+    been chosen according to the strategy we discussed. Now, we can evaluate this
+    new forecast and get the metrics for the test dataset. The following table shows
+    the best individual model (`LightGBM`) and the new strategy—`best_fit`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 9.2 – Aggregate metrics for the best fit strategy ](img/B22389_09_02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 9.2: Aggregate metrics for the best-fit strategy'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Here, we can see that the best-fit strategy is performing better than the best
+    individual model overall. However, one drawback of this strategy is the fundamental
+    assumption of this strategy—whatever model does best in the validation period
+    also performs best in the test period. There is no hedging of bets with other
+    forecasting models and so on. Given the dynamic nature of time series, this is
+    not always the best strategy. Another drawback of this approach is the instability
+    of the final forecast.
+  prefs: []
+  type: TYPE_NORMAL
+- en: When we are using such a rule in a live environment, where we retrain and rerun
+    the best fit every week, the forecast for any time series can jump back and forth
+    between different forecast models, which can generate wildly different forecasts.
+    Therefore, the final forecast shows a lot of week-over-week instability, which
+    hampers the downstream actions we use these forecasts for. We can look at a few
+    other techniques that don’t have this instability.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Measures of central tendency
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Another prominent strategy is to use either an average or median to combine
+    the forecasts. This is a function, *F*, that is independent of validation metrics.
+    This is both the appeal and angst of this method. It is impossible to overfit
+    the validation metrics because we are not using them at all. But on the other
+    hand, without any information from the validation metric, we may be including
+    some very bad models, which pulls down the ensemble. However, empirically, this
+    simple averaging of taking the median has proven to be a very strong combination
+    method for forecast and is hard to outperform. Let’s see how this can be done:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The preceding code will create two new columns called `average_ensemble` and
+    `median_ensemble` with the combined forecasts. Now, we can evaluate this new forecast
+    and get the metrics for the test dataset. The following table shows the best individual
+    model (`LightGBM`) and the new strategies:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 9.3 – Aggregate metrics for the mean and median strategies ](img/B22389_09_03.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 9.3: Aggregate metrics for the mean and median strategies'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Here, we can see that neither the mean nor median strategy is working better
+    than the best individual model overall. This can be because we are including methods
+    such as Theta and FFT, which are performing considerably worse than the other
+    machine learning methods. But since we are not taking any information from the
+    validation dataset, we do not know this information. We can make an exception
+    and say that we are going to use the validation metrics to choose which models
+    we include in the average or median. But we have to be careful because now, we
+    are moving closer to the assumption that what works in the validation period is
+    going to work in the test period.
+  prefs: []
+  type: TYPE_NORMAL
+- en: There are a few manual techniques we can use here, such as **trimming** (discarding
+    the worst-performing models in the ensemble) and **skimming** (selecting only
+    the best few models in the ensemble). While effective, these are a bit subjective,
+    and often, they become hard to use, especially when we have scores of models to
+    choose from.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'If we think about this problem, it is essentially a combinatorial optimization
+    problem where we have to select the best combination of models that optimizes
+    our metric. If we consider the average for combining the different forecasts,
+    mathematically, it can be thought of as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_09_001.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Here, *L* is the loss or metric that we are trying to minimize. In our case,
+    we chose that to be the MAE. ![](img/B22389_09_002.png) is the binary weight of
+    each of the base forecasts. Finally, ![](img/B22389_09_003.png) is the set of
+    *N* base forecasts and *Y* is the real observed values of the time series.
+  prefs: []
+  type: TYPE_NORMAL
+- en: But unlike pure optimization, where there is no concept of bias and variance,
+    we need an optimal solution that can be generalized. Therefore, selecting the
+    global minima in the training data is not advisable because in that case, we might
+    be further overfitting the training dataset, increasing the variance of the resulting
+    model. For this minimization, we typically use out-of-sample predictions, which
+    can be the forecast during the validation period in this case.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The most straightforward solution is to find *w*, which minimizes this function
+    on validation data. But there are two problems with this approach:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The possible candidates (different combinations of the base forecasts) increase
+    exponentially as we increase the number of base forecasts, *N*. This becomes computationally
+    intractable very soon.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Selecting the global minima in the validation period may not be the best strategy
+    because of overfitting the validation period.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Now, let’s take a look at a few heuristics-based solutions to this combinatorial
+    optimization problem.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Heuristic problem-solving is a strategy that uses rules of thumb or shortcuts
+    to find solutions quickly, even if they may not be optimal. Heuristics can be
+    useful when exact solutions are computationally expensive or time-consuming to
+    find. However, they may lead to suboptimal or even incorrect solutions in some
+    cases.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Heuristics are often used in conjunction with other problem-solving methods,
+    such as metaheuristics, to improve the efficiency and effectiveness of the search
+    process. Metaheuristics are high-level, problem-independent strategies used to
+    solve optimization problems. They offer a framework for developing heuristic algorithms
+    that can efficiently explore complex search spaces and find near-optimal solutions.
+    Unlike traditional optimization methods, metaheuristics often draw inspiration
+    from natural phenomena or biological processes.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Common examples of metaheuristic methods include genetic algorithms (inspired
+    by natural selection), simulated annealing (inspired by metallurgy), particle
+    swarm optimization (inspired by bird flocking), and ant colony optimization (inspired
+    by ants foraging for food). These methods employ probabilistic or stochastic approaches
+    to balance exploration and exploitation, allowing them to avoid getting stuck
+    in local optima and discover potentially better solutions.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Simple hill climbing
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: We briefly talked about greedy algorithms while discussing decision trees, as
+    well as gradient-boosted trees. Greedy optimization is a heuristic that builds
+    up a solution stage by stage, selecting a local optimum at each stage. In both
+    of these machine learning models, we adopt a greedy, stagewise approach to finding
+    the solution to a computationally infeasible optimization problem. To select the
+    best subset that gives us the best combination of forecasts, we can employ a simple
+    greedy algorithm called hill climbing. If we consider the objective function surface
+    as a hill, to find the maxima, we would need to climb the hill. As its name suggests,
+    hill climbing ascends the hill, one step at a time, and in each of those steps,
+    it takes the best possible path, which increases the objective function. The illustration
+    below can make it clearer.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_09_04.png)Figure 9.4: Hill climbing algorithm illustration for
+    a one-dimensional objective'
+  prefs: []
+  type: TYPE_NORMAL
+- en: We can see in *Figure 9.4* that the objective function (the function we need
+    to optimize) has multiple peaks (hills) and in the hill climbing algorithm, we
+    “climb” the hill to reach the peak in a step-by-step manner. What we also need
+    to keep in mind is that depending on where we start the climb, we might reach
+    different points in the objective. In *Figure 9.4*, if we start at point A, we
+    reach the local optima and miss the global optima. Now, let’s see how the algorithm
+    works in a more rigorous manner.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Here, *C* is a set of candidates (base forecasts) and *O* is the objective
+    we want to minimize. The algorithm for the simple hill-climb is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Initialize a starting solution, *C*[best], as the candidate that gives the minimum
+    value in *O*, *O*[best], and remove *C*[best] from *C*.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'While the length of *C* > 0, do the following:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Evaluate all members of *C* by averaging the base forecasts in *C*[best] with
+    each element in *C* and select the best member (*C*[stage best]) that was added
+    to *C*[best] to minimize the objective function, *O* (*O*[stage best]).
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'If *O*[stage best] > *O*[best], then do the following:'
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '*C*[best] = *C*[best] U *C*[stage best].'
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '*O*[best] = *O*[stage best].'
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Remove *C*[stage best] from *C*.
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Otherwise, exit.
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'At the end of the run, we have *C*[best], which is the best combination of
+    forecasts we got through greedy optimization. We have made an implementation of
+    this available in `src.forecasting.ensembling.py` under the `greedy_optimization`
+    function. The parameters for this function are as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`objective`: This is a callable that takes in a list of strings as the candidates
+    and returns a `float` objective value.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`candidates`: This is a list of candidates to be included in the optimization.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`verbose`: A flag that specifies whether progress is printed or not.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The function returns a tuple of the best solution as a list of strings and the
+    best score that was obtained through optimization.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let’s see how we can use this in our example:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Import all the required libraries/functions:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Define the objective function and run greedy optimization:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Once we have the best solution, we can create the combination forecast in the
+    test DataFrame:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Once we run this code, we will have the combination forecast under the name
+    `greedy_ensemble` in our prediction DataFrame. The candidates that are part of
+    the optimal solution are LightGBM, Lasso Regression, and LightGBM_auto_stat. Now,
+    let’s evaluate the results and look at the aggregated metrics:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 9.4 – Aggregate metrics for a simple hill climbing-based ensemble
+    ](img/B22389_09_05.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 9.5: Aggregate metrics for a simple hill climbing-based ensemble'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'As we can see, the simple hill-climb is performing better than any individual
+    models or ensemble techniques we have seen so far. This greedy approach seems
+    to be working well in this case. Now, let’s understand a few limitations of hill
+    climbing, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Runtime considerations**: Since a simple hill-climb requires us to evaluate
+    all the candidates at any step, this can cause a bottleneck in terms of runtime.
+    If the number of candidates is large, this approach can take longer to finish.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Short-sightedness**: Hill climbing optimization is short-sighted. During
+    optimization, it always picks the best in each step. Sometimes, by choosing a
+    slightly worse solution in a step, we may get to a better overall solution.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Forward-only**: Hill climbing is a forward-only algorithm. Once a candidate
+    has been admitted into the solution, we can’t go back and remove it.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The greedy approach may not always get us the best solution, especially when
+    there are scores of models to combine. So, let’s look at a small variation of
+    hill climbing that tries to get over some of the limitations of the greedy approach.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Stochastic hill climbing
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: The key difference between simple hill climbing and stochastic hill climbing
+    is in the evaluation of candidates. In a simple hill climb, we *evaluate all possible
+    options* and pick the best among them. However, in a stochastic hill climb, we
+    *randomly pick a candidate* and add it to the solution if it is better than the
+    current solution. In other words, in hill climbing we always move up the hill
+    in steps, but in Stochastic hill climbing, we magically teleport to different
+    points in the objective function and check we are higher than we have been before.
+    This addition of stochasticity helps the optimization not get the local maxima/minima,
+    but also introduces quite a bit of uncertainty in reaching any kind of optima.
+    Let’s take a look at the algorithm.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Here, *C* is a set of candidates (base forecasts), *O* is the objective we
+    want to minimize, and *N* is the maximum number of iterations we want to run the
+    optimization for. The algorithm for stochastic hill climbing is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Initialize a starting solution, *C*[best], as the candidate. This can be done
+    by picking a candidate at random or choosing the best-performing model.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Set the value of the objective function for *C*[best], *O*, as *O*[best], and
+    remove *C*[best] from *C*.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Repeat this for *N* iterations:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Draw a random sample from *C*, add it to *C*[best], and store it as *C*[stage].
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Evaluate *C*[stage] on the objective function, *O* , and store it as *O*[stage].
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'If *O*[stage] > *O*[best], then do the following:'
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '*C*[best] = *C*[best] U *C*[stage]'
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '*O*[best]= *O*[stage].'
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Remove *C*[best] from *C*.
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'At the end of the run, we have *C*[best], which is the best combination of
+    forecasts we got through stochastic hill climbing. We have made an implementation
+    of this available in `src.forecasting.ensembling.py` under the `stochastic_hillclimbing`
+    function. The parameters for this function are as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`objective`: This is a callable that takes in a list of strings as the candidates
+    and returns a `float` objective value.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`candidates`: This is a list of candidates to be included in the optimization.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`n_iterations`: The number of iterations to run the hill-climb for. If this
+    is not given, a heuristic (twice the number of candidates) is used to set this.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`init`: This determines the strategy to be used for the initial solution. This
+    can be `random` or `best`.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`verbose`: A flag that specifies whether progress is printed or not.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`random_state`: A seed that gets repeatable results.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The function returns a tuple of the best solution as a list of strings and the
+    best score obtained through optimization.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'This can be used in a very similar fashion to `greedy_optimization`. We will
+    only show the different parts here. The full code is available in the notebook:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Once we run this code, we will have the combination forecast called `stochastic_hillclimb__ensemble`
+    in our prediction DataFrame. The candidates that are part of the optimal solution
+    are LightGBM, Lasso Regression_auto_stat, LightGBM_auto_stat, and Lasso Regression.
+    Now, let’s evaluate the results and look at the aggregated metrics:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 9.5 – Aggregate metrics for a stochastic hill climbing-based ensemble
+    ](img/B22389_09_06.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 9.6: Aggregate metrics for a stochastic hill climbing-based ensemble'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The stochastic hill climb is not doing better than the greedy approach but is
+    better than the mean, median, and best-fit ensembles. We discussed three disadvantages
+    of simple hill climbing earlier—runtime considerations, short-sightedness, and
+    forward-only. Stochastic hill climbing solves the runtime consideration because
+    we are not evaluating all the combinations and selecting the best. Instead, we
+    are randomly evaluating the combinations and adding them to the ensemble as soon
+    as we see a solution that performs better. It partly solves the short-sightedness
+    purely because the randomness in the algorithm may end up choosing a sub-optimal
+    solution for each stage. But it still only chooses solutions that are better than
+    the current solution.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now, let’s look at another modification of hill climbing that handles this issue
+    as well.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Simulated annealing
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: '**Simulated annealing** is a modification of hill climbing that is inspired
+    by a physical phenomenon—annealing solids. Annealing is the process of heating
+    a solid to a predetermined temperature (usually above its recrystallization point,
+    but below its melting point), holding it for a while, and then cooling it (either
+    slowly or quickly by quenching it in water).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: This is done to ensure that the atoms assume a new global minimum energy state,
+    which induces desirable properties in some metals, such as iron.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In 1952, Metropolis proposed simulated annealing as an optimization technique.
+    The annealing analogy applies to the optimization context as well. When we say
+    we heat the system, we mean that we encourage random perturbations. So, when we
+    start an optimization with a high temperature, the algorithm explores the space
+    and comes up with an initial structure of the problem. And as we reduce the temperature,
+    the structure is refined to arrive at a final solution. This technique helps us
+    avoid getting stuck in any local optima. Local optima are extrema in the objective
+    function surface that are better than other values nearby but may not be the absolute
+    best solution possible. The *Further reading* section contains a resource that
+    explains what local and global optima are in concise language.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now, let’s look at the algorithm.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Here, *C* is a set of candidates (base forecasts), *O* is the objective we
+    want to minimize, *N* is the maximum number of iterations we want to run the optimization
+    for, *T*[max] is the maximum temperature, and ![](img/B22389_04_009.png) is the
+    temperature decay. The algorithm for simulated annealing is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Initialize a starting solution, *C*[best], as the candidate. This can be done
+    by picking a candidate at random or choosing the best-performing model.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Set the value of the objective function for *C*[best], *O*, as *O*[best], and
+    remove *C*[best] from *C*.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Set the current temperature, *t*, to *T*[max].
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Repeat this for *N* iterations:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Draw a random sample from *C*, add it to *C*[best], and store it as *C*[stage].
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Evaluate *C*[stage] on the objective function, *O*, and store it as *O*[stage].
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'If *O*[stage] > *O*[best], then do the following:'
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '*C*[best].= *C*[best] U *C*[stage]'
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '*O*[best] = *O*[stage]'
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Remove *C*[best] from *C*.
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Otherwise, do the following:'
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Calculate the acceptance probability, ![](img/B22389_09_005.png).
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Draw a random sample between 0 and 1, as p.
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'If *p* < *s*, then do the following:'
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '*C*[best] = *C*[best] U *C*[stage]'
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '*O*[best] = *O*[stage].'
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Remove *C*[best] from *C*.
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '*t* = *t* - ![](img/B22389_04_009.png) (for linear decay) and *t* = *t*/![](img/B22389_04_009.png)
+    (for geometric decay).'
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Exit when *C* is empty.
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: At the end of the run, we have *C*[best], which is the best combination of forecasts
+    we got through simulated annealing. We have provided an implementation of this
+    in `src.forecasting.ensembling.py` under the `simulated_annealing` function. Setting
+    the temperature to the right value is key for the algorithm to work well and is
+    typically the hardest hyperparameter to set. More intuitively, we can think of
+    temperature in terms of the probability of accepting a worse solution in the beginning.
+    In the implementation, we have also made it possible to input the starting and
+    ending probability of accepting a worse solution.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In 1989, D.S. Johnson et al. proposed a procedure for estimating the temperature
+    range from the given probability range. This has been implemented in `initialize_temperature_range`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: To summarize, the algorithm starts with random solutions and evaluates how good
+    each is. Then, it keeps trying new solutions, sometimes accepting worse ones to
+    avoid getting stuck in a local optima, but over time, it becomes less likely to
+    accept bad solutions as it “cools down” (just like how metals cool and harden).
+    It repeats this process until it either runs out of options or the temperature
+    gets too low, leaving the best solution found so far.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Reference check:**'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The research paper by D.S. Johnson, titled *Optimization by Simulated Annealing:
+    An Experimental Evaluation*; *Part I, Graph Partitioning*, is cited in the *References*
+    section as reference *1*.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The parameters for the `simulated_annealing` function are as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`objective`: This is a callable that takes in a list of strings as the candidates
+    and returns a `float` objective value.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`candidates`: This is a list of candidates to be included in the optimization.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`n_iterations`: The number of iterations to run simulated annealing for. This
+    is a mandatory parameter.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`p_range`: The starting and ending probabilities as a tuple. This is the probability
+    with which a worse solution is accepted in simulated annealing. The temperature
+    range (`t_range`) is inferred from `p_range` during optimization.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`t_range`: We can use this if we want to directly set the temperature range
+    as a tuple (start, end). If this is set, `p_range` is ignored.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`init`: This determines the strategy that’s used for the initial solution.
+    This can be `random` or `best`.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`temperature_decay`: This specifies how to decay the temperature. It can be
+    `linear` or `geometric`.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`verbose`: A flag that specifies whether progress is printed or not.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`random_state`: The seed for getting repeatable results.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The function returns a tuple of the best solution as a list of strings and the
+    best score that was obtained through optimization.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'This can be used in a very similar fashion to the other ways of combining forecasts.
+    We will show just the part that is different here. The full code is available
+    in the notebook:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Once we run this code, we will have a combination forecast called `simulated_annealing_ensemble`
+    in our prediction DataFrame. The candidates that are part of the optimal solution
+    are LightGBM, Lasso Regression_auto_stat, LightGBM_auto_stat, and XGB Random Forest.
+    Let’s evaluate the results and look at the aggregated metrics:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 9.6 – Aggregate metrics for a simulated annealing-based ensemble ](img/B22389_09_07.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 9.7: Aggregate metrics for a simulated annealing-based ensemble'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Simulated annealing seems to be doing better than stochastic hill climbing.
+    We discussed three disadvantages of simple hill climbing earlier—runtime considerations,
+    short-sightedness, and forward-only. Simulated annealing solves the runtime consideration
+    because we are not evaluating all the combinations and selecting the best. Instead,
+    we are randomly evaluating the combinations and adding them to the ensemble as
+    soon as we see a solution that performs better. It also solves the short-sightedness
+    problem because, by using temperature, we are also accepting solutions that are
+    slightly worse toward the beginning of the optimization. However, it is still
+    a forward-only procedure.
+  prefs: []
+  type: TYPE_NORMAL
+- en: So far, we have looked at combinatorial optimization because we said. But if
+    we can relax this constraint and make ![](img/B22389_09_008.png). ![](img/B22389_09_009.png)
+    (real numbers), the combinatorial optimization problem can be relaxed to a general
+    mathematical optimization problem. Let’s see how we can do that.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Optimal weighted ensemble
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Previously, we defined the optimization problem we are trying to solve as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_09_010.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Here, *L* is the loss or metric that we are trying to minimize. In our case,
+    we chose that to be the MAE. ![](img/B22389_09_011.png) is the set of *N* base
+    forecasts while *Y* is the real observed values of the time series. Instead of
+    defining ![](img/B22389_09_008.png), let’s make ![](img/B22389_09_009.png), the
+    continuous weights of each of the base forecasts. With this new relaxation, the
+    combination becomes a weighted average between the different base forecasts. Now,
+    we are looking at a soft mixing of the different forecasts as opposed to the hard-choice-based
+    combinatorial optimization (which was what we had been using up until this point).
+  prefs: []
+  type: TYPE_NORMAL
+- en: This is an optimization problem that can be solved using off-the-shelf algorithms
+    from `scipy`. Let’s see how we can use `scipy.optimize` to solve this problem.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'First, we need to define a loss function that takes in a set of weights as
+    a list and returns the metric we need to optimize:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Now, all we need to do is call `scipy.optimize` with the necessary parameters.
+    Let’s learn how to do this:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The optimization is usually fast and we will get the weights as a list of floating-point
+    numbers. We have wrapped this in a function in `src.forecasting.ensembling.py`
+    called under the `find_optimal_combination` function. The parameters for this
+    function are as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`candidates`: This is a list of candidates to be included in the optimization.
+    They are returning in the same order in which the returned weights would.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`pred_wide`: This is the prediction DataFrame on which we need to learn the
+    weights.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`target`: This is the column name of the target.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`metric_fn`: This is any callable with a `metric(actuals, pred)` signature.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'The function returns the optimal weights as a list of floating-point numbers.
+    Let’s see what the optimal weights are when we learned them through our validation
+    forecast:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 9.7 – The optimal weights that were learned through optimization ](img/B22389_09_08.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 9.8: The optimal weights that were learned through optimization'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Here, we can see that the optimization automatically learned to ignore `FFT`,
+    `Theta`, `XGB Random Forest`, and `XGB Random Forest_auto_stat` because they didn’t
+    add much value to the ensemble. It has also learned some non-zero weights for
+    each of the forecasts. The weights already resemble the selection we made using
+    the techniques we discussed previously. Now, we can use these weights to come
+    up with a weighted average and call it `optimal_combination_ensemble`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The aggregated results should be as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 9.8 – Aggregate metrics for the optimal combination-based ensemble
+    ](img/B22389_09_09.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 9.9: Aggregate metrics for the optimal combination-based ensemble'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Here, we can see that this soft mixing of the forecasts is doing much better
+    than all of the hard-choice-based ensembles on all three metrics.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In all the techniques we discussed, we were using the MAE as the objective function.
+    But we can use any metric, a combination of metrics, or even metrics with regularization
+    as the objective function. When we discussed Random Forest, we talked about how
+    decorrelated trees were essential to getting better performance. A very similar
+    principle applies while choosing ensembles as well. Having decorrelated base forecasts
+    adds value to the ensemble. So, we can use any measure of variety to regularize
+    our metric as well. For instance, we can use correlation as a measure and create
+    a regularized metric to be used in these techniques. The `01-Forecast_Combinations.ipynb`
+    notebook in the `Chapter09` folder contains a bonus section that shows how to
+    do that.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We started by discussing combining forecasts with a mathematical formulation:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*Y* = *F*(*Y*[1], *Y*[2], …, *Y*[N])'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Here, *F* is the function that combines the *N* forecasts.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We did all this while looking at ways to come up with this function as an optimization
+    problem, using something such as a mean or median to combine the metrics. But
+    we have also seen another way to learn this function, *F*, from data, haven’t
+    we? Let’s see how that can be done.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Stacking and blending
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: We started this chapter by talking about machine learning algorithms, which
+    learn a function from a set of inputs and outputs. While using those machine learning
+    algorithms, we learned about the functions that forecast our time series, which
+    we’ll call base forecasts now.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Why not use the same machine learning paradigm to learn this new function, F,
+    that we are trying to learn as well?
+  prefs: []
+  type: TYPE_NORMAL
+- en: This is exactly what we do in stacking (often called stacked generalization),
+    where we train another learning algorithm on the predictions of some base learners
+    to combine these predictions. This second-level model is often called a **stacked
+    model** or a **meta model**. And typically, this meta model performs equal to
+    or better than the base learners. This is very similar to blending where the only
+    difference being the way we split the data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Although the idea originated with Wolpert in 1992, Leo Breiman formalized this
+    idea in the way it is used now in his 1996 paper titled *Stacked Regressions*.
+    And in 2007, M. J. Van der Laan et al. established the theoretical underpinnings
+    of the technique and provided proof that this meta model will perform at least
+    as well as or even better than the base learners.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Reference check:**'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The research papers by Leo Breiman (1996) and Mark J. Van der Laan et al. (2007)
+    are cited in the *References* section as *2* and *3*, respectively.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This is a very popular technique in machine learning competitions such as Kaggle
+    and is considered a secret art among machine learning practitioners. We also discussed
+    some other techniques, such as bagging and boosting, which combine base learners
+    into something more. But those techniques require the base learner to be a weak
+    learner. This is where stacking differs because stacking tries to combine a *diverse*
+    set of *strong* learners.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The intuition behind stacking is that different models or families of functions
+    learn the output function slightly differently, capturing different properties
+    of the problem. For instance, one model may have captured the seasonality very
+    well, whereas the other may have captured any particular interaction with an exogenous
+    variable better. The stacking model will be able to combine these base models
+    into a model that learns to look toward one model for seasonality and the other
+    for interaction. This is done by making the meta model learn the predictions of
+    the base models. But to prevent data leakage and thereby avoid overfitting, the
+    meta model should be trained on out-of-sample predictions. There are two small
+    variations of this technique that are used today—stacking and blending.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Stacking** is when the meta model is trained on the entire training dataset,
+    but with out-of-sample predictions. The following steps are involved in stacking:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Split the training dataset into *k* parts.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Iteratively train the base models on *k-1* parts, predict on the *k*^(th) part,
+    and save the predictions. Once this step is done, we have the out-of-sample predictions
+    for the training dataset from all base models.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Train a meta model on these predictions.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '**Blending** is similar to this but slightly different in the way we generate
+    out-of-sample predictions. The following steps are involved in blending:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Split the training dataset into two parts—train and holdout.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Train the base models on the training dataset and predict on the holdout dataset.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Train a meta model on the validation dataset with the predictions of the base
+    model as the features.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Intuitively, we can see that stacking can work better because it uses a much
+    larger dataset (usually all the training data) as the out-of-sample prediction,
+    so the meta model may be more generalized. But there is a caveat: we assume that
+    the entire training data is **independent and identically distributed** (**iid**).
+    This is typically an assumption that is hard to meet in time series since the
+    data-generating process can change at any time (either gradually or drastically).
+    If we know that the data distribution has changed significantly over time, blending
+    the holdout period (which is usually the most recent part of the dataset) is better
+    because the meta model is only learning on the latest data, thus paying respect
+    to the temporal changes in the distribution of data.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'There is no limit to the number of models we can include as base models, but
+    usually, there is a plateau that we reach where additional models do not add much
+    to the stacked ensemble. We can also add multiple levels of stacking. For instance,
+    let’s assume there are four base learners: *B*[1,] *B*[2,] *B*[3] and *B*[4].
+    We have also trained two meta models *M*[1] and *M*[2], on the base models. Now,
+    we can train a second-level meta model, *M*, on the outputs of *M*[1] and *M*[2]
+    and use that as the final prediction. We can use the `pystacknet` Python library
+    ([https://github.com/h2oai/pystacknet](https://github.com/h2oai/pystacknet)),
+    which is the Python implementation of an older library, called `stacknet`, to
+    make the process of creating multi-level (or single-level) stacked ensembles easy.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Another key point to keep in mind is the type of models we usually use as meta
+    models. It is assumed that the bulk of the learning has been taken care of by
+    the base models, which are the multi-dimensional data for patterns for prediction.
+    Therefore, the meta models are usually simple models such as linear regression,
+    a decision tree, or even a random forest with much lower depth than the base models.
+    Another way to think about this is in terms of bias and variance. Stacking can
+    overfit the training or holdout set and by including model families with larger
+    flexibility or expressive power, we are enabling this overfitting. The *Further
+    reading* section contains a few links that explain different techniques of stacking
+    from a general machine learning perspective.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now, let’s quickly see how we can use this in our dataset:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs: []
+  type: TYPE_PRE
+- en: This would save the blended prediction for linear regression as `linear_reg_blending`.
+    We can use the same code but swap the models to try out other models as well.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Best practice:**'
+  prefs: []
+  type: TYPE_NORMAL
+- en: When there are many base models and we want to do implicit base model selection
+    as well, we can opt for one of the regularized linear models, such as Ridge or
+    Lasso regression. Breiman, in his original paper, *stacked regressions*, proposed
+    to use linear regression with positive coefficients and no intercept as the meta
+    model. He argued that this gives a theoretical guarantee that the stacked model
+    will be at least as good as any best individual model. But in practice, we can
+    relax those assumptions while experimenting. Non-negative regression without intercepts
+    is very close to the optimal weighted ensemble we discussed earlier. Finally,
+    if we are evaluating multiple stacked models to select which one works well, we
+    should resort to either having a separate validation dataset (instead of a *train-validation-test*
+    split, we can use a *train-validation-validation_meta-test* split) or using cross-validated
+    estimates. If we just pick the stacked model that performs best on the test dataset,
+    we are overfitting the test dataset.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now, let’s see how the blended models are doing on our test data:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 9.9 – Aggregate metrics for blending models ](img/B22389_09_10.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 9.10: Aggregate metrics for blending models'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Here, we can see that a simple linear regression has learned a meta model that
+    performs much better than any of our average ensemble methods. And the Huber regression
+    (which is a way to optimize the MAE directly) performs much better on the MAE
+    benchmark. However, keep in mind that this is not universal and has to be evaluated
+    for each problem you come across. Choosing the metric to optimize for and the
+    model to use to combine makes a lot of difference. And often, the simple average
+    ensemble is a very formidable benchmark for combining models.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Huber regression is another version of linear regression (like Ridge and Lasso)
+    where the loss function is a combination of squared loss (used in regular linear
+    regression) and absolute loss (used in L1 methods). It behaves like squared loss
+    for small residuals and like absolute loss for large residuals. This makes it
+    less sensitive to outliers. Scikit-Learn has `HuberRegressor` ([https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.HuberRegressor.html](https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.HuberRegressor.html)),
+    which implements this.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Additional reading:**'
+  prefs: []
+  type: TYPE_NORMAL
+- en: There are other more innovative ways to combine base forecasts. This is an active
+    area of research. The *Further reading* section contains links to two such ideas
+    that are very similar. **Feature-Based Forecast Model Averaging** (**FFORMA**)
+    extracts a set of statistical features from the time series and uses it to train
+    a machine learning model that predicts the weights in which the base forecast
+    should be combined. Another technique (**self-supervised learning for fast and
+    scalable time-series hyper-parameter tuning**), from Facebook (Meta) Research,
+    trains a classifier to predict which of the base learners does best, given a set
+    of statistical features extracted from the time series.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Summary
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Continuing with the streak of practical lessons in the previous chapter, we
+    completed yet another hands-on lesson. In this chapter, we generated forecasts
+    from different machine learning models from the previous chapter. We learned how
+    to combine these different forecasts into a single forecast that performs better
+    than any single model. Then, we explored concepts such as combinatorial optimization
+    and stacking/blending to achieve state-of-the-art results.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the next chapter, we will start talking about global models of forecasting
+    and explore strategies, feature engineering, and so on to enable such modeling.
+  prefs: []
+  type: TYPE_NORMAL
+- en: References
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'The following references were provided in this chapter:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'David S. Johnson, Cecilia R. Aragon, Lyle A. McGeoch, and Catherine Schevon
+    (1989), *Optimization by Simulated Annealing: An Experimental Evaluation; Part
+    I, Graph Partitioning*. Operations Research, 1989, vol. 37, issue 6, 865-892:
+    [http://dx.doi.org/10.1287/opre.37.6.865](http://dx.doi.org/10.1287/opre.37.6.865)'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '*L. Breiman* (1996), *Stacked regressions*. Mach Learn 24, 49–64: [https://doi.org/10.1007/BF00117832](https://doi.org/10.1007/BF00117832)'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Mark J. van der Laan; Eric C.Polley; and Alan E.Hubbard (2007), *Super Learner*.
+    U.C. Berkeley Division of Biostatistics Working Paper Series. Working Paper 222:
+    [https://biostats.bepress.com/ucbbiostat/paper222](https://biostats.bepress.com/ucbbiostat/paper222)'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Further reading
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'To learn more about the topics that were covered in this chapter, take a look
+    at the following resources:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*A Kaggler’s Guide to Model Stacking in Practice*, by Ha Nguyen: [https://datasciblog.github.io/2016/12/27/a-kagglers-guide-to-model-stacking-in-practice/](https://datasciblog.github.io/2016/12/27/a-kagglers-guide-to-model-stacking-in-practice/)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Kai Ming Ting and Ian H. Witten (1997), *Stacked Generalization: when does
+    it work?*: [https://www.ijcai.org/Proceedings/97-2/Papers/011.pdf](https://www.ijcai.org/Proceedings/97-2/Papers/011.pdf
+    )'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Pablo Montero-Manso, George Athanasopoulos, Rob J. Hyndman, Thiyanga S. Talagala
+    (2020), *FFORMA: Feature-based forecast model averaging*. International Journal
+    of Forecasting, Volume 36, Issue 1: [https://robjhyndman.com/papers/fforma.pdf](https://robjhyndman.com/papers/fforma.pdf)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Peiyi Zhang, et al. (2021), *Self-supervised learning for fast and scalable
+    time-series hyper-parameter tuning*: [https://www.ijcai.org/Proceedings/97-2/Papers/011.pdf](https://www.ijcai.org/Proceedings/97-2/Papers/011.pdf)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Local versus Global Optima: [https://www.mathworks.com/help/optim/ug/local-vs-global-optima.html](https://www.mathworks.com/help/optim/ug/local-vs-global-optima.html)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Join our community on Discord
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Join our community’s Discord space for discussions with authors and other readers:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[https://packt.link/mts](https://packt.link/mts)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/QR_Code15080603222089750.png)'
+  prefs: []
+  type: TYPE_IMG

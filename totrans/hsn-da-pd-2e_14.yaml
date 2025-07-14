@@ -1,0 +1,1797 @@
+- en: '*Chapter 10*: Making Better Predictions – Optimizing Models'
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In the previous chapter, we learned how to build and evaluate our machine learning
+    models. However, we didn't touch upon what we can do if we want to improve their
+    performance. Of course, we could try out a different model and see if it performs
+    better—unless there are requirements that we use a specific method for legal reasons
+    or in order to be able to explain how it works. We want to make sure we use the
+    best version of the model that we can, and for that, we need to discuss how to
+    tune our models.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This chapter will introduce techniques for the optimization of machine learning
+    model performance using `scikit-learn`, as a continuation of the content in [*Chapter
+    9*](B16834_09_Final_SK_ePub.xhtml#_idTextAnchor188), *Getting Started with Machine
+    Learning in Python*. Nonetheless, it should be noted that there is no panacea.
+    It is entirely possible to try everything we can think of and still have a model
+    with little predictive value; such is the nature of modeling.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Don't be discouraged though—if the model doesn't work, consider whether the
+    data collected suffices to answer the question, and whether the algorithm chosen
+    is appropriate for the task at hand. Often, subject matter expertise will prove
+    crucial when building machine learning models, because it helps us determine which
+    data points will be relevant, as well as to take advantage of known interactions
+    between the variables collected.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In particular, the following topics will be covered:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Hyperparameter tuning with grid search
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Feature engineering
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Building ensemble models combining many estimators
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Inspecting classification prediction confidence
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Addressing class imbalance
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Penalizing high regression coefficients with regularization
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Chapter materials
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In this chapter, we will be working with three datasets. The first two come
+    from data on wine quality donated to the UCI Machine Learning Data Repository
+    ([http://archive.ics.uci.edu/ml/index.php](http://archive.ics.uci.edu/ml/index.php))
+    by P. Cortez, A. Cerdeira, F. Almeida, T. Matos, and J. Reis, and contain information
+    on the chemical properties of various wine samples along with a rating of the
+    quality from a blind tasting session by a panel of wine experts. These files can
+    be found in the `data/` folder inside this chapter's folder in the GitHub repository
+    ([https://github.com/stefmolin/Hands-On-Data-Analysis-with-Pandas-2nd-edition/tree/master/ch_10](https://github.com/stefmolin/Hands-On-Data-Analysis-with-Pandas-2nd-edition/tree/master/ch_10))
+    as `winequality-red.csv` and `winequality-white.csv` for red and white wine, respectively.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Our third dataset was collected using the Open Exoplanet Catalogue database,
+    at [https://github.com/OpenExoplanetCatalogue/open_exoplanet_catalogue/](https://github.com/OpenExoplanetCatalogue/open_exoplanet_catalogue/),
+    which provides data in XML format. The parsed planet data can be found in the
+    `data/planets.csv` file. For the exercises, we will also be working with the star
+    temperature data from [*Chapter 9*](B16834_09_Final_SK_ePub.xhtml#_idTextAnchor188),
+    *Getting Started with Machine Learning in Python*, which can be found in the `data/stars.csv`
+    file.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'For reference, the following data sources were used:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*Open Exoplanet Catalogue database*, available at [https://github.com/OpenExoplanetCatalogue/open_exoplanet_catalogue/#data-structure](https://github.com/OpenExoplanetCatalogue/open_exoplanet_catalogue/#data-structure).'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*P. Cortez, A. Cerdeira, F. Almeida, T. Matos and J. Reis. Modeling wine preferences
+    by data mining from physicochemical properties. In Decision Support Systems, Elsevier,
+    47(4):547-553, 2009.* Available online at [http://archive.ics.uci.edu/ml/datasets/Wine+Quality](http://archive.ics.uci.edu/ml/datasets/Wine+Quality).'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*Dua, D. and Karra Taniskidou, E. (2017). UCI Machine Learning Repository (*[http://archive.ics.uci.edu/ml/index.php](http://archive.ics.uci.edu/ml/index.php)*).
+    Irvine, CA: University of California, School of Information and Computer Science.*'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: We will be using the `red_wine.ipynb` notebook to predict red wine quality,
+    `wine.ipynb` to distinguish between red and white wine based on their chemical
+    properties, and the `planets_ml.ipynb` notebook to build a regression model to
+    predict the year length of planets in Earth days.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Before we get started, let''s handle our imports and read in our data:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Let''s also create our training and testing sets for the red wine quality,
+    wine type by chemical properties, and planets models:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: Important note
+  prefs: []
+  type: TYPE_NORMAL
+- en: Remember that we will be working in dedicated notebooks for each of the datasets,
+    so while the setup code is all in the same code block to make it easier to follow
+    in the book, make sure to work in the notebook corresponding to the data in question.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Hyperparameter tuning with grid search
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: No doubt you have noticed that we can provide various parameters to the model
+    classes when we instantiate them. These model parameters are not derived from
+    the data itself and are referred to as **hyperparameters**. Some examples of these
+    are regularization terms, which we will discuss later in this chapter, and weights.
+    Through the process of **model tuning**, we seek to optimize our model's performance
+    by tuning these hyperparameters.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How can we know we are picking the best values to optimize our model's performance?
+    One way is to use a technique called **grid search** to tune these hyperparameters.
+    Grid search allows us to define a search space and test all combinations of hyperparameters
+    in that space, keeping the ones that result in the best model. The scoring criterion
+    we define will determine the best model.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Remember the elbow point method we discussed in *Chapter 9*, *Getting Started
+    with Machine Learning in Python*, for finding a good value for *k* in k-means
+    clustering? We can employ a similar visual method to find the best value for our
+    hyperparameters. This will involve splitting our training data into `train_test_split()`.
+    Here, we will use the red wine quality dataset:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Then, we can build the model multiple times for all the values of the hyperparameters
+    we want to test, and score them based on the metric that matters most to us. Let''s
+    try to find a good value for `C`, the inverse of the regularization strength,
+    which determines the weight of the penalty term for logistic regression and is
+    discussed more in-depth in the *Regularization* section toward the end of this
+    chapter; we tune this hyperparameter to reduce overfitting:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: Tip
+  prefs: []
+  type: TYPE_NORMAL
+- en: Here, we are using `np.logspace()` to get our range of values to try for `C`.
+    To use this function, we supply starting and stopping exponents to use with a
+    base number (10, by default). So `np.logspace(-1, 1, num=10)` gives us 10 evenly
+    spaced numbers between 10-1 and 101.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'This is then plotted as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Using the resulting plot, we can pick the value that maximizes our performance:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 10.1 – Searching for the best hyperparameters'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/Figure_10.1_B16834.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Figure 10.1 – Searching for the best hyperparameters
+  prefs: []
+  type: TYPE_NORMAL
+- en: Scikit-learn provides the `GridSearchCV` class in the `model_selection` module
+    for carrying out this exhaustive search much more easily. Classes that end with
+    *CV* utilize **cross-validation**, meaning they divide up the training data into
+    subsets, some of which will be the validation set for scoring the model (without
+    needing the testing data until after the model is fit).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'One common method of cross-validation is **k-fold cross-validation**, which
+    splits the training data into *k* subsets and will train the model *k* times,
+    each time leaving one subset out to use as the validation set. The score for the
+    model will be the average across the *k* validation sets. Our initial attempt
+    was 1-fold cross-validation. When *k*=3, this process looks like the following
+    diagram:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 10.2 – Understanding k-fold cross-validation'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/Figure_10.2_B16834.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Figure 10.2 – Understanding k-fold cross-validation
+  prefs: []
+  type: TYPE_NORMAL
+- en: Tip
+  prefs: []
+  type: TYPE_NORMAL
+- en: When working with classification problems, `scikit-learn` will implement stratified
+    k-fold cross-validation. This ensures that the percentage of samples belonging
+    to each class will be preserved across folds. Without stratification, it's possible
+    some validation sets will see a disproportionately low (or high) amount of a given
+    class, which can distort the results.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`GridSearchCV` uses cross-validation to find the best hyperparameters in the
+    search space, without the need to use the testing data. Remember, test data should
+    not influence the training process in any way—neither when training the model
+    nor when tuning hyperparameters—otherwise, the model will have issues generalizing.
+    This happens because we would be picking the hyperparameters that give the best
+    performance on the test set, thus leaving no way to test on unseen data, and overestimating
+    our performance.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: In order to use `GridSearchCV`, we need to provide a model (or pipeline) and
+    a search space, which will be a dictionary mapping the hyperparameter to tune
+    (by name) to a list of values to try. Optionally, we can provide a scoring metric
+    to use, as well as the number of folds to use with cross-validation. We can tune
+    any step in the pipeline by prefixing the hyperparameter name with the name of
+    that step, followed by two underscores. For instance, if we have a logistic regression
+    step called `lr` and want to tune `C`, we use `lr__C` as the key in the search
+    space dictionary. Note that if our model has any preprocessing steps, it's imperative
+    that we use a pipeline.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let''s use `GridSearchCV` for the red wine quality logistic regression, searching
+    for whether or not to fit our model with an intercept and the best value for the
+    inverse of the regularization strength (`C`). We will use the F1 score macro average
+    as the scoring metric. Note that, due to the consistency of the API, `GridSearchCV`
+    can be used to score, fit, and predict with the same methods as the underlying
+    models. By default, the grid search will run in series, but `GridSearchCV` is
+    capable of performing multiple searches in parallel, greatly speeding up this
+    process:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Once the grid search completes, we can isolate the best hyperparameters from
+    the search space with the `best_params_` attribute. Notice that this result is
+    different from our 1-fold cross-validation attempt because each of the folds has
+    been averaged together to find the best hyperparameters overall, not just for
+    a single fold:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: Tip
+  prefs: []
+  type: TYPE_NORMAL
+- en: We can also retrieve the best version of the pipeline from the grid search with
+    the `best_estimator_` attribute. If we want to see the score the best estimator
+    (model) had, we can grab it from the `best_score_` attribute; note that this will
+    be the score we specified with the `scoring` argument.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Our F1 score macro average is now higher than what we achieved in *Chapter
+    9*, *Getting Started with Machine Learning in Python*:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs: []
+  type: TYPE_PRE
+- en: Note that the `cv` argument doesn't have to be an integer—we can provide one
+    of the splitter classes mentioned at [https://scikit-learn.org/stable/modules/classes.html#splitter-classes](https://scikit-learn.org/stable/modules/classes.html#splitter-classes)
+    if we want to use a method other than the default of k-fold for regression or
+    stratified k-fold for classification. For example, when working with time series,
+    we can use `TimeSeriesSplit` as the cross-validation object to work with successive
+    samples and avoid shuffling. Scikit-learn shows how the cross-validation classes
+    compare at [https://scikit-learn.org/stable/auto_examples/model_selection/plot_cv_indices.html](https://scikit-learn.org/stable/auto_examples/model_selection/plot_cv_indices.html).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let''s test out `RepeatedStratifiedKFold` on the red wine quality model instead
+    of the default `StratifiedKFold`, which will repeat the stratified k-fold cross-validation
+    10 times by default. All we have to do is change what we passed in as `cv` in
+    the first `GridSearchCV` example to be a `RepeatedStratifiedKFold` object. Note
+    that—despite using the same pipeline, search space, and scoring metric—we have
+    different values for `best_params_` because our cross-validation process has changed:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'In addition to cross-validation, `GridSearchCV` allows us to specify the metric
+    we want to optimize with the `scoring` parameter. This can be a string for the
+    name of the score (as in the previous code blocks), provided that it is in the
+    list at [https://scikit-learn.org/stable/modules/model_evaluation.html#common-cases-predefined-values](https://scikit-learn.org/stable/modules/model_evaluation.html#common-cases-predefined-values);
+    otherwise, we can either pass the function itself or make our own using the `make_scorer()`
+    function from `sklearn.metrics`. We can even provide a dictionary of scorers (in
+    the form of `{name: function}`) for grid search, provided that we specify which
+    one we want to use for optimization by passing its name to the `refit` parameter.
+    Therefore, we can use grid search to find the hyperparameters that help us maximize
+    our performance on the metrics we discussed in the previous chapter.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Important note
+  prefs: []
+  type: TYPE_NORMAL
+- en: The time it takes to train our model should also be something we evaluate and
+    look to optimize. If it takes us double the training time to get one more correct
+    classification, it's probably not worth it. If we have a `GridSearchCV` object
+    called `grid`, we can see the average fit time by running `grid.cv_results_['mean_fit_time']`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We can use `GridSearchCV` to search for the best parameters for any step in
+    our pipeline. For example, let''s use grid search with a pipeline of preprocessing
+    and linear regression on the planets data (similar to when we modeled planet year
+    length in *Chapter 9*, *Getting Started with Machine Learning in Python*) while
+    minimizing **mean absolute error** (**MAE**) instead of the default R2:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Note that we are using the negative of all the metrics except R2\. This is
+    because `GridSearchCV` will attempt to maximize the score, and we want to minimize
+    our errors. Let''s check the best parameters for the scaling and linear regression
+    in this grid:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The tuned model''s MAE is more than 120 Earth days smaller than the MAE we
+    got in *Chapter 9*, *Getting Started with Machine Learning in Python*:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs: []
+  type: TYPE_PRE
+- en: It's important to note that while a model may be fast to train, we shouldn't
+    create a large, granular search space; in practice, it's better to start with
+    a few different spread-out values, and then examine the results to see which areas
+    warrant a more in-depth search. For instance, say we are looking to tune the `C`
+    hyperparameter. On our first pass, we may look at the result of `np.logspace(-1,
+    1)`. If we see that the best value for `C` is at either end of the spectrum, we
+    can then look at values above/below the value. If the best value is in the range,
+    we may look at a few values around it. This process can be performed iteratively
+    until we don't see additional improvement. Alternatively, we could use `RandomizedSearchCV`,
+    which will try 10 random combinations in the search space (by default) and find
+    the best estimator (model). We can change this number with the `n_iter` argument.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Important note
+  prefs: []
+  type: TYPE_NORMAL
+- en: Since the process of tuning hyperparameters requires us to train our model multiple
+    times, we must consider the time complexity of our models. Models that take a
+    long time to train will be very costly to use with cross-validation. This will
+    likely cause us to shrink our search space.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Feature engineering
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: When trying to improve performance, we may also consider ways to provide the
+    best **features** (model inputs) to our model through the process of **feature
+    engineering**. The *Preprocessing data* section in *Chapter 9*, *Getting Started
+    with Machine Learning in Python*, introduced us to **feature transformation**
+    when we scaled, encoded, and imputed our data. Unfortunately, feature transformation
+    may mute some elements of our data that we want to use in our model, such as the
+    unscaled value of the mean of a specific feature. For this situation, we can create
+    a new feature with this value; this and other new features are added during **feature
+    construction** (sometimes called **feature creation**).
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Feature selection** is the process of determining which features to train
+    the model on. This can be done manually or through another process, such as machine
+    learning. When looking to choose features for our model, we want features that
+    have an impact on our dependent variable without unnecessarily increasing the
+    complexity of our problem. Models built with many features increase in complexity,
+    but also, unfortunately, have a higher tendency to fit noise, because our data
+    is sparse in such a high-dimensional space. This is referred to as the **curse
+    of dimensionality**. When a model has learned the noise in the training data,
+    it will have a hard time generalizing to unseen data; this is called **overfitting**.
+    By restricting the number of features the model uses, feature selection can help
+    address overfitting.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Feature extraction** is another way we can address the curse of dimensionality.
+    During feature extraction, we reduce the dimensionality of our data by constructing
+    combinations of features through a transformation. These new features can be used
+    in place of the originals, thereby reducing the dimensionality of the problem.
+    This process, called **dimensionality reduction**, also includes techniques where
+    we find a certain number of components (less than the original) that explain most
+    of the variance in the data. Feature extraction is often used in image recognition
+    problems, since the dimensionality of the task is the total number of pixels in
+    the image. For instance, square ads on websites are 350x350 pixels (this is one
+    of the most common sizes), so an image recognition task using images that size
+    has 122,500 dimensions.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Tip
+  prefs: []
+  type: TYPE_NORMAL
+- en: Thorough EDA and domain knowledge are a must for feature engineering.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Feature engineering is the subject of entire books; however, as it is a more
+    advanced topic, we will go over just a few techniques in this section. There is
+    a good book on the subject in the *Further reading* section, which also touches
+    upon using machine learning for feature learning.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Interaction terms and polynomial features
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: We discussed the use of dummy variables back in the *Preprocessing data* section
+    of *Chapter 9*, *Getting Started with Machine Learning in Python*; however, we
+    merely considered the effect of that variable on its own. In our model that tries
+    to predict red wine quality using chemical properties, we are considering each
+    property separately. However, it is important to consider whether the interaction
+    between these properties has an effect. Perhaps when the levels of citric acid
+    and fixed acidity are both high or both low, the wine quality is different than
+    if one is high and one is low. In order to capture the effect of this, we need
+    to add an **interaction term**, which will be the product of the features.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We may also be interested in increasing the effect of a feature in the model
+    through feature construction; we can achieve this by adding **polynomial features**
+    made from this feature. This involves adding higher degrees of the original feature,
+    so we could have *citric acid*, *citric acid*2, *citric acid*3, and so on in the
+    model.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Tip
+  prefs: []
+  type: TYPE_NORMAL
+- en: We can generalize linear models by using interaction terms and polynomial features
+    because they allow us to model the linear relationship of non-linear terms. Since
+    linear models tend to underperform in the presence of multiple or non-linear decision
+    boundaries (the surface or hypersurface that separates the classes), this can
+    improve performance.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Scikit-learn provides the `PolynomialFeatures` class in the `preprocessing`
+    module for easily creating interaction terms and polynomial features. This comes
+    in handy when building models with categorical and continuous features. By specifying
+    just the degree, we can get every combination of the features less than or equal
+    to the degree. High degrees will increase model complexity greatly and may lead
+    to overfitting.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'If we use `degree=2`, we can turn *citric acid* and *fixed acidity* into the
+    following, where *1* is the bias term that can be used in a model as an intercept
+    term:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/Formula_10_001.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'By calling the `fit_transform()` method on the `PolynomialFeatures` object,
+    we can generate these features:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE12]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Let''s dissect the first row of our array in the previous code block (highlighted
+    in bold) to understand how we got each of these values:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 10.3 – Examining the interaction terms and polynomial features created'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/Figure_10.3_B16834.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Figure 10.3 – Examining the interaction terms and polynomial features created
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'If we are only interested in the interaction variables (*citric acid × fixed
+    acidity*, here), we can specify `interaction_only=True`. In this case, we also
+    don''t want the bias term, so we specify `include_bias=False` as well. This will
+    give us the original variables along with their interaction term(s):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE13]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'We can add these polynomial features to our pipeline:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE14]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Note that this model is slightly better than before we added these additional
+    terms, which was the model used in *Chapter 9*, *Getting Started with Machine
+    Learning in Python*:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE15]'
+  prefs: []
+  type: TYPE_PRE
+- en: Adding polynomial features and interaction terms increases the dimensionality
+    of our data, which may not be desirable. Sometimes, rather than looking to create
+    more features, we look for ways to consolidate them and reduce the dimensionality
+    of our data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Dimensionality reduction
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: '**Dimensionality reduction** shrinks the number of features we train our model
+    on. This is done to reduce the computational complexity of training the model
+    without sacrificing much performance. We could just choose to train on a subset
+    of the features (feature selection); however, if we think there is value in those
+    features, albeit small, we may look for ways to extract the information we need
+    from them.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'One common strategy for feature selection is to discard features with low variance.
+    These features aren''t very informative since they are mostly the same value throughout
+    the data. Scikit-learn provides the `VarianceThreshold` class for carrying out
+    feature selection according to a minimum variance threshold. By default, it will
+    discard any features that have zero variance; however, we can provide our own
+    threshold. Let''s perform feature selection on our model that predicts whether
+    a wine is red or white based on its chemical composition. Since we have no features
+    with zero variance, we will choose to keep features whose variance is greater
+    than 0.01:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE16]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'This removed two features with low variance. We can get their names with the
+    Boolean mask returned by the `VarianceThreshold` object''s `get_support()` method,
+    which indicates the features that were kept:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE17]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Using only 9 of the 11 features, our performance hasn''t been affected much:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE18]'
+  prefs: []
+  type: TYPE_PRE
+- en: Tip
+  prefs: []
+  type: TYPE_NORMAL
+- en: Check out the other feature selection options in the `feature_selection` module
+    at [https://scikit-learn.org/stable/modules/classes.html#module-sklearn.feature_selection](https://scikit-learn.org/stable/modules/classes.html#module-sklearn.feature_selection).
+  prefs: []
+  type: TYPE_NORMAL
+- en: If we believe there is value in all the features, we may decide to use feature
+    extraction rather than discarding them entirely. **Principal component analysis**
+    (**PCA**) performs feature extraction by projecting high-dimensional data into
+    lower dimensions, thereby reducing the dimensionality. In return, we get the *n*
+    components that maximize explained variance. This will be sensitive to the scale
+    of the data, so we need to do some preprocessing beforehand.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let''s take a look at the `pca_scatter()` function in the `ml_utils.pca` module,
+    which will help us visualize our data when reduced to two dimensions:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE19]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Let''s visualize the wine data with two PCA components to see if there is a
+    way to separate red from white:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE20]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Most of the red wines are in the bright green mass of points at the top, and
+    the white wines are in the blue point mass at the bottom. Visually, we can see
+    how to separate them, but there is still some overlap:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 10.4 – Using two PCA components to separate wines by type'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/Figure_10.4_B16834.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Figure 10.4 – Using two PCA components to separate wines by type
+  prefs: []
+  type: TYPE_NORMAL
+- en: Tip
+  prefs: []
+  type: TYPE_NORMAL
+- en: PCA components will be linearly uncorrelated, since they were obtained through
+    an orthogonal transformation (perpendicularity extended to higher dimensions).
+    Linear regression assumes the regressors (input data) are not correlated, so this
+    can help address multicollinearity.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Note the explained variances of each component from the previous plot''s legend—the
+    components explain over 50% of the variance in the wine data. Let''s see if using
+    three dimensions improves the separation. The `pca_scatter_3d()` function in the
+    `ml_utils.pca` module uses `mpl_toolkits`, which comes with `matplotlib` for 3D
+    visualizations:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE21]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Let''s use our 3D visualization function on the wine data again to see if white
+    and red are easier to separate with three PCA components:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE22]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'It seems like we could slice off the green (right) point mass from this angle,
+    although we still have a few points in the wrong section:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 10.5 – Using three PCA components to separate wines by type'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/Figure_10.5_B16834.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Figure 10.5 – Using three PCA components to separate wines by type
+  prefs: []
+  type: TYPE_NORMAL
+- en: Important note
+  prefs: []
+  type: TYPE_NORMAL
+- en: PCA performs linear dimensionality reduction. Check out t-SNE and Isomap to
+    perform manifold learning for non-linear dimensionality reduction.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We can use the `pca_explained_variance_plot()` function from the `ml_utils.pca`
+    module to visualize the cumulative explained variance as a function of the number
+    of PCA components:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE23]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'We can pass the PCA part of our pipeline to this function in order to see the
+    cumulative explained variance:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE24]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The first four PCA components explain about 80% of the variance:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 10.6 – Explained variance for PCA components used'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/Figure_10.6_B16834.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Figure 10.6 – Explained variance for PCA components used
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We can also use the elbow point method to find a good value for the number
+    of PCA components to use, just as we did with k-means in *Chapter 9*, *Getting
+    Started with Machine Learning in Python*. For this, we need to make a `ml_utils.pca`
+    module has the `pca_scree_plot()` function for creating this visualization:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE25]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'We can pass the PCA part of our pipeline to this function in order to see the
+    variance explained by each PCA component:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE26]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The scree plot tells us we should try four PCA components because there are
+    diminishing returns after that component:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 10.7 – Diminishing returns for each additional PCA component after
+    the fourth'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/Figure_10.7_B16834.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Figure 10.7 – Diminishing returns for each additional PCA component after the
+    fourth
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We can build a model on top of these four PCA features in a process called
+    **meta-learning**, where the last model in the pipeline is trained on the output
+    from a different model, not the original data itself:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE27]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Our new model performs nearly as well as the original logistic regression that
+    used 11 features, with just 4 features made with PCA:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE28]'
+  prefs: []
+  type: TYPE_PRE
+- en: After performing dimensionality reduction, we no longer have all of the features
+    we started with—reducing the number of features was the point after all. However,
+    it is possible that we will want to perform different feature engineering techniques
+    on subsets of our features; in order to do so, we need to understand feature unions.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Feature unions
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: We may want to build a model on features from a variety of sources, such as
+    PCA, in addition to selecting a subset of the features. For these purposes, `scikit-learn`
+    provides the `FeatureUnion` class in the `pipeline` module. This also allows us
+    to perform multiple feature engineering techniques at once, such as feature extraction
+    followed by feature transformation, when we combine this with a pipeline.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Creating a `FeatureUnion` object is just like creating a pipeline, but rather
+    than passing the steps in order, we pass the transformations we want to make.
+    These will be stacked side by side in the result. Let''s use a feature union of
+    interaction terms and select the features with a variance above 0.01 to predict
+    red wine quality:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE29]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'To illustrate the transformation that took place, let''s examine the first
+    row from the training set for the red wine quality data after the `FeatureUnion`
+    object transforms it. Since we saw that our variance threshold results in nine
+    features, we know they are the first nine entries in the resulting NumPy array,
+    and the rest are the interaction terms:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE30]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'We can also look at the classification report to see that we got a marginal
+    improvement in F1 score:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE31]'
+  prefs: []
+  type: TYPE_PRE
+- en: In this example, we selected our features such that they had variance greater
+    than 0.01, making the assumption that if the feature doesn't take on many different
+    values then it may not be that helpful. Rather than making this assumption, we
+    can use a machine learning model to help determine which features are important.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Feature importances
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: '**Decision trees** recursively split the data, making decisions on which features
+    to use for each split. They are **greedy learners**, meaning they look for the
+    largest split they can make each time; this isn''t necessarily the optimal split
+    when looking at the output of the tree. We can use a decision tree to gauge **feature
+    importances**, which determine how the tree splits the data at the decision nodes.
+    These feature importances can help inform feature selection. Note that feature
+    importances will sum to one, and higher values are better. Let''s use a decision
+    tree to see how red and white wine can be separated on a chemical level:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE32]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'This shows us that the most important chemical properties in distinguishing
+    between red and white wine are total sulfur dioxide and chlorides:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 10.8 – Importance of each chemical property in predicting wine type'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/Figure_10.8_B16834.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Figure 10.8 – Importance of each chemical property in predicting wine type
+  prefs: []
+  type: TYPE_NORMAL
+- en: Tip
+  prefs: []
+  type: TYPE_NORMAL
+- en: Using the top features, as indicated by the feature importances, we can try
+    to build a simpler model (by using fewer features). If possible, we want to simplify
+    our models without sacrificing much performance. See the `wine.ipynb` notebook
+    for an example.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'If we train another decision tree with a max depth of two, we can visualize
+    the top of the tree (it is too large to visualize if we don''t limit the depth):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE33]'
+  prefs: []
+  type: TYPE_PRE
+- en: Important note
+  prefs: []
+  type: TYPE_NORMAL
+- en: Graphviz software will need to be installed (if it isn't already) in order to
+    visualize the tree. It can be downloaded at [https://graphviz.gitlab.io/download/](https://graphviz.gitlab.io/download/),
+    with the installation guide at [https://graphviz.readthedocs.io/en/stable/manual.html#installation](https://graphviz.readthedocs.io/en/stable/manual.html#installation).
+    Note that the kernel will need to be restarted after installing. Otherwise, pass
+    `out_file='tree.dot'` to the `export_graphviz()` `function` and then generate
+    a PNG file by running `dot -T png tree.dot -o tree.png` from the command line.
+    As an alternative, `scikit-learn` provides the `plot_tree()` function, which uses
+    `matplotlib`; consult the notebook for an example.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'This results in the following tree, which first splits on total sulfur dioxide
+    (which has the highest feature importance), followed by chlorides on the second
+    level. The information at each node tells us the criterion for the split (the
+    top line), the value of the cost function (**gini**), the number of samples at
+    that node (**samples**), and the number of samples in each class at that node
+    (**values**):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 10.9 – Decision tree for predicting wine type based on chemical properties'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/Figure_10.9_B16834.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Figure 10.9 – Decision tree for predicting wine type based on chemical properties
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We can also apply decision trees to regression problems. Let''s find the feature
+    importances for the planets data using the `DecisionTreeRegressor` class:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE34]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Basically, the semi-major axis is the main determinant in the period length,
+    which we already knew, but if we visualize a tree, we can see why. The first four
+    splits are all based on the semi-major axis:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 10.10 – Decision tree for predicting planet period'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/Figure_10.10_B16834.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Figure 10.10 – Decision tree for predicting planet period
+  prefs: []
+  type: TYPE_NORMAL
+- en: Decision trees can be `scikit-learn` documentation provides tips to address
+    overfitting and other potential issues when using decision trees at [https://scikit-learn.org/stable/modules/tree.html#tips-on-practical-use](https://scikit-learn.org/stable/modules/tree.html#tips-on-practical-use).
+    Keep this in mind as we discuss ensemble methods.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Ensemble methods
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '**Ensemble methods** combine many models (often weak ones) to create a stronger
+    one that will either minimize the average error between observed and predicted
+    values (the **bias**) or improve how well it generalizes to unseen data (minimize
+    the **variance**). We have to strike a balance between complex models that may
+    increase variance, as they tend to overfit, and simple models that may have high
+    bias, as these tend to underfit. This is called the **bias-variance trade-off**,
+    which is illustrated in the following subplots:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 10.11 – The bias-variance trade-off'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/Figure_10.11_B16834.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Figure 10.11 – The bias-variance trade-off
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Ensemble methods can be broken down into three categories: **boosting**, **bagging**,
+    and **stacking**. **Boosting** trains many weak learners, which learn from each
+    other''s mistakes to reduce bias, making a stronger learner. **Bagging**, on the
+    other hand, uses **bootstrap aggregation** to train many models on bootstrap samples
+    of the data and aggregate the results together (using voting for classification,
+    and the average for regression) to reduce variance. We can also combine many different
+    model types together with voting. **Stacking** is an ensemble technique where
+    we combine many different model types using the outputs of some as the inputs
+    to others; this is done to improve predictions. We saw an example of stacking
+    when we combined PCA and logistic regression in the *Dimensionality reduction*
+    section earlier in this chapter.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Random forest
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Decision trees have a tendency to overfit, especially if we don't set limits
+    on how far they can grow (with the `max_depth` and `min_samples_leaf` parameters).
+    We can address this overfitting issue with a `oob_score` parameter.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Important note
+  prefs: []
+  type: TYPE_NORMAL
+- en: The `min_samples_leaf` parameter requires a minimum number of samples to be
+    on the final nodes in the tree (or leaves); this prevents the trees from being
+    fit until they only have a single observation at each leaf.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Each of the trees also gets a subset of the features (random feature selection),
+    which defaults to the square root of the number of features (the `max_features`
+    parameter). This can help address the curse of dimensionality. As a consequence,
+    however, the random forest can't be as easily interpreted as the decision trees
+    that make it up. We can, however, extract feature importances from the random
+    forest, just as we did with the decision tree.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let''s use the `RandomForestClassifier` class from the `ensemble` module to
+    build a random forest (with `n_estimators` trees in it) for the classification
+    of high-quality red wines:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE35]'
+  prefs: []
+  type: TYPE_PRE
+- en: Note that our precision with the random forest is already much better than the
+    0.35 we got in *Chapter 9*, *Getting Started with Machine Learning in Python*.
+    The random forest is robust to outliers and able to model non-linear decision
+    boundaries to separate the classes, which may explain part of this dramatic improvement.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Gradient boosting
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Boosting looks to improve upon the mistakes of previous models. One way of doing
+    this is to move in the direction of the steepest reduction in the loss function
+    for the model. Since the **gradient** (the multi-variable generalization of the
+    derivative) is the direction of steepest ascent, this can be done by calculating
+    the negative gradient, which yields the direction of steepest descent, meaning
+    the best improvement in the loss function from the current result. This technique
+    is called **gradient descent**.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Important note
+  prefs: []
+  type: TYPE_NORMAL
+- en: Although gradient descent sounds great, there are some potential issues with
+    it. It's possible to end up in a local minimum (a minimum in a certain region
+    of the cost function); the algorithm will stop, thinking that we have the optimal
+    solution, when in fact we don't, because we would like the global minimum (the
+    minimum over the whole region).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Scikit-learn's `ensemble` module provides the `GradientBoostingClassifier` and
+    `GradientBoostingRegressor` classes for gradient boosting using decision trees.
+    These trees will boost their performance through gradient descent. Note that gradient
+    boosted trees are more sensitive to noisy training data than the random forest.
+    In addition, we must consider the additional time required to build all the trees
+    in series, unlike the parallel training we can benefit from with the random forest.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let''s use grid search and gradient boosting to train another model for classifying
+    the red wine quality data. In addition to searching for the best values for the
+    `max_depth` and `min_samples_leaf` parameters, we will search for a good value
+    for the `learning_rate` parameter, which determines the contribution each tree
+    will make in the final estimator:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE36]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The F1 macro score we achieve with gradient boosting is better than the 0.66
+    we got with logistic regression in *Chapter 9*, *Getting Started with Machine
+    Learning in Python*:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE37]'
+  prefs: []
+  type: TYPE_PRE
+- en: Both bagging and boosting have given us better performance than the logistic
+    regression model; however, we may find that the models don't always agree and
+    that we could improve performance even more by having the models vote before making
+    the final prediction.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Voting
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'When trying out different models for classification, it may be interesting
+    to measure their agreement using Cohen''s kappa score. We can use the `cohen_kappa_score()`
+    function in the `sklearn.metrics` module to do so. The score ranges from complete
+    disagreement (-1) to complete agreement (1). Our boosting and bagging predictions
+    have a high level of agreement:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE38]'
+  prefs: []
+  type: TYPE_PRE
+- en: Sometimes, we can't find a single model that works well for all of our data,
+    so we may want to find a way to combine the opinions of various models to make
+    the final decision. Scikit-learn provides the `VotingClassifier` class for aggregating
+    model opinions on classification tasks. We have the option of specifying the voting
+    type, where `hard` results in majority rules and `soft` will predict the class
+    with the highest sum of probabilities across the models.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'As an example, let''s create a classifier for each voting type using the three
+    estimators (models) from this chapter—logistic regression, random forest, and
+    gradient boosting. Since we will run `fit()`, we pass in the best estimator from
+    each of our grid searches (`best_estimator_`). This avoids running each grid search
+    again unnecessarily, which will also train our model faster:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE39]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Our `majority_rules` classifier requires two of the three models to agree (at
+    a minimum), while the `max_probabilities` classifier has each model vote with
+    its predicted probabilities. We can measure how well they perform on the test
+    data with the `classification_report()` function, which tells us that `majority_rules`
+    is a little better than `max_probabilities` in terms of precision. Both are better
+    than the other models we have tried:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE40]'
+  prefs: []
+  type: TYPE_PRE
+- en: Another important option with the `VotingClassifier` class is the `weights`
+    parameter, which lets us place more or less emphasis on certain estimators when
+    voting. For example, if we pass `weights=[1, 2, 2]` to `majority_rules`, we are
+    giving extra weight to the predictions made by the random forest and gradient
+    boosting estimators. In order to determine which models (if any) should be given
+    extra weight, we can look at individual performance and prediction confidence.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Inspecting classification prediction confidence
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: As we saw with ensemble methods, when we know the strengths and weaknesses of
+    our model, we can employ strategies to attempt to improve performance. We may
+    have two models to classify something, but they most likely won't agree on everything.
+    However, say that we know that one does better on edge cases, while the other
+    is better on the more common ones. In that case, we would likely want to investigate
+    a voting classifier to improve our performance. How can we know how the models
+    perform in different situations, though?
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'By looking at the probabilities the model predicts of an observation belonging
+    to a given class, we can gain insight into how confident our model is when it
+    is correct and when it errs. We can use our `pandas` data wrangling skills to
+    make quick work of this. Let''s see how confident our original `white_or_red`
+    model from *Chapter 9*, *Getting Started with Machine Learning in Python*, was
+    in its predictions:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE41]'
+  prefs: []
+  type: TYPE_PRE
+- en: Tip
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We can tweak the probability threshold for our model''s predictions by using
+    the `predict_proba()` method, instead of `predict()`. This will give us the probabilities
+    that the observation belongs to each class. We can then compare that to our custom
+    threshold. For example, we could use 75%: `white_or_red.predict_proba(w_X_test)[:,1]
+    >= .75`.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: One way to identify this threshold is to determine the false positive rate we
+    are comfortable with, and then use the data from the `roc_curve()` function in
+    the `sklearn.metrics` module to find the threshold that results in that false
+    positive rate. Another way is to find a satisfactory spot along the precision-recall
+    curve, and then get the threshold from the `precision_recall_curve()` function.
+    We will work through an example in [*Chapter 11*](B16834_11_Final_SK_ePub.xhtml#_idTextAnchor237),
+    *Machine Learning Anomaly Detection*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let''s use `seaborn` to make a plot showing the distribution of the prediction
+    probabilities when the model was correct versus when it was incorrect. The `displot()`
+    function makes it easy to plot the **kernel density estimate** (**KDE**) superimposed
+    on a histogram. Here, we will also add a **rug plot**, which shows where each
+    of our predictions ended up:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE42]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The KDE for correct predictions is bimodal, with modes near 0 and near 1, meaning
+    the model is very confident when it is correct, which, since it is correct most
+    of the time, means it is very confident in general. The peak of the correct predictions
+    KDE at 0 is much higher than the one at 1 because we have many more white wines
+    than red wines in the data. Note that the KDE shows probabilities of less than
+    zero and greater than one as possible. For this reason, we add the histogram to
+    confirm that the shape we are seeing is meaningful. The histogram for correct
+    predictions doesn''t have much in the middle of the distribution, so we include
+    the rug plot to better see which probabilities were predicted. The incorrect predictions
+    don''t have many data points, but it appears to be all over the place, because
+    when the model got it wrong, it got fooled pretty badly:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 10.12 – Prediction confidence when the model was correct versus incorrect'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/Figure_10.12_B16834.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Figure 10.12 – Prediction confidence when the model was correct versus incorrect
+  prefs: []
+  type: TYPE_NORMAL
+- en: This outcome tells us we may want to look into the chemical properties of the
+    wines that were incorrectly classified. It's possible they were outliers and that
+    is why they fooled the model. We can modify the box plots by wine type from the
+    *Exploratory data analysis* section in *Chapter 9*, *Getting Started with Machine
+    Learning in Python*, to see if anything stands out (*Figure 9.6*).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'First, we isolate the chemical properties for the incorrectly classified wines:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE43]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Then, we add some calls to `scatter()` on the `Axes` object to mark these wines
+    on the box plots from before:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE44]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'This results in each of the incorrectly classified wines being marked with
+    a red **X**. In each subplot, the points on the left box plot are white wines
+    and those on the right box plot are red wines. It appears that some of them may
+    have been outliers for a few characteristics—such as red wines with high residual
+    sugar or sulfur dioxide, and white wines with high volatile acidity:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 10.13 – Checking whether incorrect predictions were outliers'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/Figure_10.13_B16834.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Figure 10.13 – Checking whether incorrect predictions were outliers
+  prefs: []
+  type: TYPE_NORMAL
+- en: Despite having many more white wines than red wines in the data, our model is
+    able to distinguish between them pretty well. This isn't always the case. Sometimes,
+    in order to improve our performance, we need to address the class imbalance.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Addressing class imbalance
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'When faced with a class imbalance in our data, we may want to try to balance
+    the training data before we build a model around it. In order to do this, we can
+    use one of the following imbalanced sampling techniques:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Over-sample the minority class.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Under-sample the majority class.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: In the case of **over-sampling**, we pick a larger proportion from the minority
+    class in order to get closer to the amount of the majority class; this may involve
+    a technique such as bootstrapping or generating new data similar to the values
+    in the existing data (using machine learning algorithms such as nearest neighbors).
+    **Under-sampling**, on the other hand, will take less data overall by reducing
+    the amount taken from the majority class. The decision to use over-sampling or
+    under-sampling will depend on the amount of data we started with, and in some
+    cases, computational costs. In practice, we wouldn't try either of these without
+    first trying to build the model with the class imbalance. It's important not to
+    try to optimize things prematurely; not to mention that by building the model
+    first, we have a baseline to compare our imbalanced sampling attempts against.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Important note
+  prefs: []
+  type: TYPE_NORMAL
+- en: Huge performance issues can arise if the minority class that we have in the
+    data isn't truly representative of the full spectrum present in the population.
+    For this reason, our method of collecting the data in the first place should be
+    both known to us and carefully evaluated before proceeding to modeling. If we
+    aren't careful, we could easily build a model that can't generalize to new data,
+    regardless of how we handle the class imbalance.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Before we explore any imbalanced sampling techniques, let''s create a baseline
+    model using **k-nearest neighbors** (**k-NN**) classification, which will classify
+    observations according to the class of the k-nearest observations in the n-dimensional
+    space of the data (our red wine quality data is 11-dimensional). For comparison
+    purposes, we will use the same number of neighbors for all the models in this
+    section; however, it is certainly possible that the sampling techniques will result
+    in a different value performing better. We will use five neighbors:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE45]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Our k-NN model is fast to train because it is a `%%timeit` magic to get an
+    estimate of how long it takes on average to train. Note that this will train the
+    model multiple times, so it might not be the best strategy to time a computationally
+    intense model:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE46]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Let''s compare this result with training a **support vector machine** (**SVM**),
+    which projects the data into a higher dimension to find the **hyperplane** that
+    separates the classes. A hyperplane is the n-dimensional equivalent of a plane,
+    just like a plane is the two-dimensional equivalent of a line. SVMs are typically
+    robust to outliers and can model non-linear decision boundaries; however, SVMs
+    get slow very quickly, so it will be a good comparison:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE47]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Now that we have our baseline model and an idea of how it works, let''s see
+    how the baseline k-NN model performs:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE48]'
+  prefs: []
+  type: TYPE_PRE
+- en: With this performance benchmark, we are ready to try out imbalanced sampling.
+    We will be using the `imblearn` package, which is provided by the `scikit-learn`
+    community. It provides implementations for over- and under-sampling using various
+    strategies, and it is just as easy to use as `scikit-learn`, since they both follow
+    the same API conventions. For reference, the documentation can be found at [https://imbalanced-learn.readthedocs.io/en/stable/api.html](https://imbalanced-learn.readthedocs.io/en/stable/api.html).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Under-sampling
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: As we hinted at earlier, under-sampling will reduce the amount of data available
+    to train our model on. This means we should only attempt this if we have enough
+    data that we can accept eliminating some of it. Let's see what happens with the
+    red wine quality data, since we don't have much data to begin with.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We will use the `RandomUnderSampler` class from `imblearn` to randomly under-sample
+    the low-quality red wines in the training set:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE49]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'We went from almost 14% of the training data being high-quality red wine to
+    50% of it; however, notice that this came at the price of 1,049 training samples
+    (more than half of our training data):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE50]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Fitting our model with the under-sampled data is no different from before:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE51]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Using the classification report, we see that under-sampling is definitely not
+    an improvement—we hardly had any data for this model:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE52]'
+  prefs: []
+  type: TYPE_PRE
+- en: In situations where we have limited data to start with, under-sampling is simply
+    not feasible. Here, we lost over half of the already small amount of data we had.
+    Models need a good amount of data to learn from, so let's try over-sampling the
+    minority class now.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Over-sampling
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: It's clear that with smaller datasets, it won't be beneficial to under-sample.
+    Instead, we can try over-sampling the minority class (the high-quality red wines,
+    in this case). Rather than doing random over-sampling with the `RandomOverSampler`
+    class, we are going to use the **Synthetic Minority Over-sampling Technique**
+    (**SMOTE**) to create *new* (synthetic) red wines similar to the high-quality
+    ones using the k-NN algorithm. By doing this, we are making a big assumption that
+    the data we have collected about the chemical properties of the red wine does
+    influence the quality rating of the wine.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Important note
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The SMOTE implementation in `imblearn` comes from this paper:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*N. V. Chawla, K. W. Bowyer, L. O.Hall, W. P. Kegelmeyer, SMOTE: synthetic
+    minority over-sampling technique, Journal of Artificial Intelligence Research,
+    321-357, 2002*, available at [https://arxiv.org/pdf/1106.1813.pdf](https://arxiv.org/pdf/1106.1813.pdf).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let''s use SMOTE with the five nearest neighbors to over-sample the high-quality
+    red wines in our training data:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE53]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Since we over-sampled, we will have more data than we did before, gaining an
+    extra 1,049 high-quality red wine samples:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE54]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Once again, we will fit a k-NN model, using the over-sampled data this time:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE55]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Over-sampling performed much better than under-sampling, but unless we were
+    looking to maximize recall, we are better off sticking with our original strategy
+    for k-NN:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE56]'
+  prefs: []
+  type: TYPE_PRE
+- en: Note that since SMOTE is creating synthetic data, we must carefully consider
+    the side effects this may have on our model. If we can't make the assumption that
+    all the values of a given class are representative of the full spectrum of the
+    population and that this won't change over time, we cannot expect SMOTE to work
+    well.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Regularization
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: When working with regressions, we may look to add a penalty term to our regression
+    equation to reduce overfitting by punishing certain decisions for coefficients
+    made by the model; this is called **regularization**. We are looking for the coefficients
+    that will minimize this penalty term. The idea is to shrink the coefficients toward
+    zero for features that don't contribute much to reducing the error of the model.
+    Some common techniques are ridge regression, LASSO (short for *Least Absolute
+    Shrinkage and Selection Operator*) regression, and elastic net regression, which
+    combines the LASSO and ridge penalty terms. Note that since these techniques rely
+    on the magnitude of the coefficients, the data should be scaled beforehand.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Ridge regression**, also called **L2 regularization**, punishes high coefficients
+    (![](img/Formula_10_002.png)) by adding the sum of the squares of the coefficients
+    to the cost function (which regression looks to minimize when fitting), as per
+    the following penalty term:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/Formula_10_003.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: This penalty term is also weighted by λ (lambda), which indicates how large
+    the penalty will be. When this is zero, we have ordinary least squares regression,
+    as before.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Important note
+  prefs: []
+  type: TYPE_NORMAL
+- en: Remember the `C` parameter from the `LogisticRegression` class? By default,
+    the `LogisticRegression` class will use the L2 penalty term, where `C` is 1/λ.
+    However, it also supports L1, but only with certain solvers.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**LASSO regression**, also called **L1 regularization**, drives coefficients
+    to zero by adding the sum of the absolute values of the coefficients to the cost
+    function. This is more robust than L2 regularization because it is less sensitive
+    to extreme values:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/Formula_10_004.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: Since LASSO drives coefficients of certain features in the regression to zero
+    (where they won't contribute to the model), it is said to perform feature selection.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Important note
+  prefs: []
+  type: TYPE_NORMAL
+- en: Both the L1 and L2 penalties are also referred to as **L1 and L2 norms** (a
+    mathematical transformation on a vector to be in the range [0, ∞)) and written
+    as ![](img/Formula_10_005.png) and ![](img/Formula_10_006.png), respectively.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Elastic net regression** combines both LASSO and ridge penalty terms into
+    the following penalty term, where we can tune both the strength of the penalty
+    (λ) and the percentage of the penalty that is L1 (and consequently, the percentage
+    that is L2) with α (alpha):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/Formula_10_007.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Scikit-learn implements ridge, LASSO, and elastic net regressions with the
+    `Ridge`, `Lasso`, and `ElasticNet` classes, respectively, which can be used in
+    the same way as the `LinearRegression` class. There is also a `CV` version of
+    each of these (`RidgeCV`, `LassoCV`, and `ElasticNetCV`), which features built-in
+    cross-validation. Using all the defaults for these models, we find that LASSO
+    performs the best at predicting the length of the year in Earth days with the
+    planet data:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE57]'
+  prefs: []
+  type: TYPE_PRE
+- en: Note that these `scikit-learn` classes have an `alpha` parameter, which lines
+    up with λ in the previous equations (not α). For `ElasticNet`, α in the equations
+    lines up with the `l1_ratio` parameter, which defaults to 50% LASSO. In practice,
+    both of these hyperparameters are determined with cross-validation.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Summary
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In this chapter, we reviewed various techniques we can employ to improve model
+    performance. We learned how to use grid search to find the best hyperparameters
+    in a search space, and how to tune our model using the scoring metric of our choosing
+    with `GridSearchCV`. This means we don't have to accept the default in the `score()`
+    method of our model and can customize it to our needs.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In our discussion of feature engineering, we learned how to reduce the dimensionality
+    of our data using techniques such as PCA and feature selection. We saw how to
+    use the `PolynomialFeatures` class to add interaction terms to models with categorical
+    and numerical features. Then, we learned how to use the `FeatureUnion` class to
+    augment our training data with transformed features. In addition, we saw how decision
+    trees can help us understand which features in the data contribute most to the
+    classification or regression task at hand, using feature importances. This helped
+    us see the importance of sulfur dioxide and chlorides in distinguishing between
+    red and white wine on a chemical level, as well as the importance of a planet's
+    semi-major axis in determining its period.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Afterward, we took a look at the random forest, gradient boosting, and voting
+    classifiers to discuss ensemble methods and how they seek to address the bias-variance
+    trade-off through bagging, boosting, and voting strategies. We also saw how to
+    measure agreement between classifiers with Cohen's kappa score. This led us to
+    examine our `white_or_red` wine classifier's confidence in its correct and incorrect
+    predictions. Once we know the ins and outs of our model's performance, we can
+    try to improve upon it through the appropriate ensemble method to capitalize on
+    its strengths and mitigate its weaknesses.
+  prefs: []
+  type: TYPE_NORMAL
+- en: After that, we learned how to use the `imblearn` package to implement over-
+    and under-sampling strategies when faced with a class imbalance. We tried to use
+    this to improve our ability to predict red wine quality scores. In this example,
+    we got some exposure to the k-NN algorithm and the issues with modeling small
+    datasets. Finally, we learned how we can use regularization to penalize high coefficients
+    and reduce overfitting with regression, using ridge (L2 norm), LASSO (L1 norm),
+    and elastic net penalties; remember, LASSO is often used as a method of feature
+    selection since it drives coefficients to zero.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the next chapter, we will revisit the simulated login attempt data and use
+    machine learning to detect anomalies. We will also see how we can apply both unsupervised
+    and supervised learning in practice.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Exercises
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Complete the following exercises to practice the skills covered in this chapter.
+    Be sure to consult the *Machine learning workflow* section in the *Appendix* as
+    a refresher on the process of building models:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Predict star temperature with elastic net linear regression as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: a) Using the `data/stars.csv` file, build a pipeline to normalize the data with
+    a `MinMaxScaler` object and then run elastic net linear regression using all the
+    numeric columns to predict the temperature of the star.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: b) Run grid search on the pipeline to find the best values for `alpha`, `l1_ratio`,
+    and `fit_intercept` for the elastic net in the search space of your choice.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: c) Train the model on 75% of the initial data.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: d) Calculate the R2 of your model.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: e) Find the coefficients for each regressor and the intercept.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: f) Visualize the residuals using the `plot_residuals()` function from the `ml_utils.regression`
+    module.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'Perform multiclass classification of white wine quality using a support vector
+    machine and feature union as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: a) Using the `data/winequality-white.csv` file, build a pipeline to standardize
+    data, then create a feature union between interaction terms and a feature selection
+    method of your choice from the `sklearn.feature_selection` module, followed by
+    an SVM (use the `SVC` class).
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: b) Run grid search on your pipeline with 85% of the data to find the best values
+    for the `include_bias` parameter (`PolynomialFeatures`) and the `C` parameter
+    (`SVC`) in the search space of your choosing with `scoring='f1_macro'`.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: c) Look at the classification report for your model.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: d) Create a confusion matrix using the `confusion_matrix_visual()` function
+    from the `ml_utils.classification` module.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: e) Plot a precision-recall curve for multiclass data using the `plot_multiclass_pr_curve()`
+    function from the `ml_utils.classification` module.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'Perform multiclass classification of white wine quality using k-NN and over-sampling
+    as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: a) Using the `data/winequality-white.csv` file, create a test and training set
+    with 85% of the data in the training set. Stratify on `quality`.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: b) With `imblearn`, use the `RandomOverSampler` class to over-sample the minority
+    quality scores.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: c) Build a pipeline to standardize data and run k-NN.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: d) Run grid search on your pipeline with the over-sampled data on the search
+    space of your choosing to find the best value for k-NN's `n_neighbors` parameter
+    with `scoring='f1_macro'`.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: e) Look at the classification report for your model.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: f) Create a confusion matrix using the `confusion_matrix_visual()` function
+    from the `ml_utils.classification` module.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: g) Plot a precision-recall curve for multiclass data using the `plot_multiclass_pr_curve()`
+    function from the `ml_utils.classification` module.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: Can wine type (red or white) help determine the quality score?
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: a) Using the `data/winequality-white.csv` and `data/winequality-red.csv` files,
+    create a dataframe with the concatenated data and a column indicating which wine
+    type the data belongs to (red or white).
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: b) Create a test and training set with 75% of the data in the training set.
+    Stratify on `quality`.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: c) Build a pipeline using a `ColumnTransformer` object to standardize the numeric
+    data while one-hot encoding the wine type column (something like `is_red` and
+    `is_white`, each with binary values), and then train a random forest.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: d) Run grid search on your pipeline with the search space of your choosing to
+    find the best value for the random forest's `max_depth` parameter with `scoring='f1_macro'`.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: e) Take a look at the feature importances from the random forest.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: f) Look at the classification report for your model.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: g) Plot a ROC curve for multiclass data using the `plot_multiclass_roc()` function
+    from the `ml_utils.classification` module.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: h) Create a confusion matrix using the `confusion_matrix_visual()` function
+    from the `ml_utils.classification` module.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'Make a multiclass classifier to predict wine quality with majority rules voting
+    by performing the following steps:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: a) Using the `data/winequality-white.csv` and `data/winequality-red.csv` files,
+    create a dataframe with concatenated data and a column indicating which wine type
+    the data belongs to (red or white).
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: b) Create a test and training set with 75% of the data in the training set.
+    Stratify on `quality`.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'c) Build a pipeline for each of the following models: random forest, gradient
+    boosting, k-NN, logistic regression, and Naive Bayes (`GaussianNB`). The pipeline
+    should use a `ColumnTransformer` object to standardize the numeric data while
+    one-hot encoding the wine type column (something like `is_red` and `is_white`,
+    each with binary values), and then build the model. Note that we will discuss
+    Naive Bayes in [*Chapter 11*](B16834_11_Final_SK_ePub.xhtml#_idTextAnchor237),
+    *Machine Learning Anomaly Detection*.'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'd) Run grid search on each pipeline except Naive Bayes (just run `fit()` on
+    it) with `scoring=''f1_macro''` on the search space of your choosing to find the
+    best values for the following:'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: i) `max_depth`
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: ii) `max_depth`
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: iii) `n_neighbors`
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: iv) `C`
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: e) Find the level of agreement between each pair of two models using the `cohen_kappa_score()`
+    function from the `metrics` module in `scikit-learn`. Note that you can get all
+    the combinations of the two easily using the `combinations()` function from the
+    `itertools` module in the Python standard library.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: f) Build a voting classifier with the five models built using majority rules
+    (`voting='hard'`) and weighting the Naive Bayes model half as much as the others.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: g) Look at the classification report for your model.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: h) Create a confusion matrix using the `confusion_matrix_visual()` function
+    from the `ml_utils.classification` module.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: Further reading
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Check out the following resources for more information on the topics covered
+    in this chapter:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*A Gentle Introduction to the Gradient Boosting Algorithm for Machine Learning*:
+    [https://machinelearningmastery.com/gentle-introduction-gradient-boosting-algorithm-machine-learning/](https://machinelearningmastery.com/gentle-introduction-gradient-boosting-algorithm-machine-learning/)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*A Kaggler''s Guide to Model Stacking in Practice*: [https://datasciblog.github.io/2016/12/27/a-kagglers-guide-to-model-stacking-in-practice/](https://datasciblog.github.io/2016/12/27/a-kagglers-guide-to-model-stacking-in-practice/)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*Choosing the right estimator*: [https://scikit-learn.org/stable/tutorial/machine_learning_map/index.html](https://scikit-learn.org/stable/tutorial/machine_learning_map/index.html)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*Cross-validation: evaluating estimator performance*: [https://scikit-learn.org/stable/modules/cross_validation.html](https://scikit-learn.org/stable/modules/cross_validation.html)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*Decision Trees in Machine Learning*: [https://towardsdatascience.com/decision-trees-in-machine-learning-641b9c4e8052](https://towardsdatascience.com/decision-trees-in-machine-learning-641b9c4e8052)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*Ensemble Learning to Improve Machine Learning Results*: [https://blog.statsbot.co/ensemble-learning-d1dcd548e936](https://blog.statsbot.co/ensemble-learning-d1dcd548e936)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*Ensemble Methods*: [https://scikit-learn.org/stable/modules/ensemble.html](https://scikit-learn.org/stable/modules/ensemble.html)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*Feature Engineering Made Easy by Divya Susarla and Sinan Ozdemir*: [https://www.packtpub.com/big-data-and-business-intelligence/feature-engineering-made-easy](https://www.packtpub.com/big-data-and-business-intelligence/feature-engineering-made-easy)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*Feature Selection*: [https://scikit-learn.org/stable/modules/feature_selection.html#feature-selection](https://scikit-learn.org/stable/modules/feature_selection.html#feature-selection)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*Gradient Boosting vs Random Forest*: [https://medium.com/@aravanshad/gradient-boosting-versus-random-forest-cfa3fa8f0d80](mailto:https://medium.com/@aravanshad/gradient-boosting-versus-random-forest-cfa3fa8f0d80)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*Hyperparameter Optimization in Machine Learning*: [https://www.datacamp.com/community/tutorials/parameter-optimization-machine-learning-models](https://www.datacamp.com/community/tutorials/parameter-optimization-machine-learning-models)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*L1 Norms versus L2 Norms*: [https://www.kaggle.com/residentmario/l1-norms-versus-l2-norms](https://www.kaggle.com/residentmario/l1-norms-versus-l2-norms)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*Modern Machine Learning Algorithms: Strengths and Weaknesses*: [https://elitedatascience.com/machine-learning-algorithms](https://elitedatascience.com/machine-learning-algorithms)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*Principal component analysis*: [https://en.wikipedia.org/wiki/Principal_component_analysis](https://en.wikipedia.org/wiki/Principal_component_analysis)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*Regularization in Machine Learning*: [https://towardsdatascience.com/regularization-in-machine-learning-76441ddcf99a](https://towardsdatascience.com/regularization-in-machine-learning-76441ddcf99a)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*The Elements of Statistical Learning by Jerome H. Friedman, Robert Tibshirani,
+    and Trevor Hastie*: [https://web.stanford.edu/~hastie/ElemStatLearn/](https://web.stanford.edu/~hastie/ElemStatLearn/)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL

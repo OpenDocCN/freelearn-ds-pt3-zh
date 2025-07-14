@@ -1,0 +1,1760 @@
+- en: '4'
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Setting a Strong Baseline Forecast
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In the previous chapter, we saw some techniques we can use to understand **time
+    series data**, do some **Exploratory Data Analysis** (**EDA**), and so on. But
+    now, let’s get to the crux of the matter—**time series forecasting**. The point
+    of understanding the dataset and looking at patterns, seasonality, and so on was
+    to make the job of forecasting that series easier. And with any machine learning
+    exercise, one of the first things we need to establish before going further is
+    a **baseline**.
+  prefs: []
+  type: TYPE_NORMAL
+- en: A baseline is a simple model that provides reasonable results without requiring
+    a lot of time to come up with them. Many people think of a baseline as something
+    that is derived from common sense, such as an average or some rule of thumb. But
+    as a best practice, a baseline can be as sophisticated as we want it to be, so
+    long as it is quickly and easily implemented. Any further progress we want to
+    make will be in terms of the performance of this baseline.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this chapter, we will look at a few classical techniques that can be used
+    as baselines, and strong baselines at that. Some may feel that the forecasting
+    techniques we will be discussing in this chapter shouldn’t be baselines, but we
+    are keeping them in here because these techniques have stood the test of time—and
+    for good reason. They are also very mature and can be applied with very little
+    effort, thanks to the awesome open source libraries that implement them. There
+    can be many types of problems/datasets where it is difficult to beat the baseline
+    techniques we will discuss in this chapter, and in those cases, there is no shame
+    in just sticking to one of these baseline techniques.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In this chapter, we will cover the following topics:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Setting up a test harness
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Generating strong baseline forecasts
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Assessing the forecastability of a time series
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Technical requirements
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: You will need to set up the Anaconda environment following the instructions
+    in the *Preface* of the book to get a working environment with all the libraries
+    and datasets required for the code in this book. Any additional library will be
+    installed while running the notebooks.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'You will need to run the following notebook before using the code in this chapter:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The `02-Preprocessing_London_Smart_Meter_Dataset.ipynb` preprocessing notebook
+    from `Chapter02`
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The code for this chapter can be found at [https://github.com/PacktPublishing/Modern-Time-Series-Forecasting-with-Python-2E/tree/main/notebooks/Chapter04](https://github.com/PacktPublishing/Modern-Time-Series-Forecasting-with-Python-2E/tree/main/notebooks/Chapter04).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Setting up a test harness
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Before we start forecasting and setting up baselines, we need to set up a **test
+    harness**. In software testing, a test harness is a collection of code and inputs
+    that have been configured to test a program under various situations. In terms
+    of machine learning, a test harness is a set of code and data that can be used
+    to evaluate algorithms. It is important to set up a test harness so that we can
+    evaluate all future algorithms in a standard and quick way.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The first thing we need is **holdout (test)** and **validation** datasets.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Creating holdout (test) and validation datasets
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: As a standard practice, in machine learning, we set aside two parts of the dataset,
+    name them *validation data* and *test data*, and don’t use them at all to train
+    the model. The validation data is used in the modeling process to assess the quality
+    of the model. To select between different model classes, tune the hyperparameters,
+    perform feature selection, and so on, we need a dataset. Test data is like the
+    final test of your chosen model. It tells you how well your model is doing in
+    unseen data. If validation data is like the mid-term exams, the test data is your
+    final exam.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In regular regression or classification, we usually sample a few records at
+    random and set them aside. But while dealing with time series, we need to respect
+    the temporal aspect of the dataset. Therefore, a best practice is to set aside
+    the latest part of the dataset as the test data. Another rule of thumb is to set
+    equal-sized validation and test datasets so that the key modeling decisions we
+    make based on the validation data are as close as possible to the test data. The
+    dataset that we introduced in *Chapter 2*, *Acquiring and Processing Time Series
+    Data*, the London Smart Energy dataset, contains the energy consumption readings
+    of households in London from November 2011 to February 2014\. So, we are going
+    to put aside January 2014 as the validation data and February 2014 as the test
+    data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let’s open `01-Setting_up_Experiment_Harness.ipynb` from the `Chapter04` folder
+    and run it. In the notebook, we must create the train-test split both before and
+    after filling the missing values with `SeasonalInterpolation` and save them accordingly.
+    Once the notebook finishes running, you will have created the following files
+    in the pre-processed folder with the 2014 data saved separately:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`selected_blocks_train.parquet`'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`selected_blocks_val.parquet`'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`selected_blocks_test.parquet`'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`selected_blocks_train_missing_imputed.parquet`'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`selected_blocks_val_missing_imputed.parquet`'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`selected_blocks_test_missing_imputed.parquet`'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Now that we have a fixed dataset that can be used to fairly evaluate multiple
+    algorithms, we need a way to evaluate the different forecasts.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Choosing an evaluation metric
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'In machine learning, we have a handful of metrics that can be used to measure
+    continuous outputs, mainly **Mean Absolute Error** and **Mean Squared Error**.
+    But in the time series forecasting realm, there are scores of metrics with no
+    real consensus on which ones to use. One of the reasons for this overwhelming
+    number of metrics is that no one metric measures every characteristic of a forecast.
+    Therefore, we have a whole chapter devoted to this topic (*Chapter 19*, *Evaluating
+    Forecast Errors—A Survey of Forecast Metrics*). For now, we will just review a
+    few metrics, all of which we are going to use to measure the forecasts. We are
+    just going to consider them at face value:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Mean Absolute Error** (**MAE**): MAE is a very simple metric. It is the average
+    of the unsigned (ignoring the sign) error between the forecast at timestep *t*(*f*[t])
+    and the observed value at time *t*(*y*[t]). The formula is as follows:'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '![](img/B22389_04_001.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Here, *N* is the number of time series, *L* is the length of time series (in
+    this case, the length of the test period), and *f* and *y* are the forecast and
+    observed values, respectively.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Mean Squared Error** (**MSE**): MSE is the average of the squared error between
+    the forecast (*f*[t]) and observed (*y*[t]) values:'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '![](img/B22389_04_002.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: '**Mean Absolute Scaled Error** (**MASE**): MASE is slightly more complicated
+    than MSE and MAE but gives us a slightly better measure to overcome the scale-dependent
+    nature of the previous two measures. If we have multiple time series with different
+    average values, MAE and MSE will show higher errors for the high-value time series
+    as opposed to the low-valued time series. MASE overcomes this by scaling the errors
+    based on the in-sample MAE from the **naïve forecasting method** (which is one
+    of the most basic forecasts possible; we will review it later in this chapter).
+    Intuitively, MASE gives us the measure of how much better our forecast is as compared
+    to the naïve forecast:'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '![](img/B22389_04_003.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: '**Forecast Bias** (**FB**): This is a metric with slightly different aspects
+    from the other metrics we’ve seen. While the other metrics help assess the *correctness*
+    of the forecast, irrespective of the direction of the error, forecast bias lets
+    us understand the overall *bias* in the model. Forecast bias is a metric that
+    helps us understand whether the forecast is continuously over- or under-forecasting.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'We calculate forecast bias as the difference between the sum of the forecast
+    and the sum of the observed values, expressed as a percentage over the sum of
+    all actuals:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_04_004.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Now, our test harness is ready. We also know how to evaluate and compare forecasts
+    that have been generated from different models on a single, fixed holdout dataset
+    with a set of predetermined metrics. Now, it’s time to start forecasting.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Generating strong baseline forecasts
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '**Time series forecasting** has been around since the early 1920s, and through
+    the years, many brilliant people have come up with different models, some statistical
+    and some heuristic-based. I refer to them collectively as **classical statistical
+    models** or **econometrics models**, although they are not strictly statistical/econometric.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this section, we are going to review a few such models that can form really
+    strong baselines when we want to try modern techniques in forecasting. As an exercise,
+    we are going to use an excellent open source library for time series forecasting—NIXTLA
+    ([https://github.com/Nixtla](https://github.com/Nixtla)). The `02-Baseline_Forecasts_using_NIXTLA.ipynb`
+    notebook contains the code for this section so that you can follow along.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Before we start looking at forecasting techniques, let’s quickly understand
+    how to use the NIXTLA library to generate forecasts. We are going to pick one
+    consumer from the dataset and try out all the baseline techniques on the validation
+    dataset one by one.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The first thing we need to do is select the consumer we want using the unique
+    ID for each customer, the `LCLid` column (from the expanded form of data), and
+    set the timestamp as the index of the DataFrame:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'NIXTLA has the flexibility to work directly with either pandas or Polars DataFrames.
+    By default, NIXTLA looks for three columns:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`id_col`: By default, it expects a column `unique_id`. This column uniquely
+    identifies the time series. If you only have one time series, add a dummy column
+    with the same unique identifier.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`time_col`: By default, it expects a column `ds`. This is the column of your
+    timestamp.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`target_col`: By default, it expects a column `y`. This column is what you
+    want NIXTLA to forecast.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'This is very convenient as there is no need for further manipulation to go
+    from data to modeling. NIXTLA follows the scikit-learn style with `.fit()` and
+    `.predict()` and also adopts a `.forecast()` method, which is a memory-efficient
+    method that doesn’t store the partial model outputs, whereas the scikit-learn
+    interface stores the fitted models:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'NIXTLA also has a `.forecast()` method, which is a memory-efficient method
+    that doesn’t store the partial model outputs, whereas the scikit-learn interface
+    stores the fitted models:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: When we call `.predict` **or** `.forecast`, we have to tell the model how long
+    into the future we have to predict. This is called the horizon of the forecast.
+    In our case, we need to predict our test period, which we can easily do by just
+    taking the length of the `ts_test` array.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We can also calculate the metrics we discussed earlier in the test harness
+    easily using NIXTLA’s classes. For added flexibility, we can loop through a list
+    of metrics to get multiple measurements for each forecast:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: Notice that, for MASE, the training set is also included.
+  prefs: []
+  type: TYPE_NORMAL
+- en: For ease of experimentation, we have encapsulated all of this into a handy function,
+    `evaluate_performance`, in the notebook. This returns the predictions and the
+    calculated metrics in a DataFrame.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now, let’s start looking at a few very simple methods of forecasting.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Naïve forecast
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'A naïve forecast is as simple as you can get. The forecast is just the last/most
+    recent observation in a time series. If the latest observation in a time series
+    is 10, then the forecast for all future timesteps is 10\. This can be implemented
+    as follows using the `Naive` class in NIXTLA:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: Once we have initialized the model, we can call our helpful `evaluate_performance`
+    function in the notebook to run and record the forecast and metrics.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let’s visualize the forecast we just generated:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_04_01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 4.1: Naïve forecast'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Here, we can see that the forecast is a straight line and completely ignores
+    any pattern in the series. This is by far the simplest way to forecast, hence
+    why it is naïve. Now, let’s look at another simple method.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Moving average forecast
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'While a naïve forecast memorizes the most recent past, it also memorizes the
+    noise at any timestep. **A moving average forecast** is another simple method
+    that tries to overcome the pure memorization of the naïve method. Instead of taking
+    the latest observation, it takes the mean of the latest *n* steps as the forecast.
+    Moving average is not one of the models present in NIXTLA, but we have implemented
+    a NIXTLA-compatible model in this book’s GitHub repository in the `Chapter04`
+    folder:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Let’s look at the forecast we generated:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 4.2 – Moving average forecast ](img/B22389_04_02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 4.2: Moving average forecast'
+  prefs: []
+  type: TYPE_NORMAL
+- en: This forecast is also almost a straight line. Now, let’s look at another simple
+    method, but one that considers seasonality as well.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Seasonal naive forecast
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: '**A seasonal naive forecast** is a twist on the simple naive method. In the
+    naive method, we took the last observation (Y[t-1]), whereas in seasonal naïve,
+    we take the Y[t-k] observation. So, we look back *k* steps for each forecast.
+    This enables the algorithm to mimic the last seasonality cycle. For instance,
+    if we set `k=48*7`, we will be able to mimic the latest seasonal weekly cycle.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'This method is implemented in NIXTLA and we can use it like so:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Let’s see what this forecast looks like:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_04_03.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 4.3: Seasonal naïve forecast'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Here, we can see that the forecast is trying to mimic the seasonality pattern.
+    However, it’s not very accurate because it is blindly following the last seasonal
+    cycle.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now that we’ve looked at a few simple methods, let’s look at a few statistical
+    models.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Exponential smoothing
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: '**Exponential smoothing** is one of the most popular methods for generating
+    forecasts. It has been around since the late 1950s and has proved its mettle and
+    stood the test of time. There are a few different variants of ETS—**single exponential
+    smoothing**, **double exponential smoothing**, **Holt-Winters’ seasonal smoothing**,
+    and so on. But all of them have one key idea that has been used in different ways.
+    In the naïve method, we were just using the latest observation, which is like
+    saying only the most recent data point in history matters and no data point before
+    that matters. On the other hand, the moving average method considers the last
+    n observations to be equally important and takes the mean of them.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'ETS combines both these intuitions and says that all the history is important,
+    but the recent history is more important. Therefore, the forecast is generated
+    using a weighted average where the weights decrease exponentially as we move farther
+    into the history:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_04_005.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Here, ![](img/B22389_04_006.png) is the smoothing parameter that lets us decide
+    how fast or slow the weights should decay, *y*[t] is the actuals at timestep *t*,
+    and *f*[t] is the forecast at timestep *t*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Simple exponential smoothing** (**SES**) is when you simply apply this smoothing
+    procedure to the history. This is more suited for time series that have no trends
+    or seasonality, and the forecast is going to be a flat line. The forecast is generated
+    using the following formula:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_04_04.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: '**Double exponential smoothing** (**DES**) extends the smoothing idea to model
+    trends as well. It has two smoothing equations—one for the level and the other
+    for the trend. Once you have the estimate of the level and trend, you can combine
+    them. This forecast is not necessarily flat because the estimated trend is used
+    to extrapolate it into the future. The forecast is generated according to the
+    following formula:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_04_05.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: First, we estimate the level (*l*[t]) using the *Level Equation* with the available
+    observations. Then, we estimate the trend using the *Trend Equation*. Finally,
+    to get the forecast, we combine *l*[t] and *b*[t] using the *Forecast Equation*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Researchers have found empirical evidence that this kind of constant extrapolation
+    can result in over-forecasts over the long-term forecast. This is because, in
+    the real world, time series data doesn’t increase at a constant rate forever.
+    Motivated by this, an addition to this has also been introduced that dampens the
+    trend by a factor of ![](img/B22389_04_007.png), such that when ![](img/B22389_04_008.png),
+    there is no damping, and it is identical to DES.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Triple exponential smoothing** or **Holt-Winters’** (**HW**) takes this one
+    step forward by including another smoothing term to model the seasonality. This
+    has three parameters ( ![](img/B22389_04_009.png), ![](img/B22389_04_010.png),
+    ![](img/B22389_04_011.png)) for the smoothing and uses a seasonality period (*m*)
+    as input parameters. You can also choose between additive or multiplicative seasonality.
+    The forecast equations for the additive model are as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_04_06.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: These formulae are also used like in the double exponential case. Instead of
+    estimating level and trend, we estimate level, trend, and seasonality separately.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The family of ETS methods is not limited to the three that we just discussed.
+    A way to think about the different models is in terms of the trend and seasonal
+    components of these models. The trend can either be no trend, additive, or additive
+    damped. The seasonality can be no seasonality, additive, or multiplicative. Every
+    combination of these parameters is a different technique in the family, as shown
+    in the following table:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '| **Trend component** | **Seasonal component** |'
+  prefs: []
+  type: TYPE_TB
+- en: '|  | **N (None)** | **A (Additive)** | **M (Multiplicative)** |'
+  prefs: []
+  type: TYPE_TB
+- en: '| **N (None)** | Simple Exponential Smoothing | - | - |'
+  prefs: []
+  type: TYPE_TB
+- en: '| **A (Additive)** | Double Exponential Smoothing | Additive Holt-Winters |
+    Multiplicative Holt-Winters |'
+  prefs: []
+  type: TYPE_TB
+- en: '| **Ad (Additive damped)** | Damped Double Exponential Smoothing | - | Damped
+    Holt-Winters |'
+  prefs: []
+  type: TYPE_TB
+- en: 'Table 4.1: Exponential smoothing family'
+  prefs: []
+  type: TYPE_NORMAL
+- en: NIXTLA has an entire family of ETS methods.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let’s see how we can initialize the ETS model in NIXTLA:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Here, `error_type = ''A''` refers to additive error. The user has the option
+    for either additive error or multiplicative error, which could be called using
+    `error_type = ''M''`. NIXTLA models have an option to use `AutoETS()`. This model
+    will automatically choose which exponential smoothing model is the best option:
+    simple exponential smoothing, double exponential smoothing (Holt’s method), or
+    triple exponential smoothing (Holt-Winters method). It will also choose which
+    parameters and error types are best for each individual time series. Refer to
+    the GitHub notebooks for examples of how to use `AutoETS()`.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let’s see what the forecast using ETS looks like in *Figure 4.4*:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_04_07.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 4.4: Exponential smoothing forecast'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The forecast has captured the seasonality but has failed to capture the peaks.
+    But we can see the improvement in MAE already.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now, let’s look at one of the most popular forecasting methods out there.
+  prefs: []
+  type: TYPE_NORMAL
+- en: AutoRegressive Integrated Moving Average (ARIMA)
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: '**ARIMA** models are the other class of methods that, like ETS, have stood
+    the test of time and are one of the most popular classical methods of forecasting.
+    The ETS family of methods is modeled around trend and seasonality, while ARIMA
+    relies on **autocorrelation** (the correlation of *y*[t] with *y*[t][-1], *y*[t][-2],
+    and so on).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The simplest in the family are the *AR* (*p*) models, which use **linear regression**
+    with *p* previous timesteps or, in other words, *p* lags. Mathematically, it can
+    be written as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_04_012.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Here, *c* is the intercept, and ![](img/B22389_04_013.png) is the noise or error
+    at timestep *t*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The next in the family are *MA* (*q*) models, in which, instead of past observed
+    values, we use the past *q* errors in the forecast (which is assumed to be pure
+    white noise) to come up with a forecast:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_04_014.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Here, ![](img/B22389_04_015.png) is white noise and *c* is the intercept.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This is not typically used on its own but in conjunction with *AR* (*p*) models,
+    which makes the next one on our list *ARMA* (*p*, *q*) models. ARMA (AutoRegressive
+    Moving Average) models are defined as *y*[t] = *AR* (*p*) + *MA* (*q*).
+  prefs: []
+  type: TYPE_NORMAL
+- en: In all the ARIMA models, there is one underlying assumption—the *time series
+    is stationary* (we talked about stationarity in *Chapter 1*, *Introducing Time
+    Series*, and will elaborate on this in *Chapter 6*, *Feature Engineering for Time
+    Series Forecasting*). There are many ways to make the series stationary but taking
+    the difference of successive values is one such technique. This is known as **differencing**.
+    Sometimes, we need to do differencing once, while other times, we have to perform
+    successive differencing before the time series becomes stationary. The number
+    of times we do the differencing operation is called the *order of differencing*.
+    The I in ARIMA, and the final piece of the puzzle, stands for *Integrated*. It
+    defines the order of differencing we need to do before the series becomes stationary
+    and is denoted by *d*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: So, the complete *ARIMA* (*p*, *d*, *q*) model says that we do the *d*^(th)
+    order of differencing and then consider the last *p* terms in an autoregressive
+    manner, and then include the last *q* moving average terms to come up with the
+    forecast.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The ARIMA models we have discussed so far only handle non-seasonal time series.
+    However, using the same concepts we discussed, but on a seasonal cycle, we get
+    **seasonal ARIMA**. *p*, *d*, and *q* are slightly tweaked so that they work on
+    the seasonal period, *m*. To differentiate them from the normal *p*, *d*, and
+    *q*, we call the seasonal values *P*, *D*, and *Q*. For instance, if *p* means
+    taking the last *p* lags, *P* means taking the last *P* seasonal lags. If *p*[1]
+    is *y*[t][-1], *P*[1] would be *y*[t][-m]. Similarly, *D* means the order of seasonal
+    differencing.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Picking the right *p*, *d*, and *q* and *P*, *D*, and *Q* values is not very
+    intuitive, and we will have to resort to statistical tests to find them. However,
+    this becomes a bit impractical when you are forecasting many time series. An automatic
+    way of iterating through the different parameters and finding the best *p*, *d*,
+    and *q*, and *P*, *D*, and *Q* values for the data is called **AutoARIMA**. In
+    Python, NIXTLA has implemented this method, `AutoARIMA()`. NIXTLA also has a normal
+    ARIMA implementation as well, which is much faster but requires *p*, *d*, and
+    *q* to be entered manually.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Practical considerations**:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Although ARIMA and AutoARIMA can give you good-performing models in many cases,
+    they can be quite slow when you have long seasonal periods and a long time series.
+    In our case, where we have almost 27K observations in the history, ARIMA becomes
+    very slow and a memory hog. Even when subsetting the data, a single AutoARIMA
+    fit takes around 60 minutes. Letting go of the seasonal parameters brings down
+    the runtime drastically, but for a seasonal time series such as energy consumption,
+    it doesn’t make sense. AutoARIMA includes many such fits to identify the best
+    parameters and, therefore, becomes impractical for long time series datasets.
+    Almost all the implementations in the Python ecosystem suffer from this drawback.
+    NIXLTA claims to have the fastest and most accurate version of AutoARIMA, faster
+    than the original R method as well.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let’s see how we can apply `ARIMA` and `AutoARIMA` using NIXTLA:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs: []
+  type: TYPE_PRE
+- en: For the entire list of parameters for `AutoARIMA`, head over to the NIXTLA documentation
+    at [https://nixtlaverse.nixtla.io/statsforecast/docs/models/autoarima.html](https://nixtlaverse.nixtla.io/statsforecast/docs/models/autoarima.html).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let’s see what the ETS and ARIMA forecasts look like for the households we
+    were experimenting with:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_04_08.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 4.5: ETS and ARIMA forecasts'
+  prefs: []
+  type: TYPE_NORMAL
+- en: With NIXTLA, both ETS and ARIMA have done a good job of capturing both the seasonality
+    and the peaks. The resulting MAE scores are also very similar, with 0.191 and
+    0.203, respectively. Now, let’s look at another method—the Theta forecast.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Theta forecast
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: The **Theta forecast** was the top-performing submission in the M3 forecasting
+    competition that was held in 2002\. The method relies on a parameter, ![](img/B22389_04_016.png),
+    that amplifies or smooths the local curvature of a time series, depending on the
+    value chosen. Using ![](img/B22389_04_016.png), we smooth or amplify the original
+    time series. These smoothed lines are called **Theta lines**. V. Assimakopoulos
+    and K. Nikolopoulos proposed this method as a decomposition approach to forecasting.
+    Although, in theory, any number of Theta lines can be used, the originally proposed
+    method used two Theta lines, ![](img/B22389_04_018.png) and ![](img/B22389_04_019.png),
+    and took an average of the forecast of the two Theta lines as the final forecast.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The M competitions are forecasting competitions organized by Spyros Makridakis,
+    a leading forecasting researcher. They typically curate a dataset of time series,
+    lay down the metrics with which the forecasts will be evaluated, and open these
+    competitions to researchers all around the world to get the best forecast possible.
+    These competitions are considered to be some of the biggest and most popular time
+    series forecasting competitions in the world. At the time of writing, six such
+    competitions have already been completed. To learn more about the latest competition,
+    visit this website: [https://mofc.unic.ac.cy/the-m6-competition/](https://mofc.unic.ac.cy/the-m6-competition/).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In 2002, Rob Hyndman et al. simplified the Theta method and showed that we
+    can use ETS with a drift term to get equivalent results to the original Theta
+    method, which is what is adapted into most of the implementations of the method
+    that exist today. The main steps that are involved in the Theta forecast (which
+    is implemented in NIXTLA) are as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Deseasonalization**: Apply a classical multiplicative decomposition to remove
+    the seasonal component from the time series (if it exists). This focuses the analysis
+    on the underlying trend and cyclical components. Deseasonalization is done using
+    `statsmodels.tsa.seasonal.seasonal_decompose`. This step creates a new deseasonalized
+    time series.'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '**Theta Coefficients Application**: Decompose the deseasonalized series into
+    two “Theta” lines using coefficients ![](img/B22389_04_020.png) and ![](img/B22389_04_021.png).
+    These coefficients modify the second difference of the time series to either dampen
+    (![](img/B22389_04_022.png) or accentuate ![](img/B22389_04_023.png) local fluctuations.'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '**Extrapolation of Theta Lines**: Treat each Theta line as a separate series
+    and forecast them into the future. This is done using linear regression for the
+    Theta line where ![](img/B22389_04_024.png), producing a straight line, and simple
+    exponential smoothing for the Theta line where ![](img/B22389_04_025.png).'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '**Recomposition**: Combine the forecasts from the two Theta lines. The original
+    method uses equal weighting for both lines, which integrates the long-term trend
+    and short-term movements effectively.'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '**Reseasonalize**: If the data was deseasonalized in the beginning.'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'NIXTLA has very different variations of the Theta method. More information
+    on the specifics of the NIXTLA implementation can be found here: [https://nixtlaverse.nixtla.io/statsforecast/docs/models/autotheta.html](https://nixtlaverse.nixtla.io/statsforecast/docs/models/autotheta.html).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let’s see how we can use it practically:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The key parameters here are as follows: `season_length` and `decomposition_type`.
+    These parameters are used for the initial seasonal decomposition. If left empty,
+    the implementation automatically tests for seasonality and deseasonalizes the
+    time series automatically using multiplicative decomposition. It is recommended
+    to set these parameters with our domain knowledge if we know them. The decomposition
+    type can be multiplicative (default) or additive.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let’s visualize the forecast we just generated using the Theta forecast:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_04_09.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 4.6: The Theta forecast'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Reference check**:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The research paper in which V. Assimakopoulos and K. Nikolopoulos proposed the
+    Theta method is cited as reference *1* in the *References* section, while subsequent
+    simplification by Rob Hyndman is cited as reference *2*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The seasonality pattern is captured, but it’s not hitting the peaks. Let’s look
+    at another very strong method, TBATS.
+  prefs: []
+  type: TYPE_NORMAL
+- en: TBATS
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Sometimes, a time series has more than one seasonality pattern or a non-integer
+    seasonal period, commonly referred to as complex seasonality. An example would
+    be an hourly forecast that could have a daily seasonality for the time of day,
+    a weekly seasonality for the day of the week, and a yearly seasonality for the
+    day of the year. Additionally, most time series models are designed for smaller
+    integer seasonal periods, such as monthly (12) or quarterly (4) data, but yearly
+    seasonality can pose a problem since a year is 364.25 days. TBATS was meant to
+    combat these many challenges that pose problems for many forecasting models. However,
+    with any automated approach, at times it is susceptible to poor forecasts.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**TBATS** stands for:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**T**rigonometric seasonality'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**B**ox-Cox transformation'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**A**RMA errors'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**T**rend'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**S**easonal components'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: This model was first introduced by Rob J. Hyndman, Alysha M. De Livera, and
+    Ralph D. Snyder in 2011\. There is also another variant of TBATS, referred to
+    as BATS, which is without the trigonometric seasonality component. TBATS is from
+    the state space model family. In state space forecasting models, the observed
+    time series is assumed to be a combination of the underlying state variables and
+    a measurement equation that relates the state variables to the observed data.
+    The state variables capture the underlying patterns, trends, and relationships
+    in the data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'BATS has parameters ![](img/B22389_04_026.png) indicating the Box-Cox parameter,
+    damping parameter, ARMA parameters (*p*, *q*) and the seasonal periods (*m*[1],
+    *m*[2], …, *m*[t]). Due to its flexibility, the BATS model can be considered a
+    family of models encompassing many other models we have seen earlier. For instance:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*BATS*(1, 1, 0, 0, *m*[1]) = Holt-Winters Additive Seasonality'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*BATS*(1, 1, 0, 0, *m*[2]) = Holt-Winters Additive Double Seasonality'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: BATS has the flexibility for multiple seasonality; however, it is limited to
+    only integer-based seasonal periods, and with multiple seasonalities, it can have
+    a large number of states resulting in increasing model complexity. This is what
+    TBATS was meant to address.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'For reference, the TBATS parameter space is:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_04_027.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'The main advantages of TBATS are as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Works with single, complex, and non-integer seasonality (trigonometric seasonality)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Handles nonlinear patterns common in real-world time series (Box-Cox transformation)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Handles autocorrelation in the residuals (Autoregressive moving average errors)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: To better understand the inner workings of TBATS, let’s break down each step.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The order in which operations are done (unlike the order in the acronym) using
+    TBATS is:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Box-Cox transformation
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Exponentially smoothed trend
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Seasonal decomposition using Fourier series (trigonometric seasonality)
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: AutoRegressive Moving Average (ARMA)
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Parameter estimation through a likelihood-based approach
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Box-Cox transformation
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: Box-Cox is a transformation in the family of power transformations.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In time series, making data stationary is an important step before forecasting
+    (as discussed in *Chapter 1*). Stationarity ensures that our data does not statistically
+    change over time, and thus more accurately resembles a probability distribution.
+    There are several possible transformations that could be applied. More details
+    on various target transformations, including Box-Cox, can be found in *Chapter
+    7*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: As a preview, here is a sample output from a Box-Cox transformation. After the
+    transformation, our data more closely resembles that of a normal distribution.
+    Box-Cox transformations can only be used with positive data, but in practice,
+    this is often the case.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*Figure 4.7* shows an example of how a time series might look before and after
+    a Box-Cox transformation.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_04_10.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 4.7: Box-Cox transformation'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Exponentially smoothed trend
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'Using **Locally Estimated Scatterplot Smoothing** (**LOESS**), a smoothed trend
+    is extracted from the time series:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_04_028.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: '![](img/B22389_04_029.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: LOESS works by applying a locally weighted, low-degree polynomial regression
+    over the data points to create a smooth, flowing line through them. This technique
+    is highly effective in capturing local trend variations without assuming a global
+    form for the data, which makes it particularly useful for data with varying trends
+    or seasonal variations. This is the same LOESS that we used to decompose a time
+    series into a trend back in *Chapter 3*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Seasonal decomposition using Fourier series (trigonometric seasonality)
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: The remaining residuals are then modeled using Fourier terms (discussed in *Chapter
+    3*) to decompose the seasonality component.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_04_030.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: '![](img/B22389_04_031.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: '![](img/B22389_04_032.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: '![](img/B22389_04_033.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'The main advantage of using Fourier to model seasonality is its ability to
+    model multiple seasonalities, as well as non-integer seasonality, such as yearly
+    seasonality with daily data since there are 364.25 days in a year. Most other
+    decomposition methods cannot handle the non-integer period and have to resort
+    to rounding to 365, which can fail to identify the true seasonality. An example
+    of what a decomposed time series would like using Fourier is below. The observed
+    time series in this example is hourly data. Therefore, our seasonal periods are:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*daily* = *24*'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*weekly* = *24* *** *7* = *168*'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Here, you can clearly see the defined seasonal patterns, the trend, and the
+    remaining residuals. *Figure 4.8* shows the decomposition of the trend and seasonality,
+    after which the residuals are modeled using an ARMA process.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_04_11.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 4.8: Decomposed time series'
+  prefs: []
+  type: TYPE_NORMAL
+- en: ARMA
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'ARMA was discussed earlier as a subset of the ARIMA family:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_04_034.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: The ARMA model in TBATS is used to model the remaining residuals to capture
+    any autocorrelations of the lagged variables. The **autoregressive** (**AR**)
+    component captures the correlation between an observation and several lagged observations.
+    This deals with the momentum or continuation of the series. The **moving average**
+    (**MA**) component models the error terms as a linear combination of errors at
+    previous time periods, capturing information not explained by the AR part alone.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Parameter optimization
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'To select the optimal parameter space, TBATS will fit several models and automatically
+    select the best parameters. A few of the models TBATS fits internally are:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: With and without Box-Cox transformation
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: With and without trend
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: With and without trend damping
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Season and non-seasonal model
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: ARMA (*p*, *q*) parameters
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The final model is chosen by which combination of parameters minimizes the **Akaike
+    Information Criterion** (**AIC**), and AutoARIMA is used to determine the ARMA
+    parameters.
+  prefs: []
+  type: TYPE_NORMAL
+- en: As with all forecasting methods, there are benefits and trade-offs to different
+    models. While TBATS offers some enhancements on many other models’ shortcomings,
+    the trade-off is the need to build many models, which results in longer computation
+    times. This can pose a problem if you have to model multiple time series. Additionally,
+    TBATS does not allow for the inclusion of exogenous variables.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Practitioner’s note**:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: TBATS cannot handle exogenous regression since it is related to ETS models,
+    as per Hyndman himself, who suggests it is unlikely to include covariates (Hyndman,
+    2014; Reference *7*). If external regressors are to be used, other methods such
+    as ARIMAX or SARIMAX should be used. If the time series has complex seasonality,
+    you can add Fourier features as covariates to your ARIMAX or SARIMAX model to
+    help capture the seasonal patterns.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'This is implemented in `NIXLA`, and we can use the implementation shown here:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs: []
+  type: TYPE_PRE
+- en: In NIXTLA, you can also use AutoTBATS to let the system optimize how to handle
+    the various parameters.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let’s see what the TBATS forecast looks like:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_04_12.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 4.9: TBATS forecast'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Again, the seasonality pattern has been replicated and is capturing most of
+    the peaks in the forecast. Now let’s take a look at another method that is well
+    suited for highly seasonal time series (even if it has multiple seasonalities
+    like our case).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Multiple Seasonal-Trend decomposition using LOESS (MSTL)
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Remember the time series decomposition we did back in *Chapter 3*? What if
+    we can use the same techniques to forecast? That’s exactly what MSTL does. Let’s
+    look at the components of a time series again:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Trend
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Cyclical
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Seasonality
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Irregular
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Trend and cyclical components can be extracted using LOESS regression. If we
+    fit a simple model on the trend values, we can use it to extrapolate to the future.
+    And the seasonality component can easily be extrapolated because it is supposed
+    to be a repeating pattern. Combining these, we get a forecasting model that works
+    pretty well.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The MSTL method in NIXTLA applies the LOESS technique to decompose a time series
+    into its various seasonal components. Following this decomposition, it employs
+    a specialized non-seasonal model to forecast the trend, and a Seasonal Naive model
+    to predict each of the seasonal components. This approach allows for the detailed
+    analysis and forecasting of time series with complex seasonal patterns:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Let’s see what the MSTL forecast looks like:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_04_13.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 4.10: MSTL forecast'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let’s also take a look at how the different metrics that we chose did for each
+    of these forecasts for the household we were experimenting with (from the notebook):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![A screenshot of a computer  Description automatically generated](img/B22389_04_14.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 4.11: Summary of all the baseline algorithms'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Out of all the baseline algorithms we tried, AutoETS is performing the best
+    on MAE as well as MSE. ARIMA was the second-best model followed by TBATS. However,
+    if you look at the **Time Elapsed** column, TBATS stands out taking just 7.4 seconds
+    vs. 19 seconds for ARIMA. Since they had similar performance, we will choose TBATS
+    over ARIMA, along with AutoETS as our baseline, and run them on all 399 households
+    in the dataset (both validation and test) we’ve chosen (the code for this is available
+    in the `02-Baseline_Forecasts_using_NIXTLA.ipynb` notebook).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Evaluating the baseline forecasts
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Since we have the baseline forecasts generated from ETS as well as TBATS, we
+    should also evaluate these forecasts. The aggregate metrics for all the selected
+    households for both these methods are as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![A screenshot of a graph](img/B22389_04_15.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 4.12: The aggregate metrics of all the selected households (both validation
+    and test)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'It looks like AutoETS is performing much better in all three metrics. We also
+    have these metrics calculated at a household level. Let’s look at the distribution
+    of these metrics in the validation dataset for all the selected households:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_04_16.png)![](img/B22389_04_17.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 4.13: The distribution of MASE and forecast bias of the baseline forecast
+    in the validation dataset'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The MASE histogram of ETS seems to have a smaller spread than TBATS. ETS also
+    has a lower median MASE than TBATS. We can see a similar pattern for forecast
+    bias as well, with the forecast bias of ETS centered around zero and much less
+    spread.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Back in *Chapter 1*, *Introducing Time Series*, we saw why every time series
+    is not equally predictable and saw three factors to help us think about the issue—understanding
+    the **Data Generating Process** (**DGP**), the amount of data, and adequately
+    repeating the pattern. In most cases, the first two are pretty easy to evaluate,
+    but the third one requires some analysis. Although the performance of baseline
+    methods gives us some idea about how predictable any time series is, they still
+    are model-dependent. So, instead of measuring how well a time series is forecastable,
+    we might be better measuring how well the chosen model can approximate the time
+    series. This is where a few more fundamental techniques (relying on the statistical
+    properties of a time series) come in.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Assessing the forecastability of a time series
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Although there are many statistical measures that we can use to assess the predictability
+    of a time series, we will just look at a few that are easier to understand and
+    practical when dealing with large time series datasets. The associated notebook
+    (`02-Forecastability.ipynb`) contains the code to follow along.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Coefficient of variation
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: The **Coefficient of Variation** (**CoV**) relies on the fact that the more
+    variability that you find in a time series, the harder it is to predict it. And
+    how do we measure variability in a random variable? **Standard deviation**.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In many real-world time series, the variation we see in the time series is
+    dependent on the scale of the time series. Let’s imagine that there are two retail
+    products, *A* and *B*. *A* has a mean monthly sale of 15, while *B* has 50\. If
+    we look at a few real-world examples like this, we will see that if *A* and *B*
+    have the same standard deviation, *B*, which has a higher mean, is much more forecastable
+    than *A*. To accommodate this phenomenon and to make sure we bring all the time
+    series in a dataset to a common scale, we can use the CoV:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_04_035.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Here, ![](img/B22389_04_036.png)is the standard deviation, and ![](img/B22389_04_037.png)is
+    the mean of the time series, *n*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The CoV is the relative dispersion of data points around the mean, which is
+    much better than looking at the pure standard deviation.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The larger the value for the CoV, the worse the predictability of the time series.
+    There is no hard cutoff, but a value of 0.49 is considered a rule of thumb to
+    separate time series that are relatively easier to forecast from the hard ones.
+    Depending on the general *hardness* of the dataset, we can tweak this cutoff.
+    Something I have found useful is to plot a histogram of CoV values in a dataset
+    and derive cutoffs based on that.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Even though the CoV is widely used in the industry, it suffers from a few key
+    issues:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: It doesn’t consider seasonality. A sine or cosine wave will have a higher CoV
+    than a horizontal line, but we know both are equally predictable.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: It doesn’t consider the trend. A linear trend will make a series have a higher
+    CoV, but we know it is equally predictable, like a horizontal line.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: It doesn’t handle negative values in the time series. If you have negative values,
+    it makes the mean smaller, thereby inflating the CoV.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: To overcome these shortcomings, we propose another derived measure.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Residual variability
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: The thought behind **residual variability** (**RV**) is to try and measure the
+    same kind of variability that we were trying to capture with the CoV but without
+    the shortcomings. I was brainstorming on ways to avoid the problems of using the
+    CoV, typically the seasonality issue, and was applying the CoV to the residuals
+    after seasonal decomposition. It was then I realized that the residuals would
+    have a few negative values and that the CoV wouldn’t work well. Stefan de Kok,
+    who is a thought leader in demand forecasting and probabilistic forecasting, suggested
+    using the mean of the original actuals, which worked.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'To calculate RV, you must perform the following steps:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Perform seasonal decomposition.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Calculate the standard deviation of the residuals or the irregular component.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Divide the standard deviation by the mean of the original observed values (before
+    decomposition).
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Mathematically, it can be represented as:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_04_038.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: where, ![](img/B22389_04_039.png) is the standard deviation of the residuals
+    after decomposition and ![](img/B22389_04_040.png) is the mean of the original
+    observed values.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The key assumption here is that seasonality and trend are components that can
+    be predicted. Therefore, our assessment of the predictability of a time series
+    should only look at the variability of the residuals. However, we cannot use CoV
+    on the residuals because the residuals can have negative and positive values,
+    so the mean of the residuals loses the interpretation of the level of the series
+    and tends to zero. When residuals tend to zero, the CoV measure tends to infinity
+    because of the division by mean. Therefore, we use the mean of the original series
+    as the scaling factor.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let’s see how we can calculate RV for all the time series in our dataset (which
+    are in a compact form):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE12]'
+  prefs: []
+  type: TYPE_PRE
+- en: In this section, we looked at two measures that are based on the standard deviation
+    of the time series. Now, let’s look at assessing the forecastability of a time
+    series.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Entropy-based measures
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: '**Entropy** is a ubiquitous term in science. We see it popping up in physics,
+    quantum mechanics, social sciences, and information theory. And everywhere, it
+    is used to talk about a measure of chaos or lack of predictability in a system.
+    The entropy we are most interested in now is the one from information theory.
+    Information theory involves quantifying, storing, and communicating digital information.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Claude E. Shannon presented the qualitative and quantitative model of communication
+    as a statistical process in his seminal paper *A Mathematical Theory of Communication*.
+    While the paper introduced a lot of ideas, some of the concepts that are relevant
+    to us are information entropy and the concept of a *bit*—a fundamental unit of
+    measurement of information.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Reference check**:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*A Mathematical Theory of Communication* by Claude E. Shannon is cited as reference
+    *3* in the *References* section.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The theory in itself is quite a lot to cover, but to summarize the key bits
+    of information, take a look at the following short glossary:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Information is nothing but a sequence of *symbols*, which can be transmitted
+    from the *receiver* to the *sender* through a medium, which is called a *channel*.
+    For instance, when we are texting somebody, the sequence of symbols is the letters/words
+    of the language in which we are texting; the channel is the electronic medium.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*Entropy* can be thought of as the amount of *uncertainty* or *surprise* in
+    a sequence of symbols given some distribution of the symbols.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*A bit*, as we mentioned earlier, is a unit of information and is a binary
+    digit. It can either be 0 or 1.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Now, if we were to transfer one bit of information, it would reduce the uncertainty
+    of the receiver by two. To understand this better, let’s consider a coin toss.
+    We toss the coin in the air, and as it is spinning through the air, we don’t know
+    whether it is going to be heads or tails. But we do know it is going to be one
+    of these two. When the coin hits the ground and finally comes to rest, we find
+    that it is heads. We can represent whether the coin toss is heads or tails with
+    one bit of information (0 for heads and 1 for tails). So, the information that
+    was passed to us when the coin fell reduced the possible outcomes from two to
+    one (heads). This transfer was possible with one bit of information.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In information theory, the entropy of a discrete random variable is the average
+    level of *information*, *surprise*, or *uncertainty* inherent in the variable’s
+    possible outcomes. In more technical parlance, it is the expected number of bits
+    required for the best possible encoding scheme of the information present in the
+    random variable.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Additional reading**:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: If you want to intuitively understand entropy, cross-entropy, Kullback-Leibler
+    divergence, and so on, head over to the *Further reading* section. There are a
+    couple of links to blogs (one of which is my own) where we try to lay down the
+    intuition behind these metrics.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Entropy is formally defined as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_04_041.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Here, *X* is the discrete random variable with possible outcomes, *x*[1], *x*[2],
+    …, *x*[n]. Each of those outcomes has a probability of occurring, which is denoted
+    by *P*(*x*[1]), *P*(*x*[2]), …, *P*(*x*[n]).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'To develop some intuition around this, we can think that the more spread out
+    a probability distribution is, the more chaos is in the distribution, and thus
+    more entropy. Let’s quickly check this with some code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE13]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE14]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE15]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE16]'
+  prefs: []
+  type: TYPE_PRE
+- en: Here, we can see that the probability distribution that spreads its mass has
+    higher entropy.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the context of a time series, *n* is the total number of time series observations,
+    and *P*(*x*[i]) is the probability for each symbol of the time series alphabet.
+    A sharp distribution means that the time series values are concentrated on a small
+    area and should be easier to predict. On the other hand, a wide or flat distribution
+    means that the time series value can be equally likely across a wider range of
+    values and hence is difficult to predict.
+  prefs: []
+  type: TYPE_NORMAL
+- en: If we have two time series—one containing the result of a coin toss and the
+    other containing the result of a dice throw—the dice throw would have any output
+    between one and six, whereas the coin toss would be either zero or one. The coin
+    toss time series would have lower entropy and be easier to predict than the dice
+    throw time series.
+  prefs: []
+  type: TYPE_NORMAL
+- en: However, since time series is typically continuous, and entropy requires a discrete
+    random variable, we can resort to a few strategies to convert the continuous time
+    series into a discrete one. Many strategies, such as quantization or binning,
+    can be applied, which leads to a myriad of complexity measures. Let’s review one
+    such measure that is useful and practical.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Spectral entropy
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: To calculate the entropy of a time series, we need to discretize the time series.
+    One way to do that is by using **Fast Fourier Transform** (**FFT**) and **power
+    spectral density** (**PSD**). This discretization of the continuous time series
+    is used to calculate spectral entropy.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We learned what Fourier Transform is earlier in this chapter and used it to
+    generate a baseline forecast. But using FFT, we can also estimate a quantity called
+    power spectral density. This answers the question, *How much of the signal is
+    at a particular frequency?* There are many ways of estimating power spectral density
+    from a time series, but one of the easiest ways is by using the **Welch method**,
+    which is a non-parametric method based on Discrete Fourier Transform. This is
+    also implemented as a handy function with the `periodogram(x)` signature in `scipy`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The returned *PSD* will have a length equal to the number of frequencies estimated,
+    but these are densities and not well-defined probabilities. So, we need to normalize
+    *PSD* to be between zero and one:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_04_042.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Here, *F* is the number of frequencies that are part of the returned power spectrum
+    density.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now that we have the probabilities, we can just plug this into the entropy
+    formula and arrive at the spectral entropy:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_04_043.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: When we introduced **entropy-based measures**, we saw that the more spread out
+    the probability mass of a distribution is, the higher the entropy is. In this
+    context, the more frequencies across which the spectral density is spread, the
+    higher the spectral entropy. So, a higher spectral entropy means the time series
+    is more complex and, therefore, more difficult to forecast.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Since FFT has an assumption of stationarity, it is recommended that we make
+    the series stationary before using spectral entropy as a metric. We can even apply
+    this metric to a detrended and deseasonalized time series, which we can refer
+    to as **residual spectral entropy**. This book’s GitHub repository contains an
+    implementation of spectral entropy under `src.forecastability.entropy.spectral_entropy`.
+    This implementation also has a parameter, `transform_stationary`, which, if set
+    to `True`, will detrend the series before we apply spectral entropy. Let’s see
+    how we can calculate spectral entropy for our dataset:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE17]'
+  prefs: []
+  type: TYPE_PRE
+- en: There are other entropy-based measures such as approximate entropy and sample
+    entropy, but we will not cover them in this book. They are more computationally
+    intensive and don’t tend to work for time series that contain fewer than 200 values.
+    If you are interested in learning more about these measures, head over to the
+    *Further reading* section.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Another metric that takes a slightly different path is the Kaboudan metric.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Kaboudan metric
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'In 1999, Kaboudan defined a metric for time series predictability, calling
+    it the ![](img/B22389_04_044.png)-metric. The idea behind it is very simple. If
+    we block-shuffle a time series, we are essentially destroying the information
+    in the time series. **Block shuffling** is the process of dividing the time series
+    into blocks and then shuffling those blocks. So, if we calculate the **sum of
+    squared errors** (**SSE**) of a forecast that’s been trained on a time series
+    and then contrast it with the SSE of a forecast trained on a shuffled time series,
+    we can infer the predictability of the time series. The formula to calculate this
+    is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_04_045.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Here, *SSE*[Y] is the SSE of the forecast that was generated from the original
+    time series, while *SSE*[S] is the SSE of the forecast that was generated from
+    the block-shuffled series.
+  prefs: []
+  type: TYPE_NORMAL
+- en: If the time series contains some predictable signals, *SSE*[Y] would be lower
+    than *SSE*[S] and ![](img/B22389_04_044.png) would approach one. This is because
+    there was some information or patterns that were broken due to the block shuffling.
+    On the other hand, if a series is just white noise (which is unpredictable by
+    definition), there would be hardly any difference between *SSE*[Y] and *SSE*[S],
+    and ![](img/B22389_04_044.png) would approach zero.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In 2002, Duan investigated this metric and suggested some modifications in
+    his thesis. One of the problems he identified, especially in long time series,
+    is that the ![](img/B22389_04_044.png) values are found in a narrow band around
+    1 and suggested a slight modification to the formula. We call this the **modified
+    Kaboudan metric**. The measure on the lower side is also clipped to zero. Sometimes,
+    the metric can go below zero because *SSE*[S] is lower than *SSE*[Y], which is
+    because the series is unpredictable and, by pure chance, block shuffling made
+    the SSE lower:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_04_049.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: '**Reference check**:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The research paper that proposed the Kaboudan metric is cited as reference *4*
+    in the *References* section. The subsequent modification that Duan suggested is
+    cited as reference *5*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This modified version, as well as the original, has been implemented in this
+    book’s GitHub repository.
+  prefs: []
+  type: TYPE_NORMAL
+- en: There is no restriction on the forecasting model you use to generate the forecast,
+    which makes it a bit more flexible. Ideally, we can choose one of the classical
+    statistical methods that is fast enough to be applied to the whole dataset. But
+    this also makes the Kaboudan metric dependent on the model, and the limitations
+    of the model are inherent in the metric. The metric measures a combination of
+    how difficult a series is to forecast and how difficult it is for the model to
+    forecast the series.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Again, both metrics are implemented in this book’s GitHub repository. Let’s
+    see how we can use them:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE18]'
+  prefs: []
+  type: TYPE_PRE
+- en: Although there are many more metrics we can use for this purpose, the metrics
+    we just reviewed for assessing forecastability cover a lot of the popular use
+    cases and should be more than enough to gauge any time series dataset in regards
+    to the difficulty of forecasting it. We can use these metrics to compare one time
+    series with another time series or to profile a whole set of related time series
+    in a dataset with another dataset for benchmarking purposes.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Additional reading**:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: If you want to delve a little deeper and analyze the behavior of these metrics,
+    how similar they are to each other, and how effective they are in measuring forecastability,
+    go to the end of the `03-Forecastability.ipynb` notebook. We compute rank correlations
+    among these metrics to understand how similar these metrics are. We can also find
+    rank correlations with the computed metrics from the best-performing baseline
+    method to understand how well these metrics did in estimating the forecastability
+    of a time series. I strongly encourage you to play around with the notebook and
+    understand the differences between the different metrics. Pick a few time series
+    and check how the different metrics give you slightly different interpretations.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Congratulations on generating your baseline forecasts—the first set of forecasts
+    we have generated using this book! Feel free to head over to the notebooks, play
+    around with the parameters of the methods, and see how forecasts change. It’ll
+    help you develop an intuition around what the baseline methods are doing. If you
+    are interested in learning more about how to make these baseline methods better,
+    head over to the *Further reading* section, where we have provided a link to the
+    paper *The Wisdom of the Data: Getting the Most Out of Univariate Time Series
+    Forecasting*, by F. Petropoulos and E. Spiliotis.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Summary
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: And with this, we have come to the end of *Part 1*, *Getting Familiar with Time
+    Series*. We have come a long way from just understanding what a time series is
+    to generating competitive baseline forecasts. Along the way, we learned how to
+    handle missing values and outliers and how to manipulate time series data using
+    pandas. We used all those skills on a real-world dataset regarding energy consumption.
+    We also looked at ways to visualize and decompose time series. In this chapter,
+    we set up a test harness, learned how to use the NIXTLA library to generate a
+    baseline forecast, and looked at a few metrics that can be used to understand
+    the forecastability of a time series.
+  prefs: []
+  type: TYPE_NORMAL
+- en: For some of you, this may be a refresher, and we hope this chapter added some
+    value in terms of some subtleties and practical considerations. For the rest of
+    you, we hope you are in a good place foundationally to start venturing into modern
+    techniques using machine learning in the next part of the book.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the next chapter, we will discuss the basics of machine learning and delve
+    into time series forecasting.
+  prefs: []
+  type: TYPE_NORMAL
+- en: References
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'The following references were provided in this chapter:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Assimakopoulos, Vassilis and Nikolopoulos, K. (2000). *The theta model: A decomposition
+    approach to forecasting*. International Journal of Forecasting. 16\. 521-530\.
+    [https://www.researchgate.net/publication/223049702_The_theta_model_A_decomposition_approach_to_forecasting](https://www.researchgate.net/publication/223049702_The_theta_model_A_decomposition_approach_to_forecasting).'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Rob J. Hyndman, Baki Billah. (2003). *Unmasking the Theta method*. International
+    Journal of Forecasting. 19\. 287-290\. [https://robjhyndman.com/papers/Theta.pdf](https://robjhyndman.com/papers/Theta.pdf).
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Shannon, C.E. (1948), *A Mathematical Theory of Communication*. Bell System
+    Technical Journal, 27: 379-423\. [https://people.math.harvard.edu/~ctm/home/text/others/shannon/entropy/entropy.pdf](https://people.math.harvard.edu/~ctm/home/text/others/shannon/entropy/entropy.pdf).'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Kaboudan, M. (1999). *A measure of time series’ predictability using genetic
+    programming applied to stock returns*. Journal of Forecasting, 18, 345-357: [http://www.aiecon.org/conference/efmaci2004/pdf/GP_Basics_paper.pdf](http://www.aiecon.org/conference/efmaci2004/pdf/GP_Basics_paper.pdf).'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Duan, M. (2002). *TIME SERIES PREDICTABILITY*: [https://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.68.1898&rep=rep1&type=pdf](https://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.68.1898&rep=rep1&type=pdf).'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: De Livera, A. M., & Hyndman, R. J. (2009). Forecasting time series with complex
+    seasonal patterns using exponential smoothing (Department of Econometrics and
+    Business Statistics Working Paper Series 15/09)
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Hyndman, Rob. “*Rob J Hyndman - TBATS with Regressors*.” Rob J Hyndman, 6 Oct.
+    2014, [http://robjhyndman.com/hyndsight/tbats-with-regressors](http://robjhyndman.com/hyndsight/tbats-with-regressors)
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Further reading
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'To learn more about the topics that were covered in this chapter, take a look
+    at the following resources:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*Information Theory and Entropy*, by Manu Joseph: [https://deep-and-shallow.com/2020/01/09/deep-learning-and-information-theory/](https://deep-and-shallow.com/2020/01/09/deep-learning-and-information-theory/).'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*Visual Information*, by Chris Olah: [https://colah.github.io/posts/2015-09-Visual-Information](https://colah.github.io/posts/2015-09-Visual-Information).'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Fourier Transform: [https://betterexplained.com/articles/an-interactive-guide-to-the-fourier-transform/](https://betterexplained.com/articles/an-interactive-guide-to-the-fourier-transform/).'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*Fourier Transform* by 3blue1brown—a visual introduction: [https://www.youtube.com/watch?v=spUNpyF58BY&vl=en](https://www.youtube.com/watch?v=spUNpyF58BY&vl=en).'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*Understanding Fourier Transform by Example*, by Richie Vink: [https://www.ritchievink.com/blog/2017/04/23/understanding-the-fourier-transform-by-example/](https://www.ritchievink.com/blog/2017/04/23/understanding-the-fourier-transform-by-example/).'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Delgado-Bonal A, Marshak A. *Approximate Entropy and Sample Entropy: A Comprehensive
+    Tutorial*. Entropy. 2019; 21(6):541: [https://www.mdpi.com/1099-4300/21/6/541](https://www.mdpi.com/1099-4300/21/6/541).'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Yentes, J.M., Hunt, N., Schmid, K.K. et al. *The Appropriate Use of Approximate
+    Entropy and Sample Entropy with Short Data Sets*. Ann Biomed Eng 41, 349–365 (2013):
+    [https://doi.org/10.1007/s10439-012-0668-3](https://doi.org/10.1007/s10439-012-0668-3)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Ponce-Flores M, Frausto-Solís J, Santamaría-Bonfil G, Pérez-Ortega J, González-Barbosa
+    JJ. *Time Series Complexities and Their Relationship to Forecasting Performance*.
+    Entropy. 2020; 22(1):89\. [https://www.mdpi.com/1099-4300/22/1/89](https://www.mdpi.com/1099-4300/22/1/89)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Petropoulos F, Spiliotis E. *The Wisdom of the Data: Getting the Most Out of
+    Univariate Time Series Forecasting*. Forecasting. 2021; 3(3):478-497\. [https://doi.org/10.3390/forecast3030029](https://doi.org/10.3390/forecast3030029)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Join our community on Discord
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Join our community’s Discord space for discussions with authors and other readers:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[https://packt.link/mts](https://packt.link/mts)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/QR_Code15080603222089750.png)'
+  prefs: []
+  type: TYPE_IMG

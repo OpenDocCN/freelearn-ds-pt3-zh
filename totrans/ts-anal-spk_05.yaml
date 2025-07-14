@@ -1,0 +1,829 @@
+- en: '5'
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Data Preparation
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: So far, we have covered the foundations of time series and Apache Spark and
+    the full lifecycle of a time series analysis project. In this chapter, we delve
+    into the critical steps of organizing, cleaning, and transforming time series
+    data for effective analysis. It covers techniques for handling missing values,
+    dealing with outliers, and structuring data to suit Spark’s distributed computing
+    model. This information is invaluable as it equips you with the skills to ensure
+    data quality and compatibility with Spark, laying a robust foundation for accurate
+    and efficient time series analysis. Proper data preparation enhances the reliability
+    of subsequent analytical processes, making this chapter an essential prerequisite
+    to derive meaningful insights from time-dependent datasets using Spark.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We’re going to cover the following main topics in this chapter:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Data ingestion and persistence
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Data quality checks and cleaning
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Transformations
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Technical requirements
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Hands-on coding is predominant in this chapter, covering the common data preparation
+    steps of a time series analysis project. The code for this chapter can be found
+    in the `ch5` folder of the book’s GitHub repository at this URL:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[https://github.com/PacktPublishing/Time-Series-Analysis-with-Spark/tree/main/ch5](https://github.com/PacktPublishing/Time-Series-Analysis-with-Spark/tree/main/ch5)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs: []
+  type: TYPE_NORMAL
+- en: The code will be used with the Databricks Community Edition, as per the approach
+    explained in [*Chapter 1*](B18568_01.xhtml#_idTextAnchor016) and this chapter.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Data ingestion and persistence
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In this first section, we will cover the methods of getting time series data
+    from sources and persisting the dataset to storage.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Ingestion
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Ingestion is the process by which data is retrieved from a source system for
+    further processing and analysis. This process can be executed in batches to ingest
+    a large amount of data as a one-off on demand or scheduled to run automatically
+    at regular intervals, such as every night. Alternatively, if the data is available
+    from the source system on a continual basis and is required as such, the other
+    ingestion method is structured streaming.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs: []
+  type: TYPE_NORMAL
+- en: We can technically code the ingestion process as structured streaming and configure
+    it to run at triggered intervals. This gives the flexibility to adjust to changing
+    business requirements on data freshness without having to redevelop the ingestion
+    process.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this chapter, we will focus on batch ingestion, the most common method today.
+    We will also briefly discuss structured streaming, which is quickly gaining adoption
+    and has even overtaken batch ingestion in some organizations.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Batch ingestion
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: Batch ingestion is usually done from file storage or from a database.
+  prefs: []
+  type: TYPE_NORMAL
+- en: From file storage
+  prefs:
+  - PREF_H4
+  type: TYPE_NORMAL
+- en: 'As we saw in the hands-on sections of the previous chapters, reading from a
+    file is a frequently used batch ingestion method. This is done as follows with
+    Apache Spark, using `spark.read()`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: With this example, we are reading a CSV-formatted file from a `file_path` storage
+    location. The header is present in this file as the first line. The different
+    columns are separated with a `;` character. We want Spark to find out the data
+    columns and types present in the file, as specified with `inferSchema`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This example is based on the code in `ts-spark_ch5_1.dbc`, which we can import
+    from the GitHub location for [*Chapter 5*](B18568_05.xhtml#_idTextAnchor103),
+    mentioned in the *Technical requirements* section, into Databricks Community Edition,
+    as per the approach explained in [*Chapter 1*](B18568_01.xhtml#_idTextAnchor016).
+  prefs: []
+  type: TYPE_NORMAL
+- en: The code URL is [https://github.com/PacktPublishing/Time-Series-Analysis-with-Spark/raw/main/ch5/ts-spark_ch5_1.dbc](https://github.com/PacktPublishing/Time-Series-Analysis-with-Spark/raw/main/ch5/ts-spark_ch5_1.dbc).
+  prefs: []
+  type: TYPE_NORMAL
+- en: The ingested data can then be further processed and analyzed, as shown in *Figure
+    5**.1*, based on the code example provided for this chapter.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B18568_05_01.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 5.1: Viewing the ingested data'
+  prefs: []
+  type: TYPE_NORMAL
+- en: When reading files, it is also possible to read multiple files from a storage
+    folder by proving the folder location instead of a specific file location. This
+    is a common ingestion pattern for files. Another frequently used feature is to
+    provide a filter (`pathGlobFilter`) to only include filenames matching a pattern.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'There are many other options for the `spark.read` command, depending on the
+    source being read. The following Apache Spark documentation on data sources details
+    these options:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[https://spark.apache.org/docs/latest/sql-data-sources.html](https://spark.apache.org/docs/latest/sql-data-sources.html)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: From a database
+  prefs:
+  - PREF_H4
+  type: TYPE_NORMAL
+- en: 'Another frequently used type of source is a relational database. An example
+    for reading from PostgreSQL follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'This is further detailed in the following documentation: [https://spark.apache.org/docs/latest/sql-data-sources-jdbc.html](https://spark.apache.org/docs/latest/sql-data-sources-jdbc.html)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Data from specialized time series databases, such as QuestDB, can be ingested
+    in a similar way, as shown here:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'This is further detailed in the following documentation:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[https://questdb.io/blog/integrate-apache-spark-questdb-time-series-analytics/](https://questdb.io/blog/integrate-apache-spark-questdb-time-series-analytics/)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs: []
+  type: TYPE_NORMAL
+- en: You will need to include the JDBC driver for the particular database on the
+    Spark classpath. The previously referenced documentation explains this.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Structured Streaming
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: In the case of event-driven or near-real-time processing with Apache Spark,
+    time series data can be ingested from streaming sources such as Apache Kafka,
+    Amazon Kinesis, Google Cloud Pub/Sub, and Azure Event Hubs. This typically involves
+    setting up Spark Structured Streaming with the corresponding connectors for the
+    source.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The following example shows how to ingest data from Apache Kafka using Spark:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The Apache Spark documentation provides further details on reading from streaming
+    sources:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[https://spark.apache.org/docs/latest/structured-streaming-programming-guide.html#input-sources](https://spark.apache.org/docs/latest/structured-streaming-programming-guide.html#input-sources)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Once the data has been ingested, the next step is to persist it to storage for
+    further processing, as we will see next.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Persistence
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Data is typically persisted to files on disk or to databases. With Apache Spark,
+    a proven solution for files is Delta Lake, an open source storage protocol.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs: []
+  type: TYPE_NORMAL
+- en: Apache Iceberg is another common open source storage protocol.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Delta provides ACID transactions to Apache Spark and big data workloads, effectively
+    combining the best of file and database storage, in what is called a **lakehouse**
+    (merge of the terms *data lake* and *data warehouse*). Built on top of the Parquet
+    file format, Delta provides capabilities such as schema enforcement, data versioning,
+    and time travel.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Here’s an example of how you can persist time series data in Delta storage
+    format using Apache Spark in Python:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: Load the Delta table as a DeltaTable object
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: delta_table = DeltaTable.forPath(spark, delta_table_path)
+  prefs: []
+  type: TYPE_NORMAL
+- en: Details on the Delta table
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: print("Delta table details:")
+  prefs: []
+  type: TYPE_NORMAL
+- en: delta_table.detail().display()
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: spark.read.load(delta_table_path).display()
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: jdbcDF.write \
+  prefs: []
+  type: TYPE_NORMAL
+- en: .format("jdbc") \
+  prefs: []
+  type: TYPE_NORMAL
+- en: .option("url", "jdbc:postgresql:dbserver") \
+  prefs: []
+  type: TYPE_NORMAL
+- en: .option("dbtable", "schema.tablename") \
+  prefs: []
+  type: TYPE_NORMAL
+- en: .option("user", "username") \
+  prefs: []
+  type: TYPE_NORMAL
+- en: .option("password", "password") \
+  prefs: []
+  type: TYPE_NORMAL
+- en: .save()
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'df_ = spark.read.timestamp_as_of represents the timestamp of the version of
+    interest:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs: []
+  type: TYPE_PRE
+- en: print(f"Delta table history - after modification:")
+  prefs: []
+  type: TYPE_NORMAL
+- en: delta_table.history().display()
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs: []
+  type: TYPE_PRE
+- en: delta_table.restoreToVersion(latest_version)
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Example consistency check: Check if a column has consistent values'
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: consistency_check_result = df.groupBy("Date").count().orderBy("count")
+  prefs: []
+  type: TYPE_NORMAL
+- en: print(f"Data consistency result:")
+  prefs: []
+  type: TYPE_NORMAL
+- en: consistency_check_result.display()
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Example accuracy check:'
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Check if values in a column meet certain criteria
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: accuracy_check_expression = "Global_active_power < 0 OR Global_active_power
+    > 10"
+  prefs: []
+  type: TYPE_NORMAL
+- en: Check
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: accuracy_check_result = df.filter(accuracy_check_expression)
+  prefs: []
+  type: TYPE_NORMAL
+- en: accuracy_check_result_count = accuracy_check_result.count()
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'if accuracy_check_result_count == 0:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: print(f"Data meets accuracy check - !({accuracy_check_expression}).")
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'else:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: print(f"Data fails accuracy check - {accuracy_check_expression} - count {accuracy_check_result_count}:")
+  prefs: []
+  type: TYPE_NORMAL
+- en: accuracy_check_result.display()
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE12]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Example completeness check: Check for null values in a column'
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: completeness_check_expression = "Global_active_power is NULL"
+  prefs: []
+  type: TYPE_NORMAL
+- en: Check
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: completeness_check_result = df.filter(
+  prefs: []
+  type: TYPE_NORMAL
+- en: completeness_check_expression)
+  prefs: []
+  type: TYPE_NORMAL
+- en: completeness_check_result_count = completeness_check_result.count()
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'if completeness_check_result_count == 0:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: print(f"Data meets completeness check - !({completeness_check_expression})")
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'else:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: print(f"Data fails completeness check - {completeness_check_expression} - count
+    {completeness_check_result_count}:")
+  prefs: []
+  type: TYPE_NORMAL
+- en: completeness_check_result.display()
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE13]'
+  prefs: []
+  type: TYPE_PRE
+- en: from pyspark.sql import functions as F
+  prefs: []
+  type: TYPE_NORMAL
+- en: from pyspark.sql import Window
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Example: Handling missing values by forward filling'
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '"timestamp" column is ordered chronologically'
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: df = spark.sql(
+  prefs: []
+  type: TYPE_NORMAL
+- en: f"select timestamp, Global_active_power from {table_name} order by timestamp"
+  prefs: []
+  type: TYPE_NORMAL
+- en: )
+  prefs: []
+  type: TYPE_NORMAL
+- en: window = Window.rowsBetween(float('-inf'),0)
+  prefs: []
+  type: TYPE_NORMAL
+- en: filled_df = df.withColumn(
+  prefs: []
+  type: TYPE_NORMAL
+- en: '"filled_Global_active_power",'
+  prefs: []
+  type: TYPE_NORMAL
+- en: F.last(df['Global_active_power'],
+  prefs: []
+  type: TYPE_NORMAL
+- en: ignorenulls=True).over(window))
+  prefs: []
+  type: TYPE_NORMAL
+- en: Display updated values
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: filled_df.filter(
+  prefs: []
+  type: TYPE_NORMAL
+- en: '"timestamp BETWEEN ''2008-11-10 17:58:00'' AND''2008-11-10 18:17:00''"'
+  prefs: []
+  type: TYPE_NORMAL
+- en: ).display()
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE14]'
+  prefs: []
+  type: TYPE_PRE
+- en: from pyspark.sql import functions as F
+  prefs: []
+  type: TYPE_NORMAL
+- en: from pyspark.sql import Window
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Example: Handling missing values by backward filling'
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '"timestamp" column is ordered chronologically'
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: df = spark.sql(
+  prefs: []
+  type: TYPE_NORMAL
+- en: f"select timestamp, Global_active_power from {table_name} order by timestamp"
+  prefs: []
+  type: TYPE_NORMAL
+- en: )
+  prefs: []
+  type: TYPE_NORMAL
+- en: window = Window.rowsBetween(0,float('inf'))
+  prefs: []
+  type: TYPE_NORMAL
+- en: filled_df = df.withColumn(
+  prefs: []
+  type: TYPE_NORMAL
+- en: '"filled_Global_active_power",'
+  prefs: []
+  type: TYPE_NORMAL
+- en: F.first(df['Global_active_power'],
+  prefs: []
+  type: TYPE_NORMAL
+- en: ignorenulls=True).over(window))
+  prefs: []
+  type: TYPE_NORMAL
+- en: Display updated values
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: filled_df.filter(
+  prefs: []
+  type: TYPE_NORMAL
+- en: '"timestamp BETWEEN ''2008-11-10 17:58:00'' AND''2008-11-10 18:17:00''"'
+  prefs: []
+  type: TYPE_NORMAL
+- en: ).display()
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE15]'
+  prefs: []
+  type: TYPE_PRE
+- en: from pyspark.sql import Window
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Example: Handling missing values by backward filling'
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '"timestamp" column is ordered chronologically'
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: df = spark.sql(
+  prefs: []
+  type: TYPE_NORMAL
+- en: f"select timestamp, Global_active_power from {table_name} order by timestamp"
+  prefs: []
+  type: TYPE_NORMAL
+- en: )
+  prefs: []
+  type: TYPE_NORMAL
+- en: windowF = Window.rowsBetween(float('-inf'),0)
+  prefs: []
+  type: TYPE_NORMAL
+- en: windowB = Window.rowsBetween(0,float('inf'))
+  prefs: []
+  type: TYPE_NORMAL
+- en: filled_df = df.withColumn(
+  prefs: []
+  type: TYPE_NORMAL
+- en: '"filled_Global_active_power", (F.last('
+  prefs: []
+  type: TYPE_NORMAL
+- en: df['Global_active_power'], ignorenulls=True
+  prefs: []
+  type: TYPE_NORMAL
+- en: ).over(windowF) + F.first(
+  prefs: []
+  type: TYPE_NORMAL
+- en: df['Global_active_power'], ignorenulls=True
+  prefs: []
+  type: TYPE_NORMAL
+- en: ).over(windowB))/2)
+  prefs: []
+  type: TYPE_NORMAL
+- en: Display updated values
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: filled_df.filter(
+  prefs: []
+  type: TYPE_NORMAL
+- en: '"timestamp BETWEEN ''2008-11-10 17:58:00'' AND''2008-11-10 18:17:00''"'
+  prefs: []
+  type: TYPE_NORMAL
+- en: ).display()
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE16]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Example: Remove duplicate rows based on all columns'
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'print(f"With duplicates - count: {df.count()}")'
+  prefs: []
+  type: TYPE_NORMAL
+- en: cleaned_df = df.dropDuplicates()
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'print(f"Without duplicates - count: {cleaned_df.count()}")'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Example: Remove duplicate rows based on selected columns'
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Assuming "timestamp" is the column to identify duplicates
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: cleaned_df = df.dropDuplicates(["timestamp"])
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'print(f"Without duplicates timestamp - count: {cleaned_df.count()}")'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE17]'
+  prefs: []
+  type: TYPE_PRE
+- en: from pyspark.sql import functions as F
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Example: Detect outliers using z-score'
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Compute z-score for each value in the "value" column
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: mean_value = df.select(F.mean(
+  prefs: []
+  type: TYPE_NORMAL
+- en: '"Global_active_power")).collect()[0][0]'
+  prefs: []
+  type: TYPE_NORMAL
+- en: stddev_value = df.select(F.stddev(
+  prefs: []
+  type: TYPE_NORMAL
+- en: '"Global_active_power")).collect()[0][0]'
+  prefs: []
+  type: TYPE_NORMAL
+- en: z_score_threshold = 5  # Adjust the threshold as needed
+  prefs: []
+  type: TYPE_NORMAL
+- en: df_with_z_score = df.withColumn("z_score", (F.col(
+  prefs: []
+  type: TYPE_NORMAL
+- en: '"Global_active_power") - mean_value) / stddev_value)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Filter out rows where z-score exceeds the threshold
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: outliers = df_with_z_score.filter(~F.col("z_score").between(
+  prefs: []
+  type: TYPE_NORMAL
+- en: -z_score_threshold, z_score_threshold))
+  prefs: []
+  type: TYPE_NORMAL
+- en: cleaned_df = df_with_z_score.filter(F.col("z_score").between(
+  prefs: []
+  type: TYPE_NORMAL
+- en: -z_score_threshold, z_score_threshold))
+  prefs: []
+  type: TYPE_NORMAL
+- en: Mark as outliers
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: df_with_outlier = df_with_z_score.withColumn(
+  prefs: []
+  type: TYPE_NORMAL
+- en: '"_outlier",'
+  prefs: []
+  type: TYPE_NORMAL
+- en: F.when(
+  prefs: []
+  type: TYPE_NORMAL
+- en: (F.col("z_score") < -z_score_threshold) |
+  prefs: []
+  type: TYPE_NORMAL
+- en: (F.col("z_score") > z_score_threshold), 1
+  prefs: []
+  type: TYPE_NORMAL
+- en: ).otherwise(0))
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'print(f"With outliers - count: {df.count()}")'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'print(f"Global_active_power - mean: {mean_value}, stddev_value: {stddev_value},
+    z_score_threshold: {z_score_threshold}")'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'print(f"Without outliers - count: {cleaned_df.count()}")'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'print(f"Outliers - count: {outliers.count()}")'
+  prefs: []
+  type: TYPE_NORMAL
+- en: print("Outliers:")
+  prefs: []
+  type: TYPE_NORMAL
+- en: outliers.display()
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE18]'
+  prefs: []
+  type: TYPE_PRE
+- en: from pyspark.sql import functions as F
+  prefs: []
+  type: TYPE_NORMAL
+- en: Define the columns to normalize (e.g., "value" column)
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: columns_to_normalize = ["Global_active_power"]
+  prefs: []
+  type: TYPE_NORMAL
+- en: Compute the minimum and maximum values for each column to normalize
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: min_max_values = df.select(
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[F.min(F.col(column)).alias(f"min_{column}")'
+  prefs: []
+  type: TYPE_NORMAL
+- en: for column in columns_to_normalize] +
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[F.max(F.col(column)).alias(f"max_{column}")'
+  prefs: []
+  type: TYPE_NORMAL
+- en: for column in columns_to_normalize]
+  prefs: []
+  type: TYPE_NORMAL
+- en: ).collect()[0]
+  prefs: []
+  type: TYPE_NORMAL
+- en: Normalize the data using min-max normalization
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'for column in columns_to_normalize:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: min_value = min_max_values[f"min_{column}"]
+  prefs: []
+  type: TYPE_NORMAL
+- en: max_value = min_max_values[f"max_{column}"]
+  prefs: []
+  type: TYPE_NORMAL
+- en: df = df.withColumn(
+  prefs: []
+  type: TYPE_NORMAL
+- en: f"normalized_{column}",
+  prefs: []
+  type: TYPE_NORMAL
+- en: (F.col(column) - min_value) / (max_value - min_value))
+  prefs: []
+  type: TYPE_NORMAL
+- en: print(f"Normalized - {columns_to_normalize}:")
+  prefs: []
+  type: TYPE_NORMAL
+- en: df.display()
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE19]'
+  prefs: []
+  type: TYPE_PRE
+- en: from pyspark.sql import functions as F
+  prefs: []
+  type: TYPE_NORMAL
+- en: Define the columns to standardize (e.g., "value" column)
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: columns_to_standardize = ["Global_active_power"]
+  prefs: []
+  type: TYPE_NORMAL
+- en: Compute the mean and standard deviation for each column to
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: standardize
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: mean_stddev_values = df.select(
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[F.mean(F.log(F.col(column))).alias(f"mean_{column}")'
+  prefs: []
+  type: TYPE_NORMAL
+- en: for column in columns_to_standardize] +
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[F.stddev(F.log(F.col(column))).alias(f"stddev_{column}")'
+  prefs: []
+  type: TYPE_NORMAL
+- en: for column in columns_to_standardize]
+  prefs: []
+  type: TYPE_NORMAL
+- en: ).collect()[0]
+  prefs: []
+  type: TYPE_NORMAL
+- en: Standardize the data using z-score standardization
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'for column in columns_to_standardize:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: mean_value = mean_stddev_values[f"mean_{column}"]
+  prefs: []
+  type: TYPE_NORMAL
+- en: stddev_value = mean_stddev_values[f"stddev_{column}"]
+  prefs: []
+  type: TYPE_NORMAL
+- en: df = df.withColumn(
+  prefs: []
+  type: TYPE_NORMAL
+- en: f"standardized_{column}",
+  prefs: []
+  type: TYPE_NORMAL
+- en: (F.log(F.col(column)) - mean_value) / stddev_value
+  prefs: []
+  type: TYPE_NORMAL
+- en: )
+  prefs: []
+  type: TYPE_NORMAL
+- en: print(f"Standardized - {columns_to_standardize}:")
+  prefs: []
+  type: TYPE_NORMAL
+- en: df.display()
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE20]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE21]'
+  prefs: []
+  type: TYPE_PRE

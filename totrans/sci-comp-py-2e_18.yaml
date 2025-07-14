@@ -1,0 +1,598 @@
+- en: Python for Parallel Computing
+  prefs: []
+  type: TYPE_NORMAL
+- en: This chapter covers parallel computing and the module `mpi4py`. Complex and
+    time-consuming computational tasks can often be divided into subtasks, which can
+    be carried out simultaneously if there is capacity for it. When these subtasks
+    are independent of each other, executing them in parallel can be especially efficient.
+    Situations where subtasks have to wait until another subtask is completed are
+    less suited for parallel computing.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Consider the task of computing an integral of a function by a quadrature rule:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/83c9cea1-a108-4274-9dd2-2e25699390c0.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'with [![](img/28ebd3f6-beef-4f20-b5f7-ac37ea65cc3f.png)]. If the evaluation
+    of [![](img/66a83318-be85-4810-b4d1-75b12ccc843c.png)] is time-consuming and [![](img/428d64f1-b6c7-491f-b9b4-fb7a1c4c9aaf.png)] is
+    large , it would be advantageous to split the problem into two or several subtasks
+    of smaller size:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/ad5c2d76-a7b7-4216-b4c2-6ac07c065871.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: We can use several computers and give each of them the necessary information
+    so that they can perform their subtasks, or we can use a single computer with
+    a so-called multicore architecture.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Once the subtasks are accomplished the results are communicated to the computer
+    or processor that controls the entire process and performs the final additions.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We will use this as a guiding example in this chapter while covering the following
+    topics:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Multicore computers and computer clusters
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Message passing interface (MPI)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 18.1 Multicore computers and computer clusters
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Most of the modern computers are multicore computers. For example, the laptop
+    used when writing this book has an Intel® i7-8565U processor that has four cores
+    with two threads each.
+  prefs: []
+  type: TYPE_NORMAL
+- en: What does this mean? Four cores on a processor allow performing four computational
+    tasks in parallel. Four cores with two threads each are often counted as eight
+    CPUs by system monitors. For the purposes of this chapter only the number of cores
+    matters.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'These cores share a common memory—the RAM of your laptop—and have individual
+    memory in the form of cache memory:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/01e8633e-4624-46a6-89ec-57fe13f53752.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 18.1: A multicore architecture with shared and local cache memory'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The cache memory is used optimally by its core and is accessed at high speed,
+    while the shared memory can be accessed by all cores of one CPU. On top, there
+    is the computer's RAM memory and finally, the hard disk, which is also shared
+    memory.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the next section, we will see how a computational task can be distributed
+    to individual cores and how results are received and further processed, for example,
+    being stored in a file.
+  prefs: []
+  type: TYPE_NORMAL
+- en: A different setting for parallel computing is the use of a computer cluster.
+    Here, a task is divided into parallelizable subtasks that are sent to different
+    computers, sometimes even over long distances. Here, communication time can matter
+    substantially. The use of such a computer cluster makes sense only if the time
+    for processing subtasks is large in relation to communication time.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 18.2 Message passing interface (MPI)
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Programming for several cores or on a computer cluster with distributed memory
+    requires special techniques. We describe here *message passing* and related tools
+    standardized by the MPI standard. These tools are similar in different programming
+    languages, such as C, C++, and FORTRAN, and are realized in Python by the module
+    `mpi4py`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 18.2.1 Prerequisites
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'You need to install this module first by executing the following in a terminal
+    window:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The module is imported by adding the following line to your Python script:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The execution of a parallelized code is done from a terminal with the command
+    `mpiexec`. Assuming that your code is stored in the file `script.py`, executing
+    this code on a computer with a four-core CPU is done in the terminal window by
+    running the following command:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Alternatively, to execute the same script on a cluster with two computers,
+    run the following in a terminal window:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'You have to provide a file `hosts.txt` containing the names or IP addresses
+    of the computers with the number of their cores you want to bind to a cluster:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: The Python script, here `script.py`, has to be copied to all computers in the
+    cluster.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 18.3 Distributing tasks to different cores
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: When executed on a multicore computer, we can think of it that `mpiexec` copies
+    the given Python script to the number of cores and runs each copy. As an example,
+    consider the one-liner script `print_me.py` with the command `print("Hello it's
+    me")`, that, when executed with `mpiexec -n 4 print_me.py`, generates the same
+    message on the screen four times, each sent from a different core.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In order to be able to execute different tasks on different cores, we have to
+    be able to distinguish these cores in the script.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'To this end, we create a so-called communicator instance, which organizes the
+    communication between the *world*, that is, the input and output units like the
+    screen, the keyboard, or a file, and the individual cores. Furthermore, the individual
+    cores are given identifying numbers, called a rank:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: The communicator attribute size refers to the total number of processes specified
+    in the statement `mpiexec`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now we can give every core an individual computational task, as in the next
+    script, which we might call `basicoperations.py`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'This script is executed in the terminal by entering the following command:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'We obtain three messages:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs: []
+  type: TYPE_PRE
+- en: All three processes got their individual tasks, which were executed in parallel.
+    Clearly, printing the result to the screen is a bottleneck as the screen is shared
+    by all three processes.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the next section, we see how communication between the processes is done.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 18.3.1 Information exchange between processes
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'There are different ways to send and receive information between processes:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Point-to-point communication
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: One-to-all and all-to-one
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: All-to-all
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: In this section, we will introduce point-to-point, one-to-all, and all-to-one
+    communication.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Speaking to a neighbor and letting information pass along a street this way
+    is an example from daily life of the first communication type from the preceding
+    list, while the second can be illustrated by the daily news, spoken by one person
+    and broadcast to a big group of listeners.One-to-all and all-to-one communication
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/13f24ef2-b180-4b43-b9b3-8498ba57e23a.png)                    ![](img/1aea42da-4134-4564-beab-a2904d20fdf9.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 18.2: Point-to-point communication and one-to-all communication'
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the next subsections, we will study these different communication types in
+    a computational context.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 18.3.2 Point-to-point communication
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Point-to-point communication directs information flow from one process to a
+    designated receiving process. We first describe the methods and features by considering
+    a ping-pong situation and a telephone-chain situation and explain the notion of
+    blocking.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Point-to-point communication is applied in scientific computing, for instance
+    in random-walk or particle-tracing applications on domains that are divided into
+    a number of subdomains corresponding to the number of processes that can be carried
+    out in parallel.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The ping-pong example assumes that we have two processors sending an integer
+    back and forth to each other and increasing its value by one.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We start by creating a communicator object and checking that we have two processes
+    available:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Then we send information back and forth between the two processes:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs: []
+  type: TYPE_PRE
+- en: Information is sent by the method `send` of the communicator. Here, we provided
+    it with the information that we want to send, along with the destination. The
+    communicator takes care that the destination information is translated to a hardware
+    address; either one core of the CPU in your machine or that of a host machine.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The other machine receives the information by the communicator method `comm.recv`.
+    It requires information on where the information is expected from. Under the hood,
+    it tells the sender that the information has been received by freeing the information
+    buffer on the data channel. The sender awaits this signal before it can proceed.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The two statements `if rank == count%2` and `elif rank == (count+1)%2` ensure
+    that the processors alternate their sending and receiving tasks.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Here is the output of this short script that we saved in a file called `pingpong.py`
+    and executed with the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'In the terminal, this produces the following output:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE12]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'What types of data can be sent or received? As the commands `send` and `recv` communicate
+    data in binary form, they `pickle` the data first (see [Section 14.3](f95f92d6-d8d1-46a6-bb5b-560714044c70.xhtml):
+    *Pickling*). Most of the Python objects can be pickled, but not `lambda` functions
+    for instance. It is also possible to pickle buffered data such as NumPy arrays,
+    but a direct send of buffered data is more efficient, as we''ll see in the next
+    subsection.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Note that there might be reasons for sending and receiving functions between
+    processes. As the methods `send` and `recv`  only communicate references to functions,
+    the references have to exist on the sending and receiving processors. Therefore
+    the following Python script returns an error:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE13]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The error message thrown by the statement `recv` is `AttributeError: Can''t
+    get attribute ''func''`. This is caused by the fact that `f` refers to the function
+    `func`, which is not defined for the processor with rank 1\. The correct way is
+    to define this function for both processors:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE14]'
+  prefs: []
+  type: TYPE_PRE
+- en: 18.3.3 Sending NumPy arrays
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: The commands `send` and `recv` are high-level commands. That means they do under-the-hood
+    work that saves the programmer time and avoids possible errors. They allocate
+    memory after having internally deduced the datatype and the amount of buffer data
+    needed for communication. This is done internally on a lower level based on C
+    constructions.
+  prefs: []
+  type: TYPE_NORMAL
+- en: NumPy arrays are objects that themselves make use of these C-buffer-like objects,
+    so when sending and receiving NumPy arrays you can gain efficiency by using them
+    in the lower-level communication counterparts `Send` and `Recv` (mind the capitalization!).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In the following example, we send an array from one processor to another:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE15]'
+  prefs: []
+  type: TYPE_PRE
+- en: It is important to note, that on both processors, memory for the buffer has
+    to be allocated. Here, this is done by creating on Processor 0 an array with the
+    data and on Processor 1 an array with the same size and datatype but arbitrary
+    data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Also, we see a difference in the command `recv` in the output. The command `Recv`
+    returns the buffer via the first argument. This is possible as NumPy arrays are
+    mutable.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 18.3.4 Blocking and non-blocking communication
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: The commands `send` and `recv` and their buffer counterparts `Send` and `Recv`
+    are so-called blocking commands. That means a command `send` is completed when
+    the corresponding send buffer is freed. When this will happen depends on several
+    factors such as the particular communication architecture of your system and the
+    amount of data that is to be communicated. Finally, the command `send` is considered
+    to be freed when the corresponding command `recv` has got all the information.
+    Without such a command `recv`, it will wait forever. This is called a deadlock
+    situation.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The following script demonstrates a situation with the potential for deadlock.
+    Both processes send simultaneously. If the amount of data to be communicated is
+    too big to be stored the command `send` is waiting for a corresponding `recv`
+    to empty the pipe, but `recv` never is invoked due to the waiting state. That's
+    a deadlock.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE16]'
+  prefs: []
+  type: TYPE_PRE
+- en: Note that executing this code might not cause a deadlock on your computer as
+    the amount of data communicated is very small.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The straightforward remedy to avoid a deadlock, in this case, is to swap the
+    order of the commands `recv` and `send` on *one* of the processors:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE17]'
+  prefs: []
+  type: TYPE_PRE
+- en: 18.3.5 One-to-all and all-to-one communication
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: When a complex task depending on a larger amount of data is divided into subtasks,
+    the data also has to be divided into portions relevant to the related subtask
+    and the results have to be assembled and processed into a final result.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let''s consider as an example the scalar product of two vectors ![](img/386ea4fe-1822-4d43-b6e6-60222a9b9311.png) divided
+    into ![](img/4093f1e5-0763-4c6d-9c86-3d791dbe381b.png) subtasks:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/2930f29a-640b-4af9-90a7-4ce61699133f.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: with ![](img/83232989-a3d1-4bce-8ab1-8c511977a52d.png) All subtasks perform
+    the same operations on portions of the initial data, the results have to be summed
+    up, and possibly any remaining operations have to be carried out.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We have to perform the following steps:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Creating the vectors `u` and `v`
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Dividing them into *m* subvectors with a balanced number of elements, that is, [![](img/dff7d037-6f3f-4a7e-91a6-866460521eb9.png)]
+    elements if `N` is divisible by `m`, otherwise some subvectors have more elements
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Communicating each subvector to "its" processor
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Performing the scalar product on the subvectors on each processor
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Gathering all results
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Summing up the results
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '*Steps 1*, *2*, and *6* are run on one processor, the so-called *root* processor.
+    In the following example code, we choose the processor with rank 0 for these tasks.
+    *Steps 3, 4,* and *5* are executed on all processors, including the root processor.
+    For the communication in S*tep 3*, `mpi4py` provides the command `scatter`, and
+    for recollecting the results the command `gather` is available.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Preparing the data for communication
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'First, we will look into S*tep 2*. It is a nice exercise to write a script
+    that splits a vector into *m* pieces with a balanced number of elements. Here
+    is one suggestion for such a script, among many others:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE18]'
+  prefs: []
+  type: TYPE_PRE
+- en: As this chapter is one of the last in this book we have seen a lot of tools
+    that can be used for this code. We worked with NumPy's cumulative sum, `cumsum`.
+    We used the generator `zip`, unpacking arguments by the operator `*`, and generator
+    comprehension. We also tacitly introduced the data type `slice`, which allows
+    us to do the splitting step in the last line in a very compact way.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The commands – scatter and gather
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'Now we are ready to look at the entire script for our demo problem, the scalar
+    product:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE19]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'If this script is stored in a file `parallel_dot.py` the command for execution
+    with five processors is the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE20]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The result in this case is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE21]'
+  prefs: []
+  type: TYPE_PRE
+- en: This example demonstrates the use of `scatter` to send out specific information
+    to each processor. To use this command the root processor has to provide a list
+    with as many elements as available processors. Each element contains the data
+    to be communicated to one of the processors including the root processor.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The reversing process is `gather`. When all processors completed this command
+    the root processor is provided with a list with as many elements as available
+    processors, each containing the resulting data of its corresponding processor.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the final step, the root processor again works alone by postprocessing this
+    result list. The example above it sums all list elements and displays the result.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The art of parallel programming is to avoid bottlenecks. Ideally, all processors
+    should be busy and should start and stop simultaneously. That is why the workload
+    is distributed more or less equally to the processors by the script `splitarray`
+    that we described previously. Furthermore, the code should be organized in such
+    a way that the start and end periods with the root processor working alone are
+    short compared to the computationally intense part carried out by all processors
+    simultaneously.
+  prefs: []
+  type: TYPE_NORMAL
+- en: A final data reduction operation – the command reduce
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'The parallel scalar product example is typical for many other tasks in the
+    way how results are handled: the amount of data coming from all processors is
+    reduced to a single number in the last step. Here, the root processor sums up
+    all partial results from the processors. The command `reduce` can be efficiently
+    used for this task. We modify the preceding code by letting `reduce` do the gathering
+    and summation in one step. Here, the last lines of the preceding code are modified
+    in this way:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE22]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Other frequently applied reducing operations are:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`MPI.MAX` or `MPI.MIN`: The maximum or minimum of the partial results'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`MPI.MAXLOC` or `MPI.MINLOC`: The argmax or argmin of the partial results'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`MPI.PROD`: The product of the partial results'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`MPI.LAND` or `MPI.LOR`: The logical and/logical or of the partial results'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Sending the same message to all
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'Another collective command is the broadcasting command `bcast`. In contrast
+    to `scatter` it is used to send the same data to all processors. Its call is similar
+    to that of `scatter`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE23]'
+  prefs: []
+  type: TYPE_PRE
+- en: but it is the total data and not a list of portioned data that is sent. Again,
+    the root processor can be any processor. It is the processor that prepares the
+    data to be broadcasted.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Buffered data
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: In an analogous manner, `mpi4py` provides the corresponding collective commands
+    for buffer-like data such as NumPy arrays by capitalizing the command: `scatter`/`Scatter`,
+    `gather`/`Gather`, `reduce`/`Reduce`, `bcast`/`Bcast`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 18.4 Summary
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In this chapter, we saw how to execute copies of the same script on different
+    processors in parallel. Message passing allows the communication between these
+    different processes. We saw *point-to-point *communication and the two different
+    distribution type collective communications *one-to-all* and *all-to-one*. The
+    commands presented in this chapter are provided by the Python module `mpi4py`,
+    which is a Python wrapper to realize the MPI standard in C.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Having worked through this chapter, you are now able to work on your own scripts
+    for parallel programming and you will find that we described only the most essential
+    commands and concepts here. Grouping processes and tagging information are only
+    two of those concepts that we left out. Many of these concepts are important for
+    special and challenging applications, which are far too particular for this introduction.
+  prefs: []
+  type: TYPE_NORMAL

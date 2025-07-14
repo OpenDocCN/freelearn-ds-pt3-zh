@@ -1,0 +1,1408 @@
+- en: '12'
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Building Blocks of Deep Learning for Time Series
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: While we laid the foundations of deep learning in the previous chapter, it was
+    very general. Deep learning is a vast field with applications in all possible
+    domains, but in this book, we will focus on the applications in time series forecasting.
+  prefs: []
+  type: TYPE_NORMAL
+- en: So in this chapter, let’s strengthen the foundation by looking at a few building
+    blocks of deep learning that are commonly used in time series forecasting. Even
+    though the global machine learning models perform well in time series problems,
+    some deep learning approaches have also shown good promise. They are a good addition
+    to your toolset due to the flexibility they allow when modeling.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In this chapter, we will cover the following topics:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Understanding the encoder-decoder paradigm
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Feed-forward networks
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Recurrent neural networks
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Long short-term memory networks
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Gated recurrent unit
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Convolution networks
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Technical requirements
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: You will need to set up the **Anaconda** environment, following the instructions
+    in the *Preface* of the book, to get a working environment with all the libraries
+    and datasets required for the code in this book. Any additional libraries will
+    be installed while running the notebooks.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The associated code for this chapter can be found at [https://github.com/PacktPublishing/Modern-Time-Series-Forecasting-with-Python-2E/tree/main/notebooks/Chapter12](https://github.com/PacktPublishing/Modern-Time-Series-Forecasting-with-Python-2E/tree/main/notebooks/Chapter12).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Understanding the encoder-decoder paradigm
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'In *Chapter 5*, *Time Series Forecasting as Regression*, we saw that machine
+    learning is all about learning a function that maps our inputs to the desired
+    output:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*y* = *h*(*x*)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: where *x* is the input and *y* is our desired output.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Adapting this to time series forecasting (using univariate time series forecasting
+    to keep things simple), we can rewrite it as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*y*[t] = *h*(*y*[t][-1], *y*[t][-2], …, *y*[t-N])'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Here, *t* is the current timestep and *N* is the total amount of history available
+    at time *t*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Deep learning, like any other machine learning approach, is tasked with learning
+    this function, which maps history to the future. In *Chapter 11*, *Introduction
+    to Deep Learning*, we saw how deep learning learns good features using representation
+    learning, and then it uses the learned features to carry out the task at hand.
+    This understanding can be further refined to the time series perspective by using
+    the encoder-decoder paradigm.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Like everything in research, it is not entirely clear when and who proposed
+    this idea of the encoder-decoder architecture. In 1997, Ramon Neco and Mikel Forcada
+    proposed an architecture for machine translation that had ideas reminiscent of
+    the encoder-decoder paradigm. In 2013, Nal Kalchbrenner and Phil Blunsom proposed
+    an encoder-decoder model for machine translation, although they did not call it
+    that. But it was when Ilya Sutskever et al. (2014) and Cho et al. (2014) proposed
+    two new models for machine translation that worked independently that this idea
+    took off. Cho et al. called it the encoder-decoder architecture, while Sutskever
+    et al. called it the Seq2Seq architecture. The key innovation it drove was the
+    ability to model variable-length inputs and outputs in an end-to-end fashion.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Reference check**:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The research papers by Ramon Neco et al., Nal Kalchbrenner et al., Cho et al.,
+    and Ilya Sutskever et al. are cited in the *References* section as *1*, *2*, *3*,
+    and *4*, respectively.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The idea is very straightforward, but before we get into that, we need to have
+    a high-level understanding of latent spaces and feature/input spaces.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The **feature space**, or the **input space**, is the vector space where your
+    data resides. If the data has 10 dimensions, then the input space is the 10-dimensional
+    vector space. Latent space is an abstract vector space that encodes a meaningful
+    internal representation of the feature space. To understand this, we can think
+    about how we, as humans, recognize a tiger. We do not remember every minute detail
+    of a tiger; we just have a general idea of what a tiger looks like and its prominent
+    features, such as its stripes. It is a compressed understanding of this concept
+    that helps our brains process and recognize a tiger faster.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the machine learning domain, there are techniques like **Principal Component
+    Analysis** (**PCA**) that do similar transformations to a latent space, preserving
+    the essential features of the input data. With this intuition, rereading the definition
+    may bring a bit more clarity to the concept.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now that we have an idea about latent spaces, let’s see what an encoder-decoder
+    architecture does.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'An encoder-decoder architecture has two main parts—an encoder and a decoder:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Encoder**: The encoder takes in the input vector, *x*, and encodes it into
+    a latent space. This encoded representation is called the latent vector, *z*.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Decoder**: The decoder takes in the latent vector, *z*, and decodes it into
+    the kind of output we need (![](img/B22389_05_001.png)).'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'The following diagram shows the encoder-decoder setup visually:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 12.1 – The encoder-decoder architecture ](img/B22389_12_01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 12.1: The encoder-decoder architecture'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In the context of time series forecasting, the encoder consumes the history
+    and retains the information that is required for the decoder to generate the forecast.
+    As we learned previously, time series forecasting can be written as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*y*[t] = *h*(*y*[t][-1], *y*[t][-2], …, *y*[t-N])'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now, using the encoder-decoder paradigm, we can rewrite it as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*z*[t] = *h*(*y*[t][-1], *y*[t][-2], …, *y*[t-N])'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*y*[t] = *g*(*z*[t])'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Here, *h* is the encoder and *g* is the decoder.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Each encoder and decoder can be some special architecture suited for time series
+    forecasting. Let’s look at a few common components that are used in the encoder-decoder
+    paradigm.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Feed-forward networks
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '**Feed-forward networks** (**FFNs**) or **fully connected networks** are the
+    most basic architecture a neural network can take. We discussed perceptrons in
+    *Chapter 11*, *Introduction to Deep Learning*. If we stack multiple perceptrons
+    (both linear units and non-linear activations) and create a network of such units,
+    we get what we call an FFN. The following diagram will help us understand this:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 12.2 – Feed-forward network ](img/B22389_12_02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 12.2: A Feed Forward Network (FFN)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: An FFN takes a fixed-size input vector and passes it through a series of computational
+    layers leading up to the desired output. This architecture is called feed-forward
+    because the information is fed forward through the network. This is also called
+    a **fully connected network** because every unit in a layer is connected to every
+    unit in the previous layer and every unit in the next layer.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The first layer is called the input layer, and this is equal to the dimension
+    of the input. The last layer is called the output layer, which is defined as per
+    our desired output. If we need a single output, we will need 1 unit, while if
+    we need 10 outputs, we will need 10 units. All the layers in between are called
+    **hidden layers**. Two hyperparameters define the structure of the network—the
+    number of hidden layers and the number of units in each layer. For instance, in
+    *Figure 12.2*, we have a network with two hidden layers and eight units per layer.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the time series forecasting context, an FFN can be used as an encoder as
+    well as a decoder. As an encoder, we can use an FFN just like we used machine
+    learning models in *Chapter 5*, *Time Series Forecasting as Regression*. We embed
+    time and convert a time series problem into a regression problem before feeding
+    it into the FFN. As a decoder, we use it on the latent vector (the output from
+    the encoder) to get to the output (this is the most common usage of an FFN in
+    time series forecasting).
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Additional reading**:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: We are going to be using PyTorch throughout this book to work with deep learning.
+    If you are not comfortable with PyTorch, don’t worry—I’ll try and explain the
+    concepts when necessary. To get a head start, you can go through the `01-PyTorch_Basics.ipynb`
+    notebook in `Chapter12`, where we have explored the basic functionalities of tensors
+    and trained a very small neural network from scratch using PyTorch. I also suggest
+    heading over to the *Further reading* section at the end of this chapter, where
+    you’ll find a few resources to learn PyTorch.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now, let’s put on our practical hats and see some of these in action. PyTorch
+    is an open source deep learning framework developed primarily by the **Facebook
+    AI Research** (**FAIR**) **Lab**. Although it is a library that can manipulate
+    **tensors** (which are *n*-dimensional matrices) and accelerate such manipulations
+    with a GPU, a large part of the use case for such a library is in building and
+    training deep learning systems. Because of that, PyTorch provides a lot of ready-to-use
+    components that we can use to build a deep learning system. Let’s see how we can
+    use PyTorch for an FFN.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Notebook alert**:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: To follow along with the complete code, use the `02-Building_Blocks.ipynb` notebook
+    in the `Chapter12` folder and the code in the `src` folder.
+  prefs: []
+  type: TYPE_NORMAL
+- en: As we learned earlier in the section, an FFN is a network of linear and non-linear
+    units arranged in a network. A linear operation consists of multiplying the input
+    vector, *X*, with a weight matrix, *W*, and adding a bias term, *b*. This operation,
+    *WX* + *b*, is encapsulated in a `Linear` class in the `nn` module of the **PyTorch**
+    library. We can import this from the library using `torch.nn import Linear`. But
+    usually, we must import the whole **nn** module because we would be using a lot
+    of components from that module. For non-linearity, let’s use **ReLU** (as introduced
+    in *Chapter 11*, *Introduction to Deep Learning*), which is also a class in the
+    **nn** module.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Before moving on, let’s create a random walk time series whose length is **20**:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'We can use this tensor directly in the FFN, but usually, we use a sliding window
+    technique to split the tensor and train the networks. We do this for multiple
+    reasons:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: We can see this as a data augmentation technique that creates a greater number
+    of samples as opposed to using the entire sequence just once.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: It helps us reduce and restrict computation by limiting the calculation to a
+    fixed window.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Let’s do that now:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: Now, we have a tensor, `ts_dataset`, whose size is *6x15* (this can create 6
+    samples of 15 input features each when we move the sliding window across the length
+    of the series). For a standard FFN, the input shape is specified as *batch size
+    x input features*. So 6 becomes our batch size and 15 becomes the input feature
+    size.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now, let’s define the layers in the FFN. For this exercise, let’s assume the
+    network’s structure is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 12.3 – FFNs – a matrix multiplication perspective ](img/B22389_12_03.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 12.3: FFNs—a matrix multiplication perspective'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The input data (6x15) will be passed through these layers one by one. Here,
+    we can see how the tensor dimensions change as they flow through the network.
+    Each of the linear layers is essentially a matrix multiplication that converts
+    the input into the output of a specified dimension. After each linear transformation,
+    we stack a non-linear activation function in there. These alternative linear and
+    non-linear modules are what give the neural network the expressive power it has.
+    The linear layers are an affine transformation of the vector space (rotation,
+    translation, and so on), and the non-linearity *squashes* the vector space. Together,
+    they can morph the input space so that it’s useful for the task at hand. Now,
+    let’s see how we can code this in PyTorch.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We are going to use a handy module from PyTorch called **Sequential**, which
+    allows us to stack different sub-components together and use them with ease:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Now that we have defined the FFN, let’s see how we can use it:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: This will return a tensor whose shape is based on *batch size x output units*.
+    We can have any number of output units, not just one. Therefore, when using an
+    encoder, we can have an arbitrary dimension for the latent vector. Then, when
+    we use it as a decoder, we can have the output units equal the number of timesteps
+    we forecast.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Sneak peak**:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: We have not seen multi-step forecasting until now because it will be covered
+    in more detail in *Chapter 18*, *Multi-Step Forecasting*. But for now, just understand
+    that there are cases where we will need to forecast multiple timesteps into the
+    future. The classical statistical models do this out of the box. But for machine
+    learning and deep learning, we need to design systems that can do that. Fortunately,
+    there are a few different techniques to do so, which will be covered later in
+    this chapter.
+  prefs: []
+  type: TYPE_NORMAL
+- en: FFNs are designed for non-temporal data. We can use FFNs by embedding our data
+    temporally and then passing that to the network. Also, the computational cost
+    in an FFN is directly proportional to the memory we use in the embedding (the
+    number of previous timesteps we include as features). We will also not be able
+    to handle variable-length sequences in this setting.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now, let’s look at another common architecture that is specifically designed
+    for temporal data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Recurrent neural networks
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '**Recurrent neural networks** (**RNNs**) are a family of neural networks specifically
+    designed to handle sequential data. They were first proposed by *Rumelhart et
+    al*. (1986) in their seminal work, *Learning Representations by Back-Propagating
+    Errors*. The work borrows ideas such as parameter sharing and recurrence from
+    previous work in statistics and machine learning, resulting in a neural network
+    architecture that helps overcome many of the disadvantages that FFNs have when
+    processing sequential data.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: RNN architecture
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: '**Parameter sharing** is when we use the same set of parameters for different
+    parts of a model. Apart from a regularization effect (restricting the model to
+    using the same set of weights for multiple tasks, which regularizes the model
+    by constraining the search space while optimizing the model), parameter sharing
+    enables us to extend and apply the model to examples of different forms. RNNs
+    can scale to much longer sequences because of this. In an FFN, each timestep (each
+    feature) has a fixed weight, and even if the motif we are looking for shifts by
+    just one timestep, the network may not capture it correctly. In an RNN enabled
+    by parameter sharing, they are captured in a much better way.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: In a sentence (which is also a sequence), we may want a model to recognize that
+    “*Tomorrow I will go to the bank*” and “*I will go to the bank tomorrow*” are
+    the same thing. An FFN can’t do this, but an RNN will be able to because it uses
+    the same parameters at all positions and will be able to identify the motif “*I
+    will go to the bank*” wherever it occurs. Intuitively, we can think of RNNs as
+    applying the same FFN at each time window but enhanced with some kind of memory
+    to store relevant information for the task at hand.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let’s visualize how an RNN processes inputs:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 12.4 – How an RNN processes input sequences ](img/B22389_12_04.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 12.4: How an RNN processes input sequences'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let’s assume we are talking about a sequence with four elements in it, *x*[1]
+    to *x*[4]. Any RNN block (let’s consider it as a black box for now) consumes input
+    and a hidden state (memory), producing an output. In the beginning, there is no
+    memory, so we start with an initial memory (*H*[0]), which is typically an array
+    filled with zeroes. Now, the RNN block takes in the first input (*x*[1]) along
+    with the initial hidden state (*H*[0]), producing an output (*o*[1]) and a hidden
+    state (*H*[1]).
+  prefs: []
+  type: TYPE_NORMAL
+- en: To process the second element in the sequence, *the same RNN* block takes in
+    the hidden state from the previous timestep (*H*[1]) and the input at the current
+    timestep (*x*[2]), producing the output at the second timestep (*o*[2]) and a
+    new hidden state (*H*[2]). This process continues until we reach the end of the
+    sequence. After processing the entire sequence, we will have all the outputs at
+    each timestep (*o*[1] through *o*[4]) and the final hidden state (*H*[4]).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'These outputs and the hidden state will have encoded the information contained
+    in the sequence and can be used for further processing, such as to predict the
+    next step using a decoder. The RNN block can also be used as a decoder that takes
+    in the encoded representation and produces the outputs. Because of this flexibility,
+    the RNN blocks can be arranged to suit a wide variety of input and output combinations,
+    such as the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Many-to-one, where we have many inputs and a single output—for instance, single-step
+    forecasting or time series classification
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Many-to-many, where we have many inputs and many outputs—for instance, multi-step
+    forecasting
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Now, let’s look at what happens inside an RNN.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let the input to the RNN at time *t* be *x*[t] and the hidden state from the
+    previous timestep be *H*[t][-1]. The updated equations are as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_12_002.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: '![](img/B22389_12_003.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: '![](img/B22389_12_004.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Here, *U*, *V*, and *W* are learnable weight matrices, and *b*[1] and *b*[2]
+    are two learnable bias vectors. *U*, *V*, and *W* can be easily remembered as
+    *input-to-hidden*, *hidden-to-output*, and *hidden-to-hidden* matrices based on
+    the kind of transformation they perform, respectively. Intuitively, we can think
+    of the operation that the RNN does as a kind of learning and forgetting information
+    as it sees fit. The *tanh* activation, as we saw in *Chapter 11*, *Introduction
+    to Deep Learning*, produces a value between -1 and 1, which acts analogous to
+    forgetting and remembering. So the RNN transforms the input into a latent dimension,
+    uses the *tanh* activation to decide what information from the current timestep
+    and previous memory to keep and forget, and uses this new memory to generate an
+    output.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In standard backpropagation, we backpropagate gradients from one unit to another.
+    But in recurrent nets, we have a special situation where we have to backpropagate
+    the gradients within a single unit, but through time or the different timesteps.
+    A special case of backpropagation, called **Back Propagation Through Time** (**BPTT**),
+    has been developed for RNNs.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Thankfully, all the major deep learning frameworks are capable of doing this
+    without any problems. For a more detailed understanding and the mathematical foundations
+    of BPTT, please refer to the *Further reading* section.
+  prefs: []
+  type: TYPE_NORMAL
+- en: PyTorch has made RNNs available as ready-to-use modules—all you need to do is
+    import one of the modules from the library and start using it. But before we do
+    that, we need to understand a few more concepts.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The first concept we will look at is the possibility of *stacking multiple layers*
+    of RNNs on top of each other so that the outputs at each timestep become the input
+    to the RNN in the next layer. Each layer will have a hidden state or memory. This
+    enables hierarchical feature learning, which is one of the bedrocks of successful
+    deep learning today.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Another concept is *bidirectional* RNNs, introduced by Schuster and Paliwal
+    in 1997\. Bidirectional RNNs are very similar to RNNs. In a vanilla RNN, we process
+    the inputs sequentially from start to end (forward). However, a bidirectional
+    RNN uses one set of input-to-hidden and hidden-to-hidden weights to process the
+    inputs from start to end, and then it uses another set to process the inputs in
+    reverse (end to start) and concatenate the hidden states from both directions.
+    It is on this concatenated hidden state that we apply the output equation.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Reference check**:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The research papers by Rumelhart. et al and Schuster and Paliwal are cited in
+    the *References* section as *5* and *6*, respectively.
+  prefs: []
+  type: TYPE_NORMAL
+- en: RNN in PyTorch
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Now, let’s understand the PyTorch implementation of RNN. As with the **Linear**
+    module, the **RNN** module is also available from `torch.nn`. Let’s look at the
+    different parameters that the implementation provides while initializing:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`input_size`: The number of expected features in the input. If we use just
+    the history of the time series, this is 1\. However, when we use history along
+    with some other features, this is >1.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`hidden_size`: The dimension of the hidden state. This defines the size of
+    the input-to-hidden and hidden-to-hidden matrices.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`num_layers`: This is the number of RNNs that will be stacked on top of each
+    other. The default is **1**.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`nonlinearity`: The non-linearity to use. Although tanh is the originally proposed
+    non-linearity, PyTorch also allows us to use ReLU (`relu`). The default is `tanh`.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`bias`: This parameter decides whether or not to add bias to the update equations
+    we discussed earlier. If the parameter is **False**, there will be no bias. The
+    default is **True**.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`batch_first`: There are two input data configurations that the RNN cell can
+    use—we can have the input as (*batch size, sequence length, number of features*)
+    or (*sequence length, batch size, number of features*). `batch_first = True` selects
+    the former as the expected input dimensions. The default is **False**.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`dropout`: This parameter, if non-zero, uses a dropout layer on the outputs
+    of each RNN layer except the last. Dropout is a popular regularization technique
+    where randomly selected neurons are ignored during training (the *Further reading*
+    section contains a link to the paper that proposed this). The dropout probability
+    will be equal to **dropout**. The default is **0**.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`bidirectional`: This parameter enables a bidirectional RNN. If **True**, a
+    bidirectional RNN is used. The default is **False**.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'To continue applying the model to the same synthetic data we generated earlier
+    in this chapter, let’s initialize the RNN model, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: Now, let’s look at the inputs and outputs that are expected from an RNN cell.
+  prefs: []
+  type: TYPE_NORMAL
+- en: As opposed to the **Linear** layer we saw earlier, the RNN cell takes in *two
+    inputs*—the input sequence and the hidden state vector. The input sequence can
+    be either (*batch size*, *sequence length*, *number of features*) or (*sequence
+    length*, *batch size*, *number of features*), depending on whether we have set
+    `batch_first=True`. The hidden state is a tensor whose size is (*D*number of layers*,
+    *batch size, hidden size*), where *D* = 1 for `bidirectional=False` and *D* =
+    2 for `bidirectional=True`. The hidden state is an optional input and will default
+    to zero tensors if left blank.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'There are two outputs of the RNN cell: an output and a hidden state. The output
+    can be either (*batch size*, *sequence length*, *D*hidden size*) or (*sequence
+    length*, *batch size*, *D*hidden size*), depending on `batch_first`. The hidden
+    state has the dimension of (*D*number of layers*, *batch size*, *hidden size*).
+    Here, *D* = 1 or 2 is based on the **bidirectional** parameter.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'So let’s run our sequence through an RNN and look at the inputs and outputs
+    (for more detailed steps, refer to the accompanying notebook):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: Although we saw that the RNN cell contains the output as well as the hidden
+    state, we also know that the output is just an affine transformation of the hidden
+    state. Therefore, to provide flexibility to the users, PyTorch only implements
+    the update equations regarding the hidden states in the module. There are cases
+    where we have no use for the outputs at each timestep (such as in a many-to-one
+    scenario) and we can save computation if we do not do the output update at each
+    step. Therefore, `output` from the PyTorch RNN is just the hidden states at each
+    timestep, and `hidden_states` is the latest hidden state.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We can verify this by checking whether the hidden-state tensor is equal to
+    the last-output tensor:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'To make this clearer, let’s look at it visually:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 12.5 – PyTorch implementation of stacked RNNs ](img/B22389_12_05.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 12.5: PyTorch implementation of stacked RNNs'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The hidden states at each timestep are used as input for the subsequent layer
+    of RNNs and the hidden states of the last layer of RNNs are collected as the output.
+    But each layer has a hidden state (that’s not shared with the others), and the
+    PyTorch RNN collects the last hidden state from each layer and gives us that as
+    well.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now, it is up to us to decide how to use these outputs. For instance, in a one-step-ahead
+    forecast, we can use the output hidden states and stack a few linear layers on
+    top of it to get the next timestep prediction. Alternatively, we can use the hidden
+    states to transfer memory into another RNN as a decoder and generate predictions
+    for multiple timesteps. There are many more ways we can use this output and PyTorch
+    gives us that flexibility.
+  prefs: []
+  type: TYPE_NORMAL
+- en: RNNs, while very effective in modeling sequences, have one big flaw. Because
+    of BPTT, the number of units through which you need to backpropagate increases
+    drastically with the length of the sequence to be used for training. When we have
+    to backpropagate through such a long computational graph, we will encounter **vanishing**
+    or **exploding gradients**. This is when the gradient, as it is backpropagated
+    through the network, either shrinks to zero or explodes to a very high number.
+    The former makes the network stop learning, while the latter makes the learning
+    unstable.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We can think of what’s happening as akin to what happens when we multiply a
+    scalar number repeatedly by itself. If the number is less than one, with every
+    subsequent multiplication, the number becomes smaller and smaller until it is
+    practically zero. If the number is greater than one, then the number becomes larger
+    and larger at an exponential scale. This was discovered, independently, by Hochreiter
+    in his diploma thesis (1991) and Yoshua Bengio et al. in two papers published
+    in 1993 and 1994, respectively. Over the years, many tweaks to the model and training
+    process have been proposed to tackle this disadvantage. Nowadays, vanilla RNNs
+    are hardly used in practice and have been replaced almost completely by their
+    newer cousins.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Reference check**:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The references for Hochreiter (1991) and Bengio et al. (1993, 1994) are cited
+    in the *References* section as *7*, *8*, and *9*, respectively.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now, let’s look at two key improvements that have been made to the RNN architecture
+    that have shown good performance, gaining popularity in the machine learning community.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Long short-term memory (LSTM) networks
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Hochreiter and Schmidhuber proposed a modification of the classical RNNs in
+    1997—LSTM networks. It aimed to resolve the vanishing and exploding gradients
+    in vanilla RNNs. The design of the LSTM was inspired by the logic gates of a computer.
+    It introduces a new component, called a **memory cell**, which serves as long-term
+    memory and is used in addition to the hidden-state memory of classical RNNs. In
+    an LSTM, multiple gates are tasked with reading, adding, and forgetting information
+    from these memory cells. This memory cell acts as a *gradient highway*, allowing
+    the gateways to pass relatively unhindered through a network. This is the key
+    innovation that avoided vanishing gradients in RNNs.
+  prefs: []
+  type: TYPE_NORMAL
+- en: LSTM architecture
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Let’s imagine that the input to the LSTM at time *t* is *x*[t], and the hidden
+    state from the previous timestep is *H*[t][-1]. Now, there are three gates that
+    process information. Each gate is nothing but two learnable weight matrices (one
+    for the input and one for the hidden state from the last step) and a bias term
+    that is multiplied/added to the input and hidden state, and finally, it is passed
+    through a sigmoid activation.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The output of these gates will be a real number between 0 and 1\. Let’s look
+    at each of these gates in detail:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Input gate**: The function of this gate is to decide how much information
+    to read from the current input and previous hidden state. The update equation
+    for this is:'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '![](img/B22389_12_005.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: '**Forget gate**: The forget gate decides how much information to forget from
+    long-term memory. The updated equation for this is:'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '![](img/B22389_12_006.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: '**Output gate**: The output gate decides how much of the current cell state
+    should be used to create the current hidden state, which is the output of the
+    cell. The update equation for this is:'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '![](img/B22389_12_007.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Here, *W*[xi], *W*[xf], *W*[xo], *W*[hi], *W*[hf], and *W*[ho] are learnable
+    weight parameters, and *b*[i], *b*[f], and *b*[o] are learnable bias parameters.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now, we can introduce a new long-term memory (cell state), *C*[t]. The three
+    gates mentioned previously serve to update and forget from this memory. If the
+    cell state from the previous timestep is *C*[t-1], then the LSTM cell calculates
+    a candidate cell state, ![](img/B22389_12_008.png), using another gate, but this
+    time with `tanh` activation:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_12_009.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Here, *W*[xc], and *W*[xh] are learnable weight parameters and *b*[c] is the
+    learnable bias parameter.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now, let’s look at the key update equation, which updates the cell state or
+    long-term memory of the cell:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_12_010.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Here, ![](img/B22389_12_011.png) is elementwise multiplication. We use the forget
+    gate to decide how much information from the previous timestep to carry forward,
+    and we use the input gate to decide how much of the current candidate cell state
+    will be written into long-term memory.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Last but not least, we use the newly created current cell state and the output
+    gate to decide how much information to pass on to the predictor through the current
+    hidden state:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_12_012.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: A visual representation of this process can be seen in *Figure 12.6*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_12_06.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 12.6: A gating diagram of LSTM'
+  prefs: []
+  type: TYPE_NORMAL
+- en: LSTM in PyTorch
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Now, let’s understand the PyTorch implementation of LSTM. It is very similar
+    to the RNN implementation we saw earlier, but it has one key difference: the parameters
+    to initialize the class are pretty much the same. The API for this can be found
+    at [https://pytorch.org/docs/stable/generated/torch.nn.LSTM.html#torch.nn.LSTM](https://pytorch.org/docs/stable/generated/torch.nn.LSTM.html#torch.nn.LSTM).
+    The key difference here is how the hidden states are used. While the RNN has a
+    single tensor as a hidden state, the LSTM expects a **tuple** of tensors of the
+    same dimensions: (**hidden state**, **cell state**).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: LSTMs, just like RNNs, have stacked and bidirectional variants, and PyTorch
+    handles them in the same way.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now, let’s initialize some LSTM modules and use the synthetic data we have
+    been using to see them in action:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs: []
+  type: TYPE_PRE
+- en: Now, let’s look at another modification that’s been made to vanilla RNNs that
+    has resolved the vanishing and exploding gradient problems.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Gated recurrent unit (GRU)
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In 2014, Cho et al. proposed another variant of the RNN that has a much simpler
+    structure than an LSTM, called a GRU. The intuition behind this is similar to
+    when we use a bunch of gates to regulate the information that flows through the
+    cell, but a GRU eliminates the long-term memory component and uses just the hidden
+    state to propagate information. So instead of the memory cell becoming the *gradient
+    highway*, the hidden state itself becomes the “gradient highway.” In keeping with
+    the same notation convention we used in the previous section, let’s look at the
+    updated equations for a GRU.
+  prefs: []
+  type: TYPE_NORMAL
+- en: GRU architecture
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'While we had three gates in an LSTM, we only have two in a GRU:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Reset gate**: This gate decides how much of the previous hidden state will
+    be considered as the candidate’s hidden state of the current timestep. The equation
+    for this is:'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '![](img/B22389_12_013.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: '**Update gate**: The update gate decides how much of the previous hidden state
+    should be carried forward and how much of the current candidate’s hidden state
+    will be written into the hidden state. The equation for this is:'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '![](img/B22389_12_014.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Here *W*[xr], *W*[xu], *W*[hr], and *W*[hu] are learnable weight parameters,
+    and *b*[r] and \*b*[u] are learnable bias parameters.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now, we can calculate the candidate’s hidden state (![](img/B22389_12_015.png)),
+    as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_12_016.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Here, *W*[xh] and *W*[hh] are learnable weight parameters, and *b*[h] is the
+    learnable bias parameter. Here, we use the reset gate to throttle the information
+    flow from the previous hidden state to the current candidate’s hidden state.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Finally, the current hidden state (the output that goes to a predictor) is
+    computed using the following equation:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_12_017.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: We use the update gate to decide how much from the previous hidden state and
+    how much from the current candidate will be passed to the next timestep or predictor.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Reference check**:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The research papers for LSTM and GRUs are cited in the *References* section
+    as *10* and *11*, respectively.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'A visual representation of this process can be found in *Figure 12.7*:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 12.6 – A gating diagram of LSTM versus GRU  ](img/B22389_12_07.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 12.7: A gating diagram of GRU'
+  prefs: []
+  type: TYPE_NORMAL
+- en: GRU in PyTorch
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Now, let’s understand the PyTorch implementation of the GRU. The APIs, inputs,
+    and outputs are the same as with an RNN. The API for this can be referenced here:
+    [https://pytorch.org/docs/stable/generated/torch.nn.GRU.html#torch.nn.GRU](https://pytorch.org/docs/stable/generated/torch.nn.GRU.html#torch.nn.GRU).
+    The key difference is the internal workings of the modules, where the GRU update
+    equations are used instead of the standard RNN ones.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now, let’s initialize a GRU module and use the synthetic data we have been
+    using to see it in action:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs: []
+  type: TYPE_PRE
+- en: Now, let’s look at another major component that can be used for sequential data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Convolution networks
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '**Convolution networks**, also called **convolutional neural networks** (**CNNs**),
+    are like neural networks for processing data in the form of a grid. This grid
+    can be 2D (such as an image), 1D (such as a time series), 3D (such as data from
+    LIDAR sensors), and so on. Although this book is about time series and, typically,
+    1D convolutions are used in time series forecasting, it’s easier to understand
+    convolutions in the 2D context (an image and so on) and then move back to a single-dimensional
+    grid for time series.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The basic idea behind CNNs is inspired by how human vision works. In 1979, Fukushima
+    proposed Neocognitron (Reference *12*). It was a one-of-a-kind architecture that
+    was directly inspired by how human vision works. But CNNs came into existence
+    as we know them today in 1989 when Yann Le Cun used backpropagation to learn such
+    a network, proving it by getting state-of-the-art results in handwritten digit
+    recognition (Reference *13*). In 2012, when AlexNet (a CNN architecture for image
+    recognition) won the annual challenge of image recognition called ImageNet, that
+    too by a large margin between it and competing non-deep learning approaches, the
+    interest and research in CNNs peaked. People soon figured out that, apart from
+    images, CNNs are effective with sequences, such as language and time series data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Convolution
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: At the heart of CNNs is a mathematical operation called **convolution**. The
+    mathematical interpretation of a convolution operation is beyond the scope of
+    this book, but there are a couple of links in the *Further reading* section if
+    you want to learn more. For our purposes, we’ll develop an intuitive understanding
+    of the convolution operation.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Since CNNs rose to popularity using image data, let’s start by discussing the
+    image domain and then move on to the sequence domain.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Any image (for simplicity, let’s assume it’s grayscale) can be considered as
+    a grid of pixel values, each value denoting how bright a point is, with 1 being
+    pure white and 0 being pure black. Before we start discussing convolution, let’s
+    understand what a **kernel** is. For now, let’s think of a kernel as a 2D matrix
+    with some values in it. Typically, the kernel’s size is smaller than the size
+    of the image we are using. Since the kernel is smaller than the image, we can
+    “fit” the kernel inside the image. Let’s start with the kernel aligned with the
+    top-left edge. With the kernel at the current position, there is a set of values
+    in the image that this kernel is superpositioned over. We can perform elementwise
+    multiplication between this subset of the image and the kernel, and then we add
+    up all the elements into a single scalar. Now, we can repeat this process by “sliding”
+    the kernel into all positions in the image. For instance, the following shows
+    a sample image input whose size is 4x4 and how a convolution operation is carried
+    out on that, using a kernel whose size is 2x2:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 12.7 – A convolution operation on 2D and 1D inputs ](img/B22389_12_08.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 12.8: A convolution operation on 2D and 1D inputs'
+  prefs: []
+  type: TYPE_NORMAL
+- en: So if we place the 2x2 kernel at the top-left position and perform the element-wise
+    multiplication and the summation, we get the top-left item in the 3x3 output.
+    If we slide the kernel by one position to the right, we get the next element in
+    the top row of the output, and so on. Similarly, if we slide the kernel by one
+    position down, we get the second element in the first column in the output.
+  prefs: []
+  type: TYPE_NORMAL
+- en: While this is interesting, we want to understand convolutions from a time series
+    perspective. To do so, let’s shift our paradigm to 1D convolutions—convolutions
+    performed on 1D data such as a sequence. In the preceding diagram, we can also
+    see an example of a 1D convolution where we take the 1D kernel and slide it across
+    the sequence to get an output of 1x3.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Although we have set the kernel weights so that they’re convenient to understand
+    and compute, in practice, these weights are learned by the network from data.
+    If we set the kernel size as *n* and all the kernel weights as 1/*n*, what would
+    such a convolution give us? This is something we covered in *Chapter 6*, *Feature
+    Engineering for Time Series Forecasting*. Yes, they result in the rolling means
+    with a window of *n*. Remember, we learned this as a feature engineering technique
+    for machine learning models. So 1D convolutions can be thought of as a more powerful
+    feature generator, where the features are learned from data. With different weights
+    on the kernels, we will extract different features. It is this knowledge that
+    we should hold onto while learning about CNNs for time series data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Padding, stride, and dilations
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Now that we understand what a convolution operation is, we need to understand
+    a few more terms, such as **padding**, **stride**, and **dilations**.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Before we start discussing these terms, let’s look at an equation that gives
+    the output dimensions (*O*) of a convolutional layer, given the input dimensions
+    (*L*), kernel size (*k*), padding size (*p*[l] for left padding and *p*[r] for
+    right padding), stride (*s*), and dilation (*d*):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_12_018.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: The default values (padding, strides, and dilations are special cases of a convolution
+    process) of these terms are *p*[r], *p*[l] = 0, *s* = 1, *d* = 1\. Don’t worry
+    if you don’t understand the formula or the terms in it—just keep the default values
+    in mind so that when we understand each term, we can negate the others.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In *Figure 12.8*, we saw that the convolution operation always reduces the size
+    of the input. So in the default case, the formula becomes *O* = *L* – (*k* - 1).
+    This is because the earliest position we can place the kernel in the sequence
+    is from *t* = 0 to *t* = *k*. Then, by convolving through the sequence, we get
+    *L* – (*k* - 1) terms in the output. Padding is when we add some values to the
+    beginning or the end of the sequence. The value we use for padding is dependent
+    on the problem. Typically, we choose zero as a padding value. So padding a sequence
+    essentially increases the size of the input. Therefore, in the preceding formula,
+    we can think of *L* + *p*[l] + *p*[r] as the effective length of the sequence
+    after padding.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The next two terms (stride and dilation) are closely related to the **receptive
+    field** of the convolutional layer. The receptive field of a convolutional layer
+    is the region in the input space that influences the feature that’s generated
+    by the convolutional layer. In other words, it is the size of the window of input
+    over which we have performed the convolution operation. For a single convolutional
+    layer (with default settings), this is pretty much the kernel size. For multi-layered
+    CNNs, this calculation becomes a bit more complicated because of the hierarchical
+    structure (the *Further reading* section contains a link to a paper by Arujo et
+    al. who derived a formula to calculate the receptive field of a CNN). But generally,
+    increasing the receptive field of a CNN is associated with an increase in the
+    accuracy of the CNN. For computer vision, Araujo et al. noted the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: ”We observe a logarithmic relationship between classification accuracy and receptive
+    field size, which suggests that large receptive fields are necessary for high-level
+    recognition tasks, but with diminishing rewards.”
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+- en: 'In time series, this is important because if the receptive field of a CNN is
+    smaller than the long-term dependency, such as the seasonality, that we want to
+    capture, then the network will fail to do so. Making the CNN deeper by stacking
+    more convolutional layers on top of the others is one way to increase the receptive
+    field of a network. However, there are a few ways to increase the receptive field
+    of a single convolutional layer. Strides and dilations are two such ways:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Stride**: Earlier, when we talked about *sliding* the kernel over the sequence,
+    we mentioned that we move the kernel by one position at a time. This is called
+    the stride of the convolutional layer, and there is no necessity that the stride
+    should be 1\. If we set the stride to 2, the convolution operation would be performed
+    by skipping a position in between, as shown in *Figure 12.9*. This can make each
+    layer in the convolutional network look at a larger slice of history, thereby
+    increasing the receptive field.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Dilation**: Another way we can tweak the basic convolutional layer is by
+    dilating the input connections. In the standard convolutional layer with a kernel
+    size of 3, we apply the kernel to three consecutive elements in the input with
+    a dilation of 1\. If we increase the dilation to 2, then the kernel will be dilated
+    spatially and will be applied. Instead of being applied to three consecutive elements,
+    an element in between will be skipped. *Figure 12.8* shows how this works. As
+    we can see, this can also increase the receptive field of the network.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Both these techniques are similar but different and are compatible with each
+    other. The following diagram shows what happens when we apply strides and dilations
+    together (although this doesn’t happen frequently):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 12.8 – Strides and dilations in convolutions ](img/B22389_12_09.png)Figure
+    12.9: Strides and dilations in convolutions'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now, what if we want to make the output dimensions the same as the input dimensions?
+    By using some basic algebra and rearranging the previous formula, we get the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*P*[l] + *p*[r] = *d*(*k*-1) + *L*(*s*-1) – (*s*-1)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: And in time series, we typically pad on the left rather than the right because
+    of the strong autocorrelation that is typically present. Padding the latest few
+    entries with zeros or some other values will make the learning of the prediction
+    function very hard, as the latest hidden states are directly influenced by the
+    padded values. The *Further reading* section contains a link to an article by
+    Kilian Batzner about autoregressive convolutions. It is a must-read if you wish
+    to really understand the concepts we have discussed here and also understand a
+    few limitations. The *Further reading* section also contains a link to a GitHub
+    repository that contains animations of convolutions for 2D inputs, which will
+    give you a good intuition of what is happening.
+  prefs: []
+  type: TYPE_NORMAL
+- en: There is just one more term that you may hear often about convolutions, especially
+    in time series—**causal convolutions**. All you have to keep in mind is that causal
+    convolutions are not special types of convolutions. So long as we ensure that
+    we won’t use future timesteps to predict the current timestep while training,
+    we are performing causal operations. This is typically done by offsetting the
+    target and padding the inputs.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Convolution in PyTorch
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Now, let’s understand the PyTorch implementation of the CNN (a one-dimensional
+    CNN, which is typically used for sequences such as time series). Let’s look at
+    the different parameters the implementation provides while initializing. We have
+    just discussed the following terms, so they should be familiar to you by now:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`in_channels`: The number of expected features in the input. If we are using
+    just the history of the time series, then this would be 1\. But when we use history
+    along with some other features, then this will be >1\. For subsequent layers,
+    the `out_channels` you used in the previous layer become your `in_channels` in
+    the current layer.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`out_channels`: The number of kernels or filters applied to the input. Each
+    kernel/filter produces a convolution operation with its own weights.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`kernel_size`: This is the size of the kernel we use for convolving.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`stride`: The stride of the convolution. The default is `1`.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`padding`: This is the padding that is added to *both* sides. If we set the
+    value as `2`, the sequence that we pass to the layer will have a padded position
+    on both the left and right. We can also give `valid` or `same` as input. These
+    are easy ways of mentioning the kind of padding we need to add. `padding=''valid''`
+    is the same as no padding. `padding=''same''` pads the input so that the output
+    has the shape as the input. However, this mode doesn’t support any stride values
+    other than `1`. The default is `0`.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`padding_mode`: This defines how the padded positions should be filled with
+    values. The most common and default option is *zeros*, where all the padded tokens
+    are filled with zeros. Another useful mode that is relevant for time series is
+    **replicate**, which behaves like forward and backward fill in pandas. The other
+    two options—**reflect** and **circular**—are more esoteric and are only used for
+    specific use cases. The default is **zeros**.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`dilation`: The dilation of the convolution. The default is `1`.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`groups`: This parameter lets you control the way input channels are connected
+    to output channels. The number specified in `groups` specifies how many groups
+    will be formed so that the convolutions happen within a group and not across.
+    For instance, `group=2` means that half the input channels will be convolved by
+    one set of kernels and that the other half will be convolved by a separate set
+    of kernels. This is equivalent to running two convolution layers side by side.
+    Check the documentation for more information on this parameter. Again, this is
+    for an esoteric use case. The default is `1`.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`bias`: This parameter adds a learnable bias to the convolutions. The default
+    is `True`.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Let’s apply a CNN model to the same synthetic data we generated earlier in
+    this chapter with a kernel size of 3:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs: []
+  type: TYPE_PRE
+- en: Now, let’s look at the inputs and outputs that are expected from a CNN.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`Conv1d` expects the inputs to have three dimensions`—(batch size, number of
+    channels, sequence length)`. For the initial input layer, the number of channels
+    is the number of features you feed into the network; for intermediate layers,
+    it is the number of kernels we used in the previous layer. The output from `Conv1d`
+    is in the form of `(batch size, number of channels (output), sequence length (output))`.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'So let’s run our sequence through `Conv1d` and look at the inputs and outputs
+    (for more detailed steps, refer to the `02-Building_Blocks.ipynb` notebook):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs: []
+  type: TYPE_PRE
+- en: The notebook provides a slightly more detailed analysis of `Conv1d`, with tables
+    showing the impact that the hyperparameters have on the shape of the output, what
+    kind of padding is used to make the input and output dimensions the same, and
+    how a convolution with equal weights is just like a rolling mean. I highly suggest
+    that you check it out and play around with the different options to get a feel
+    of what the layer does for you.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The inbuilt padding in `Conv1d` has its roots in image processing, so the padding
+    technique defaults to adding to both sides. However, for sequences, it is preferable
+    to use padding on the left, and because of that, it is also preferable to handle
+    how the input sequences are padded separately and not use the inbuilt mechanism.
+    `torch.nn.functional` has a handy method called `pad` that can be used to this
+    effect.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Other building blocks are used in time series forecasting because the architecture
+    of a deep neural network is only limited by creativity. But the point of this
+    chapter was to introduce you to the common ones that appear in many different
+    architectures. We also intentionally left out one of the most popular architectures
+    used nowadays: the transformer. This is because we have devoted another chapter
+    (*Chapter 14*, *Attention and Transformers for Time Series*) to understanding
+    attention before we look at transformers. Another major block that is slowly gaining
+    popularity is graph neural networks, which can be thought of as specialized CNNs
+    that operate on graph-based data rather than grids. However, these are outside
+    the scope of this book, since they are an area of active research.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Summary
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: After introducing deep learning in the previous chapter, in this chapter, we
+    gained a deeper understanding of the common architectural blocks that are used
+    for time series forecasting. The encoder-decoder paradigm was explained as a fundamental
+    way to structure a deep neural network for forecasting. Then, we learned about
+    FFNs, RNNs (LSTMs and GRUs), and CNNs, exploring how they are used to process
+    time series. We also saw how we could use all these major blocks in PyTorch by
+    using the associated notebook, and then we got our hands dirty with some PyTorch
+    code.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the next chapter, we’ll learn about a few major patterns we can use to arrange
+    these blocks to perform time series forecasting.
+  prefs: []
+  type: TYPE_NORMAL
+- en: References
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'The following references were used in this chapter:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Neco, R. P. and Forcada, M. L. (1997), *Asynchronous translations with recurrent
+    neural nets*. Neural Networks, 1997., International Conference on (Vol. 4, pp.
+    2535–2540). IEEE: [https://ieeexplore.ieee.org/document/614693](https://ieeexplore.ieee.org/document/614693).'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Kalchbrenner, N. and Blunsom, P. (2013), *Recurrent Continuous Translation
+    Models*. EMNLP (Vol. 3, No. 39, p. 413): [https://aclanthology.org/D13-1176/](https://aclanthology.org/D13-1176/).'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Kyunghyun Cho, Bart van Merriënboer, Caglar Gulcehre, Dzmitry Bahdanau, Fethi
+    Bougares, Holger Schwenk, and Yoshua Bengio. (2014), *Learning Phrase Representations
+    using RNN Encoder-Decoder for Statistical Machine Translation*. Proceedings of
+    the 2014 Conference on Empirical Methods in Natural Language Processing (EMNLP),
+    pages 1724–1734, Doha, Qatar. Association for Computational Linguistics: [https://aclanthology.org/D14-1179/](https://aclanthology.org/D14-1179/).'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Ilya Sutskever, Oriol Vinyals, and Quoc V. Le. (2014), *Sequence to sequence
+    learning with neural networks.* Proceedings of the 27th International Conference
+    on Neural Information Processing Systems – Volume 2: [https://dl.acm.org/doi/10.5555/2969033.2969173](https://dl.acm.org/doi/10.5555/2969033.2969173).'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Rumelhart, D., Hinton, G., and Williams, R (1986). *Learning representations
+    by back-propagating errors*. Nature 323, 533–536: [https://doi.org/10.1038/323533a0](https://doi.org/10.1038/323533a0).'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Schuster, M. and Paliwal, K. K. (1997). *Bidirectional recurrent neural networks*.
+    IEEE Transactions on Signal Processing, 45(11), 2673–2681: [https://doi.org/10.1109/78.650093](https://doi.org/10.1109/78.650093).'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Sepp Hochreiter (1991) *Untersuchungen zu dynamischen neuronalen Netzen*. Diploma
+    thesis, TU Munich: [https://people.idsia.ch/~juergen/SeppHochreiter1991ThesisAdvisorSchmidhuber.pdf](https://people.idsia.ch/~juergen/SeppHochreiter1991ThesisAdvisorSchmidhuber.pdf).'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Y. Bengio, P. Frasconi, and P. Simard (1993), *The problem of learning long-term
+    dependencies in recurrent networks*. IEEE International Conference on Neural Networks,
+    pp. 1183-1188 vol.3: 10.1109/ICNN.1993.298725.'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Y. Bengio, P. Simard, and P. Frasconi (1994) *Learning long-term dependencies
+    with gradient descent is difficult* in IEEE Transactions on Neural Networks, vol.
+    5, no. 2, pp. 157–166, March 1994: 10.1109/72.279181.'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Hochreiter, S. and Schmidhuber, J. (1997). *Long Short-Term Memory*. Neural
+    Computation, 9(8), 1735–1780: [https://doi.org/10.1162/neco.1997.9.8.1735](https://doi.org/10.1162/neco.1997.9.8.1735).'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Cho, K., Merrienboer, B.V., Gülçehre, Ç., Bahdanau, D., Bougares, F., Schwenk,
+    H., and Bengio, Y. (2014). *Learning Phrase Representations using RNN Encoder-Decoder
+    for Statistical Machine Translation.* EMNLP: [https://www.aclweb.org/anthology/D14-1179.pdf](https://www.aclweb.org/anthology/D14-1179.pdf).'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Fukushima, K. *Neocognitron: A self-organizing neural network model for a mechanism
+    of pattern recognition unaffected by shift in position*. Biol. Cybernetics 36,
+    193–202 (1980): [https://doi.org/10.1007/BF00344251](https://doi.org/10.1007/BF00344251).'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Y. Le Cun, B. Boser, J. S. Denker, R. E. Howard, W. Habbard, L. D. Jackel,
+    and D. Henderson. 1990\. *Handwritten Digit Recognition with a Back-Propagation
+    Network*. Advances in neural information processing systems 2\. Morgan Kaufmann
+    Publishers Inc., San Francisco, CA, USA, 396–404: [https://proceedings.neurips.cc/paper/1989/file/53c3bce66e43be4f209556518c2fcb54-Paper.pdf](https://proceedings.neurips.cc/paper/1989/file/53c3bce66e43be4f209556518c2fcb54-Paper.pdf).'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Further reading
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Take a look at the following resources to learn more about the topics that
+    were covered in this chapter:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Official PyTorch tutorials: [https://pytorch.org/tutorials/beginner/basics/intro.html](https://pytorch.org/tutorials/beginner/basics/intro.html)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*Essence of linear algebra*, by 3Blue1Brown: [https://www.youtube.com/playlist?list=PLZHQObOWTQDPD3MizzM2xVFitgF8hE_ab](https://www.youtube.com/playlist?list=PLZHQObOWTQDPD3MizzM2xVFitgF8hE_ab)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*Neural Networks – A Linear Algebra Perspective*, by Manu Joseph: [https://deep-and-shallow.com/2022/01/15/neural-networks-a-linear-algebra-perspective/](https://deep-and-shallow.com/2022/01/15/neural-networks-a-linear-algebra-perspective/)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*Deep Learning*, by Ian Goodfellow, Yoshua Bengio, and Aaron Courville: [https://deep-and-shallow.com/2022/01/15/neural-networks-a-linear-algebra-perspective/](https://deep-and-shallow.com/2022/01/15/neural-networks-a-linear-algebra-perspective/)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*Understanding LSTMs*, by Christopher Olah: [http://colah.github.io/posts/2015-08-Understanding-LSTMs/](http://colah.github.io/posts/2015-08-Understanding-LSTMs/)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*Intuitive Guide to Convolution*: [https://betterexplained.com/articles/intuitive-convolution/](https://betterexplained.com/articles/intuitive-convolution/)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*Computing Receptive Fields of Convolutional Neural Networks*, by Andre Araujo,
+    Wade Norris, and Jack Sim: [https://distill.pub/2019/computing-receptive-fields/](https://distill.pub/2019/computing-receptive-fields/)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*Convolutions in Autoregressive Neural Networks*, by Kilian Batzner: [https://theblog.github.io/post/convolution-in-autoregressive-neural-networks/](https://theblog.github.io/post/convolution-in-autoregressive-neural-networks/)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*Convolution Arithmetic*, by Vincent Dumoulin and Francesco Visin: [https://github.com/vdumoulin/conv_arithmetic](https://github.com/vdumoulin/conv_arithmetic)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*Dropout: A Simple Way to Prevent Neural Networks from Overfitting*, by Nitish
+    Srivastava et al.: [https://jmlr.org/papers/v15/srivastava14a.html](https://jmlr.org/papers/v15/srivastava14a.html)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Join our community on Discord
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Join our community’s Discord space for discussions with authors and other readers:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[https://packt.link/mts](https://packt.link/mts)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/QR_Code15080603222089750.png)'
+  prefs: []
+  type: TYPE_IMG

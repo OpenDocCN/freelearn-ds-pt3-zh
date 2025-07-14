@@ -1,0 +1,574 @@
+- en: 'Chapter 13: Integrating External Tools with Spark SQL'
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '**Business intelligence** (**BI**) refers to the capabilities that enable organizations
+    to make informed, data-driven decisions. BI is a combination of data processing
+    capabilities, data visualizations, business analytics, and a set of best practices
+    that enable, refine, and streamline organizations'' business processes by helping
+    them in both strategic and tactical decision making. Organizations typically rely
+    on specialist software called BI tools for their BI needs. BI tools combine strategy
+    and technology to gather, analyze, and interpret data from various sources and
+    provide business analytics about the past and present state of a business.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: BI tools have traditionally relied on data warehouses as data sources and data
+    processing engines. However, with the advent of big data and real-time data, BI
+    tools have branched out to using data lakes and other new data storage and processing
+    technologies as data sources. In this chapter, you will explore how Spark SQL
+    can be used as a distributed **Structured Query Language** (**SQL**) engine for
+    BI and SQL analysis tools via Spark Thrift **Java Database Connectivity/Open Database
+    Connectivity** (**JDBC/ODBC**) Server. Spark SQL connectivity requirements with
+    SQL analysis and BI tools will be presented, along with detailed configuration
+    and setup steps. Finally, the chapter will also present options to connect to
+    Spark SQL from arbitrary Python applications.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In this chapter, we''re going to cover the following main topics:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Apache Spark as a **distributed SQL engine**
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Spark connectivity to SQL analysis tools
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Spark connectivity to BI tools
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Connecting Python applications to Spark SQL using `pyodbc`
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Some of the skills gained in this chapter are an understanding of Spark Thrift
+    JDBC/ODBC Server, how to connect SQL editors and BI tools to Spark SQL via JDBC
+    and Spark Thrift Server, and connecting business applications built using Python
+    with a Spark SQL engine using Pyodbc.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Technical requirements
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Here is what you''ll need for this chapter:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this chapter, we will be using Databricks Community Edition to run our code
+    ([https://community.cloud.databricks.com](https://community.cloud.databricks.com)).
+    Sign-up instructions can be found at [https://databricks.com/try-databricks](https://databricks.com/try-databricks).
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: We will be using a free and open source SQL editor tool called **SQL Workbench/J**,
+    which can be downloaded from [https://www.sql-workbench.eu/downloads.html](https://www.sql-workbench.eu/downloads.html).
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: You will need to download a JDBC driver for SQL Workbench/J to be able to connect
+    with Databricks Community Edition. This can be downloaded from [https://databricks.com/spark/jdbc-drivers-download](https://databricks.com/spark/jdbc-drivers-download).
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: We will also be using **Tableau Online** to demonstrate BI tool integration.
+    You can request a free 14-day Tableau Online trial at [https://www.tableau.com/products/online/request-trial](https://www.tableau.com/products/online/request-trial).
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Apache Spark as a distributed SQL engine
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: One common application of SQL has been its use with BI and SQL analysis tools.
+    These SQL-based tools connect to a **relational database management system** (**RDBMS**)
+    using a JDBC or ODBC connection and traditional RDBMS JDBC/ODBC connectivity built
+    in. In the previous chapters, you have seen that Spark SQL can be used using notebooks
+    and intermixed with PySpark, Scala, Java, or R applications. However, Apache Spark
+    can also double up as a powerful and fast distributed SQL engine using a JDBC/OCBC
+    connection or via the command line.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs: []
+  type: TYPE_NORMAL
+- en: JDBC is a SQL-based **application programming interface** (**API**) used by
+    Java applications to connect to an RDBMS. Similarly, ODBC is a SQL-based API created
+    by Microsoft to provide RDBMS access to Windows-based applications. A JDBC/ODBC
+    driver is a client-side software component either developed by the RDBMS vendor
+    themselves or by a third party that can be used with external tools to connect
+    to an RDBMS via the JDBC/ODBC standard.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the following section, we will explore how to make use of **JDBC/ODBC** serving
+    capabilities with Apache Spark.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Introduction to Hive Thrift JDBC/ODBC Server
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: While the JDBC/ODBC driver gives client-side software such as BI or SQL analytics
+    tools the ability to connect to database servers, some server-side components
+    are also required for the database server to utilize JDBC/ODBC standards. Most
+    RDBMSes come built with these JDBC/ODBC serving capabilities, and Apache Spark
+    can also be enabled with this server-side functionality using a Thrift JDBC/ODBC
+    server.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**HiveServer2** is a server-side interface developed to enable Hadoop Hive
+    clients to execute Hive queries against Apache Hive. HiveServer2 has been developed
+    to provide multi-client concurrency with open APIs such as JDBC and ODBC. HiveServer2
+    itself is based on Apache Thrift, which is a binary communication protocol used
+    for creating services in multiple programming languages. Spark Thrift Server is
+    Apache Spark''s implementation of HiveServer2 that allows JDBC/ODBC clients to
+    execute Spark SQL queries on Apache Spark.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Spark Thrift Server comes bundled with the Apache Spark distribution, and most
+    Apache Spark vendors enable this service by default on their Spark clusters. In
+    the case of Databricks, this service can be accessed from the **Clusters** page,
+    as shown in the following screenshot:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 13.1 – Databricks JDBC/ODBC interface'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/B16736_13_01.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Figure 13.1 – Databricks JDBC/ODBC interface
+  prefs: []
+  type: TYPE_NORMAL
+- en: You can get to the Databricks JDBC/ODBC interface shown in the previous screenshot
+    by navigating to the **Clusters** page within the Databricks web interface. Then,
+    click on **Advanced Options** and then on the **JDBC/ODBC** tab. The Databricks
+    JDBC/ODBC interface provides you with the hostname, port, protocol, the HTTP path,
+    and the actual JDBC URL required by external tools for connectivity to the Databricks
+    Spark cluster. In the following sections, we will explore how this Spark Thrift
+    Server functionality can be used by external SQL-based clients to utilize Apache
+    Spark as a distributed SQL engine.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Spark connectivity to SQL analysis tools
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'SQL analysis tools, as the same suggests, are tools with interfaces suited
+    for quick and easy SQL analysis. They let you connect to an RDBMS, sometimes even
+    multiple RDBMSes, at the same time, and browse through various databases, schemas,
+    tables, and columns. They even help you visually analyze tables and their structure.
+    They also have interfaces designed to perform SQL analysis quickly with multiple
+    windows that let you browse tables and columns on one side, compose a SQL query
+    in another window, and look at the results in another window. Once such SQL analysis
+    tool, called **SQL Workbench/J**, is shown in the following screenshot:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 13.2 – SQL Workbench/J interface'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/B16736_13_02.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Figure 13.2 – SQL Workbench/J interface
+  prefs: []
+  type: TYPE_NORMAL
+- en: The previous screenshot depicts the interface of **SQL Workbench/J**, which
+    represents a typical SQL editor interface with a database, schema, table, and
+    column browser on the left-hand side pane. The top pane has a text interface for
+    composing actual SQL queries, and the bottom pane shows the results of executed
+    SQL queries and has other tabs to show any error messages, and so on. There is
+    also a menu and a toolbar on the top to establish connections to databases, toggle
+    between various databases, execute SQL queries, browse databases, save SQL queries,
+    browse through query history, and so on. This type of SQL analysis interface is
+    very intuitive and comes in very handy for quick SQL analysis, as well as for
+    building SQL-based data processing jobs, as databases, tables, and columns can
+    easily be browsed. Tables and column names can be easily dragged and dropped into
+    the **Query Composer** window, and results can be quickly viewed and analyzed.
+  prefs: []
+  type: TYPE_NORMAL
+- en: There are, additionally, rather more sophisticated SQL analysis tools that also
+    let you visualize the results of a query right within the same interface. Some
+    open source tools to name are **Redash**, **Metabase**, and **Apache Superset**,
+    and some cloud-native tools are **Google Data Studio**, **Amazon QuickSight**,
+    and so on.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Tip
+  prefs: []
+  type: TYPE_NORMAL
+- en: Redash was recently acquired by Databricks and is available to use with the
+    Databricks paid versions; it is not available in Databricks Community Edition
+    as of this writing.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now you have an idea of what SQL analysis tools look like and how they work,
+    let's look at the steps required to connect a SQL analysis tool such as **SQL
+    Workbench/J** to **Databricks Community Edition**.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**SQL Workbench/J** is a free, RDBMS-independent SQL analysis tool based on
+    Java and can be used with any operating system of your choice. Instructions on
+    downloading and running **SQL Workbench/J** can be found here: [https://www.sql-workbench.eu/downloads.html](https://www.sql-workbench.eu/downloads.html).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Once you have **SQL Workbench/J** set up and running on your local machine,
+    the following steps will help you get it connected with **Databricks Community
+    Edition**:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Download the Databricks JDBC driver from [https://databricks.com/spark/jdbc-drivers-download](https://databricks.com/spark/jdbc-drivers-download),
+    and store at a known location.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Launch **SQL Workbench/J** and open the **File** menu. Then, click on **Connect
+    window**, to take you to the following screen:![Figure 13.3 – SQL Workbench/J
+    connect window
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '](img/B16736_13_03.jpg)'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: Figure 13.3 – SQL Workbench/J connect window
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: In the previous window, click on **Manage Drivers** to take you to the following
+    screen:![Figure 13.4 – Manage drivers screen
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '](img/B16736_13_04.jpg)'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: Figure 13.4 – Manage drivers screen
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: As shown in the preceding **Manage drivers** window screenshot, click on the
+    folder icon and navigate to the folder where you stored your previously downloaded
+    Databricks drivers and open it, then click the **OK** button.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Now, navigate to your Databricks `UID` and `PWD` parts and paste it into the
+    **URL** field on the connection window of **SQL Workbench/J**, as shown in the
+    following screenshot:![Figure 13.6 – SQL Workbench/J connection parameters
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '](img/B16736_13_06.jpg)'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: Figure 13.6 – SQL Workbench/J connection parameters
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: After entering the required JDBC parameters from the Databricks **Clusters**
+    page, enter your Databricks username and password in the **Username** and **Password**
+    fields on the **SQL Workbench/J** connection window. Then, click on the **Test**
+    button to test connectivity to the Databricks clusters. If all the connection
+    parameters have been correctly provided, you should see a **Connection Successful**
+    message pop up.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Tip
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: Make sure the Databricks cluster is up and running if you see any connection
+    failures or **Host Not Found** types of errors.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: This way, by following the previous steps, you can successfully connect a SQL
+    analysis tool such as **SQL Workbench/J** to Databricks clusters and run Spark
+    SQL queries remotely. It is also possible to connect to other Spark clusters running
+    on other vendors' clusters—just make sure to procure the appropriate **HiveServer2**
+    drivers directly from the vendor. Modern BI tools also recognize the importance
+    of connecting to big data technologies and data lakes, and in the following section,
+    we will explore how to connect BI tools with Apache Spark via a JDBC connection.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Spark connectivity to BI tools
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In the era of big data and **artificial intelligence** (**AI**), Hadoop and
+    Spark have modernized data warehouses into distributed warehouses that can process
+    up to **petabytes** (**PB**) of data. Thus, BI tools have also evolved to utilize
+    Hadoop- and Spark-based analytical stores as their data sources, connecting to
+    them using JDBC/ODBC. BI tools ranging from Tableau, Looker, Sisense, MicroStrategy,
+    Domo, and so on all feature connectivity support and built-in drivers to Apache
+    Hive and Spark SQL. In this section, we will explore how you can connect a BI
+    tool such as Tableau Online with Databricks Community Edition, via a JDBC connection.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Tableau Online** is a BI platform fully hosted in the cloud that lets you
+    perform data analytics, publish reports and dashboards, and create interactive
+    visualizations, all from a web browser. The following steps describe the process
+    of connecting Tableau Online with Databricks Community Edition:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'If you already have an existing Tableau Online account, sign in. If not, you
+    can request a free trial here: [https://www.tableau.com/products/online/request-trial](https://www.tableau.com/products/online/request-trial).'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Once you have logged in, click on the **New** button near the top right-hand
+    corner, as shown in the following screenshot:![Figure 13.7 – Tableau Online new
+    workbook
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '](img/B16736_13_07.jpg)'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: Figure 13.7 – Tableau Online new workbook
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: The newly created workbook will prompt you to **Connect to Data**. Click on
+    the **Connectors** tab and choose **Databricks** from the list of available data
+    sources, as shown in the following screenshot:![Figure 13.8 – Tableau Online data
+    sources
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '](img/B16736_13_08.jpg)'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: Figure 13.8 – Tableau Online data sources
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: Then, provide Databricks cluster details such as **Server Hostname**, **HTTP
+    Path**, **Authentication**, **Username**, and **Password**, as shown in the following
+    screenshot, and click the **Sign In** button. These details are found on the Databricks
+    **Clusters** page:![Figure 13.9 – Tableau Online Databricks connection
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '](img/B16736_13_09.jpg)'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: Figure 13.9 – Tableau Online Databricks connection
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: Once your connection is successful, your new workbook will open in the **Data
+    Source** tab, where you can browse through your existing databases and tables,
+    as shown in the following screenshot:![Figure 13.10 – Tableau Online data sources
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '](img/B16736_13_10.jpg)'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: Figure 13.10 – Tableau Online data sources
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'The **Data Source** tab also lets you drag and drop tables and define relationships
+    and joins among tables as well, as shown in the following screenshot:![Figure
+    13.11 – Tableau Online: defining table joins'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '](img/B16736_13_11.jpg)'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'Figure 13.11 – Tableau Online: defining table joins'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: Tableau Online data sources also let you create two types of connections with
+    the underlying data sources—a live connection that queries the underlying data
+    sources with every request and an option to create an **Extract**, which extracts
+    data from the data sources and stores it within Tableau. With big data sources
+    such as Apache Spark, it is recommended to create a live connection because the
+    amount of data being queried could be substantially larger than usual.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Sample data can also be browsed in the **Data Source** tab by clicking on the
+    **Update Now** button, as shown in the following screenshot:![Figure 13.12 – Tableau
+    Online data source preview
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '](img/B16736_13_12.jpg)'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: Figure 13.12 – Tableau Online data source preview
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: Once the data source connection is established, you can move on to visualizing
+    the data and creating reports and dashboards by clicking on `Sheet1` or by creating
+    new additional sheets.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Once you are within a sheet, you can start visualizing data by dragging and
+    dropping columns from the **Data** pane onto the blank sheet.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Tableau automatically chooses the appropriate visualization based on the fields
+    selected. The visualization can also be changed using the **Visualization** drop-down
+    selector, and data filters can be defined using the **Filters** box. Aggregations
+    can be defined on metrics in the **Columns** field, and columns can also be defined
+    as **Dimension**, **Attribute**, or **Metric** as required. The top menu has additional
+    settings to sort and pivot data and has other formatting options. There are also
+    advanced analytics options such as defining quartiles, medians, and so on available
+    within Tableau Online. This way, using Tableau Online with its built-in Databricks
+    connector data can be analyzed at scale using the power and efficiency of Apache
+    Spark, along with the ease of use and **graphical user interface** (**GUI**) of
+    a prominent BI tool such as Tableau Online, as shown in the following screenshot:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '![Figure 13.13 – Tableau Online worksheet with visualizations'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/B16736_13_13.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Figure 13.13 – Tableau Online worksheet with visualizations
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Tableau Online** is one of the many popular BI tools that support native
+    Databricks connectivity out of the box. Modern BI tools also offer Spark SQL connectivity
+    options for connecting to Apache Spark distributions outside of Databricks.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Connectivity to Apache Spark is not just limited to SQL analysis and BI tools.
+    Since the JDBC protocol is based on Java and was meant to be used by Java-based
+    applications, any applications built using **Java Virtual Machine** (**JVM**)-based
+    programming languages such as **Java** or **Scala** can also make use of the JDBC
+    connectivity options to Apache Spark.
+  prefs: []
+  type: TYPE_NORMAL
+- en: But what about applications based on popular programming languages such as Python
+    that are not based on Java? There is a way to connect these types of Python applications
+    to Apache Spark via **Pyodbc**, and we will explore this in the following section.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Connecting Python applications to Spark SQL using Pyodbc
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '**Pyodbc** is an open source Python module for connecting Python applications
+    to data sources using an ODBC connection. Pyodbc can be used with any of your
+    local Python applications to connect to Apache Spark via an ODBC driver and access
+    databases and tables defined with Apache Spark SQL. In this section, we will explore
+    how you can connect Python running on your local machine to a Databricks cluster
+    using **Pyodbc** with the following steps:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Download and install the Simba ODBC driver provided by Databricks on your local
+    machine from here: [https://databricks.com/spark/odbc-drivers-download](https://databricks.com/spark/odbc-drivers-download).'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Install Pyodbc on your local machine''s Python using `pip`, as shown in the
+    following command:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Create a new Python file using a text editor of your choice and paste the following
+    code into it:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'The driver paths for the previous code configuration may vary based on your
+    operating systems and are given as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: The values for hostname, port, and the HTTP path can be obtained from your Databricks
+    cluster **JDBC/ODBC** tab.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Once you have added all the code and put in the appropriate configuration values,
+    save the Python code file and name it `pyodbc-databricks.py`.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'You can now execute the code from your Python interpreter using the following
+    command:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: Once the code runs successfully, the first five rows of the table you specified
+    in your SQL query will be displayed on the console.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'Instructions on configuring the ODBC driver on a Microsoft Windows machine
+    to be used with Pyodbc can be found on the Databricks public documentation page
+    here: [https://docs.databricks.com/dev-tools/pyodbc.html#windows](https://docs.databricks.com/dev-tools/pyodbc.html#windows).'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: This way, using **Pyodbc**, you can integrate Apache Spark SQL into any of your
+    Python applications that may be running locally on your machine or some remote
+    machine in the cloud or a data center somewhere, but still take advantage of the
+    fast and powerful distributed SQL engine that comes with Apache Spark.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Summary
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In this chapter, you have explored how you can take advantage of Apache Spark's
+    Thrift server to enable JDBC/ODBC connectivity and use Apache Spark as a distributed
+    SQL engine. You learned how the HiveServer2 service allows external tools to connect
+    to Apache Hive using JDBC/ODBC standards and how Spark Thrift Server extends HiveServer2
+    to enable similar functionality on Apache Spark clusters. Steps required for connecting
+    SQL analysis tools such as SQL Workbench/J were presented in this chapter, along
+    with detailed instructions required for connecting BI tools such as Tableau Online
+    with Spark clusters. Finally, steps required for connecting arbitrary Python applications,
+    either locally on your machine or on remote servers in the cloud or a data center,
+    to Spark clusters using Pyodbc were also presented. In the following and final
+    chapter of this book, we will explore the Lakehouse paradigm that can help organizations
+    seamlessly cater to all three workloads of data analytics—data engineering, data
+    science, and SQL analysis—using a single unified distributed and persistent storage
+    layer that combines the best features of both data warehouses and data lakes.
+  prefs: []
+  type: TYPE_NORMAL

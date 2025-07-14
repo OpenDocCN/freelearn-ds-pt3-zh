@@ -1,0 +1,2359 @@
+- en: '*Chapter 7*: Financial Analysis – Bitcoin and the Stock Market'
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: It's time to switch gears and work on an application. In this chapter, we will
+    explore a financial application by performing an analysis of bitcoin and the stock
+    market. This chapter builds upon everything we have learned so far—we will extract
+    data from the Internet; perform some exploratory data analysis; create visualizations
+    with `pandas`, `seaborn`, and `matplotlib`; calculate important metrics for analyzing
+    the performance of financial instruments using `pandas`; and get a taste of building
+    some models. Note that we are not trying to learn financial analysis here, but
+    rather walk through an introduction of how the skills we have learned in this
+    book can be applied to financial analysis.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This chapter is also a departure from the standard workflow in this book. Up
+    until this point, we have been working with Python as more of a functional programming
+    language. However, Python also supports `StockReader` class), visualizing financial
+    assets (with the `Visualizer` classes), calculating financial metrics (with the
+    `StockAnalyzer` class), and modeling financial data (with the `StockModeler` class).
+    Since we will need a lot of code to make the analysis process clean and easy to
+    reproduce, we will build a Python package to house these classes. The code will
+    be reproduced in the text and explained as usual; however, we don't need to type/run
+    it on our own—be sure to read the *Chapter materials* section for this chapter
+    to get set up properly.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This chapter will be challenging and may require a few rereads; however, it
+    will teach best practices, and the skills acquired here will dramatically improve
+    your coding skills, which will quickly pay off. One main takeaway should be that
+    OOP can be very helpful in packaging up analysis tasks. Each class should have
+    a single purpose and be well documented. If we have many classes, we should spread
+    them across separate files and make a package. This makes it very easy for others
+    to install/use them and for us to standardize the way certain tasks are performed
+    across a project. As an example, we shouldn't have each of our collaborators on
+    a project writing their own functions to connect to a database. Standardized,
+    well-documented code will save lots of headaches down the road.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The following topics will be covered in this chapter:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Building a Python package
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Collecting financial data
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Conducting exploratory data analysis
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Performing technical analysis of financial instruments
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Modeling performance using historical data
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Chapter materials
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'For this chapter, we will be creating our own package for stock analysis. This
+    makes it extremely easy for us to distribute our code and for others to use our
+    code. The final product of this package is on GitHub at [https://github.com/stefmolin/stock-analysis/tree/2nd_edition](https://github.com/stefmolin/stock-analysis/tree/2nd_edition).
+    Python''s package manager, `pip`, is capable of installing packages from GitHub
+    and also building them locally; this leaves us with either of the following choices
+    as to how we want to proceed:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Install from GitHub if we don't plan on editing the source code for our own
+    use.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Fork and clone the repository and then install it on our machine in order to
+    modify the code.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'If we wish to install from GitHub directly, we don''t need to do anything here
+    since this was installed when we set up our environment back in [*Chapter 1*](B16834_01_Final_SK_ePub.xhtml#_idTextAnchor015),
+    *Introduction to Data Analysis*; however, for reference, we would do the following
+    to install packages from GitHub:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: Tip
+  prefs: []
+  type: TYPE_NORMAL
+- en: The `@2nd_edition` portion of the URL tells `pip` to install the version that
+    was tagged `2nd_edition`. To install the version of the code on a particular branch
+    instead, replace this with `@<branch_name>`. For example, if we want the code
+    being developed on a branch called `dev`, we use `@dev`. Be sure to check that
+    the branch exists first, of course. We can also use the commit hash in the same
+    fashion to grab a specific commit. More information is available at [https://pip.pypa.io/en/latest/reference/pip_install/#git](https://pip.pypa.io/en/latest/reference/pip_install/#git).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'To install locally in editable mode—meaning that any changes will automatically
+    be reflected locally without having to reinstall—we use the `-e` flag. Run the
+    following from the command line in the virtual environment we created in [*Chapter
+    1*](B16834_01_Final_SK_ePub.xhtml#_idTextAnchor015), *Introduction to Data Analysis*,
+    to do so. Note that this will clone the latest version of the package, which may
+    be different from the version in the text (the version with the `2nd_edition`
+    tag):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: Important note
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'This example uses `git clone` over SSH; if SSH keys are not set up already,
+    clone over HTTPS instead by using a variation of the URL: `https://github.com/stefmolin/stock-analysis.git`.
+    Alternatively, follow the instructions on GitHub for generating SSH keys first.
+    Consult this Stack Overflow post if you''re interested in just cloning the version
+    with the `2nd_edition` tag: [https://stackoverflow.com/questions/20280726/how-to-git-clone-a-specific-tag](https://stackoverflow.com/questions/20280726/how-to-git-clone-a-specific-tag).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: We will be using this package throughout this chapter. The directory for this
+    chapter in this book's repository has the `financial_analysis.ipynb` notebook
+    we will use for our actual analysis and can be found at [https://github.com/stefmolin/Hands-On-Data-Analysis-with-Pandas-2nd-edition/tree/master/ch_07](https://github.com/stefmolin/Hands-On-Data-Analysis-with-Pandas-2nd-edition/tree/master/ch_07).
+    The `data/` folder contains backup files in case the data sources have changed
+    since publication or there are any errors when collecting the data with the `StockReader`
+    class; simply read in the CSV files and follow along with the rest of this chapter
+    should this happen. Similarly, the `exercises/` folder contains backup files for
+    the exercises.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Important note
+  prefs: []
+  type: TYPE_NORMAL
+- en: If we change a file in a package installed in editable mode when working with
+    Jupyter Notebooks, we will need to restart our kernel or open a new Python shell
+    and reimport the package. This is because Python will cache it after import. Other
+    options include using `importlib.reload()` or the IPython `autoreload` extension
+    ([https://ipython.readthedocs.io/en/stable/config/extensions/autoreload.html](https://ipython.readthedocs.io/en/stable/config/extensions/autoreload.html)).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Building a Python package
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Building packages is considered good coding practice since it allows for writing
+    modular code and reuse. `matplotlib` to plot something, we don't need to know
+    what the code inside the functions we call is doing exactly—it suffices to simply
+    know what the input and output will be to build on top of it.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Package structure
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: A `window_calc.py` from [*Chapter 4*](B16834_04_Final_SK_ePub.xhtml#_idTextAnchor082),
+    *Aggregating Pandas DataFrames*, and `viz.py` from [*Chapter 6*](B16834_06_Final_SK_ePub.xhtml#_idTextAnchor125),
+    *Plotting with Seaborn and Customization Techniques*, were both modules. A **package**
+    is a collection of modules organized into directories. Packages can also be imported,
+    but when we import a package we have access to certain modules inside, so we don't
+    have to import each one individually. This also allows us to build modules that
+    import from each other without the need to maintain a single very large module.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'To turn modules into a package, we follow these steps:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Create a directory with the name of the package (`stock_analysis` for this chapter).
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Place the modules in the aforementioned directory.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Add an `__init__.py` file containing any Python code to run upon importing the
+    package (this can be—and often is—empty).
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Make a `setup.py` file at the same level as the package's top-level directory
+    (`stock_analysis` here), which will give `pip` instructions on how to install
+    the package. See the *Further reading* section for information on creating this.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Once the aforementioned steps are complete, the package can be installed with
+    `pip`. Note that, while our package only contains a single directory, we can build
+    a package with as many subpackages as we desire. These subpackages are created
+    just as if we were creating a package, with the exception that they don''t need
+    a `setup.py` file:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Create a directory for the subpackage inside the main package directory (or
+    inside some other subpackage).
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Place the subpackage's modules in this directory.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Add the `__init__.py` file, with code that should be run when the subpackage
+    is imported (this can be empty).
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'The directory hierarchy for a package with a single subpackage would look something
+    like this:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Some other things to be aware of when building a package include the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Writing a **README** file for the repository so that others know what it contains
+    (see [https://www.makeareadme.com/](https://www.makeareadme.com/)).
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`pylint` package at [https://www.pylint.org/](https://www.pylint.org/)).'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Adding tests that will make sure changes to the code don't break anything and
+    that the code does what it is meant to do (take a look at the `pytest` package
+    at [https://docs.pytest.org/en/latest/](https://docs.pytest.org/en/latest/)).
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Overview of the stock_analysis package
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'In this chapter, we will be creating a Python package called `stock_analysis`
+    using the various Python packages we have discussed so far, along with the Python
+    standard library. This package is located in the `stock-analysis` repository ([https://github.com/stefmolin/stock-analysis](https://github.com/stefmolin/stock-analysis)),
+    which is arranged like this:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 7.1 – Structure of the stock-analysis repository'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/Figure_7.1_B16834.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Figure 7.1 – Structure of the stock-analysis repository
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The modules in our package will contain custom classes for conducting the technical
+    analysis of an asset. **Classes** should be designed for a single purpose; this
+    makes it easier to build, use, and debug if issues arise. Therefore, we will be
+    building several classes in order to cover the various facets of our financial
+    analysis. We will need a class for each of the following purposes:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 7.2 – Main themes and classes for the stock_analysis package'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/Figure_7.2_B16834.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Figure 7.2 – Main themes and classes for the stock_analysis package
+  prefs: []
+  type: TYPE_NORMAL
+- en: It can be helpful to visualize the interaction between modules in a package
+    and the functionality each class provides. For this purpose, we can build **Unified
+    Modeling Language** (**UML**) diagrams.
+  prefs: []
+  type: TYPE_NORMAL
+- en: UML diagrams
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: '`utils.py` for utility functions:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 7.3 – Module dependencies in the stock_analysis package'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/Figure_7.3_B16834.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Figure 7.3 – Module dependencies in the stock_analysis package
+  prefs: []
+  type: TYPE_NORMAL
+- en: Tip
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The `pylint` package comes with `pyreverse`, which makes UML diagrams. If `graphviz`
+    is installed ([http://www.graphviz.org/download/](http://www.graphviz.org/download/)),
+    running the following from the command line generates a PNG file for the relationship
+    between modules and a UML diagram for the classes (provided the repository was
+    cloned and `pylint` is installed): `pyreverse -o png stock_analysis`'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The UML diagram for the classes in the `stock_analysis` package looks like
+    this:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 7.4 – UML diagrams for classes in the stock_analysis package'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/Figure_7.4_B16834.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Figure 7.4 – UML diagrams for classes in the stock_analysis package
+  prefs: []
+  type: TYPE_NORMAL
+- en: The top section in each box contains the class name; the middle section contains
+    the attributes of that class; while the bottom section contains any methods defined
+    in that class. Notice the arrows pointing from the `AssetGroupVisualizer` and
+    `StockVisualizer` classes to the `Visualizer` class? This means that both are
+    a type of `Visualizer`. The methods shown for the `AssetGroupVisualizer` and `StockVisualizer`
+    classes are defined differently in those classes compared to the `Visualizer`
+    class. We will cover this in more depth in the *Exploratory data analysis* section.
+    Throughout the remaining sections of this chapter, we will be going over each
+    of the classes in the `stock_analysis` package in more detail and using their
+    functionality to perform technical analysis of financial assets.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Collecting financial data
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Back in [*Chapter 2*](B16834_02_Final_SK_ePub.xhtml#_idTextAnchor035), *Working
+    with Pandas DataFrames*, and [*Chapter 3*](B16834_03_Final_SK_ePub.xhtml#_idTextAnchor061),
+    *Data Wrangling with Pandas*, we worked with APIs to gather data; however, there
+    are other ways to collect data from the Internet. We can use `pandas` offers with
+    the `pd.read_html()` function—it returns a dataframe for each of the HTML tables
+    it finds on the page. For economic and financial data, an alternative is the `pandas_datareader`
+    package, which the `StockReader` class in the `stock_analysis` package uses to
+    collect financial data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Important note
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In case anything has changed with the data sources that are used in this chapter
+    or you encounter errors when using the `StockReader` class to collect data, the
+    CSV files in the `data/` folder can be read in as a replacement in order to follow
+    along with the text; for example:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`pd.read_csv(''data/bitcoin.csv'', index_col=''date'',` `parse_dates=True)`'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The StockReader class
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Since we will be collecting data for various assets across the same date range,
+    it makes sense to create a class that hides all of the implementation details
+    and, therefore, avoid lots of copying and pasting (and potential mistakes). For
+    this purpose, we will build the `StockReader` class, which will make it easier
+    to collect data for bitcoin, stocks, and stock market indices. We can simply create
+    an instance of the `StockReader` class by providing the date range we want for
+    our analysis, and then use the methods it provides to get whichever data we please.
+    The following UML diagram provides a high-level overview of the implementation:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 7.5 – UML diagram for the StockReader class'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/Figure_7.5_B16834.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Figure 7.5 – UML diagram for the StockReader class
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The UML diagram tells us that the `StockReader` class provides an attribute
+    for the available tickers (`available_tickers`) and can perform the following
+    actions:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Pull bitcoin data in the desired currency with the `get_bitcoin_data()` method.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Pull daily foreign exchange rates data with the `get_forex_rates()` method.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Pull data for an index on the stock market (such as the S&P 500) with the `get_index_data()`
+    method.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Look up the ticker (stock market symbol) for a specific index (for instance,
+    ^GSPC for the S&P 500 ticker on Yahoo! Finance) with the `get_index_ticker()`
+    method.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Collect the risk-free rate of return with the `get_risk_free_rate_of_return()`
+    method.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Pull data for a ticker on the stock market (such as NFLX for Netflix) with the
+    `get_ticker_data()` method.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Now that we understand why we need this class and have a high-level overview
+    of its structure, we can proceed to looking at the code. Since there is a lot
+    of code in the `stock_analysis/stock_reader.py` module to review, we will break
+    down the file piece by piece. Note that this may change the indentation level,
+    so please consult the file itself for the full version.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The first line of the module is the `help()` on the module itself, that will
+    appear near the top. This describes the purpose of our module. This is immediately
+    followed by any imports we will need:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Notice that the `import` statements are organized in three groups, following
+    **PEP 8** (Python style guidelines available at https://www.python.org/dev/peps/pep-0008/),
+    which states that they should be in the following order:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Standard library imports (`datetime` and `re`)
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Third-party libraries (`pandas` and `pandas_datareader`)
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Relative import from another module in the `stock_analysis` package (`.utils`)
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'After our imports, we define the `StockReader` class. First, we create a dictionary
+    mapping tickers for indices to a descriptive name in `_index_tickers`. Notice
+    that our class also has a docstring, which defines its purpose. Here, we will
+    only reproduce a few of the tickers available:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'When building a class, there are many **special methods** (colloquially referred
+    to as *dunder methods* because their names start and end with double underscores)
+    that we can provide to customize the behavior of the class when it''s used with
+    language operators:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Initialize an object (`__init__()`).
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Make an object comparable for sorting (`__eq__()`, `__lt__()`, `__gt__()`, and
+    more).
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Perform arithmetic on the object (`__add__()`, `__sub__()`, `__mul__()`, and
+    so on).
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Be able to use built-in Python functions such as `len()` on it (`__len__()`).
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Get a string representation of the object for use with the `print()` function
+    (`__repr__()` and `__str__()`).
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Support iteration and indexing (`__getitem__()`, `__iter__()`, and `__next__()`).
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Thankfully, we don't have to write all this functionality every time we make
+    a class. In most cases, we just need the `__init__()` method, which is run when
+    we create an object. (More information on special methods can be found at [https://dbader.org/blog/python-dunder-methods](https://dbader.org/blog/python-dunder-methods)
+    and [https://docs.python.org/3/reference/datamodel.html#special-method-names.](https://docs.python.org/3/reference/datamodel.html#special-method-names.))
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Objects of the `StockReader` class hold on to the start and end dates that
+    data will be gathered for, so we put this in the `__init__()` method. We parse
+    the dates that are passed in by the caller to allow for the use of any date separator;
+    for example, we will be able to handle inputs of Python `datetime` objects; strings
+    in the form of `''YYYYMMDD''`; or strings representing dates using any separator
+    that matches the non-digit regular expression (`\D`), such as `''YYYY|MM|DD''`
+    or `''YYYY/MM/DD''`. The separator, if there is one, gets replaced with an empty
+    string so that we can build our datetimes using the `''YYYYMMDD''` format in our
+    method. In addition, we raise a `ValueError` if the caller gives us a start date
+    equal to or after the end date:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: Note that we didn't define `_index_tickers` in the `__init__()` method, which
+    is called upon creation of this object, because we only need one copy of this
+    information for all the objects that are created from this class. The `_index_tickers`
+    class attribute is private (signified, by convention, with a preceding underscore)
+    in the sense that unless a user of this class knows the name of it, they won't
+    find it easily (note that methods can also be private). This is done with the
+    intention of protecting it (although it isn't guaranteed) and also because the
+    user doesn't need it directly (it's for the internal workings of the class). Instead,
+    we will provide a **property**, which we can access as an attribute, and a class
+    method for getting the value mapped to a given key in that dictionary.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Tip
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Class methods** are methods that can be used on the class itself, without
+    having to create an instance of the class beforehand. This contrasts with the
+    instance methods we have seen so far. **Instance methods** are used with instances
+    of a class for actions specific to that instance. We often don''t need class methods,
+    but if we have data that is shared across all instances of a class, it makes more
+    sense to create a class method rather than an instance method.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Since `_index_tickers` is private, we want to provide an easy way for users
+    of our class to see what is available. Therefore, we will create a property for
+    the keys of `_index_tickers`. To do so, we use the `@property` decorator. `@property`
+    and `@classmethod`) and write one of our own to clean up and standardize the results
+    across the methods that gather the data (`@label_sanitizer`). To use a decorator,
+    we place it above the function or method definition:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Furthermore, we provide a way of getting the ticker using a class method because
+    our tickers are stored in a class variable. Class methods, by convention, receive
+    `cls` as their first argument while instance methods receive `self`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs: []
+  type: TYPE_PRE
+- en: Tip
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'If we want to prohibit certain actions within our code, we can check for them
+    and `raise` errors as we see fit; this allows us to provide more informative error
+    messages or simply accompany specific errors with some additional actions before
+    reraising them (by using `raise` without an expression). If, instead, we wish
+    to run certain code when something goes wrong, we use a `try...except` block:
+    we surround the possibly troublesome code with `try` and put what to do if trouble
+    occurs in the `except` clause.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'When we get to the *Technical analysis of financial instruments* section, we
+    will need the risk-free rate of return to calculate some of the metrics. This
+    is the rate of return of an investment that has no risk of financial loss; in
+    practice, we use the 10-year US Treasury bill. Since this rate will depend on
+    the date range we are analyzing, we will add this functionality to the `StockReader`
+    class and avoid having to look it up ourselves. We will use the `pandas_datareader`
+    package to collect this data from the Federal Reserve Bank of St. Louis ([https://fred.stlouisfed.org/series/DGS10](https://fred.stlouisfed.org/series/DGS10)),
+    providing the option to return the daily rates for the date range we are studying
+    (to analyze the data itself) or just the last one (if we need a single value for
+    a calculation):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The remaining method code is replaced with `pass`, which tells Python to do
+    nothing (and reminds us to update it later) so that the code can function as it
+    was reproduced. We will write the following methods in the next section:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs: []
+  type: TYPE_PRE
+- en: Important note
+  prefs: []
+  type: TYPE_NORMAL
+- en: Since we aren't going to be looking at foreign exchange rates, we won't cover
+    the `get_forex_rates()` method in this chapter; however, this method provides
+    an additional example of how to use the `pandas_datareader` package, so I encourage
+    you to take a look at it. Note that, in order to use this method, you will need
+    to get a free API key from AlphaVantage at [https://www.alphavantage.co/support/#api-key](https://www.alphavantage.co/support/#api-key).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Both the `get_ticker_data()` and `get_forex_rates()` methods are decorated
+    with `@label_sanitizer`, which aligns the data we receive from various sources
+    to the same column names so that we don''t have to clean them later. The `@label_sanitizer`
+    decorator is defined in the `stock_analysis/utils.py` module. As we did previously,
+    let''s begin by looking at the docstring and imports of the `utils` module:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Next, we have the `_sanitize_label()` function, which will clean up a single
+    label. Note that we prefix the function name with an underscore because we don''t
+    intend for the users of our package to use this directly—it is for our decorator
+    to use:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Finally, we define the `@label_sanitizer` decorator, which is a function that
+    cleans up the column and index names in the data we get from the Internet. Without
+    this decorator, the column names in our collected data could have unexpected characters
+    such as asterisks or spaces in them, making them unwieldy. By using the decorator,
+    the methods will always return a dataframe with the names cleaned, saving us a
+    step:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE12]'
+  prefs: []
+  type: TYPE_PRE
+- en: Note that there is also a decorator inside the definition of the `label_sanitizer()`
+    function. The `@wraps` decorator from the `functools` module in the standard library
+    gives the decorated function/method the same docstring it had beforehand; this
+    is necessary because decoration actually creates a new function/method, thus rendering
+    `help()` pretty useless unless we intervene.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Tip
+  prefs: []
+  type: TYPE_NORMAL
+- en: Using the `@label_sanitizer` syntax is `method = label_sanitizer(method)`. However,
+    both are valid.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now that we understand decorators, we are ready to finish building the `StockReader`
+    class. Note that we will be using and creating additional decorators for the other
+    classes in the `stock_analysis` package as well, so make sure that you are comfortable
+    with them before moving on.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Collecting historical data from Yahoo! Finance
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'The foundation of our data collection will be the `get_ticker_data()` method.
+    It uses the `pandas_datareader` package to grab the data from Yahoo! Finance:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE13]'
+  prefs: []
+  type: TYPE_PRE
+- en: Important note
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'There have been issues with `pandas_datareader` and the Yahoo! Finance API
+    in the past, causing the `pandas_datareader` developers to deprecate support for
+    it via the `web.DataReader()` function ([https://pandas-datareader.readthedocs.io/en/latest/whatsnew.html#v0-6-0-january-24-2018](https://pandas-datareader.readthedocs.io/en/latest/whatsnew.html#v0-6-0-january-24-2018));
+    instead, we have to use their workaround: `web.get_data_yahoo()`.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'To collect data for a stock market index, we can use the `get_index_data()`
+    method, which first looks up the index''s ticker and then calls the `get_ticker_data()`
+    method we just defined. Note that since the `get_ticker_data()` method is decorated
+    with `@label_sanitizer`, the `get_index_data()` method doesn''t need the `@label_sanitizer`
+    decorator:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE14]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Yahoo! Finance also provides data for bitcoin; however, we must pick a currency
+    to use. The `get_bitcoin_data()` method accepts a currency code to create the
+    symbol for the search on Yahoo! Finance (for instance, BTC-USD for bitcoin data
+    in USD). The actual collection of the data is once again handled by the `get_ticker_data()`
+    method:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE15]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'At this point, the `StockReader` class is ready for use, so let''s get started
+    in the `financial_analysis.ipynb` notebook and import the `stock_analysis` package
+    that will be used for the rest of this chapter:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE16]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Python runs the `stock_analysis/__init__.py` file when we import the `stock_analysis`
+    package:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE17]'
+  prefs: []
+  type: TYPE_PRE
+- en: Important note
+  prefs: []
+  type: TYPE_NORMAL
+- en: The code in the `stock_analysis/__init__.py` file makes it easier for us to
+    access the package's classes—for example, rather than having to run `stock_analysis.stock_reader.StockReader()`,
+    we only have to run `stock_analysis.StockReader()`to create a `StockReader` object.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Next, we will create an instance of the `StockReader` class by providing the
+    start and (optionally) end dates for the data it will collect. We will work with
+    2019-2020 data. Note that when we run this code, Python is calling the `StockReader.__init__()`
+    method:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE18]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Now, we will collect the **Facebook, Apple, Amazon, Netflix, and Google** (**FAANG**),
+    S&P 500, and bitcoin data. Since all the stocks we are working with are priced
+    in USD, we will ask for the bitcoin data in USD. Note that we are using a generator
+    expression and multiple assignment to get dataframes for each FAANG stock:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE19]'
+  prefs: []
+  type: TYPE_PRE
+- en: Tip
+  prefs: []
+  type: TYPE_NORMAL
+- en: Be sure to run `help(stock_analysis.StockReader)` or `help(reader)` to see all
+    the methods and properties that are defined. The output clearly denotes which
+    methods are class methods in a different section, and the properties will be listed
+    at the bottom in the `data descriptors` section. This is an important step to
+    take in order to get familiar with new code.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Exploratory data analysis
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Now that we have our data, we want to get familiar with it. As we saw in [*Chapter
+    5*](B16834_05_Final_SK_ePub.xhtml#_idTextAnchor106), *Visualizing Data with Pandas
+    and Matplotlib* and [*Chapter 6*](B16834_06_Final_SK_ePub.xhtml#_idTextAnchor125),
+    *Plotting with Seaborn and Customization Techniques*, creating good visualizations
+    requires knowledge of `matplotlib`, and—depending on the data format and the end
+    goal for the visualization—`seaborn`. Just as we did with the `StockReader` class,
+    we want to make it easier to visualize both individual assets and groups of assets,
+    so rather than expecting users of our package (and, perhaps, our collaborators)
+    to be proficient with `matplotlib` and `seaborn`, we will create wrappers around
+    this functionality. This means that users of this package only have to be able
+    to use the `stock_analysis` package to visualize their financial data. In addition,
+    we are able to set a standard for how the visualizations look and avoid copying
+    and pasting large amounts of code for each new analysis we want to conduct, which
+    brings consistency and efficiency gains.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'To make all of this possible, we have the `Visualizer` classes in `stock_analysis/stock_visualizer.py`.
+    There are three classes in this file:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`Visualizer`: This is the base class for defining the functionality of a `Visualizer`
+    object. Most of the methods are **abstract**, meaning that the subclasses (children)
+    that inherit from this superclass (parent) will need to override them and implement
+    the code; these define what an object should do, without getting into the specifics.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`StockVisualizer`: This is the subclass we will use to visualize a single asset.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`AssetGroupVisualizer`: This is the subclass we will use to visualize multiple
+    assets using `groupby()` operations.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Before we discuss the code for these classes, let''s go over some additional
+    functions in the `stock_analysis/utils.py` file, which will help create these
+    asset groups and describe them for EDA purposes. For these functions, we need
+    to import `pandas`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE20]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The `group_stocks()` function takes in a dictionary that maps the name of the
+    asset to the dataframe for that asset and outputs a new dataframe with all the
+    data from the input dataframes and a new column, denoting which asset the data
+    belongs to:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE21]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Since we will have many methods and functions throughout the package that will
+    expect their dataframes in a specific format, we will build a new decorator: `@validate_df`.
+    This decorator checks that the input to a given method or function is an object
+    of type `DataFrame` and that it has at least the columns specified with the `columns`
+    argument of the decorator. We will provide the columns as a `set` object. This
+    allows us to check the set difference between the columns we must have and the
+    columns in the input data (see [*Chapter 4*](B16834_04_Final_SK_ePub.xhtml#_idTextAnchor082),
+    *Aggregating Pandas DataFrames*, for a review of set operations). If the dataframe
+    has the columns we request (at a minimum), the set difference will be empty, which
+    means that the dataframe passes the test. This decorator will raise a `ValueError`
+    if either of these conditions is violated.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let''s take a look at how this is defined in the `stock_analysis/utils.py`
+    file:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE22]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Groups made with the `group_stocks()` function can be described in a single
+    output using the `describe_group()` function. The `group_stocks()` function adds
+    a column called `name` that `describe_group()` looks for, so we use the `@validate_df`
+    decorator to make sure that the format is correct before trying to run the function:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE23]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Let''s use the `group_stocks()` function to make some asset groups for our
+    analysis:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE24]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Using these groups, the output of `describe()` can be much more informative
+    for comparison purposes compared to running it on each dataframe separately. The
+    `describe_group()` function handles running `describe()` with `groupby()`. This
+    makes it easier to look at the summary for the closing price across assets:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE25]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'At a glance, we can see that we have more data for bitcoin than the rest. This
+    is because the prices change daily, whereas for stocks, we only see the data for
+    trading days. Another thing we can glean from this is scale; bitcoin is not only
+    much more volatile but is much higher in value than everything else:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 7.6 – Summary statistics for the closing price per financial instrument'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/Figure_7.6_B16834.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Figure 7.6 – Summary statistics for the closing price per financial instrument
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'If we don''t want to look at the assets individually, we can combine them into
+    a portfolio, which we can treat as a single asset. The `make_portfolio()` function
+    from `stock_analysis/utils.py` groups the data by date and sums all the columns,
+    giving us the total stock price and volume traded of our portfolio:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE26]'
+  prefs: []
+  type: TYPE_PRE
+- en: This function assumes that the assets are traded on the same frequency. Bitcoin
+    trades every day of the week, while the stock market doesn't. For this reason,
+    we would have to decide how to handle this difference before using this function
+    if our portfolio was a mix of bitcoin and the stock market; consult our discussion
+    of reindexing in [*Chapter 3*](B16834_03_Final_SK_ePub.xhtml#_idTextAnchor061),
+    *Data Wrangling with Pandas*, for a possible strategy. We will use this function
+    in the exercises at the end of this chapter to build a portfolio of the FAANG
+    stocks, which all trade on the same frequency, in order to look at the effect
+    of after-hours trading on the FAANG stocks as a whole.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The Visualizer class family
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'As we learned from previous chapters, visualization will make our analysis
+    much easier, so let''s begin our discussion of the `Visualizer` classes in `stock_analysis/stock_visualizer.py`.
+    First, we will define our base class, `Visualizer`. The following UML diagram
+    tells us this is our base class because it has arrows pointing to it. These arrows
+    originate from the subclasses (`AssetGroupVisualizer` and `StockVisualizer`):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 7.7 – Visualizer class hierarchy'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/Figure_7.7_B16834.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Figure 7.7 – Visualizer class hierarchy
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*Figure 7.7* also tells us the methods we will be defining for each of the
+    classes in this section. This includes methods for visualizing the effect of after-hours
+    trading (`after_hours_trades()`) and the evolution over time of an asset''s price
+    (`evolution_over_time()`), which we will use to compare assets visually.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We start the module with our docstring and imports. For our visualizations,
+    we will need `matplotlib`, `numpy`, `pandas`, and `seaborn`, along with `mplfinance`
+    (a `matplotlib` derivative package for financial visualizations):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE27]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Next, we begin by defining the `Visualizer` class. This class will hold the
+    data it will be used to visualize, so we put this in the `__init__()` method:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE28]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'This base class will provide us with `matplotlib` function we need to call
+    for the orientation; static methods don''t depend on the class for data. We define
+    the `add_reference_line()` method for adding horizontal or vertical lines (and
+    anything in between) using the `@staticmethod` decorator; notice we don''t have
+    `self` or `cls` as the first argument:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE29]'
+  prefs: []
+  type: TYPE_PRE
+- en: Tip
+  prefs: []
+  type: TYPE_NORMAL
+- en: See the *Further reading* section for more information on class methods, static
+    methods, and abstract methods.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The `shade_region()` static method for adding shaded regions to a plot is similar
+    to the `add_reference_line()` static method:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE30]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Since we want our plotting capabilities to be flexible, we are going to define
+    a static method that will make it easy for us to plot one or many items without
+    needing to check the number of items beforehand. This will be utilized in the
+    classes we build using the `Visualizer` class as our base:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE31]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'We want to support window functions for single assets and groups of them; however,
+    the implementation of this will vary, so we will define an **abstract method**
+    (a method without implementation) in the superclass, and the subclasses will override
+    it to provide the implementation:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE32]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'This allows us to define functionality that depends on `_window_calc()` but
+    doesn''t need to know the exact implementation, just the result. The `moving_average()`
+    method uses `_window_calc()` to add moving average lines to the plot:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE33]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'In a similar fashion, we define the `exp_smoothing()` method, which will use
+    `_window_calc()` to add exponentially smoothed moving average lines to the plot:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE34]'
+  prefs: []
+  type: TYPE_PRE
+- en: Note that while we have methods for adding the moving average and the exponentially
+    smoothed moving average to a plot of a column, they both call `_window_calc()`,
+    which isn't defined here. This is because each of the subclasses will have its
+    own implementation of `_window_calc()`, while they will inherit the top-level
+    method without the need to override `moving_average()` or `exp_smoothing()`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Important note
+  prefs: []
+  type: TYPE_NORMAL
+- en: Remember that methods preceded with a single underscore (`_`) are Python's version
+    of `help()` on objects of that class. We created `_window_calc()` as a private
+    method because users of the `Visualizer` classes will only need to call `moving_average()`
+    and `exp_smoothing()`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Finally, we will add placeholders for the methods all subclasses will have.
+    These are abstract methods that will be defined by each subclass individually
+    because the implementation will be different depending on if we are visualizing
+    a single asset or a group of them. For brevity, the following is a subset of the
+    abstract methods defined in this class:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE35]'
+  prefs: []
+  type: TYPE_PRE
+- en: The subclasses will also define any methods that are unique to them and/or override
+    the implementation of the `Visualizer` class, if necessary. Anything they don't
+    override, they will inherit. By using `Visualizer` by what all `Visualizers` should
+    do and then have more specific versions, such as the `StockVisualizer` class,
+    which handles single assets only.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Visualizing a stock
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Let's start the `StockVisualizer` class by inheriting from `Visualizer`; we
+    will choose not to override the `__init__()` method because the `StockVisualizer`
+    class will only have a dataframe as an attribute. Instead, we will provide implementations
+    for the methods that need to be added (which are unique to this class) or overridden.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Important note
+  prefs: []
+  type: TYPE_NORMAL
+- en: We will only cover a subset of the functionality in the interest of brevity;
+    however, I highly encourage you to both read through the full code base and test
+    out the functionality in the notebook.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The first method we will override is `evolution_over_time()`, which will create
+    a line plot of a column over time:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE36]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Next, we will use `mplfinance` to create a **candlestick plot**, which is a
+    way to visualize the OHLC data together. Each row of the OHLC time series will
+    be plotted as a candlestick. When the candlestick is black, the asset''s closing
+    price was smaller than the opening price (it lost value); when the candlestick
+    is white, the asset''s closing price was higher than its opening price, as illustrated
+    in the following diagram:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 7.8 – Understanding a candlestick plot'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/Figure_7.8_B16834.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Figure 7.8 – Understanding a candlestick plot
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The `candlestick()` method also provides options to resample the data, show
+    volume traded, and plot a specific date range:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE37]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Now, we add the `after_hours_trades()` method, which helps us visualize the
+    effect after-hours trading had on an individual asset, with bars colored red for
+    losses and green for gains:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE38]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Next, we will add a static method that will allow us to fill the area between
+    two curves of our choosing. The `fill_between()` method will use `plt.fill_between()`
+    to color the area green or red depending on which curve is higher:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE39]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The `open_to_close()` method will help us visualize the daily differential
+    between opening and closing price via the `fill_between()` static method. We will
+    color the area green if the closing price is higher than the opening price and
+    red if the opposite is true:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE40]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'In addition to visualizing the differential between the opening and closing
+    price of an individual asset, we will want to compare prices between assets. The
+    `fill_between_other()` method will help us visualize the differential between
+    the asset we created the visualizer for and another asset, using `fill_between()`
+    again. We will color the differential green when the visualizer''s asset is higher
+    than the other asset and red for when it is lower:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE41]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The time has finally come to override the `_window_calc()` method, which defines
+    how to add reference lines based on window calculations for a single asset. Note
+    how we are able to use the `pipe()` method (introduced in [*Chapter 4*](B16834_04_Final_SK_ePub.xhtml#_idTextAnchor082),
+    *Aggregating Pandas DataFrames*) to make our window calculation plots work with
+    different functions, and the `_iter_handler()` method to make our loop work without
+    having to check if we have more than one reference line to plot:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE42]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'So far, each visualization concerned data for a single asset; however, sometimes
+    we want to be able to visualize the relationship between assets, so we will build
+    a wrapper around the `jointplot()` function from `seaborn`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE43]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Another way of viewing the relationship between assets is the correlation matrix.
+    `DataFrame` objects have a `corrwith()` method that will calculate the correlation
+    coefficient between each column and the same column (by name) in another dataframe.
+    This doesn''t fill the matrix that''s needed for a heatmap, as we saw in previous
+    chapters; rather, it is the diagonal. The `correlation_heatmap()` method creates
+    a matrix for the `sns.heatmap()` function and fills in the diagonal with the correlation
+    coefficients; then, it makes sure that only the diagonal is displayed using a
+    mask. In addition, we will use the daily percentage change of each column when
+    calculating the correlations to handle the difference in scale (for instance,
+    between Apple''s stock price and Amazon''s stock price):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE44]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Now that we understand some of the functionality available in the `StockVisualizer`
+    class, we can begin our exploratory analysis. Let''s create a `StockVisualizer`
+    object to perform some EDA on the Netflix stock data:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE45]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Once we initialize our `StockVisualizer` object with the Netflix dataframe,
+    we can generate many different plot types. We won''t go over examples of everything
+    this object lets us do (I will leave that up to you to experiment with), but let''s
+    take a look at the closing price over time with some moving averages to study
+    the trend:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE46]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'These moving averages give us a smoothed version of the stock price curve.
+    Notice that, in the shaded region, the 90-day moving average is acting like a
+    ceiling for the stock price:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 7.9 – Netflix stock price with moving averages'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/Figure_7.9_B16834.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Figure 7.9 – Netflix stock price with moving averages
+  prefs: []
+  type: TYPE_NORMAL
+- en: Traders experiment with different-period moving averages depending on the task
+    at hand, such as anticipating upside moves (increases in stock price) and making
+    planned exits before downside moves (decreases in stock price). Other uses include
+    calculating automatic **support** and **resistance** levels (which we first saw
+    in [*Chapter 6*](B16834_06_Final_SK_ePub.xhtml#_idTextAnchor125), *Plotting with
+    Seaborn and Customization Techniques*) by finding the portion of the moving average
+    line that props up the data from beneath or the one that acts as a ceiling for
+    the data, respectively. When a stock price approaches the support, the price tends
+    to be attractive enough that people buy, thus increasing the price (moving up
+    from the support toward the resistance). However, when the stock reaches the resistance,
+    it tends to encourage people to sell, bringing the stock price down (moving away
+    from the resistance and toward the support).
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*Figure 7.10* shows an example of how support (green) and resistance (red)
+    act as lower and upper bounds, respectively, for the stock price; once the price
+    hits either of these bounds, it tends to bounce back in the opposite direction
+    due to buyers/sellers of the stock taking action:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 7.10 – Example support and resistance for Netflix stock in 2018'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/Figure_7.10_B16834.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Figure 7.10 – Example support and resistance for Netflix stock in 2018
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Often, the **exponentially weighted moving average** (**EWMA**) can provide
+    a better trend since we can put additional emphasis on more recent values. Let''s
+    see how exponential smoothing looks for our data:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE47]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The 90-day EWMA appears to be acting as the support level in the shaded region:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 7.11 – Netflix stock price with EWMAs'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/Figure_7.11_B16834.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Figure 7.11 – Netflix stock price with EWMAs
+  prefs: []
+  type: TYPE_NORMAL
+- en: Tip
+  prefs: []
+  type: TYPE_NORMAL
+- en: The notebook contains a cell for interactive visualization of the moving average
+    and the EWMA using widgets. We can use these types of visualizations to determine
+    the best window for the calculations. Note that using this cell may require some
+    additional setup, but it is all noted right above the cell in the notebook.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In the exercises for [*Chapter 5*](B16834_05_Final_SK_ePub.xhtml#_idTextAnchor106),
+    *Visualizing Data with Pandas and Matplotlib*, we wrote code for generating a
+    visualization that represented the effect that after-hours trading had on Facebook;
+    the `StockVisualizer` class also has this functionality. Let''s use the `after_hours_trades()`
+    method to see how Netflix fared:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE48]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Netflix had a rough third quarter in 2019 in terms of after-hours trades:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 7.12 – Visualizing the effect of after-hours trading on Netflix stock'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/Figure_7.12_B16834.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Figure 7.12 – Visualizing the effect of after-hours trading on Netflix stock
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We can use candlestick plots to study the OHLC data. Let''s create one for
+    Netflix, along with a bar plot for volume traded, by using the `candlestick()`
+    method. We will also resample the data into 2-week intervals to improve the visibility
+    of the candlesticks:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE49]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Remember from *Figure 7.8* that when the body of the candlestick is white,
+    it means that the stock gained value. Note that, for the most part, the spikes
+    in volume traded were accompanied by increases in stock value:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 7.13 – Candlestick plot with trading volume'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/Figure_7.13_B16834.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Figure 7.13 – Candlestick plot with trading volume
+  prefs: []
+  type: TYPE_NORMAL
+- en: Tip
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Traders use candlestick plots to look for and analyze patterns in an asset''s
+    performance, which can be used to make trading decisions. Check out this article
+    for an introduction to candlestick plots and some common patterns traders look
+    for: [https://www.investopedia.com/trading/candlestick-charting-what-is-it/](https://www.investopedia.com/trading/candlestick-charting-what-is-it/).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Before moving on, we need to reset our plot styles. The `mplfinance` package
+    sets many of the available styling options for its plots, so let''s return to
+    the style we are familiar with for now:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE50]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'We have already taken a look at a stock in isolation (Facebook) in prior chapters,
+    so let''s take this in a different direction and compare Netflix to others. Let''s
+    use the `jointplot()` method to see how Netflix compares to the S&P 500:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE51]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'If we take a look at the plot, they appear to be weakly positively correlated.
+    With financial analysis, we can calculate a metric called **beta** that indicates
+    an asset''s correlation to an index, such as the S&P 500\. We will calculate beta
+    in the *Technical analysis of financial instruments* section later in this chapter:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 7.14 – Comparing Netflix to the S&P 500'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/Figure_7.14_B16834.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Figure 7.14 – Comparing Netflix to the S&P 500
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We can use the `correlation_heatmap()` method to visualize the correlations
+    between Netflix and Amazon as a heatmap, using the daily percentage change of
+    each of the columns:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE52]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Netflix and Amazon are weakly positively correlated, but only on the OHLC data:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 7.15 – Correlation heatmap between Netflix and Amazon'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/Figure_7.15_B16834.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Figure 7.15 – Correlation heatmap between Netflix and Amazon
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Lastly, we can use the `fill_between_other()` method to see how another asset
+    grew (or fell) in price compared to Netflix. We will compare Netflix to Tesla
+    here to see an example of one stock surpassing another:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE53]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Notice that the shaded region shrinks in height as it approaches the reference
+    line—this is the difference between the values in Netflix stock and Tesla stock
+    decreasing over time. On November 11, 2020, as Tesla overtakes Netflix, the shaded
+    region changes in color (from green to red) and begins to increase in height as
+    Tesla widens the gap:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 7.16 – Stock price differential between Netflix and Tesla'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/Figure_7.16_B16834.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Figure 7.16 – Stock price differential between Netflix and Tesla
+  prefs: []
+  type: TYPE_NORMAL
+- en: Up until this point, we have discussed visualizing a single asset—in this case,
+    Netflix—so let's move on and see how we can perform some EDA across asset groups
+    with the `AssetGroupVisualizer` class.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Visualizing multiple assets
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'As we did previously, we will start by inheriting from the `Visualizer` class
+    and writing our docstring. Note that the `AssetGroupVisualizer` class also keeps
+    track of the column to use for `groupby()` operations, so we override the `__init__()`
+    method; since this change was meant to be in addition to what was already there,
+    we call the `__init__()` method of the superclass as well:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE54]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Next, we define the `evolution_over_time()` method to plot the same column
+    for all the assets in the group in a single plot for comparison purposes. Since
+    our data is of a different shape, we will use `seaborn` this time:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE55]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'When using `seaborn` or only plotting a single asset, we didn''t have to worry
+    about the layout of our subplots; however, for some of the other asset group visualizations,
+    we need a way to automatically determine a reasonable subplot layout. For this,
+    we will add the `_get_layout()` method, which will generate the `Figure` and `Axes`
+    objects we need for a given number of subplots (determined by the number of unique
+    assets in the group):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE56]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Now, we need to define how `_window_calc()` will work with groups. We will
+    need to use our `_get_layout()` method to build subplots for each of the assets
+    in the group:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE57]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'We can override `after_hours_trades()` to visualize the effect of after-hours
+    trading on a group of assets using subplots and iterating over the assets in the
+    group:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE58]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'With the `StockVisualizer` class, we were able to generate a joint plot between
+    two assets'' closing prices, but here we can override `pairplot()` to allow us
+    to see the relationships between the closing prices across assets in the group:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE59]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Finally, we add the `heatmap()` method, which generates a heatmap of the correlations
+    between the closing prices of all the assets in the group:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE60]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'We can use the `heatmap()` method to see how the daily percentage change across
+    assets compares. This will handle the difference in scale between the assets (Google
+    and Amazon have much higher stock prices than Facebook and Apple, meaning that
+    gains of a few dollars mean more to Facebook and Apple):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE61]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Apple-S&P 500 and Facebook-Google have the strongest correlations, with bitcoin
+    having no correlation with anything:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 7.17 – Correlations between asset prices'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/Figure_7.17_B16834.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Figure 7.17 – Correlations between asset prices
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In the interest of brevity, rather than show all the methods for visualizing
+    an asset group, which will result in large plots, I will leave that to you to
+    view and try out in the notebook. However, let''s combine these `Visualizers`
+    to see how all of our assets evolved over time:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE62]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Note that bitcoin had huge gains to close out 2020 (check out the scale on
+    the *y*-axis), and Amazon also saw a lot of growth in 2020:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 7.18 – Evolution of asset price over time'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/Figure_7.18_B16834.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Figure 7.18 – Evolution of asset price over time
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now that we have a good feel for our data, we are ready to look at some metrics.
+    Note that, while we only looked at and used a subset of the code, I encourage
+    you to try out all the methods in the `Visualizer` classes using the notebook
+    for this chapter; the exercises will also offer an additional occasion to use
+    them.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Technical analysis of financial instruments
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: With technical analysis of assets, metrics (such as cumulative returns and volatility)
+    are calculated to compare various assets to each other. As with the previous two
+    sections in this chapter, we will be writing a module with classes to help us.
+    We will need the `StockAnalyzer` class for technical analysis of a single asset
+    and the `AssetGroupAnalyzer` class for technical analysis of a group of assets.
+    These classes are in the `stock_analysis/stock_analyzer.py` file.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'As with the other modules, we will start with our docstring and imports:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE63]'
+  prefs: []
+  type: TYPE_PRE
+- en: The StockAnalyzer class
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'For analyzing individual assets, we will build the `StockAnalyzer` class, which
+    calculates metrics for a given asset. The following UML diagram shows all the
+    metrics that it provides:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 7.19 – Structure of the StockAnalyzer class'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/Figure_7.19_B16834.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Figure 7.19 – Structure of the StockAnalyzer class
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'A `StockAnalyzer` instance will be initialized with the data for the asset
+    on which we want to perform a technical analysis. This means that our `__init__()`
+    method will need to accept the data as a parameter:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE64]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Most of the calculations for our technical analysis will rely on the closing
+    price of the stock, so rather than needing to write `self.data.close` in all of
+    our methods, we will create a property so that we can access it with `self.close`
+    instead. This makes our code cleaner and easier to follow:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE65]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'A few calculations will also need the percent change of the `close` column,
+    so we will make a property for easier access to that as well:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE66]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Since we will be calculating support and resistance levels using the **pivot
+    point**, which is the average of the high, low, and close on the last day in the
+    data, we will make a property for it, as well:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE67]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Note that we are also using other properties—`self.last_close`, `self.last_high`,
+    and `self.last_low`—which we define using the `last()` method on the data, before
+    selecting the column in question and using `iat[]` to get just the price:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE68]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Now, we have everything we need to calculate support and resistance. We will
+    be calculating each at three different levels, where the first level is the closest
+    to the closing price and the third level is the farthest. The first level will
+    therefore be the most restrictive level, and the third will be the least restrictive.
+    We define the `resistance()` method as follows, allowing the caller to specify
+    the level to calculate:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE69]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The `support()` method is defined in a similar fashion:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE70]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Next, we will work on creating methods for analyzing asset volatility. First,
+    we will calculate the daily standard deviation of the percent change in the closing
+    price, for which we will need to specify the number of trading periods. In order
+    to make sure that we can''t use more trading periods than we have in the data,
+    we will define a property with the maximum value we can use for this argument:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE71]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Now that we have our maximum, we can define the `daily_std()` method, which
+    calculates the daily standard deviation of the daily percentage change:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE72]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'While `daily_std()` is useful on its own, we can take this a step further and
+    calculate annualized volatility by multiplying the daily standard deviation by
+    the square root of the number of trading periods in the year, which we assume
+    to be 252:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE73]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'In addition, we can look at rolling volatility by using the `rolling()` method:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE74]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'We often want to compare assets, so we provide the `corr_with()` method to
+    calculate the correlations between them using daily percentage change:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE75]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Next, we define some metrics for comparing the level of dispersion of assets.
+    In [*Chapter 1*](B16834_01_Final_SK_ePub.xhtml#_idTextAnchor015), *Introduction
+    to Data Analysis*, we discussed the coefficient of variation (the `cv()` method)
+    and the quantile coefficient of dispersion (the `qcd()` method), which we can
+    use to achieve this, both of which we will add here:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE76]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'In addition, we want a way to quantify the volatility of an asset compared
+    to an index, such as the S&P 500, for which we calculate `beta()` method, which
+    allows the user to specify the index to use as a benchmark:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE77]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Next, we define a method for calculating the cumulative returns of an asset
+    as a series. This is defined as the cumulative product of one plus the percent
+    change in closing price:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE78]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The next few metrics we want to support require calculating the return of the
+    portfolio. To make things simpler, we will assume that there is no distribution
+    per share so that the return of the portfolio is the percent change from the starting
+    price to the ending price over the time period covered by the data. We will define
+    this as a static method since we will need to calculate this for an index, and
+    not just the data stored in `self.data`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE79]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'While beta allows us to compare an asset''s volatility to an index, **alpha**
+    allows us to compare the returns of the asset to those of an index. To do so,
+    we also need the risk-free rate of return, which is the rate of return of an investment
+    that has no risk of financial loss; in practice, we use US Treasury bills for
+    this. Calculating alpha requires calculating the portfolio return of the index
+    and the asset, along with beta:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE80]'
+  prefs: []
+  type: TYPE_PRE
+- en: Tip
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE81]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'We also want to add methods that will tell us whether the asset is in a **bear
+    market** or a **bull market**, meaning that it had a decline or increase in stock
+    price of 20% or more in the last 2 months, respectively:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE82]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Lastly, we will add a method for calculating the **Sharpe ratio**, which tells
+    us the return we receive in excess of the risk-free rate of return for the volatility
+    we take on with the investment:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE83]'
+  prefs: []
+  type: TYPE_PRE
+- en: Take some time to digest the code in this module as we are continuing to build
+    upon what we have discussed. We won't be using all of these metrics for our technical
+    analysis, but I encourage you to try them out in the notebook for this chapter.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The AssetGroupAnalyzer class
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: All the calculations we will work with in this section are defined on the `StockAnalyzer`
+    class; however, rather than having to run these for each of the assets we want
+    to compare, we will also create the `AssetGroupAnalyzer` class (in the same module)
+    that's capable of providing these metrics for a group of assets.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The `StockAnalyzer` and `AssetGroupAnalyzer` classes will share much of their
+    functionality, which makes a strong argument for designing them with inheritance;
+    however, sometimes—as in this case—composition can make more sense. When objects
+    contain instances of other classes, it is referred to as `AssetGroupAnalyzer`
+    class:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 7.20 – Structure of the AssetGroupAnalyzer class'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/Figure_7.20_B16834.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Figure 7.20 – Structure of the AssetGroupAnalyzer class
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We create an `AssetGroupAnalyzer` instance by providing the dataframe for the
+    assets and the name of the grouping column (if not `name`). Upon initialization,
+    the `_composition_handler()` method is called to create a dictionary of `StockAnalyzer`
+    objects (one for each asset):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE84]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The `AssetGroupAnalyzer` class has only one public method, `analyze()`—all
+    the actual calculations are delegated to the `StockAnalyzer` objects stored in
+    the `analyzers` attribute:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE85]'
+  prefs: []
+  type: TYPE_PRE
+- en: With inheritance, in this case, all the methods would have to be overridden
+    because they can't handle the `groupby()` operation. Conversely, with composition,
+    all that's necessary is to create `StockAnalyzer` objects for each asset and use
+    dictionary comprehensions for the calculations. Another neat thing is that, by
+    using `getattr()`, there is no need to mirror the methods in the `AssetGroupAnalyzer`
+    class because `analyze()` can grab the method by name using the `StockAnalyzer`
+    objects.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Comparing assets
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Let''s use the `AssetGroupAnalyzer` class to compare all the assets we have
+    collected data for. As with prior sections, we won''t use all the methods in the
+    `StockAnalyzer` class here, so be sure to try them out on your own:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE86]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Remember from [*Chapter 1*](B16834_01_Final_SK_ePub.xhtml#_idTextAnchor015),
+    *Introduction to Data Analysis*, that the **coefficient of variation** (**CV**)
+    is the ratio of the standard deviation to the mean; this helps us compare the
+    variation of asset closing prices, even though their means are of different magnitudes
+    (for instance, Amazon and Apple). The CV can also be used to compare the volatility
+    to the expected return of an investment and quantify the risk-return trade-off.
+    Let''s use the CV to see which asset''s closing price is the most widely dispersed:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE87]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'It''s probably not a surprise that bitcoin has the widest spread. Rather than
+    use the closing price, percent change daily can be used to calculate the annualized
+    volatility. This involves calculating the standard deviations of percent change
+    over the last year and multiplying it by the square root of the number of trading
+    days in the year (the code assumes 252). By using percent change, large changes
+    in price (relative to the asset''s price) will be penalized more severely. Using
+    annualized volatility, Facebook looks much more volatile compared to when we used
+    the CV (although still not the most volatile):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE88]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Given that all the assets have gained value toward the end of our dataset,
+    let''s check if any of them have entered a **bull market**, meaning that the asset''s
+    return in the last 2 months is a 20% or greater gain:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE89]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'It looks like Apple and bitcoin had quite a November and December in 2020\.
+    The other assets appear to not have fared as well; however, none of them are in
+    a bear market (we can confirm this by passing `''is_bear_market''` to `analyze()`).
+    Yet another way to analyze volatility is to compare the assets to an index by
+    calculating **beta**. Positive values greater than 1 indicate volatility higher
+    than the index, while negative values less than -1 indicate inverse relationships
+    to the index:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE90]'
+  prefs: []
+  type: TYPE_PRE
+- en: Using the betas from the previous result, we can see that Apple is the most
+    volatile compared to the S&P 500, meaning that if this was our portfolio (leaving
+    out bitcoin for the moment), adding Apple would have increased the portfolio risk.
+    However, we know that bitcoin is not correlated to the S&P 500 (see the correlation
+    heatmap in *Figure 7.17*), so this low beta is misleading.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The last metric we will take a look at is `r_f`); we typically use the return
+    of a US Treasury bill for this number. Rates can be looked up at [https://www.treasury.gov/resource-center/data-chart-center/interest-rates/pages/TextView.aspx?data=yield](https://www.treasury.gov/resource-center/data-chart-center/interest-rates/pages/TextView.aspx?data=yield);
+    alternatively, we can use our `StockReader` object (`reader`) to collect this
+    for us. Let''s compare the alphas for the assets using the S&P 500 as our index:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE91]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Everything beat the S&P 500, which essentially being a portfolio of 500 stocks
+    has lower risk and lower returns due to `Cycler` object ([https://matplotlib.org/cycler/](https://matplotlib.org/cycler/))
+    that varies the color and line styles:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE92]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Despite the struggles in early 2020, all of the assets gained value. Notice
+    that the bitcoin subplot''s *y*-axis goes from 0 to 7 (right subplot), while the
+    stock market subplot (left) covers half of that range:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 7.21 – Cumulative returns for all assets'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/Figure_7.21_B16834.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Figure 7.21 – Cumulative returns for all assets
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now that we have a good understanding of how to analyze financial instruments,
+    let's try our hand at forecasting future performance.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Modeling performance using historical data
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'The goal of this section is to give us a taste of how to build some models;
+    as such, the following examples are not meant to be the best possible model, but
+    rather a simple and relatively quick implementation for learning purposes. Once
+    again, the `stock_analysis` package has a class for this section''s task: `StockModeler`.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Important note
+  prefs: []
+  type: TYPE_NORMAL
+- en: To fully understand the statistical elements of this section and modeling in
+    general, we need a solid understanding of statistics; however, the purpose of
+    this discussion is to show how modeling techniques can be applied to financial
+    data without dwelling on the underlying mathematics.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The StockModeler class
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'The `StockModeler` class will make it easier for us to build and evaluate some
+    simple financial models without needing to interact directly with the `statsmodels`
+    package. In addition, we will reduce the number of steps that are needed to generate
+    a model with the methods we create. The following UML diagram shows that this
+    is a rather simple class. Notice that we have no attributes because `StockModeler`
+    is a **static class** (meaning that we don''t instantiate it):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 7.22 – Structure of the StockModeler class'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/Figure_7.22_B16834.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Figure 7.22 – Structure of the StockModeler class
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The `StockModeler` class is defined in `stock_analysis/stock_modeler.py` and
+    has methods for both building models and doing some preliminary analysis of their
+    performance. As usual, we start the module with our docstring and imports:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE93]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Next, we will start the `StockModeler` class and raise an error if someone
+    tries to instantiate it:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE94]'
+  prefs: []
+  type: TYPE_PRE
+- en: "One of the tasks we want this class to support is time series decomposition,\
+    \ which \Lwe discussed back in [*Chapter 1*](B16834_01_Final_SK_ePub.xhtml#_idTextAnchor015),\
+    \ *Introduction to Data Analysis*. We imported the `seasonal_decompose()` function\
+    \ from `statsmodels`, so we just have to call it on the closing price in our `decompose()`\
+    \ method:"
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE95]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Notice that we have two decorators for the `decompose()` method. The topmost
+    decorator is applied on the result of the ones below it. In this example, we have
+    the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE96]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'In addition, we want to support creating ARIMA models, which we also discussed
+    in [*Chapter 1*](B16834_01_Final_SK_ePub.xhtml#_idTextAnchor015), *Introduction
+    to Data Analysis*. ARIMA models use the *ARIMA(p, d, q)* notation, where *p* is
+    the number of time lags (or order) of the AR model, *d* is the number of past
+    values that were subtracted from the data (the I model), and *q* is the number
+    of periods used in the MA model. So, an *ARIMA(1, 1, 1)* is a model with one time
+    lag for the autoregressive portion, data differenced once, and a 1-period moving
+    average. If we have any zeros for the orders, we can eliminate those—for example,
+    *ARIMA(1, 0, 1)* is equivalent to *ARMA(1, 1)*, and *ARIMA(0, 0, 3)* is equivalent
+    to *MA(3)*. A seasonal ARIMA model is written as *ARIMA(p, d, q)(P, D, Q)*m where
+    *m* is the number of periods in the seasonal model and *P*, *D*, and *Q* are the
+    orders for the seasonal ARIMA model. The `StockModeler.arima()` method doesn''t
+    support the seasonal components (for simplicity) and takes *p*, *d*, and *q* as
+    parameters, but to avoid confusion we will name them after the ARIMA feature they
+    represent—for example, `ar` for autoregressive (*p*). In addition, we are going
+    to have our static method provide the option of fitting the model before returning
+    it:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE97]'
+  prefs: []
+  type: TYPE_PRE
+- en: Tip
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note that the method signature (`df, *, ar, i, ma, ...`) has an asterisk (`*`)
+    in it. This forces the parameters listed after it to be supplied as keyword arguments
+    when calling the method. It's a nice way to make sure that whoever uses this is
+    explicit about what they want.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'To go along with this, we want a way to evaluate the ARIMA model''s predictions,
+    so we will add the `arima_predictions()` static method. We will also provide the
+    option of getting back the predictions as a `Series` object or as a plot:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE98]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Similar to what we built for ARIMA models, we will also provide the `regression()`
+    method for building a linear regression model of the closing price with a lag
+    of 1\. For this, we will once again use `statsmodels` (in [*Chapter 9*](B16834_09_Final_SK_ePub.xhtml#_idTextAnchor188),
+    *Getting Started with Machine Learning in Python*, we will use `scikit-learn`
+    for linear regression instead):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE99]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'As with the `arima_predictions()` method, we want to provide a way to review
+    the predictions from the model, either as a `Series` object or as a plot. Unlike
+    the ARIMA model, it will only predict one value at a time. Therefore, we will
+    start our predictions on the day after the last closing price and iteratively
+    use the previous prediction to predict the next one. To handle all this, we will
+    write the `regression_predictions()` method:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE100]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Lastly, for both the ARIMA and linear regression models, we want to visualize
+    the errors in the predictions, or `resid` attribute, which will give us the residuals;
+    we simply need to plot them as a scatter plot to check their variance and a KDE
+    to check their mean. For this, we will add the `plot_residuals()` method:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE101]'
+  prefs: []
+  type: TYPE_PRE
+- en: Now, let's take the `StockModeler` class for a spin, once again using the Netflix
+    data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Time series decomposition
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'As mentioned in [*Chapter 1*](B16834_01_Final_SK_ePub.xhtml#_idTextAnchor015),
+    *Introduction to Data Analysis*, time series can be decomposed into trend, seasonal,
+    and remainder components utilizing a specified frequency. This can be achieved
+    with the `statsmodels` package, which `StockModeler.decompose()` is using:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE102]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'This returns the decomposition plot for Netflix with a frequency of 20 trading
+    days:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 7.23 – Time series decomposition of Netflix''s stock price over time'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/Figure_7.23_B16834.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Figure 7.23 – Time series decomposition of Netflix's stock price over time
+  prefs: []
+  type: TYPE_NORMAL
+- en: For more complicated models, we could decompose and then build our model around
+    the components. That is beyond the scope of this chapter, however, so let's move
+    on to ARIMA models.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ARIMA
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'As we discussed in [*Chapter 1*](B16834_01_Final_SK_ePub.xhtml#_idTextAnchor015),
+    *Introduction to Data Analysis*, ARIMA models have autoregressive, difference,
+    and moving average components. They can also be built using the `statsmodels`
+    package, which the `StockModeler.arima()` method is using; this method returns
+    a fitted ARIMA model for the stock according to the specifications provided. Here,
+    we will use the `%%capture` magic to avoid printing any warnings triggered by
+    the ARIMA model fitting, since we are making a simple model to explore functionality:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE103]'
+  prefs: []
+  type: TYPE_PRE
+- en: Tip
+  prefs: []
+  type: TYPE_NORMAL
+- en: We're picking these values because they run in a reasonable amount of time.
+    In practice, we can use the `autocorrelation_plot()` function from the `pandas.plotting`
+    module that was introduced in [*Chapter 5*](B16834_05_Final_SK_ePub.xhtml#_idTextAnchor106),
+    *Visualizing Data with Pandas and Matplotlib*, to help find a good value for `ar`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Once the model is fitted, we can obtain information on it with the model''s
+    `summary()` method:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE104]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The summary is quite extensive, and we should read the documentation when looking
+    to interpret it; however, this article is likely to be a more digestible introduction:
+    [https://medium.com/analytics-vidhya/interpreting-arma-model-results-in-statsmodels-for-absolute-beginners-a4d22253ad1c](https://medium.com/analytics-vidhya/interpreting-arma-model-results-in-statsmodels-for-absolute-beginners-a4d22253ad1c).
+    Be advised that interpreting this summary will require a solid understanding of
+    statistics:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 7.24 – Summary of our ARIMA model'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/Figure_7.24_B16834.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Figure 7.24 – Summary of our ARIMA model
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'For our purposes, a simpler way of analyzing the model is to look at the `StockModeler.plot_residuals()`
+    method helps check for this visually:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE105]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'While the residuals are centered at 0 (right subplot), they are **heteroskedastic**—note
+    how their variance appears to increase over time (left subplot):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 7.25 – Evaluating the residuals of our ARIMA model'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/Figure_7.25_B16834.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Figure 7.25 – Evaluating the residuals of our ARIMA model
+  prefs: []
+  type: TYPE_NORMAL
+- en: Tip
+  prefs: []
+  type: TYPE_NORMAL
+- en: When we looked at the model summary in *Figure 7.24*, `statsmodels` ran a statistical
+    test for heteroskedasticity using the default significance level of 0.05\. The
+    value of the test statistic is labeled **Heteroskedasticity (H)** and the p-value
+    is labeled **Prob(H) (two-sided)**. Note that the result was statistically significant
+    (the p-value was less than or equal to the significance level), meaning it's very
+    unlikely that our residuals are homoskedastic.
+  prefs: []
+  type: TYPE_NORMAL
+- en: As an alternative to building an ARIMA model, the `StockModeler` class also
+    gives us the option of using linear regression to model the closing price of a
+    financial instrument.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Linear regression with statsmodels
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'The `StockModeler.regression()` method builds a linear regression model for
+    closing price as a function of the prior day''s closing price using `statsmodels`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE106]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Once again, the `summary()` method gives us statistics on the model''s fit:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 7.26 – Summary of our linear regression model'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/Figure_7.26_B16834.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Figure 7.26 – Summary of our linear regression model
+  prefs: []
+  type: TYPE_NORMAL
+- en: Tip
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Take a look at this article for some guidance on how to interpret the summary:
+    [https://medium.com/swlh/interpreting-linear-regression-through-statsmodels-summary-4796d359035a](https://medium.com/swlh/interpreting-linear-regression-through-statsmodels-summary-4796d359035a).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The adjusted R2 makes this model look very good since it is near 1 (in [*Chapter
+    9*](B16834_09_Final_SK_ePub.xhtml#_idTextAnchor188), *Getting Started with Machine
+    Learning in Python*, we will discuss this metric further); however, we know that
+    this is simply because stock data is highly autocorrelated, so let''s look at
+    the residuals again:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE107]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'This model also suffers from heteroskedasticity:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 7.27 – Evaluating the residuals of our linear regression model'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/Figure_7.27_B16834.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Figure 7.27 – Evaluating the residuals of our linear regression model
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let's now see whether the ARIMA model or the linear regression model performs
+    better at forecasting Netflix stock's closing prices.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Comparing models
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'In order to compare our models, we need to test their predictions on some new
+    data. Let''s gather the daily closing price of Netflix stock for the first two
+    weeks in January 2021 and use the prediction methods in the `StockModeler` class
+    to visualize our model predictions versus reality:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE108]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The ARIMA model''s predictions look more in line with the pattern we would
+    expect, but, given the unpredictable nature of the stock market, both models are
+    far off from what actually happened in the first two weeks of January 2021:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 7.28 – Model predictions versus reality'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/Figure_7.28_B16834.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Figure 7.28 – Model predictions versus reality
+  prefs: []
+  type: TYPE_NORMAL
+- en: As we can see, forecasting stock performance is not easy, even for a few days.
+    There is a lot of data that is not being captured by these models, such as news
+    stories, regulations, and changes in management, to name a few. No matter how
+    well a model appears to fit, be weary of trusting predictions as these will be
+    extrapolations, and there is a lot of randomness not being accounted for.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'To further illustrate this, take a look at the following set of plots that
+    have been generated using random walks and stock data. Only one is real data,
+    but which one? The answer follows the plots, so be sure to take a guess before
+    looking:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 7.29 – Real or fake stock data?'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/Figure_7.29_B16834.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Figure 7.29 – Real or fake stock data?
+  prefs: []
+  type: TYPE_NORMAL
+- en: Each of these time series originates at the same point (Microsoft's closing
+    price on July 1, 2019), but only **A** is real stock data—**B**, **C**, and **D**
+    are all random walks. Hard (or impossible) to tell, right?
+  prefs: []
+  type: TYPE_NORMAL
+- en: Summary
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In this chapter, we saw how building Python packages for our analysis applications
+    can make it very easy for others to carry out their own analyses and reproduce
+    ours, as well as for us to create repeatable workflows for future analyses.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The `stock_analysis` package we created in this chapter contained classes for
+    gathering stock data from the Internet (`StockReader`); visualizing individual
+    assets or groups of them (`Visualizer` family); calculating metrics for single
+    assets or groups of them for comparisons (`StockAnalyzer` and `AssetGroupAnalyzer`,
+    respectively); and time series modeling with decomposition, ARIMA, and linear
+    regression (`StockModeler`). We also got our first look at using the `statsmodels`
+    package in the `StockModeler` class. This chapter showed us how the `pandas`,
+    `matplotlib`, `seaborn`, and `numpy` functionality that we've covered so far in
+    this book has come together and how these libraries can work harmoniously with
+    other packages for custom applications. I strongly encourage you to reread the
+    code in the `stock_analysis` package and test out some of the methods we didn't
+    cover in this chapter to make sure you have the concepts down.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the next chapter, we will work on another application as we learn how to
+    build a simulator for login attempts and try our hand at rule-based anomaly detection.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Exercises
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Use the `stock_analysis` package to complete the following exercises. Unless
+    otherwise noted, use data from 2019 through the end of 2020\. In case there are
+    any issues collecting the data with the `StockReader` class, backup CSV files
+    are provided in the `exercises/` directory:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Using the `StockAnalyzer` and `StockVisualizer` classes, calculate and plot
+    three levels of support and resistance for Netflix's closing price.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'With the `StockVisualizer` class, look at the effect of after-hours trading
+    on the FAANG stocks:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: a) As individual stocks
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: b) As a portfolio using the `make_portfolio()` function from the `stock_analysis.utils`
+    module
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: Using the `StockVisualizer.open_to_close()` method, create a plot that fills
+    the area between the FAANG stocks' opening price (as a portfolio) and its closing
+    price each day in red if the price declined and in green if the price increased.
+    As a bonus, do the same for a portfolio of bitcoin and the S&P 500.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Mutual funds and `AssetGroupAnalyzer` class.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Write a function that returns a dataframe of one row with columns for `alpha`,
+    `beta`, `sharpe_ratio`, `annualized_volatility`, `is_bear_market`, and `is_bull_market`,
+    which each contain the results of running the respective methods on a given stock
+    using the `StockAnalyzer` class. Dictionary comprehensions and the `getattr()`
+    function, as used in the `AssetGroupAnalyzer.analyze()` method, will be useful.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: With the `StockModeler` class, build an ARIMA model fit on the S&P 500 data
+    from January 1, 2019 through November 30, 2020 and use it to predict the performance
+    in December 2020\. Be sure to examine the residuals and compare the predicted
+    performance to the actual performance.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Request an API key for AlphaVantage ([https://www.alphavantage.co/support/#api-key](https://www.alphavantage.co/support/#api-key))
+    and collect the daily foreign exchange rate from USD to JPY using the `get_forex_rates()`
+    method on the same `StockReader` object you created to collect the data for the
+    previous exercises. Build a candlestick plot with the data from February 2019
+    through January 2020, resampled to 1-week intervals. Hint: take a look at the
+    `slice()` function from the standard library ([https://docs.python.org/3/library/functions.html#slice](https://docs.python.org/3/library/functions.html#slice))
+    in order to provide the date range.'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Further reading
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Check out the following resources for more information on the material covered
+    in this chapter:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*A guide to Python''s function decorators*: [https://www.thecodeship.com/patterns/guide-to-python-function-decorators/](https://www.thecodeship.com/patterns/guide-to-python-function-decorators/)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*Alpha*: [https://www.investopedia.com/terms/a/alpha.asp](https://www.investopedia.com/terms/a/alpha.asp)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*An Introduction to Classes and Inheritance (in Python)*: [http://www.jesshamrick.com/2011/05/18/an-introduction-to-classes-and-inheritance-in-python/](http://www.jesshamrick.com/2011/05/18/an-introduction-to-classes-and-inheritance-in-python/)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*Beta*: [https://www.investopedia.com/terms/b/beta.asp](https://www.investopedia.com/terms/b/beta.asp)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*Coefficient of Variation (CV)*: [https://www.investopedia.com/terms/c/coefficientofvariation.asp](https://www.investopedia.com/terms/c/coefficientofvariation.asp)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*Classes (Python Documentation)*: [https://docs.python.org/3/tutorial/classes.html](https://docs.python.org/3/tutorial/classes.html)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*How After-Hours Trading Affects Stock Prices*: [https://www.investopedia.com/ask/answers/05/saleafterhours.asp](https://www.investopedia.com/ask/answers/05/saleafterhours.asp)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*How to Create a Python Package*: [https://www.pythoncentral.io/how-to-create-a-python-package/](https://www.pythoncentral.io/how-to-create-a-python-package/)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*How to Create an ARIMA Model for Time Series Forecasting in Python*: [https://machinelearningmastery.com/arima-for-time-series-forecasting-with-python/](https://machinelearningmastery.com/arima-for-time-series-forecasting-with-python/)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*Linear Regression in Python using statsmodels*: [https://datatofish.com/statsmodels-linear-regression/](https://datatofish.com/statsmodels-linear-regression/)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*Object-Oriented Programming*: [https://python.swaroopch.com/oop.html](https://python.swaroopch.com/oop.html)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*Random walk*: [https://en.wikipedia.org/wiki/Random_walk](https://en.wikipedia.org/wiki/Random_walk)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*Stock Analysis*: [https://www.investopedia.com/terms/s/stock-analysis.asp](https://www.investopedia.com/terms/s/stock-analysis.asp)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*Support and Resistance Basics*: [https://www.investopedia.com/trading/support-and-resistance-basics/](https://www.investopedia.com/trading/support-and-resistance-basics/)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*Technical Analysis*: [https://www.investopedia.com/technical-analysis-4689657](https://www.investopedia.com/technical-analysis-4689657)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*The definitive guide on how to use static, class or abstract methods in Python*:
+    [https://julien.danjou.info/guide-python-static-class-abstract-methods/](https://julien.danjou.info/guide-python-static-class-abstract-methods/)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*Writing the Setup Script*: [https://docs.python.org/3/distutils/setupscript.html](https://docs.python.org/3/distutils/setupscript.html)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL

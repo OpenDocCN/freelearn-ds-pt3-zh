@@ -1,0 +1,845 @@
+- en: '18'
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Multi-Step Forecasting
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In the previous parts, we covered some basics of forecasting and different types
+    of modeling techniques for time series forecasting. However, a complete forecasting
+    system is not just the model. There are a few mechanics of time series forecasting
+    that make a lot of difference. These topics cannot be called *basics* because
+    they require a nuanced understanding of the forecasting paradigm, and that is
+    why we didn’t cover these upfront.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now that you have worked on some forecasting models and are familiar with time
+    series, it’s time to get more nuanced in our approach. Most of the forecasting
+    exercises we have done throughout the book focus on forecasting the next timestep.
+    In this chapter, we will look at strategies to generate multi-step forecasting—in
+    other words, how to forecast the next *H* timesteps. In most practical applications
+    of forecasting, we have to forecast multiple timesteps ahead, and being able to
+    handle such cases is an essential skill.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In this chapter, we will cover these main topics:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Why multi-step forecasting?
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Standard notation
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Recursive strategy
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Direct strategy
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Joint strategy
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Hybrid strategies
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: How to choose a multi-step forecasting strategy
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Why multi-step forecasting?
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: A multi-step forecasting task consists of forecasting the next *H* timesteps,
+    *y*[t][+1],…, *y*[t][+][H], of a time series, *y*[1], …, *y*[t], where *H* > 1\.
+    Most real-world applications of time series forecasting demand multi-step forecasting,
+    whether it is the energy consumption of a household or the sales of a product.
+    This is because forecasts are never created to know what will happen in the future
+    but, rather, to enable us to take action using the visibility we get.
+  prefs: []
+  type: TYPE_NORMAL
+- en: To effectively take any action, we would want to know the forecast a little
+    ahead of time. For instance, the dataset we have used throughout the book is about
+    the energy consumption of households, logged every half an hour. If the energy
+    provider wants to plan its energy production to meet customer demand, the next
+    half an hour doesn’t help at all. Similarly, if we look at the retail scenario,
+    where we want to forecast the sales of a product, we will want to forecast a few
+    days ahead so that we can purchase necessary goods, ship them to the store, and
+    so on, in time for the demand.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Despite being a more prevalent use case, multi-step forecasting has not received
+    the attention it deserves. One of the reasons for that is the existence of classical
+    statistical models or econometrics models, such as the *ARIMA* and *exponential
+    smoothing* methods, which include the multi-step strategy bundled within what
+    we call a model; because of that, these models can generate multiple timesteps
+    without breaking a sweat (although, as we will see in the chapter, they rely on
+    one specific multi-step strategy to generate their forecast). Because these models
+    were the most popular models used, practitioners didn’t need to worry about multi-step
+    forecasting strategies. However, the advent of **machine learning** (**ML**) and
+    **deep learning** (**DL**) methods for time series forecasting has opened up the
+    need for a more focused study of multi-step forecasting strategies once again.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Another reason for the lower popularity of multi-step forecasting is that it
+    is simply harder than single-step forecasting. This is because the more steps
+    we extrapolate into the future, the more uncertainty there is in the predictions,
+    due to complex interactions between the different steps ahead. Depending on the
+    strategy we choose, we will have to manage the dependencies on previous forecasts,
+    the propagation and magnification of errors, and so on.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'There are many strategies that can be used to generate multi-step forecasting,
+    and the following figure summarizes them neatly:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 17.1 – Multi-step forecasting strategies ](img/B22389_18_01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 18.1: Multi-step forecasting strategies'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Each node of the graph in *Figure 18.1* is a strategy, and different strategies
+    that have common elements have been linked together with edges in the graph. In
+    the rest of the chapter, we will cover each of these nodes (strategies) and explain
+    them in detail.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Standard notation
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Let’s establish a few basic notations to help us understand these strategies.
+    We have a time series, *Y*[T], of *T* timesteps, *y*[1], …, *y*[T]. *Y*[T] denotes
+    the same series but ending at timestep *t*. We also consider a function, *W*,
+    which generates a window of size *k* > 0 from a time series.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This function is a proxy for how we prepare the input for the different models
+    we have seen throughout the book. So if we see *W*(*Y*[t]), it means the function
+    will draw a window from *Y*[T] that ends at timestep *t*. We will also consider
+    *H* to be the forecast horizon, where *H* > 1\. We will also use ; as an operator,
+    which denotes concatenation.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now, let’s look at the different strategies (Reference *1* is a good survey
+    paper for different strategies). The discussion about merits and where we can
+    use each of them is bundled in another upcoming section.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Recursive strategy
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'The recursive strategy is the oldest, most intuitive, and most popular technique
+    to generate multi-step forecasts. To understand a strategy, there are two major
+    regimes we have to understand:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Training regime**: How is the training of the models done?'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Forecasting regime**: How are the trained models used to generate forecasts?'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Let’s take the help of a diagram to understand the recursive strategy:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 17.2 – Recursive strategy for multi-step forecasting ](img/B22389_18_02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 18.2: Recursive strategy for multi-step forecasting'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let’s discuss these regimes in detail.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Training regime
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: The recursive strategy involves training a single model to perform a *one-step-ahead*
+    forecast. We can see in *Figure 18.2* that we use the window function, *W*(*Y*[t]),
+    to draw a window from *Y*[t] and train the model to predict *Y*[t][+1].
+  prefs: []
+  type: TYPE_NORMAL
+- en: During training, a loss function (which measures the divergence between the
+    output of the model, ![](img/B22389_18_001.png), and the actual value, *Y*[t][+1])
+    is used to optimize the parameters of the model.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Forecasting regime
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: We have trained a model to do *one-step-ahead* predictions. Now, we use this
+    model in a recursive fashion to generate forecasts *H* timesteps ahead. For the
+    first step, we use *W*(*Y*[t]), the window using the latest timestamp in training
+    data, and generate the forecast one step ahead, ![](img/B22389_18_002.png). Now,
+    this generated forecast is added to the history, and a new window is drawn from
+    this history, ![](img/B22389_18_003.png). This window is given as input to the
+    same *one-step-ahead* model, and the forecast for the next timestep, ![](img/B22389_18_004.png),
+    is generated. This process is repeated until we get forecasts for all *H* timesteps.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'This is the strategy that classical models that have stood the test of time
+    (such as *ARIMA* and *exponential smoothing*) use internally when they generate
+    multi-step forecasts. In an ML context, this means that we will train a model
+    to predict one step ahead (as we have done all through this book) and then do
+    a recursive operation, where we forecast one step ahead, use the new forecast
+    to recalculate all the features such as lags, rolling windows, and so on, and
+    forecast the next step. The pseudocode for the method would be:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'In the context of the DL models, we can think of this as adding the forecast
+    to the context window and using the trained model to generate the next step. The
+    pseudocode for this would be:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: Do note that this pseudocode is not ready-to-run code but more like a skeleton
+    that you can adapt to your use case. Now, let’s look at another strategy for multi-step
+    forecasting.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Direct strategy
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'The **direct strategy**, also called the independent strategy, is a popular
+    strategy in forecasting that uses ML. This involves forecasting each horizon independently
+    of each other. Let’s look at a diagram first:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 17.3 – Direct strategy for multi-step forecasting ](img/B22389_18_03.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 18.3: Direct strategy for multi-step forecasting'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Next, let’s discuss the regimes in detail.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Training regime
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Under the direct strategy (*Figure 18.3*), we train *H* different models, which
+    take in the same window function but are trained to predict different timesteps
+    in the forecast horizon. Therefore, we learn a separate set of parameters, one
+    for each timestep in the horizon, such that all the models combined learn a direct
+    and independent mapping from the window, *W*(*Y*[t]), to the forecast horizon,
+    *H*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'This strategy has gained ground along with the popularity of ML-based time
+    series forecasting. From the ML context, we can practically implement it in two
+    ways:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Shifting targets**: Each model in the horizon is trained by shifting the
+    target by as many steps as the horizon we train the model to forecast.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Eliminating features**: Each model in the horizon is trained by using only
+    the allowable features, according to the rules. For instance, when predicting
+    *H* = 2, we can’t use lag 1 (because to predict *H* = 2, we would not have actuals
+    for *H* = 1).'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The two ways mentioned in the preceding list work nicely if we only have lags
+    as features. For instance, to eliminate features, we can just drop the offending
+    lags and train the model. But in cases where we use rolling features and other
+    more sophisticated features, simple dropping doesn’t work because lag 1 is already
+    used to calculate the rolling features. This leads to data leakage. In such scenarios,
+    we can make a dynamic function that calculates these features, taking in a parameter
+    to specify the horizon we create these features for. All the helper methods we
+    used in *Chapter 6*, *Feature Engineering for Time Series Forecasting* (`add_rolling_features`,
+    `add_seasonal_rolling_features`, and `add_ewma`), have a parameter called `n_shift`,
+    which handles this condition. If we train a model for *H* = 2, we need to pass
+    `n_shift=2`, and then the method will take care of the rest. Now, while training
+    the models, we use this dynamic method to recalculate these features for each
+    horizon separately.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Forecasting regime
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: The forecasting regime is also fairly straightforward. We have the *H*-trained
+    models, one for each timestep in the horizon, and we use *W*(*Y*[t]) to forecast
+    each of them independently.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'For ML models, this requires us to train separate models for each timestep,
+    but `MultiOutputRegressor` from `scikit-learn` makes that a bit more manageable.
+    Let’s look at some pseudocode:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: Now, it’s time to look at another strategy.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The Joint strategy
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'The previous two strategies consider a model to have a single output. This
+    is the case with most ML models; we formulate the model to predict a single scalar
+    value after taking in an array of inputs: **multiple input, single output** (**MISO**).
+    But there are some models, such as the DL models, which can be configured to give
+    us multiple output. Therefore, the joint strategy, also called **multiple input,
+    multiple output** (**MIMO**), aims to learn a single model that produces the entire
+    forecasting horizon as output:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 17.4 – Joint strategy for multi-step forecasting ](img/B22389_18_04.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 18.4: Joint strategy for multi-step forecasting'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let’s see how these regimes work.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Training regime
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: The joint strategy involves training a single multi-output model to forecast
+    all the timesteps in the horizon at once. We can see in *Figure 18.4* that we
+    use the window function, *W*(*Y*[t]), to draw a window from *Y*[t] and train the
+    model to predict *y*[t][+1],…, *y*[t][+][H]. During training, a loss function
+    that measures the divergence between all the output of the model, ![](img/B22389_18_005.png),
+    and the actual values, *y*[t][+1],…, *y*[t][+][H], is used to optimize the parameters
+    of the model.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Forecasting regime
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: The forecasting regime is also very simple. We have a trained model that is
+    able to forecast all the timesteps in the horizon, and we use *W*(*Y*[t]) to forecast
+    them at once.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This strategy is typically used in DL models where we configure the last layer
+    to output *H* scalars instead of 1.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We have already seen this strategy in action at multiple places in the book:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The tabular regression (*Chapter 13*, *Common Modeling Patterns for Time Series*)
+    paradigm can easily be extended to output the whole horizon.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: We have seen *Sequence-to-Sequence* models with a *fully connected* decoder
+    (*Chapter 13*, *Common Modeling Patterns for Time Series*) using this strategy
+    for multi-step forecasting.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: In *Chapter 14*, *Attention and Transformers for Time Series*, we used this
+    strategy to forecast using transformers.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: In *Chapter 16*, *Specialized Deep Learning Architectures for Forecasting*,
+    we saw models such as *N-BEATS*, *N-HiTS*, and *Temporal Fusion Transformer*,
+    which used this strategy to generate multi-step forecasts.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Hybrid strategies
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: The three strategies we have already covered are the three basic strategies
+    for multi-step forecasting, each with its own merits and demerits. Over the years,
+    researchers have tried to combine these as hybrid strategies that try to capture
+    the good parts of each strategy. Let’s go through a few of them here. This is
+    not a comprehensive list because there is none. Anyone with enough creativity
+    can come up with alternate strategies, but we will just cover a few that have
+    received some attention and deep study from the forecasting community.
+  prefs: []
+  type: TYPE_NORMAL
+- en: DirRec strategy
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: As the name suggests, the **DirRec** strategy is a combination of *direct* and
+    *recursive* strategies for multi-step forecasting. One of the disadvantages of
+    the direct method is that it forecasts each timestep independently and, therefore,
+    loses out on some context when predicting far into the future. To rectify this
+    shortcoming, we combine the direct and recursive methods by using the forecast
+    generated by the *n*-step-ahead model as a feature in the *n+1*-step-ahead model.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let’s look at the following diagram and solidify that understanding:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 17.5 – DirRec strategy for multi-step forecasting ](img/B22389_18_05.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 18.5: DirRec strategy for multi-step forecasting'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now, let’s see how these regimes work for the DirRec strategy.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Training regime
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: Similar to the direct strategy, the DirRec strategy (*Figure 18.5*) also has
+    *H* models for a forecasting horizon of *H*, but with a twist. We start the process
+    by using *W*(*Y*[t]) and train a model to predict one step ahead. In the recursive
+    strategy, we used this forecasted timestep in the same model to predict the next
+    timestep. But in DirRec, we train a separate model for *H* = 2, using the forecast
+    we generated in *H* = 1\. To generalize at timestep *h* < *H*, in addition to
+    *W*(*Y*[t]), we include all the forecasts generated by different models at timesteps
+    1 to *h*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Forecasting regime
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: The forecasting regime is just like the training regime, but instead of training
+    the models, we use the *H*-trained models to generate the forecasts recursively.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let’s take a look at some high-level pseudocode to solidify our understanding:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: Now, let’s learn about another innovative way of multi-step forecasting.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Iterative block-wise direct strategy
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: The **iterative block-wise direct** (**IBD**) strategy is also called the **iterative
+    multi-SVR strategy**, paying homage to the research paper that suggested this
+    (Reference *2*). The direct strategy requires *H* different models to train, and
+    that makes it difficult to scale for long-horizon forecasting.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The IBD strategy tries to tackle that shortcoming by using a block-wise iterative
+    style of forecasting:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 17.6 – IBD strategy for multi-step forecasting ](img/B22389_18_06.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 18.6: IBD strategy for multi-step forecasting'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let’s understand the training and forecasting regimes for this strategy.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Training regime
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: In the IBD strategy, we split the forecast horizon, *H*, into *R* blocks of
+    length *L*, such that *H* = *L* x *R*. Instead of training *H* direct models,
+    we train *L* direct models.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Forecasting regime
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: While forecasting (*Figure 18.6*), we use the *L*-trained models to generate
+    the forecast for the first *L* timesteps (*T* + 1 to *T* + *L*) in *H*, using
+    the window, *W*(*Y*[T]). Let’s denote this *L* forecast as *Y*[T][+][L]. Now,
+    we will use *Y*[T][+][L], along with *Y*[T], in the window function to draw a
+    new window, *W*(*Y*[T];*Y*[T][+][L]). This new window is used to generate the
+    forecast for the next *L* timesteps (*T* + *L* to *T* + 2*L*). This process is
+    repeated many times to complete the full horizon forecast.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let’s also see some high-level pseudocode for this process:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: Now, let’s move on to another creative way to hybridize different strategies.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Rectify strategy
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: The **rectify strategy** is another way we can combine direct and recursive
+    strategies. It strikes a middle ground between the two by forming a two-stage
+    training and inferencing methodology. We can see this as a model stacking approach
+    (*Chapter 9*, *Ensembling and Stacking*) but between different multi-step forecasting
+    strategies. In stage 1, we train a one-step-ahead model and generate recursive
+    forecasts using that model.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Then, in stage 2, we train direct models for the horizon using the original
+    window and features, along with the recursive prediction.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 17.7 – Rectify strategy for multi-step forecasting ](img/B22389_18_07.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 18.7: Rectify strategy for multi-step forecasting'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let’s understand how this strategy works in detail.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Training regime
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: The training happens in two steps. The recursive strategy is applied to the
+    horizon, and the forecast for all *H* timesteps is generated. Let’s call this
+    ![](img/B22389_18_006.png). Now, we train direct models for each horizon using
+    the original history, *Y*[t], and the recursive forecasts, ![](img/B22389_18_006.png),
+    as input.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Forecasting regime
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: The forecasting regime is similar to the training, where the recursive forecasts
+    are generated first, and they, along with the original history, are used to generate
+    the final forecasts.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let’s see some high-level pseudocode for this:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: Now, let’s move on to the last strategy we will cover here.
+  prefs: []
+  type: TYPE_NORMAL
+- en: RecJoint
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: True to its name, **RecJoint** is a mashup between the recursive and joint strategies,
+    but it is applicable for multi-output models. It aims to balance the benefits
+    of both by leveraging recursive forecasting, while also considering dependencies
+    between multiple timesteps in the forecast horizon.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 17.8 – RecJoint strategy for multi-step forecasting ](img/B22389_18_08.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 18.8: RecJoint strategy for multi-step forecasting'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The following sections detail how this strategy works.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Training regime
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: The training regime (*Figure 18.8*) in the RecJoint strategy is very similar
+    to the recursive strategy, in the way it trains a single model and recursively
+    uses prediction at *t* + 1 as input to train *t* + 2, and so on. But the recursive
+    strategy trains the model on just the next timestep, whereas RecJoint generates
+    the predictions for the entire horizon and jointly optimizes the entire horizon
+    forecasts while training. This forces the model to look at the next *H* timesteps
+    and jointly optimize the entire horizon, instead of the myopic one-step-ahead
+    objective. We saw this strategy at play when we trained Seq2Seq models using an
+    RNN encoder and decoder (*Chapter 13*, *Common Modeling Patterns for Time Series*).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Forecasting regime
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: The forecasting regime for RecJoint is exactly the same as for the recursive
+    strategy.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now that we understand a few strategies, let’s discuss their merits and demerits.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to choose a multi-step forecasting strategy
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Let’s summarize all the different strategies that we have learned in a table:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 17.9 – Multi-step forecasting strategies – a summary ](img/B22389_18_09.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 18.9: Multi-step forecasting strategies—a summary'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Here, the following apply:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*S.O*: Single output'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*M.O*: Multi-output'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*T*[SO] and *I*[SO]: Training and inferencing the time of a single-output model'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*T*[mO] and *I*[mO]: Training and inferencing the time of a multi-output model
+    (practically, *T*[mO] is larger than *T*[SO] mostly because multi-output models
+    are typically DL models, and their training time is higher than standard ML models)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*H*: The horizon'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*L* = *H*/*R*, where *R* is the number of blocks in the IBD strategy'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '![](img/B22389_10_002.png) is some positive real number'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'The table helps us understand and decide which strategy is better from multiple
+    perspectives:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Engineering complexity**: *Recursive*, *Joint*, *RecJoint* << *IBD* << *Direct*,
+    and *DirRec* << *Rectify*'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Training time**: *Recursive* << *Joint* (typically *T*[mO] > *T*[SO]) <<
+    *RecJoint* << *IBD* << *Direct*, and *DirRec* << *Rectify*'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Inference time**: *Joint* << *Direct*, *Recursive*, *DirRec*, *IBD*, and
+    *RecJoint* << *Rectify*'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: It also helps us to decide the kind of model we can use for each strategy. For
+    instance, a joint strategy can only be implemented with a model that supports
+    multi-output, such as a DL model. However, we have yet to discuss how these strategies
+    affect accuracies.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Although, in ML, the final word goes to empirical evidence, there are ways we
+    can analyze the different methods to provide us with some guidelines. *Taieb et
+    al.* analyzed the bias and variance of these multi-step forecasting strategies,
+    both theoretically and using simulated data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: With this analysis, along with other empirical findings over the years, we have
+    an understanding of the strengths and weaknesses of these strategies, and some
+    guidelines have emerged from these findings.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Reference check**:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The research paper by Taieb et al. is cited in Reference *3*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*Taieb et al.* point out several disadvantages of the recursive strategy, contrasting
+    with the direct strategy, based on the bias and variance components of error analysis.
+    They further corroborated these observations through an empirical study.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The key points that elucidate the difference in performance are as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: For the recursive strategy, the bias and variance components of error in step
+    *h* = 1 affect step *h* = 2\. Because of this phenomenon, the errors that a recursive
+    model makes tend to accumulate as we move further in the forecast horizon. But
+    for the direct strategy, this dependence is not explicit and, therefore, doesn’t
+    suffer the same deterioration that we see in the recursive strategy. This was
+    also seen in the empirical study, where the recursive strategy was very erratic
+    and had the highest variance, which increased significantly as we moved further
+    in the horizon.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: For the direct strategy, the bias and variance components of error in step *h*
+    = 1 do not affect *h* = 2\. This is because each horizon, *h*, is forecasted in
+    isolation. A downside of this approach is the fact that this strategy can produce
+    completely unrelated forecasts across the horizon, leading to unrealistic forecasts.
+    The complex dependencies that may exist between the forecast in the horizon are
+    not captured in the direct strategy. For instance, a direct strategy on a time
+    series with a non-linear trend may result in a broken curve because of the independence
+    of each timestep in the horizon.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Practically, in most cases, a direct strategy produces coherent forecasts.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The bias for the recursive strategy is also amplified when the forecasting model
+    produces forecasts that have large variations. Highly complex models are known
+    to have low bias but a high amount of variations, and these high variations seem
+    to amplify the bias for recursive strategy models.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: When we have very large datasets, the bias term of the direct strategy becomes
+    zero, but the recursive strategy bias is still non-zero. This was further demonstrated
+    in experiments—for long time series, the direct strategy almost always outperformed
+    the recursive strategy. From a learning theory perspective, we learn *H* functions
+    using the data for the direct strategy, whereas for recursive, we just learn one.
+    So with the same amount of data, it is harder to learn *H* true functions than
+    one. This is amplified in low-data situations.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Although the recursive strategy seems inferior to the direct strategy theoretically
+    and empirically, it is not without some advantages:'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: For highly non-linear and noisy time series, learning direct functions for all
+    the horizons can be hard. In such situations, recursive can work better.
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: If the underlying **data-generating process** (**DGP**) is very smooth and can
+    be easily approximated, the recursive strategy can work better.
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: When the time series is shorter, the recursive strategy can work better.
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: We talked about the direct strategy generating possible unrelated forecasts
+    for the horizon, but this is exactly the part that the joint strategy takes care
+    of. The joint strategy can be thought of as an extension of the direct strategy,
+    but instead of having *H* different models, we have a single model that produces
+    *H* output. We learn a single function instead of *H* functions from the given
+    data. Therefore, the joint strategy doesn’t have the same weakness as the direct
+    strategy in short time series.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: One of the weaknesses of the joint strategy (and RecJoint) is the high bias
+    on very short horizons (such as *H* = 2, *H* = 3, and so on). We learn a model
+    that optimizes across all the *H* timesteps in the horizon using a standard loss
+    function, such as the mean squared error. But these errors are at different scales.
+    The errors that can occur further down the horizon are larger than the immediate
+    ones, and this implicitly puts more weight on the longer horizons; thus, the model
+    learns a function that is skewed toward getting the longer horizons right.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The joint and RecJoint strategies are comparable from a variance perspective.
+    However, the joint strategy can give us a lower bias because the RecJoint strategy
+    learns a recursive function, and it may not be flexible enough to capture the
+    pattern. The joint strategy uses the full power of the forecasting model to directly
+    forecast the horizon.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Hybrid strategies, such as DirRec, IBD, and so on, try to balance the merits
+    and demerits of fundamental strategies, such as direct, recursive, and joint.
+    With these merits and demerits, we can create an informed experimentation framework
+    to come up with the best strategy for the problem at hand.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Summary
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In this chapter, we touched upon a particular aspect of forecasting that is
+    highly relevant for real-world use cases but rarely talked about and studied.
+    We saw why we needed multi-step forecasting and then went on to review a few popular
+    strategies we can use. We explored the popular and fundamental strategies, such
+    as direct, recursive, and joint, and then went on to look at a few hybrid strategies,
+    such as DirRec, rectify, and so on. Finally, we looked at the merits and demerits
+    of these strategies and discussed a few guidelines for selecting the right strategy
+    for your problem.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the next chapter, we will look at another important aspect of forecasting—evaluation.
+  prefs: []
+  type: TYPE_NORMAL
+- en: References
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'The following is the list of the references that we used throughout the chapter:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Taieb, S.B., Bontempi, G., Atiya, A.F., and Sorjamaa, A. (2012). *A review
+    and comparison of strategies for multi-step ahead time series forecasting based
+    on the NN5 forecasting competition*. Expert Syst. Appl., 39, 7067–7083: [https://arxiv.org/pdf/1108.3259.pdf](https://arxiv.org/pdf/1108.3259.pdf)'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Li Zhang, Wei-Da Zhou, Pei-Chann Chang, Ji-Wen Yang, and Fan-Zhang Li. (2013).
+    *Iterated time series prediction with multiple support vector regression models.*
+    Neurocomputing, Volume 99, 2013: [https://www.sciencedirect.com/science/article/pii/S0925231212005863](https://www.sciencedirect.com/science/article/pii/S0925231212005863)'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Taieb, S.B. and Atiya, A.F. (2016). *A Bias and Variance Analysis for Multistep-Ahead
+    Time Series Forecasting.* in IEEE Transactions on Neural Networks and Learning
+    Systems, vol. 27, no. 1, pp. 62–76, Jan. 2016: [https://ieeexplore.ieee.org/document/7064712](https://ieeexplore.ieee.org/document/7064712)'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Join our community on Discord
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Join our community’s Discord space for discussions with authors and other readers:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[https://packt.link/mts](https://packt.link/mts)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/QR_Code15080603222089750.png)'
+  prefs: []
+  type: TYPE_IMG

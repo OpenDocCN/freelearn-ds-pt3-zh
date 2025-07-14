@@ -1,0 +1,628 @@
+- en: '6'
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Exploratory Data Analysis
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: After loading and preparing data (covered in the previous chapter), we will
+    now go through exploratory data analysis to uncover patterns and insights in time
+    series data. We will use statistical analysis techniques, including those specific
+    to temporal patterns. The outcomes of these steps are crucial for identifying
+    trends and seasonality, informing subsequent modeling decisions. Robust exploratory
+    data analysis using Apache Spark ensures a comprehensive grasp of the dataset’s
+    characteristics, enhancing the accuracy and relevance of subsequent time series
+    models and analyses.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In this chapter, we’re going to cover the following main topics:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Statistical analysis
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Resampling, decomposition, and stationarity
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Correlation analysis
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Technical requirements
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'The hands-on coding predominant in this chapter covers the frequently used
+    data exploration techniques for a time series analysis project. The code for this
+    chapter can be found in the `ch6` folder of the book’s GitHub repository at this
+    URL: [https://github.com/PacktPublishing/Time-Series-Analysis-with-Spark/tree/main/ch6](https://github.com/PacktPublishing/Time-Series-Analysis-with-Spark/tree/main/ch6).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs: []
+  type: TYPE_NORMAL
+- en: We will use Spark DataFrames in the code examples and convert them to pandas
+    DataFrames for libraries supporting pandas. This shows how to interchangeably
+    use both. The use of pandas will be mentioned when this is the case.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Statistical analysis
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: This section starts with the statistical analysis of time series data and covers
+    data profiling to gather these statistics, distribution analysis, and visualizations.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The examples in this chapter are based on the code in `ts-spark_ch6_1.dbc`,
+    which we can import from the GitHub location for [*Chapter 6*](B18568_06.xhtml#_idTextAnchor116),
+    mentioned in the *Technical requirements* section, into Databricks Community Edition,
+    as per the approach explained in [*Chapter 1*](B18568_01.xhtml#_idTextAnchor016).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The code URL is as follows: [https://github.com/PacktPublishing/Time-Series-Analysis-with-Spark/raw/main/ch6/ts-spark_ch6_1.dbc](https://github.com/PacktPublishing/Time-Series-Analysis-with-Spark/raw/main/ch6/ts-spark_ch6_1.dbc)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We will start the hands-on examples with the household energy consumption dataset,
+    which we also used in [*Chapter 2*](B18568_02.xhtml#_idTextAnchor044) and [*Chapter
+    5*](B18568_05.xhtml#_idTextAnchor103). After loading the dataset with `spark.read`,
+    as per the following code extract, we cache the DataFrame in memory with `df.cache()`
+    to accelerate subsequent processing. Due to lazy evaluation, the caching will
+    happen on the next action and not immediately. As we want the caching to happen,
+    we have added an `df.count()` action to force this. We then create a `timestamp`
+    column combining the `Date` and `Time` columns. As the numerical columns have
+    been loaded as strings, we must convert them to the numerical `double` data type
+    to be able to do calculations. Note that we have coded the operations on the `df`
+    DataFrame in separate lines for readability. We could alternatively chain the
+    multiple operations in a single line:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: Summary Statistics
+  prefs:
+  - PREF_H4
+  type: TYPE_NORMAL
+- en: Code in cell 10
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: df.summary().display()
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: Code in cell 12
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: …
+  prefs: []
+  type: TYPE_NORMAL
+- en: profile = ProfileReport(
+  prefs: []
+  type: TYPE_NORMAL
+- en: pdf,
+  prefs: []
+  type: TYPE_NORMAL
+- en: title='Time Series Data Profiling',
+  prefs: []
+  type: TYPE_NORMAL
+- en: tsmode=True,
+  prefs: []
+  type: TYPE_NORMAL
+- en: sortby='timestamp',
+  prefs: []
+  type: TYPE_NORMAL
+- en: infer_dtypes=False,
+  prefs: []
+  type: TYPE_NORMAL
+- en: interactions=None,
+  prefs: []
+  type: TYPE_NORMAL
+- en: missing_diagrams=None,
+  prefs: []
+  type: TYPE_NORMAL
+- en: correlations={
+  prefs: []
+  type: TYPE_NORMAL
+- en: '"auto": {"calculate": False},'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '"pearson": {"calculate": True},'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '"spearman": {"calculate": True}})'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Save the profiling report to an HTML file
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: profile.to_file("time_series_data_profiling_report.html")
+  prefs: []
+  type: TYPE_NORMAL
+- en: Show the profiling report in the notebook
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: report_html = profile.to_html()
+  prefs: []
+  type: TYPE_NORMAL
+- en: displayHTML(report_html)
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: test for gaps
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Code in cell 15
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: test for gaps
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: pdf['gap_val'] = pdf['timestamp'].sort_values().diff()
+  prefs: []
+  type: TYPE_NORMAL
+- en: pdf['gap'] = pdf['gap_val'] > ps.to_timedelta('1 minute')
+  prefs: []
+  type: TYPE_NORMAL
+- en: pdf[pdf.gap]
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: Distribution Analysis
+  prefs:
+  - PREF_H4
+  type: TYPE_NORMAL
+- en: Code in cell 17
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: …
+  prefs: []
+  type: TYPE_NORMAL
+- en: Extract day and hour
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: df = df.withColumn("dayOfWeek", F.dayofweek(F.col("timestamp")))
+  prefs: []
+  type: TYPE_NORMAL
+- en: df = df.withColumn("hour", F.hour(F.col("timestamp")))
+  prefs: []
+  type: TYPE_NORMAL
+- en: …
+  prefs: []
+  type: TYPE_NORMAL
+- en: Distribution analysis using Seaborn and Matplotlib
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: …
+  prefs: []
+  type: TYPE_NORMAL
+- en: sns.histplot(pdf['Global_active_power'], kde=True, bins=30)
+  prefs: []
+  type: TYPE_NORMAL
+- en: plt.title(
+  prefs: []
+  type: TYPE_NORMAL
+- en: '''Distribution of Global_active_power in Time Series Data'''
+  prefs: []
+  type: TYPE_NORMAL
+- en: )
+  prefs: []
+  type: TYPE_NORMAL
+- en: …
+  prefs: []
+  type: TYPE_NORMAL
+- en: Boxplot to visualize the distribution per dayOfWeek
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: …
+  prefs: []
+  type: TYPE_NORMAL
+- en: sns.boxplot(x='dayOfWeek', y='Global_active_power', data=pdf)
+  prefs: []
+  type: TYPE_NORMAL
+- en: plt.title(
+  prefs: []
+  type: TYPE_NORMAL
+- en: '''Daily Distribution of Global_active_power in Time Series Data'''
+  prefs: []
+  type: TYPE_NORMAL
+- en: )
+  prefs: []
+  type: TYPE_NORMAL
+- en: …
+  prefs: []
+  type: TYPE_NORMAL
+- en: Boxplot to visualize the distribution per hour
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: …
+  prefs: []
+  type: TYPE_NORMAL
+- en: sns.boxplot(x='hour', y='Global_active_power', data=pdf)
+  prefs: []
+  type: TYPE_NORMAL
+- en: plt.title(
+  prefs: []
+  type: TYPE_NORMAL
+- en: '''Hourly Distribution of Global_active_power in Time Series Data'''
+  prefs: []
+  type: TYPE_NORMAL
+- en: )
+  prefs: []
+  type: TYPE_NORMAL
+- en: …
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: Resampling and Aggregation
+  prefs:
+  - PREF_H4
+  type: TYPE_NORMAL
+- en: Code in cell 22
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: …
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Resample data to hourly, daily and weekly frequency and aggregate by # mean'
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: hourly_resampled = pdf.resample('h').mean()
+  prefs: []
+  type: TYPE_NORMAL
+- en: hourly_resampled_s = pdf.resample('h').std()
+  prefs: []
+  type: TYPE_NORMAL
+- en: daily_resampled = pdf.resample('d').mean()
+  prefs: []
+  type: TYPE_NORMAL
+- en: daily_resampled_s = pdf.resample('d').std()
+  prefs: []
+  type: TYPE_NORMAL
+- en: weekly_resampled = pdf.resample('w').mean()
+  prefs: []
+  type: TYPE_NORMAL
+- en: weekly_resampled_s = pdf.resample('w').std()
+  prefs: []
+  type: TYPE_NORMAL
+- en: …
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: Code in cell 30
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: …
+  prefs: []
+  type: TYPE_NORMAL
+- en: from statsmodels.tsa.seasonal import seasonal_decompose
+  prefs: []
+  type: TYPE_NORMAL
+- en: Perform seasonal decomposition
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: hourly_result = seasonal_decompose(
+  prefs: []
+  type: TYPE_NORMAL
+- en: hourly_resampled['Global_active_power'])
+  prefs: []
+  type: TYPE_NORMAL
+- en: daily_result = seasonal_decompose(
+  prefs: []
+  type: TYPE_NORMAL
+- en: daily_resampled['Global_active_power'])
+  prefs: []
+  type: TYPE_NORMAL
+- en: …
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: Stationarity
+  prefs:
+  - PREF_H4
+  type: TYPE_NORMAL
+- en: Code in cell 33
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: …
+  prefs: []
+  type: TYPE_NORMAL
+- en: from statsmodels.tsa.stattools import adfuller
+  prefs: []
+  type: TYPE_NORMAL
+- en: Perform Augmented Dickey-Fuller test
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: result = adfuller(hourly_resampled)
+  prefs: []
+  type: TYPE_NORMAL
+- en: if Test statistic < Critical Value and p-value < 0.05
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '#   reject the Null hypothesis, time series does not have a unit root'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '#   series is stationary'
+  prefs: []
+  type: TYPE_NORMAL
+- en: …
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs: []
+  type: TYPE_PRE
+- en: Differencing
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: Code in cell 41
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: …
+  prefs: []
+  type: TYPE_NORMAL
+- en: from pyspark.sql.window import Window
+  prefs: []
+  type: TYPE_NORMAL
+- en: Calculate the difference (differencing)
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: window = Window.orderBy("year")
+  prefs: []
+  type: TYPE_NORMAL
+- en: df2_ = df2.withColumn(
+  prefs: []
+  type: TYPE_NORMAL
+- en: '"annual_mean_diff",'
+  prefs: []
+  type: TYPE_NORMAL
+- en: F.col("annual_mean") - F.lag(
+  prefs: []
+  type: TYPE_NORMAL
+- en: F.col("annual_mean"), 1
+  prefs: []
+  type: TYPE_NORMAL
+- en: ).over(window))
+  prefs: []
+  type: TYPE_NORMAL
+- en: …
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs: []
+  type: TYPE_PRE
+- en: Autocorrelation
+  prefs:
+  - PREF_H4
+  type: TYPE_NORMAL
+- en: Code in cell 45
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
+  prefs: []
+  type: TYPE_NORMAL
+- en: Plot Autocorrelation Function (ACF)
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: plt.figure(figsize=(12, 6))
+  prefs: []
+  type: TYPE_NORMAL
+- en: plot_acf(hourly_resampled['Global_active_power'], lags=3*24)
+  prefs: []
+  type: TYPE_NORMAL
+- en: plt.title('Autocorrelation Function (ACF)')
+  prefs: []
+  type: TYPE_NORMAL
+- en: plt.show()
+  prefs: []
+  type: TYPE_NORMAL
+- en: Plot Partial Autocorrelation Function (PACF)
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: plt.figure(figsize=(12, 6))
+  prefs: []
+  type: TYPE_NORMAL
+- en: plot_pacf(hourly_resampled['Global_active_power'], lags=3*24)
+  prefs: []
+  type: TYPE_NORMAL
+- en: plt.title('Partial Autocorrelation Function (PACF)')
+  prefs: []
+  type: TYPE_NORMAL
+- en: plt.show()
+  prefs: []
+  type: TYPE_NORMAL
+- en: …
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs: []
+  type: TYPE_PRE
+- en: Lag Analysis
+  prefs:
+  - PREF_H4
+  type: TYPE_NORMAL
+- en: Code in cell 49
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: …
+  prefs: []
+  type: TYPE_NORMAL
+- en: window = Window.orderBy("timestamp")
+  prefs: []
+  type: TYPE_NORMAL
+- en: Create lagged features
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: hourly_df = hourly_df.withColumn(
+  prefs: []
+  type: TYPE_NORMAL
+- en: '"lag1", F.lag(F.col("Global_active_power"), 1).over(window))'
+  prefs: []
+  type: TYPE_NORMAL
+- en: hourly_df = hourly_df.withColumn(
+  prefs: []
+  type: TYPE_NORMAL
+- en: '"lag2", F.lag(F.col("Global_active_power"), 2).over(window))'
+  prefs: []
+  type: TYPE_NORMAL
+- en: hourly_df = hourly_df.withColumn(
+  prefs: []
+  type: TYPE_NORMAL
+- en: '"lag12", F.lag(F.col("Global_active_power"), 12).over(window))'
+  prefs: []
+  type: TYPE_NORMAL
+- en: hourly_df = hourly_df.withColumn(
+  prefs: []
+  type: TYPE_NORMAL
+- en: '"lag24", F.lag(F.col("Global_active_power"), 24).over(window))'
+  prefs: []
+  type: TYPE_NORMAL
+- en: …
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs: []
+  type: TYPE_PRE
+- en: Code in cell 50
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: …
+  prefs: []
+  type: TYPE_NORMAL
+- en: Calculate autocorrelation for lag 1
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: df_lag1 = hourly_df.dropna(subset=["lag1"])
+  prefs: []
+  type: TYPE_NORMAL
+- en: autocorr_lag1 = df_lag1.stat.corr("Global_active_power", "lag1")
+  prefs: []
+  type: TYPE_NORMAL
+- en: …
+  prefs: []
+  type: TYPE_NORMAL
+- en: Calculate autocorrelation for lag 24
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: df_lag24 = hourly_df.dropna(subset=["lag24"])
+  prefs: []
+  type: TYPE_NORMAL
+- en: autocorr_lag24 = df_lag24.stat.corr("Global_active_power", "lag24")
+  prefs: []
+  type: TYPE_NORMAL
+- en: …
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs: []
+  type: TYPE_PRE
+- en: Cross-correlation
+  prefs:
+  - PREF_H4
+  type: TYPE_NORMAL
+- en: Code in cell 53
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: …
+  prefs: []
+  type: TYPE_NORMAL
+- en: Compute cross-correlation between value1 and value2
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: cross_corr = hourly_df.stat.corr("Global_active_power", "Voltage")
+  prefs: []
+  type: TYPE_NORMAL
+- en: …
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE12]'
+  prefs: []
+  type: TYPE_PRE
+- en: Code in cell 54
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: …
+  prefs: []
+  type: TYPE_NORMAL
+- en: from statsmodels.tsa.stattools import ccf
+  prefs: []
+  type: TYPE_NORMAL
+- en: hourly_ = hourly_resampled.iloc[:36]
+  prefs: []
+  type: TYPE_NORMAL
+- en: Calculate cross-correlation function
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: ccf_values = ccf(hourly_['Global_active_power'], hourly_['Voltage'])
+  prefs: []
+  type: TYPE_NORMAL
+- en: Plot cross-correlation function
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: plt.figure(figsize=(12, 6))
+  prefs: []
+  type: TYPE_NORMAL
+- en: plt.stem(range(len(ccf_values)),
+  prefs: []
+  type: TYPE_NORMAL
+- en: ccf_values, use_line_collection=True, markerfmt="-")
+  prefs: []
+  type: TYPE_NORMAL
+- en: plt.title('Cross-Correlation Function (CCF)')
+  prefs: []
+  type: TYPE_NORMAL
+- en: …
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE13]'
+  prefs: []
+  type: TYPE_PRE

@@ -1,0 +1,1704 @@
+- en: '4'
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: The pandas I/O System
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: So far, we have been creating our `pd.Series` and `pd.DataFrame` objects *inline*
+    with data. While this is helpful for establishing a theoretical foundation, very
+    rarely would a user do this in production code. Instead, users would use the pandas
+    I/O functions to read/write data from/to various formats.
+  prefs: []
+  type: TYPE_NORMAL
+- en: I/O, which is short for **input/output**, generally refers to the process of
+    reading from and writing to common data formats like CSV, Microsoft Excel, JSON,
+    etc. There is, of course, not just one format for data storage, and many of these
+    options represent trade-offs between performance, storage size, third-party integration,
+    accessibility, and/or ubiquity. Some formats assume well-structured, stringently
+    defined data (SQL being arguably the most extreme), whereas other formats can
+    be used to represent semi-structured data that is not restricted to being two-dimensional
+    (JSON being great example).
+  prefs: []
+  type: TYPE_NORMAL
+- en: The fact that pandas can interact with so many of these data formats is one
+    of its greatest strengths, allowing pandas to be the proverbial Swiss army knife
+    of data analysis tools. Whether you are interacting with SQL databases, a set
+    of Microsoft Excel files, HTML web pages, or a REST API endpoint that transmits
+    data via JSON, pandas is up to the task of helping you build a cohesive view of
+    all of your data. For this reason, pandas is considered a popular tool in the
+    domain of ETL.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We are going to cover the following recipes in this chapter:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: CSV – basic reading/writing
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: CSV – strategies for reading large files
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Microsoft Excel – basic reading/writing
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Microsoft Excel – finding tables in non-default locations
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Microsoft Excel – hierarchical data
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: SQL using SQLAlchemy
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: SQL using ADBC
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Apache Parquet
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: JSON
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: HTML
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Pickle
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Third party I/O libraries
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: CSV – basic reading/writing
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: CSV, which stands for *comma-separated values*, is one of the most common formats
+    for data exchange. While there is no official standard that defines what a CSV
+    file is, most developers and users would loosely consider it to be a plain text
+    file, where each line in the file represents a row of data, and within each row,
+    there are *delimiters* between each field to indicate when one record ends and
+    the next begins. The most commonly used *delimiter* is a comma (hence the name
+    *comma-separated values*), but this is not a hard requirement; it is not uncommon
+    to see CSV files that use a pipe (`|`), tilde (`~`), or backtick (`` ` ``) character
+    as the delimiter. If the delimiter character is expected to appear within a given
+    record, usually some type of quoting surrounds the individual record (or all records)
+    to allow a proper interpretation.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'For example, let’s assume a CSV file uses a pipe separator with the following
+    contents:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The first row would be read with only two columns of data, whereas the second
+    row would contain three columns of data. Assuming we wanted the records `["a|b",
+    "c"]` to appear in the second row, proper quoting would be required:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: The above rules are relatively simple and make it easy to write CSV files, but
+    that in turn makes reading CSV files much more difficult. The CSV format provides
+    no metadata (i.e., what delimiter, quoting rule, etc.), nor does it provide any
+    information about the type of data being provided (i.e., what type of data should
+    be located in column X). This puts the onus on CSV readers to figure this all
+    out on their own, which adds performance overhead and can easily lead to a misinterpretation
+    of data. Being a text-based format, CSV is also an inefficient way of storing
+    data compared to binary formats like Apache Parquet. Some of this can be offset
+    by compressing CSV files (at the cost of read/write performance), but generally,
+    CSV rates as one of the worst formats for CPU efficiency, memory usage, and losslessness.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Despite these shortcomings and more, the CSV format has been around for a long
+    time and won’t disappear any time soon, so it is beneficial to know how to read
+    and write such files with pandas.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Let’s start with a simple `pd.DataFrame`. Building on our knowledge in *Chapter
+    3,* *Data Types*, we know that the default types used by pandas are less than
+    ideal, so we are going to use `pd.DataFrame.convert_dtypes` with the `dtype_backend="numpy_nullable"`
+    argument to construct this and all of our `pd.DataFrame` objects going forward.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'To write this `pd.DataFrame` out to a CSV file, we can use the `pd.DataFrame.to_csv`
+    method. Typically, the first argument you would provide is a filename, but in
+    this example, we will use the `io.StringIO` object instead. An `io.StringIO` object
+    acts like a file but does not save anything to your disk. Instead, it manages
+    the file contents completely in memory, requiring no cleanup and leaving nothing
+    behind on your filesystem:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Now that we have a “file” with CSV data, we can use the `pd.read_csv` function
+    to read this data back in. However, by default, I/O functions in pandas will use
+    the same default data types that a `pd.DataFrame` constructor would use. To avoid
+    that, we can fortunately still use the `dtype_backend="numpy_nullable"` argument
+    with I/O read functions:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE7]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Interestingly, the `pd.read_csv` result does not exactly match the `pd.DataFrame`
+    we started with, as it includes a newly added `Unnamed: 0` column. When you call
+    `pd.DataFrame.to_csv`, it will write out both your row index and columns to the
+    CSV file. The CSV format does not allow you to store any extra metadata to indicate
+    which columns in the CSV file should map to the row index versus those that should
+    represent a column in the `pd.DataFrame`, so `pd.read_csv` assumes everything
+    to be a column.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'You can rectify this situation by letting `pd.read_csv` know that the first
+    column of data in the CSV file should form the row index with an `index_col=0`
+    argument:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE9]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Alternatively, you could avoid writing the index in the first place with the
+    `index=False` argument of `pd.DataFrame.to_csv`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE11]'
+  prefs: []
+  type: TYPE_PRE
+- en: There’s more…
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'As mentioned back at the beginning of this section, CSV files use quoting to
+    prevent any confusion between the appearance of the *delimiter* within a field
+    and its intended use – to indicate the start of a new record. Fortunately, pandas
+    handles this rather sanely by default, which we can see with some new sample data:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE12]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE13]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Now that we just have a `name` column that contains a comma, you can see that
+    pandas quotes the field to indicate that the usage of a comma is part of the data
+    itself and not a new record:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE14]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE15]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'We could have alternatively decided upon the usage of a different *delimiter*,
+    which can be toggled with the `sep=` argument:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE16]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE17]'
+  prefs: []
+  type: TYPE_PRE
+- en: We also mentioned that, while CSV files are naturally plain text, you can also
+    compress them to save storage space. The easiest way to do this is to provide
+    a filename argument with a common compression file extension, i.e., by saying
+    `df.to_csv("data.csv.zip")`. For more explicit control, you can use the `compression=`
+    argument.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'To see this in action, let’s work with a larger `pd.DataFrame`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE18]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE19]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Take note of the number of bytes used to write this out as a plain text CSV
+    file:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE20]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE21]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Using `compression="gzip"`, we can produce a file with far less storage:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE22]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE23]'
+  prefs: []
+  type: TYPE_PRE
+- en: The trade-off here is that while compressed files require less disk storage,
+    they require more work from the CPU to compress or decompress the file contents.
+  prefs: []
+  type: TYPE_NORMAL
+- en: CSV – strategies for reading large files
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Handling large CSV files can be challenging, especially when they exhaust the
+    memory of your computer. In many real-world data analysis scenarios, you might
+    encounter datasets that are too large to be processed in a single-read operation.
+    This can lead to performance bottlenecks and `MemoryError` exceptions, making
+    it difficult to proceed with your analysis. However, fear not! There are quite
+    a few levers you can pull to more efficiently try and process files.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this recipe, we will show you how you can use pandas to peek at parts of
+    your CSV file to understand what data types are being inferred. With that understanding,
+    we can instruct `pd.read_csv` to use more efficient data types, yielding far more
+    efficient memory usage.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: For this example, we will look at the *diamonds* dataset. This dataset is not
+    actually all that big for modern computers, but let’s pretend that the file is
+    a lot bigger than it is, or that the memory on our machine is limited to the point
+    where a normal `read_csv` call would yield a `MemoryError`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: To start, we will look at the first 1,000 rows from the dataset to get an idea
+    of what is in the file via `nrows=1_000`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE24]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE25]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The `pd.DataFrame.info` method should give us an idea of how much memory this
+    subset uses:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE26]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE27]'
+  prefs: []
+  type: TYPE_PRE
+- en: The exact memory usage you see may depend on your version of pandas and operating
+    system, but let’s assume that the `pd.DataFrame` we are using requires around
+    85 KB of memory. If we had 1 billion rows instead of just 1,000, that would require
+    85 GB of memory just to store this `pd.DataFrame`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'So how can we fix this situation? For starters, it is worth looking more closely
+    at the data types that have been inferred. The `price` column may be one that
+    immediately catches our attention; this was inferred to be a `pd.Int64Dtype()`,
+    but chances are that we don’t need 64 bits to store this information. Summary
+    statistics will be explored in more detail in *Chapter 5*, *Algorithms and How
+    to Apply Them* but for now, let’s just take a look at `pd.Series.describe` to
+    see what pandas can tell us about this column:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE28]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE29]'
+  prefs: []
+  type: TYPE_PRE
+- en: The minimum value is 326 and the maximum is 2,898\. Those values can both safely
+    fit into `pd.Int16Dtype()`, which would represent good memory savings compared
+    to `pd.Int64Dtype()`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let’s also take a look at some of the floating point types, starting with the
+    *carat*:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE30]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE31]'
+  prefs: []
+  type: TYPE_PRE
+- en: The values range from 0.2 to 1.27, and unless we expect to perform calculations
+    with many decimal points, the 6 to 9 digits of decimal precision that a 32-bit
+    floating point data type provides should be good enough to use here.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'For this recipe, we are going to assume that 32-bit floating point types can
+    be used across all of the other floating point types as well. One way to tell
+    `pd.read_csv` that we want to use smaller data types would be to use the `dtype=`
+    parameter, with a dictionary mapping column names to the desired types. Since
+    our `dtype=` parameter will cover all of the columns, we can also drop `dtype_backend="numpy_nullable"`,
+    as it would be superfluous:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE32]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE33]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'These steps alone will probably yield a memory usage in the ballpark of 55
+    KB, which is not a bad reduction from the 85 KB we started with! For added safety,
+    we can use the `pd.DataFrame.describe()` method to get summary statistics and
+    ensure that the two `pd.DataFrame` objects are similar. If the numbers are the
+    same for both `pd.DataFrame` objects, it is a good sign that our conversions did
+    not materially change our data:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE34]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE35]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE36]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE37]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'So far, things are looking good, but we can still do better. For starters,
+    it looks like the `cut` column has a relatively small amount of unique values:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE38]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE39]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The same can be said about the `color` column:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE40]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE41]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'As well as the `clarity` column:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE42]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE43]'
+  prefs: []
+  type: TYPE_PRE
+- en: Out of 1,000 rows sampled, there are only 5 distinct `cut` values, 7 distinct
+    `color` values, and 8 distinct `clarity` values. We consider these columns to
+    have a *low cardinality*, i.e., the number of distinct values is very low relative
+    to the number of rows.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'This makes these columns a perfect candidate for the use of categorical types.
+    However, I would advise against using `pd.CategoricalDtype()` as an argument to
+    `dtype=`, as by default it uses `np.nan` as a missing value indicator (for a refresher
+    on this caveat, you may want to revisit the *Categorical types* recipe back in
+    *Chapter 3*, *Data Types*). Instead, the best approach to convert your strings
+    to categorical types is to first read in your columns as `pd.StringDtype()`, and
+    then use `pd.DataFrame.astype` on the appropriate column(s):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE44]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE45]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'To get even more savings, we may decide that there are columns in our CSV file
+    that are just not worth reading at all. To allow pandas to skip this data and
+    save even more memory, you can use the `usecols=` parameter:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE46]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE47]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'If the preceding steps are not sufficient to create a small enough `pd.DataFrame`,
+    you might still be in luck. If you can process chunks of data at a time and do
+    not need all of it in memory, you can use the `chunksize=` parameter to control
+    the size of the chunks you would like to read from a file:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE48]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE49]'
+  prefs: []
+  type: TYPE_PRE
+- en: There’s more...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'The `usecols` parameter introduced here can also accept a callable that, when
+    evaluated against each column label encountered, should return `True` if the column
+    should be read and `False` if it should be skipped. If we only wanted to read
+    the `carat`, `cut`, `color`, and `clarity` columns, that might look something
+    like:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE50]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE51]'
+  prefs: []
+  type: TYPE_PRE
+- en: Microsoft Excel – basic reading/writing
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Microsoft Excel is an extremely popular tool for data analysis, given its ease
+    of use and ubiquity. Microsoft Excel provides a rather powerful toolkit that can
+    help to cleanse, transform, store, and visualize data, all without requiring any
+    knowledge of programming languages. Many successful analysts may consider it to
+    be the *only* tool they will ever need. Despite this, Microsoft Excel really struggles
+    with performance and scalability and, when used as a storage medium, may even
+    materially change your data in unexpected ways.
+  prefs: []
+  type: TYPE_NORMAL
+- en: If you have used Microsoft Excel before and are now picking up pandas, you will
+    find that pandas works as a complementary tool. With pandas, you will give up
+    the point-and-click usability of Microsoft Excel, but you will easily unlock performance
+    that takes you far beyond the limits of Microsoft Excel.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Before we jump into this recipe, it’s worth noting that Microsoft Excel support
+    is not shipped as part of pandas, so you will need to install third-party package(s)
+    for these recipes to work. While it is not the only choice, users are encouraged
+    to opt for installing `openpyxl`, as it works very well to read and write all
+    of the various Microsoft Excel formats. If you do not have it already, `openpyxl`
+    can be installed via:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE52]'
+  prefs: []
+  type: TYPE_PRE
+- en: How to do it
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Let’s again start with a simple `pd.DataFrame`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE53]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE54]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'You can use the `pd.DataFrame.to_excel` method to write this to a file, with
+    the first argument typically being a filename like `myfile.xlsx`, but here, we
+    will again use `io.BytesIO`, which acts like a file but stores binary data in
+    memory instead of on disk:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE55]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'For reading, reach for the `pd.read_excel` function. We will continue to use
+    `dtype_backend="numpy_nullable"` to prevent the default type inference that pandas
+    performs:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE56]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE57]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Many of the function parameters are shared with CSV. To get rid of the `Unnamed:
+    0` column above, we can either specify the `index_col=` argument:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE58]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE59]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Or choose to not write the index in the first place:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE60]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE61]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Data types can be controlled with the `dtype=` argument:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE62]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE63]'
+  prefs: []
+  type: TYPE_PRE
+- en: Microsoft Excel – finding tables in non-default locations
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In the previous recipe, Microsoft Excel – basic reading/writing, we used the
+    Microsoft Excel I/O functions without thinking about *where* within the worksheet
+    our data was. By default, pandas will read from / write to the first cell on the
+    first sheet of data, but it is not uncommon to receive Microsoft Excel files where
+    the data you want to read is located elsewhere within the document.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'For this example, we have a Microsoft Excel workbook where the very first tab,
+    **Sheet1**, is used as a cover sheet:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![A screenshot of a computer  Description automatically generated](img/B31091_04_01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 4.1: Workbook where Sheet1 contains no useful data'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The second sheet is where we have useful information:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![A screenshot of a computer](img/B31091_04_02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 4.2: Workbook where another sheet has relevant data'
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'To still be able to read this data, you can use a combination of the `sheet_name=`,
+    `skiprows=`, and `usecols=` arguments to `pd.read_excel`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE64]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE65]'
+  prefs: []
+  type: TYPE_PRE
+- en: By passing `sheet_name="the_data"`, the `pd.read_excel` function is able to
+    pinpoint the specific sheet within the Microsoft Excel file to start looking for
+    data. Alternatively, we could have used `sheet_name=1` to search by tab position.
+    After locating the correct sheet, pandas looks at the `skiprows=` argument and
+    knows to ignore rows 1–4 on the worksheet. It then looks at the `usecols=` argument
+    to select only columns C–E.
+  prefs: []
+  type: TYPE_NORMAL
+- en: There’s more…
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Instead of `usecols="C:E"`, we could have also provided the labels we wanted:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE66]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE67]'
+  prefs: []
+  type: TYPE_PRE
+- en: Passing such an argument to `usecols=` was a requirement when working with the
+    CSV format to select particular columns from a file. However, pandas provides
+    special behavior when reading Microsoft Excel files to allow strings like `"C:E"`
+    or `"C,D,E"` to refer to columns.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Microsoft Excel – hierarchical data
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: One of the major tasks with data analysis is to take very detailed information
+    and aggregate it into a summary that is easy to digest. Rather than having to
+    sift through thousands of orders, most executives at a company just want to know,
+    “What have my sales looked like in the last X quarters?”
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'With Microsoft Excel, users will commonly summarize this information in a view
+    like the one shown in *Figure 4.3*, which represents a hierarchy of `Region`/`Sub-Region`
+    along the rows and `Year`/`Quarter` along the columns:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![A screenshot of a spreadsheet](img/B31091_04_03.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 4.3: Workbook with hierarchical data – sales by Region and Quarter'
+  prefs: []
+  type: TYPE_NORMAL
+- en: While this summary does not seem too far-fetched, many analysis tools struggle
+    to properly present this type of information. Taking a traditional SQL database
+    as an example, there is no direct way to represent this `Year`/`Quarter` hierarchy
+    in a table – your only option would be to concatenate all of the hierarchy fields
+    together and produce columns like `2024`/`Q1`, `2024`/`Q2`, `2025`/`Q1` and `2025`/`Q2`.
+    While that makes it easy to select any individual column, you lose the ability
+    to easily select things like “all of 2024 sales” without additional effort.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Fortunately, pandas can handle this a lot more sanely than a SQL database can,
+    directly supporting such hierarchical relationships in both the row and column
+    index. If you recall *Chapter 2*, *Selection and Assignment*, we introduced the
+    `pd.MultiIndex`; being able to maintain those relationships allows users to efficiently
+    select from any and all levels of the hierarchies.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Upon closer inspection of *Figure 4.3*, you will see that rows 1 and 2 contain
+    the labels `Year` and `Quarter`, which can form the levels of the `pd.MultiIndex`
+    that we want in the columns of our `pd.DataFrame`. Microsoft Excel uses 1-based
+    numbering of each row, so rows `[1, 2]` translated to Python would actually be
+    `[0, 1]`; we will use this as our `header=` argument to establish that we want
+    the first two rows to form our column `pd.MultiIndex`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Switching our focus to columns A and B in Microsoft Excel, we can now see the
+    labels `Region` and `Sub-Region`, which will help us shape the `pd.MultiIndex`
+    in our rows. Back in the *CSV – basic reading/writing* section, we introduced
+    the `index_col=` argument, which can be used to tell pandas which column(s) of
+    data should actually be used to generate the row index. Columns A and B from the
+    Microsoft Excel file represent the first and second columns, so we can once again
+    use `[0, 1]` to let pandas know our intent:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE68]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE69]'
+  prefs: []
+  type: TYPE_PRE
+- en: Voila! We have successfully read in the data and maintained the hierarchical
+    nature of the rows and columns, which lets us use all of the native pandas functionality
+    to select from this data, and even answer questions like, “What does the Q2 performance
+    look like year over year for every East Sub-Region?”
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE70]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE71]'
+  prefs: []
+  type: TYPE_PRE
+- en: SQL using SQLAlchemy
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: The pandas library provides robust capabilities for interacting with SQL databases,
+    allowing you to perform data analysis directly on data stored in relational databases.
+  prefs: []
+  type: TYPE_NORMAL
+- en: There are, of course, countless databases that exist (and more are coming!),
+    each with its own features, authentication schemes, dialects, and quirks. To interact
+    with them, pandas relies on another great Python library, SQLAlchemy, which at
+    its core acts as a bridge between Python and the database world. In theory, pandas
+    can work with any database that SQLAlchemy can connect to.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'To get started, you should first install SQLAlchemy into your environment:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE72]'
+  prefs: []
+  type: TYPE_PRE
+- en: SQLAlchemy supports all major databases, like MySQL, PostgreSQL, MS SQL Server,
+    etc., but setting up and properly configuring those databases is an effort in
+    its own right, which cannot be covered within the scope of this book. To make
+    things as simple as possible, we will focus on using SQLite as our database, as
+    it requires no setup and can operate entirely within memory on your computer.
+    Once you feel comfortable experimenting with SQLite, you only need to change the
+    credentials you use to point to your target database; otherwise, all of the functionality
+    remains the same.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'The first thing we need to do is create a SQLAlchemy engine, using `sa.create_engine`.
+    The argument to this function is a URL and will be dependent upon the database
+    you are trying to connect to (see the SQLAlchemy docs for more info). For these
+    examples, we are going to use SQLite in memory:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE73]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'With the `pd.DataFrame.to_sql` method, you can take an existing `pd.DataFrame`
+    and write it to a database table. The first argument is the name of the table
+    you would like to create, with the second argument being an engine/connectable:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE74]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE75]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The `pd.read_sql` function can be used to go in the opposite direction and
+    read from a database table:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE76]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE77]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Alternatively, if you wanted something different than just a copy of the table,
+    you could pass a SQL query to `pd.read_sql`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE78]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE79]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'When a table already exists in a database, trying to write to the same table
+    again will raise an error. You can pass `if_exists="replace"` to override this
+    behavior and replace the table:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE80]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE81]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'You can also use `if_exists="append"` to add data to a table:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE82]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE83]'
+  prefs: []
+  type: TYPE_PRE
+- en: The bulk of the heavy lifting is done behind the scenes by the SQLAlchemy engine,
+    which is constructed using a URL of the form `dialect+driver://username:password@host:port/database`.
+    Not all of the fields in that URL are required – the string will depend largely
+    on the database you are using and how it is configured.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In our specific example, `sa.create_engine("sqlite:///:memory:")` creates and
+    connects to a SQLite database in the memory space of our computer. This feature
+    is specific to SQLite; instead of `:memory:`, we could have also passed a path
+    to a file on our computer like `sa.create_engine("sqlite:///tmp/adatabase.sql")`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: For more information on SQLAlchemy URLs and to get an idea of drivers to pair
+    with other databases, see the SQLAlchemy Backend-Specific URLs documentation.
+  prefs: []
+  type: TYPE_NORMAL
+- en: SQL using ADBC
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: While using SQLAlchemy to connect to databases is a viable option and has helped
+    users of pandas for many years, a new technology has emerged out of the Apache
+    Arrow project that can help scale your SQL interactions even further. This new
+    technology is called **Arrow Database Connectivity**, or **ADBC** for short. Starting
+    in version 2.2, pandas added support for using ADBC drivers to interact with databases.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Using ADBC will offer better performance and type safety when interacting with
+    SQL databases than the aforementioned SQLAlchemy-based approach can. The trade-off
+    is that SQLAlchemy has support for far more databases, so depending on your database,
+    it may be the only option. ADBC maintains a record of its Driver Implementation
+    Status; I would advise looking there first for a stable driver implementation
+    for the database you are using before falling back on SQLAlchemy.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Much like in the previous section, we will use SQLite for our database, given
+    its ease of use to set up and configure. Make sure to install the appropriate
+    ADBC Python package for SQLite:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE84]'
+  prefs: []
+  type: TYPE_PRE
+- en: How to do it
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Let’s start by importing the `dbapi` object from our SQLite ADBC driver and
+    creating some sample data:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE85]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE86]'
+  prefs: []
+  type: TYPE_PRE
+- en: The term `dbapi` is taken from the Python Database API Specification defined
+    in PEP-249, which standardizes how Python modules and libraries should be used
+    to interact with databases. Calling the `.connect` method with credentials is
+    the standardized way to open up a database connection in Python. Once again, we
+    will use an in-memory SQLite application via `dbapi.connect("file::memory:")`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'By using the `with ... as:` syntax to use a context manager in Python, we can
+    connect to a database and assign it to a variable, letting Python automatically
+    clean up the connection when the block is finished. While the connection is open
+    within our block, we can use `pd.DataFrame.to_sql` / `pd.read_sql` to write to
+    and read from the database, respectively:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE87]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE88]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'For smaller datasets, you may not see much of a difference, but the performance
+    gains of ADBC will be drastic with larger datasets. Let’s compare the time to
+    write a 10,000 by 10 `pd.DataFrame` using SQLAlchemy:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE89]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE90]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'To equivalent code using ADBC:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE91]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE92]'
+  prefs: []
+  type: TYPE_PRE
+- en: Your results will vary, depending on your data and database, but generally,
+    ADBC should perform much faster.
+  prefs: []
+  type: TYPE_NORMAL
+- en: There’s more…
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: To understand what ADBC does and why it matters, it is first worth a quick history
+    lesson in database standards and how they have evolved. Back in the 1990s, the
+    **Open Database Connectivity** (**ODBC**) and **Java Database Connectivity** (**JDBC**)
+    standards were introduced, which helped standardize how different clients could
+    talk to various databases. Before the introduction of these standards, if you
+    developed an application that needed to work with two or more different databases,
+    your application would have to speak the exact language that each database understood
+    to interact with it.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Imagine then that this application wanted to just get a listing of tables available
+    in each database. A PostgreSQL database stores this information in a table called
+    `pg_catalog.pg_tables`, whereas a SQLite database stores this in a `sqlite_schema`
+    table where `type='table'`. The application would need to be developed with this
+    particular information, and then it would need to be re-released every time a
+    database changed how it stored this information, or if an application wanted to
+    support a new database.
+  prefs: []
+  type: TYPE_NORMAL
+- en: With a standard like ODBC, the application instead just needs to communicate
+    with a driver, letting the driver know that it wants all of the tables in the
+    system. This shifts the onus of properly interacting with a database from the
+    application itself to the driver, giving the application a layer of abstraction.
+    As new databases or versions are released, the application itself no longer needs
+    to change; it simply works with a new ODBC/JDBC driver and continues to work.
+    SQLAlchemy, in fact, is just like this theoretical application; it interacts with
+    databases through either ODBC/JDBC drivers, rather than trying to manage the endless
+    array of database interactions on its own.
+  prefs: []
+  type: TYPE_NORMAL
+- en: While these standards are fantastic for many purposes, it is worth noting that
+    databases were very different in the 1990s than they are today. Many of the problems
+    that these standards tried to solve were aimed at row-oriented databases, which
+    were prevalent at the time. Column-oriented databases arrived more than a decade
+    later, and they have since come to dominate the analytics landscape. Unfortunately,
+    without a column-oriented standard for transferring data, many of these databases
+    had to retrofit a design that made them ODBC/JDBC-compatible. This allowed them
+    to work with the countless database client tools in existence today but required
+    a trade-off in performance in efficiency.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ADBC is the column-oriented specification that solves this problem. The pandas
+    library, and many similar offerings in the space, are explicitly (or at least
+    very close to) being column-oriented in their designs. When interacting with columnar
+    databases like BigQuery, Redshift, or Snowflake, having a column-oriented driver
+    to exchange information can lead to orders of magnitude better performance. Even
+    if you aren’t interacting with a column-oriented database, the ADBC driver is
+    so finely optimized toward analytics with Apache Arrow that it *still* would be
+    an upgrade over any ODBC/JDBC driver that SQLAlchemy would use.
+  prefs: []
+  type: TYPE_NORMAL
+- en: For users wanting to know more about ADBC, I recommend viewing my talk from
+    PyData NYC 2023, titled Faster SQL with pandas and Apache Arrow, on YouTube ([https://youtu.be/XhnfybpWOgA?si=RBrM7UUvpNFyct0L](https://youtu.be/XhnfybpWOgA?si=RBrM7UUvpNFyct0L)).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Apache Parquet
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'As far as a generic storage format for a `pd.DataFrame` goes, Apache Parquet
+    is the best option. Apache Parquet allows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Metadata storage – this allows the format to track data types, among other features
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Partitioning – not everything needs to be in one file
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Query support – Parquet files can be queried on disk, so you don’t have to bring
+    all data into memory
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Parallelization – reading data can be parallelized for higher throughput
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Compactness – data is compressed and stored in a highly efficient manner
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Unless you are working with legacy systems, the Apache Parquet format should
+    replace the use of CSV files in your workflows, from persisting data locally and
+    sharing with other team members to exchanging data across systems.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: The API to read/write Apache Parquet is consistent with all other pandas APIs
+    we have seen so far; for reading, there is `pd.read_parquet`, and for writing,
+    there is a `pd.DataFrame.to_parquet` method.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let’s start with some sample data and an `io.BytesIO` object:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE93]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE94]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'This is how you would write to a file handle:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE95]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'And here is how you would read from a file handle. Note that we are intentionally
+    not providing `dtype_backend="numpy_nullable"`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE96]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE97]'
+  prefs: []
+  type: TYPE_PRE
+- en: Why don’t we need the `dtype_backend=` argument with `pd.read_parquet`? Unlike
+    a format like CSV, which only stores data, the Apache Parquet format stores both
+    data and metadata. Within the metadata, Apache Parquet is able to keep track of
+    the data types in use, so whatever data type you write should be exactly what
+    you get back.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'You can test this by changing the data type of the `birth` column to a different
+    type:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE98]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE99]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Roundtripping this through the Apache Parquet format will give you back the
+    same data type you started with:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE100]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE101]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Of course, if you want to be extra-defensive, there is no harm in using `dtype_backend="numpy_nullable"`
+    here as well. We intentionally left it out at the start to showcase the power
+    of the Apache Parquet format, but if you are receiving files from other sources
+    and developers that don’t use the type system we recommended in *Chapter 3*, *Data
+    Types*, it may be helpful to make sure you work with the best types pandas has
+    to offer:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE102]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE103]'
+  prefs: []
+  type: TYPE_PRE
+- en: Another great feature of the Apache Parquet format is that it supports *partitioning*,
+    which loosens the requirement that all your data is located in a single file.
+    By being able to split data across different directories and files, partitioning
+    allows users an easy way to organize their content, while also making it easier
+    for a program to optimize which files it may or may not have to read to solve
+    an analytical query.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'There are many ways to partition your data each with practical space/time trade-offs.
+    For demonstration purposes, we are going to assume the use of *time-based partitioning*,
+    whereby individual files are generated for different time periods. With that in
+    mind, let’s work with the following data layout, where we create different directories
+    for each year and, within each year, create individual files for every quarter
+    of sales:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE104]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Each of the sample Apache Parquet files distributed with this book has already
+    been created with the pandas extension types we recommended in *Chapter 3*, *Data
+    Types* so the `pd.read_parquet` calls we make intentionally do not include the
+    `dtype_backend="numpy_nullable"` argument. Within any file, you will see that
+    we store information about the `year`, `quarter`, `region`, and overall `sales`
+    that were counted:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE105]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE106]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'If we wanted to see all of this data together, a brute-force approach would
+    involve looping over each file and accumulating the results. However, with the
+    Apache Parquet format, pandas can natively and effectively handle this. Instead
+    of passing individual file names to `pd.read_parquet`, it simply passes the path
+    to the directory:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE107]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE108]'
+  prefs: []
+  type: TYPE_PRE
+- en: Because our sample data is so small, we have no problem reading all of the data
+    into a `pd.DataFrame` first and then working with it from there. However, in production
+    deployments, you may end up working with Apache Parquet files that measure in
+    gigabytes or terabytes’ worth of storage. Attempting to read all of that data
+    into a `pd.DataFrame` may throw a `MemoryError`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Fortunately, the Apache Parquet format gives you the capability to filter records
+    on the fly as files are read. From pandas, you can enable this functionality with
+    `pd.read_parquet` by passing a `filters=` argument. The argument should be a list,
+    where each list element is a tuple, which itself contains three elements:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Column Name
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Logical Operator
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Value
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'For example, if we only wanted to read in data where our `region` column is
+    equal to the value `Europe`, we could write this as:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE109]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE110]'
+  prefs: []
+  type: TYPE_PRE
+- en: JSON
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '**JavaScript Object Notation** (**JSON**) is a common format used to transfer
+    data over the internet. The JSON specification can be found at [https://www.json.org](https://www.json.org/json-en.html).
+    Despite the name, it does not require JavaScript to read or create.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The Python standard library ships with the `json` library, which can serialize
+    and deserialize Python objects to/from JSON:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE111]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE112]'
+  prefs: []
+  type: TYPE_PRE
+- en: However, the standard library does not know how to deal with pandas objects,
+    so pandas provides its own set of I/O functions specifically for JSON.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'In the simplest form, `pd.read_json` can be used to read JSON data:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE113]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE114]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'And the `pd.DataFrame.to_json` method can be used for writing:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE115]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE116]'
+  prefs: []
+  type: TYPE_PRE
+- en: However, in practice, there are endless ways to represent tabular data in JSON.
+    Some users may want to see each row of the `pd.DataFrame` represented as a JSON
+    array, whereas other users may want to see each column shown as an array. Others
+    may want to see the row index, column index, and data listed as separate JSON
+    objects, whereas others may not care about seeing the row or column labels at
+    all.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'For these use cases and more, pandas allows you to pass an argument to `orient=`,
+    whose value dictates the layout of the JSON to be read or written:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`columns` (default): Produces JSON objects, where the key is a column label
+    and the value is another object that maps the row label to a data point.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`records`: Each row of the `pd.DataFrame` is represented as a JSON array, containing
+    objects that map column names to a data point.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`split`: Maps to `{"columns": […], "index": […], "data": […]}`. Columns/index
+    values are arrays of labels, and data contains arrays of arrays.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`index`: Similar to columns, except that the usage of row and column labels
+    as keys is reversed.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`values`: Maps the data of a `pd.DataFrame` to an array of arrays. Row/column
+    labels are dropped.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`table`: Adheres to the JSON Table Schema.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: JSON is a *lossy* format for exchanging data, so each of the orients above is
+    a trade-off between loss, verbosity, and end user requirements. `orient="table"`
+    would be the least lossy and produce the largest payload, whereas `orient="values"`
+    falls completely on the other end of that spectrum.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'To highlight the differences in each of these orients, let’s begin with a rather
+    simple `pd.DataFrame`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE117]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE118]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Passing `orient="columns"` will produce data using the pattern of `{"column":{"row":
+    value, "row": value, ...}, ...}`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE119]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE120]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'This is a rather verbose way of storing the data, as it will repeat the row
+    index labels for every column. On the plus side, pandas can do a reasonably good
+    job of reconstructing the proper `pd.DataFrame` from this `orient`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE121]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE122]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'With `orient="records"`, you end up with each row of the `pd.DataFrame` being
+    represented without its row index label, yielding a pattern of `[{"col": value,
+    "col": value, ...}, ...]`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE123]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE124]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'While this representation is more compact than `orient="columns"`, it does
+    not store any row labels, so on reconstruction, you will get back a `pd.DataFrame`
+    with a newly generated `pd.RangeIndex`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE125]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE126]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'With `orient="split"`, the row index labels, column index labels, and data
+    are all stored separately:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE127]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE128]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'This format uses a relatively lesser amount of characters than `orient="columns"`,
+    and you can still recreate a `pd.DataFrame` reasonably well, since it mirrors
+    how you would build a `pd.DataFrame` using the constructor (with arguments like
+    `pd.DataFrame(data, index=index, columns=columns)`):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE129]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE130]'
+  prefs: []
+  type: TYPE_PRE
+- en: While this is a good format when roundtripping a `pd.DataFrame`, the odds of
+    coming across this JSON format “in the wild” are much lower as compared to other
+    formats.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`orient="index"` is very similar to `orient="columns"`, but it reverses the
+    roles of the row and column labels:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE131]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE132]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Once again, you can recreate your `pd.DataFrame` reasonably well:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE133]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE134]'
+  prefs: []
+  type: TYPE_PRE
+- en: Generally, `orient="index"` will take up more space than `orient="columns"`,
+    since most `pd.DataFrame` objects use column labels that are more verbose than
+    index labels. I would only advise using this format in the possibly rare instances
+    where your column labels are less verbose, or if you have strict formatting requirements
+    imposed by another system.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'For the most minimalistic representation, you can opt for `orient="values"`.
+    With this `orient`, neither row nor column labels are preserved:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE135]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE136]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Of course, since they are not represented in the JSON data, you will not maintain
+    row/column labels when reading with `orient="values"`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE137]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE138]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Finally, we have `orient="table"`. This will be the most verbose out of all
+    of the outputs, but it is the only one backed by an actual standard, which is
+    called the JSON Table Schema:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE139]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE140]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The Table Schema is more verbose because it stores metadata about the data
+    being serialized, similar to what we saw with the Apache Parquet format (although
+    with fewer features than Apache Parquet). With all of the other `orient=` arguments,
+    pandas would have to infer the type of data as it is being read, but the JSON
+    Table Format preserves that information for you. As such, you don’t even need
+    the `dtype_backend="numpy_nullable"` argument, assuming you used the pandas extension
+    types to begin with:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE141]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE142]'
+  prefs: []
+  type: TYPE_PRE
+- en: There’s more...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: When attempting to read JSON, you may find that none of the above formats can
+    still sufficiently express what you are trying to accomplish. Fortunately, there
+    is still `pd.json_normalize`, which can act as a workhorse function to convert
+    your JSON data into a tabular format.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Imagine working with the following JSON data from a theoretical REST API with
+    pagination:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE143]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'While the `"pagination"` key is useful for navigating the API, it is of little
+    reporting value to us and can trip up the JSON serializers. What we actually care
+    about is the array associated with the `"records"` key. You can direct `pd.json_normalize`
+    to look at this data exclusively, using the `record_path=` argument. Please note
+    that `pd.json_normalize` is not a true I/O function, since it deals with Python
+    objects and not file handles, so it has no `dtype_backend=` argument; instead,
+    we will chain in a `pd.DataFrame.convert_dtypes` call to get the desired pandas
+    extension types:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE144]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE145]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'By providing the `record_path=` argument, we were able to ignore the undesired
+    `"pagination"` key, but unfortunately, we now have the side effect of dropping
+    the `"type"` key, which contained valuable metadata about each record. To preserve
+    this information, you can use the `meta=` argument:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE146]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE147]'
+  prefs: []
+  type: TYPE_PRE
+- en: HTML
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: You can use pandas to read HTML tables from websites. This makes it easy to
+    ingest tables such as those found on Wikipedia.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In this recipe, we will scrape tables from the Wikipedia entry for *The Beatles
+    Discography* ([https://en.wikipedia.org/wiki/The_Beatles_discography](https://en.wikipedia.org/wiki/The_Beatles_discography)).
+    In particular, we want to scrape the table in the image that was on Wikipedia
+    in 2024:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![A screenshot of a chart](img/B31091_04_04.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 4.4: Wikipedia page for The Beatles Discography'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Before attempting to read HTML, users will need to install a third-party library.
+    For the examples in this section, we will use `lxml`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE148]'
+  prefs: []
+  type: TYPE_PRE
+- en: How to do it
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: '`pd.read_html` allows you to read a table from a website:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE149]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE150]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Contrary to the other I/O methods we have seen so far, `pd.read_html` doesn’t
+    return a `pd.DataFrame` but, instead, returns a list of `pd.DataFrame` objects.
+    Let’s see what the first list element looks like:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE151]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE152]'
+  prefs: []
+  type: TYPE_PRE
+- en: The preceding table is a summary of the count of studio albums, live albums,
+    compilation albums, and so on. This is not the table we wanted. We could loop
+    through each of the tables that `pd.read_html` created, or we could give it a
+    hint to find a specific table.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'One way of getting the table we want would be to leverage the `attrs=` argument
+    of `pd.read_html`. This parameter accepts a dictionary mapping HTML attributes
+    to values. Because an `id` attribute in HTML is supposed to be unique within a
+    document, trying to find a table with `attrs={"id": ...}` is usually a safe approach.
+    Let’s see if we can get that to work here.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Use your web browser to inspect the HTML of the web page (if you are unsure
+    how to do this, search online for terms like *Firefox inspector*, *Safari Web
+    Inspector*, or *Google Chrome DevTools*; the terminology is unfortunately not
+    standardized). Look for any `id` fields, unique strings, or attributes of the
+    table element that help us identify the table we are after.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Here is a portion of the raw HTML:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE153]'
+  prefs: []
+  type: TYPE_PRE
+- en: Unfortunately, the table we are looking for does *not* have an `id` attribute.
+    We could try using either the `class` or `style` attributes we see in the HTML
+    snippet above, but chances are those won’t be unique.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Another parameter we can try is `match=`, which can be a string or a regular
+    expression and matches against the table contents. In the `<caption>` tag of the
+    above HTML, you will see the text `"List of studio albums"`; let’s try that as
+    an argument. To help readability, we are just going to look at each Album and
+    its performance in the UK, AUS, and CAN:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE154]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE155]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'While we are able to now find the table, the column names are less than ideal.
+    If you look closely at the Wikipedia table, you will notice that it partially
+    creates a hierarchy between the `Peak chart positions` text and the name of countries
+    below it, which pandas turns into a `pd.MultiIndex`. To make our table easier
+    to read, we can pass `header=1` to ignore the very first level of the generated
+    `pd.MultiIndex`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE156]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE157]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'As we look closer at the data, we can see that Wikipedia uses `—` to represent
+    missing values. If we pass this as an argument to the `na_values=` parameter of
+    `pd.read_html`, we will see the `=—=` values converted to missing values:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE158]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE159]'
+  prefs: []
+  type: TYPE_PRE
+- en: Pickle
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: The pickle format is Python’s built-in serialization format. Pickle files typically
+    end with a `.pkl` extension.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Unlike other formats encountered so far, the pickle format should not be used
+    to transfer data across machines. The main use case is for saving pandas objects
+    *that themselves contain Python objects* to your own machine, returning to them
+    at a later point in time. If you are unsure if you should be using this format
+    or not, I would advise trying the Apache Parquet format first, which covers a
+    wider array of use cases.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Do not load pickle files from untrusted sources**. I would generally only
+    advise using pickle for your own analyses; do not share data or expect to receive
+    data from others in the pickle format.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'To highlight that the pickle format should really only be used when your pandas
+    objects contain Python objects, let’s imagine we decided to store our Beatles
+    data as a `pd.Series` of `namedtuple` types. It is a fair question as to *why*
+    you would do this in the first place, as it would be better represented as a `pd.DataFrame`…
+    but questions aside, it is valid to do so:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE160]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE161]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'None of the other I/O methods we have discussed in this chapter would be able
+    to faithfully represent a `namedtuple`, which is purely a Python construct. `pd.Series.to_pickle`,
+    however, has no problem writing this out:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE162]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'When you call `pd.read_pickle`, you will get the exact representation you started
+    with returned:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE163]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE164]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'You can further validate this by inspecting an individual element:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE165]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE166]'
+  prefs: []
+  type: TYPE_PRE
+- en: Once again, it is worth stressing that the Apache Parquet format should be preferred
+    to pickle, only using this as a last resort when Python-specific objects within
+    your `pd.Series` or `pd.DataFrame` need to be roundtripped. Be sure to **never
+    load pickle files from untrusted sources**; unless you created the pickle file
+    yourself, I would highly advise against trying to process it.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Third-party I/O libraries
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: While pandas covers an impressive amount of formats it cannot hope to cover
+    *every* important format out there. Third-party libraries exist to cover that
+    gap.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Here are a few you may be interested in – the details of how they work are
+    outside the scope of this book, but they all generally follow the pattern of having
+    read functions that return `pd.DataFrame` objects and write methods that accept
+    a `pd.DataFrame` argument:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: pandas-gbq allows you to exchange data with Google BigQuery
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: AWS SDK for pandas works with Redshift and the AWS ecosystem at large
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Snowflake Connector for Python helps exchange with Snowflake databases
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'pantab lets you move `pd.DataFrame` objects in and out of Tableau’s Hyper database
+    format (note: I am also the author of pantab)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Join our community on Discord
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Join our community’s Discord space for discussions with the authors and other
+    readers:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[https://packt.link/pandas](https://packt.link/pandas)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/QR_Code5040900042138312.png)'
+  prefs: []
+  type: TYPE_IMG

@@ -1,0 +1,1723 @@
+- en: '3'
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Data Types
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: The data type of a `pd.Series` allows you to dictate what kind of elements may
+    or may not be stored. Data types are important for ensuring data quality, as well
+    as enabling high-performance algorithms in your code. If you have a data background
+    working with databases, you more than likely are already familiar with data types
+    and their benefits; you will find types like `TEXT`, `INTEGER`, and `DOUBLE PRECISION`
+    in pandas just like you do in a database, albeit under different names.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Unlike a database, however, pandas offers multiple implementations of how a
+    `TEXT`, `INTEGER`, and `DOUBLE PRECISION` type can work. Unfortunately, this means,
+    as an end user, that you should at least have some understanding of how the different
+    data types are implemented to make the best choice for your application.
+  prefs: []
+  type: TYPE_NORMAL
+- en: A quick history lesson on types in pandas can help explain this usability quirk.
+    Originally, pandas was built on top of the NumPy type system. This worked for
+    quite a while but had major shortcomings. For starters, the NumPy types pandas
+    built on top of did not support missing values, so pandas created a Frankenstein’s
+    monster of methods to support those. NumPy, being focused on *numerical* computations,
+    also did not offer a first-class string data type, leading to very poor string
+    handling in pandas.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Work to move past the NumPy type system started with pandas version 0.23, which
+    introduced new data types built directly into pandas that were still implemented
+    using NumPy but could actually handle missing values. In version 1.0, pandas implemented
+    its own string data type. At the time, these were called `numpy_nullable` data
+    types, but over time, they have become referred to as pandas extension types.
+  prefs: []
+  type: TYPE_NORMAL
+- en: While all of this was going on, Wes McKinney, the original creator of pandas,
+    was working on the Apache Arrow project. Fully explaining the Arrow project is
+    beyond the scope of this book, but one of the major things it helps with is to
+    define a set of standardized data types that can be used from different tools
+    and programming languages. Those data types also draw inspiration from databases;
+    if using a database has already been a part of your analytics journey, then the
+    Arrow types will likely be very familiar to you. Starting with version 2.0, pandas
+    allows you to use Arrow for your data types.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Despite support for pandas extension and Arrow data types, the default types
+    from pandas were never changed, and in most cases still use NumPy. In the author’s
+    opinion, this is very unfortunate; this chapter will introduce a rather opinionated
+    take on how to best manage the type landscape, with the general guidance of the
+    following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Use pandas extension types, when available
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Use Arrow data types, when pandas extension types do not suffice
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Use NumPy-backed data types
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: This guidance may be controversial and can be scrutinized in extreme examples,
+    but, for someone just starting with pandas, I believe this prioritization gives
+    users the best balance of usability and performance, without requiring a deep
+    understanding of how pandas works behind the scenes.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The general layout of this chapter will introduce the pandas extension system
+    for general use, before diving into the Arrow-type system for more advanced use
+    cases. As we walk through these types, we will also highlight any special behavior
+    that can be unlocked using *accessors*. Finally, we will talk about the historical
+    NumPy-backed data types and take a deep dive into some of their fatal flaws, which
+    I hope will convince you as to why you should limit your use of these types.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We are going to cover the following recipes in this chapter:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Integral types
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Floating point types
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Boolean types
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: String types
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Missing value handling
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Categorical types
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Temporal types – datetime
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Temporal types – timedelta
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Temporal PyArrow types
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: PyArrow List types
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: PyArrow decimal types
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: NumPy type system, the object type, and pitfalls
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Integral types
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Integral types are the most basic type category. Much like the `int` type in
+    Python or the `INTEGER` data type in a database, these can only represent whole
+    numbers. Despite this limitation, integers are useful in a wide variety of applications,
+    including but not limited to arithmetic, indexing, counting, and enumeration.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Integral types are heavily optimized for performance, tracing all the way from
+    pandas down to the hardware on your computer. The integral types offered by pandas
+    are significantly faster than the `int` type offered by the Python standard library,
+    and proper usage of integral types is often a key enabler to high-performance,
+    scalable reporting.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Any valid sequence of integers can be passed as an argument to the `pd.Series`
+    constructor. Paired with the `dtype=pd.Int64Dtype()` argument you will end up
+    with a 64-bit integer data type:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'When storage and compute resources are not a concern, users often opt for 64-bit
+    integers, but we could have also picked a smaller data type in our example:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'With respect to missing values, pandas uses the `pd.NA` sentinel as its indicator,
+    much like a database uses `NULL`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'As a convenience, the `pd.Series` constructor will convert Python `None` values
+    into `pd.NA` for you:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE7]'
+  prefs: []
+  type: TYPE_PRE
+- en: There’s more…
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: For users new to scientific computing, it is important to know that unlike Python’s
+    `int`, which has no theoretical size limit, integers in pandas have lower and
+    upper bounds. These limits are determined by the *width* and *signedness* of the
+    integer.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In most computing environments, users have integer widths of 8, 16, 32, and
+    64\. Signedness can be either *signed* (i.e., the number can be positive or negative)
+    or *unsigned* (i.e., the number must not be negative). Limits for each integral
+    type are summarized in the following table:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '| **Type** | **Lower Bound** | **Upper Bound** |'
+  prefs: []
+  type: TYPE_TB
+- en: '| --- | --- | --- |'
+  prefs: []
+  type: TYPE_TB
+- en: '| 8-bit width, signed | -128 | 127 |'
+  prefs: []
+  type: TYPE_TB
+- en: '| 8-bit width, unsigned | 0 | 255 |'
+  prefs: []
+  type: TYPE_TB
+- en: '| 16-bit width, signed | -32769 | 32767 |'
+  prefs: []
+  type: TYPE_TB
+- en: '| 16-bit width, unsigned | 0 | 65535 |'
+  prefs: []
+  type: TYPE_TB
+- en: '| 32-bit width, signed | -2147483648 | 2147483647 |'
+  prefs: []
+  type: TYPE_TB
+- en: '| 32-bit width, unsigned | 0 | 4294967295 |'
+  prefs: []
+  type: TYPE_TB
+- en: '| 64-bit width, signed | -(2**63) | 2**63-1 |'
+  prefs: []
+  type: TYPE_TB
+- en: '| 64-bit width, unsigned | 0 | 2**64-1 |'
+  prefs: []
+  type: TYPE_TB
+- en: 'Table 3.1: Integral limits per signedness and width'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The trade-off in these types is capacity versus memory usage – a 64-bit integral
+    type requires 8x as much memory as an 8-bit integral type. Whether or not this
+    is an issue depends entirely on the size of your dataset and the system on which
+    you perform your analysis.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Within the pandas extension type system, the `dtype=` argument for each of
+    these follows the `pd.IntXXDtype()` form for signed integers and `pd.UIntXXDtype()`
+    for unsigned integers, where `XX` refers to the bit width:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE9]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE10]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE11]'
+  prefs: []
+  type: TYPE_PRE
+- en: Floating point types
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Floating point types allow you to represent real numbers, not just integers.
+    This allows you to work with a continuous and *theoretically* infinite set of
+    values within your computations. It may come as no surprise that floating point
+    calculations show up in almost every scientific computation, macro-financial analysis,
+    machine learning algorithm, and so on.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The emphasis on the word *theoretically*, however, is intentional and very important
+    to understand. Floating point types still have boundaries, with real limitations
+    being imposed by your computer hardware. In essence, the notion of being able
+    to represent any number is an illusion. Floating point types are liable to lose
+    precision and introduce rounding errors, especially as you work with more extreme
+    values. As such, floating point types are not suitable when you need absolute
+    precision (for that, you will want to reference the PyArrow decimal types introduced
+    later in this chapter).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Despite those limitations, it is rare that you actually would need absolute
+    precision, so floating point types are the most commonly used data type to represent
+    fractional numbers in general.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'To construct floating point data, use `dtype=pd.Float64Dtype()`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE12]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE13]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Much like we saw with the integral types, the missing value indicator is `pd.NA`.
+    The Python object `None` will be implicitly converted to this as a convenience:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE14]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE15]'
+  prefs: []
+  type: TYPE_PRE
+- en: There’s more…
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: By nature of their design, floating point values are *inexact*, and arithmetic
+    with floating point values is slower than with integers. A deep dive into floating
+    point arithmetic is beyond the scope of this book, but those interested can find
+    much more information in the Python documentation.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Python has a built-in `float` type that is somewhat of a misnomer because it
+    is actually an IEEE 754 `double`. That standard and other languages like C/C++
+    have distinct `float` and `double` types, with the former occupying 32 bits and
+    the latter occupying 64 bits. To disambiguate these widths but stay consistent
+    with Python terminology, pandas offers `pd.Float64Dtype()` (which some may consider
+    a `double`) and `pd.Float32Dtype()` (which some may consider a `float`).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Generally, unless your system is constrained on resources, users are recommended
+    to use 64-bit floating point types. The odds of losing precision with 32-bit floating
+    point types are much higher than with their respective 64-bit counterparts. In
+    fact, 32-bit floats only offer between 6 and 9 decimal digits of precision, so
+    the following expression will likely return `True` for equality comparison, even
+    though we as humans can very clearly see the numbers are not the same:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE16]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE17]'
+  prefs: []
+  type: TYPE_PRE
+- en: With a 64-bit floating point, you would at least get between 15 and 17 decimal
+    digits of precision, so the values at which rounding errors occur are much more
+    extreme.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Boolean types
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: A Boolean type represents a value that is either `True` or `False`. Boolean
+    data types are useful to simply answer questions with a yes/no style of response
+    and are also widely used in machine learning algorithms to convert categorical
+    values into 1s and 0s (for `True` and `False`, respectively) that a computer can
+    more easily digest (see also the *One-hot encoding with pd.get_dummies* recipe
+    in *Chapter 5*, *Algorithms and How to Apply Them*).
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'For Boolean, the appropriate `dtype=` argument is `pd.BooleanDtype`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE18]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE19]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The pandas library will take care of implicitly converting values to their
+    Boolean representation for you. Often, 0 and 1 are used in place of `False` and
+    `True`, respectively:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE20]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE21]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Once again, `pd.NA` is the canonical missing indicator, although pandas will
+    implicitly convert `None` to a missing value:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE22]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE23]'
+  prefs: []
+  type: TYPE_PRE
+- en: String types
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: The string data type is the appropriate choice for any data that represents
+    text. Unless you are working in a purely scientific domain, chances are that strings
+    will be prevalent throughout the data that you use.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this recipe, we will highlight some of the additional features pandas provides
+    when working with string data, most notably through the `pd.Series.str` accessor.
+    This accessor helps to change cases, extract substrings, match patterns, and more.
+  prefs: []
+  type: TYPE_NORMAL
+- en: As a technical note, before we jump into the recipe, strings starting in pandas
+    3.0 will be significantly overhauled behind the scenes, enabling an implementation
+    that is more type-correct, much faster, and requires far less memory than what
+    was available in the pandas 2.x series. To make this possible in 3.0 and beyond,
+    users are highly encouraged to install PyArrow alongside their pandas installation.
+    For users looking for an authoritative reference on the why and how of strings
+    in pandas 3.0, you may reference the PDEP-14 dedicated string data type.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'String data should be constructed with `dtype=pd.StringDtype()`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE24]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE25]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'You have probably picked up by now that `pd.NA` is the missing indicator to
+    use, but pandas will convert `None` implicitly for you:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE26]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE27]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'When working with a `pd.Series` containing string data, pandas will create
+    what it refers to as the string *accessor* to help you unlock new methods that
+    are tailored to strings. The string accessor is used via `pd.Series.str`, and
+    helps you do things like report back the length of each string via `pd.Series.str.len`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE28]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE29]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'It may also be used to force everything to a particular case, like uppercase:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE30]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE31]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'It may also be used to force everything to lowercase:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE32]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE33]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'And even “title case” (i.e., the first letter only is capitalized, with everything
+    else lower):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE34]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE35]'
+  prefs: []
+  type: TYPE_PRE
+- en: '`pd.Series.str.contains` can be used to check for simple string containment:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE36]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE37]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'But it also has the flexibility to test for regular expressions with `regex=True`,
+    akin to how `re.search` works in the standard library. The `case=False` argument
+    will also turn the matching into a case-insensitive comparison:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE38]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE39]'
+  prefs: []
+  type: TYPE_PRE
+- en: Missing value handling
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Before we continue with more data types, we must step back and talk about how
+    pandas handles missing values. So far, things have been simple (we have only seen
+    `pd.NA`), but as we explore more types we will see that the way pandas handles
+    missing values is inconsistent, owing mostly to the history of how the library
+    was developed. While it would be great to wave a magic wand and make any inconsistencies
+    go away, in reality, they have existed and will continue to exist in production
+    code bases for years to come. Having a high-level understanding of that evolution
+    will help you write better pandas code, and hopefully convert the unaware to using
+    the idioms we preach in this book.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: The pandas library was originally built on top of NumPy, whose default data
+    types do not support missing values. As such, pandas had to build its own missing
+    value handling solution from scratch, and, for better or worse, decided that using
+    the `np.nan` sentinel, which represents “not a number,” was useful enough to build
+    off of.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`np.nan` itself is an implementation of the IEEE 754 standard’s “not a number”
+    sentinel, a specification that only really had to do with floating point arithmetic.
+    There is no such thing as “not a number” for integral data, which is why pandas
+    implicitly converts a `pd.Series` like this:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE40]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE41]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'To a floating point data type after assigning a missing value:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE42]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE43]'
+  prefs: []
+  type: TYPE_PRE
+- en: As we discussed back in the *Floating point types* recipe, floating point values
+    are slower than their integral counterparts. While integers can be expressed with
+    8- and 16-bit widths, floating point types require 32 bits at a minimum. Even
+    if you are using 32-bit width integers, using a 32-bit floating point value may
+    not be viable without loss of precision, and with 64-bit integers, conversion
+    simply may just have to lose precision. Generally, with a conversion from integral
+    to floating point types, you have to sacrifice some combination of performance,
+    memory usage, and/or precision, so such conversions are not ideal.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Of course, pandas offers more than just integral and floating point types, so
+    other types had to have custom missing value solutions attached to them. The default
+    Boolean type gets converted to an `object` type, whose pitfalls will be explored
+    in a recipe toward the end of this chapter. For datetime types, which we will
+    discuss soon, pandas had to create a different `pd.NaT` sentinel altogether, as
+    `np.nan` was technically not a feasible value to use for that data type. In essence,
+    each data type in pandas could have its own indicator and implicit casting rules,
+    which are hard to explain for beginners and seasoned pandas developers alike.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The pandas library tried to solve these issues with the introduction of the
+    *pandas extension types* back in the 0.24 release, and as we have seen with the
+    recipes introduced so far, they do a good job of using just `pd.NA` without any
+    implicit type conversion when missing values appear. However, the *pandas extension
+    types* were introduced as opt-in types instead of being the default, so the custom
+    solutions pandas developed to deal with missing values are still prevalent in
+    code. Without having ever rectified these inconsistencies, it is unfortunately
+    up to the user to understand the data types they choose and how different data
+    types handle missing values.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Despite the inconsistencies, pandas fortunately offers a `pd.isna` function
+    that can tell you whether an element in your array is missing or not. This works
+    with the default data types:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE44]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE45]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'It works just as well as it works with the *pandas extension types*:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE46]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE47]'
+  prefs: []
+  type: TYPE_PRE
+- en: There’s more…
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Users should be aware that comparisons with `np.nan` and `pd.NA` do not behave
+    in the same manner. For instance, `np.nan == np.nan` returns `False`, whereas
+    `pd.NA == pd.NA` returns `pd.NA`. The former comparison is dictated by the terms
+    of IEEE 757, whereas the `pd.NA` sentinel follows Kleene logic.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The way `pd.NA` works allows for much more expressive masking/selection in
+    pandas. For instance, if you wanted to create a Boolean mask that also had missing
+    values and use that to select values, `pd.BooleanDtype` allows you to do so, and
+    naturally will only select records where the mask is `True`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE48]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE49]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The equivalent operation without the Boolean extension type will raise an error:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE50]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE51]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'So, in code that does not use `pd.BooleanDtype`, you will likely see a lot
+    of method calls that replace “missing” values with `False`, and use `pd.Series.astype`
+    to try and cast back to a Boolean data type after the fill:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE52]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE53]'
+  prefs: []
+  type: TYPE_PRE
+- en: This is needlessly complex and inefficient. Using `pd.BooleanDtype` expresses
+    the intent of your operations much more succinctly, letting you worry less about
+    the nuances of pandas.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Categorical types
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: The main point of the categorical data type is to define an acceptable set of
+    domain values that your `pd.Series` can contain. The *CSV - strategies for reading
+    large files* recipe in *Chapter 4*, *The pandas I/O System*, will show you an
+    example where this can result in significant memory savings, but generally, the
+    use case here is to have pandas convert string values like `foo`, `bar`, and `baz`
+    into codes `0`, `1`, and `2`, respectively, which can be much more efficiently
+    stored.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: So far, we have always opted for `pd.XXDtype()` as the `dtype=` argument, which
+    still *could* work in the case of categorical data types, but unfortunately does
+    not handle missing values consistently (see *There’s more…* for a deeper dive
+    into this). Instead, we have to opt for one of two alternative approaches to creating
+    a `pd.CategoricalDtype` with the `pd.NA` missing value indicator.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'With either approach, you will want to start with a `pd.Series` of data using
+    `pd.StringDtype`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE54]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'From there, you may use `pd.DataFrame.astype` to cast this to categorical:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE55]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE56]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Or, if you need more control over the behavior of the categorical type, you
+    may construct a `pd.CategoricalDtype` from your `pd.Series` of values and subsequently
+    use that as the `dtype=` argument:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE57]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE58]'
+  prefs: []
+  type: TYPE_PRE
+- en: Both approaches get you to the same place, although the second approach trades
+    some verbosity in constructing the `pd.CategoricalDtype` for finer-grained control
+    over its behavior, as you will see throughout the remainder of this recipe.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Regardless of the approach you take, you should note that the values used at
+    the time you construct your categorical `pd.Series` define the set of acceptable
+    domain values that can be used. Given that we created our categorical type with
+    values of `["foo", "bar", "baz"]`, subsequent assignment using any of these values
+    is not a problem:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE59]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE60]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'However, assigning a value outside of that domain will raise an error:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE61]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE62]'
+  prefs: []
+  type: TYPE_PRE
+- en: When explicitly constructing a `pd.CategoricalDtype`, you can assign a non-lexicographical
+    order to your values via the `ordered=` argument. This is invaluable when working
+    with *ordinal* data whose values are not naturally sorted the way you want by
+    a computer algorithm.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'As a practical example, let’s consider the use case of clothing sizes. Naturally,
+    small clothing is smaller than medium clothing, which is smaller than large clothing,
+    and so on. By constructing `pd.CategoricalDtype` with the desired sizes in order
+    and using `ordered=True`, pandas makes it very natural to compare sizes:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE63]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE64]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'So, how does pandas make this so easy and efficient? The pandas library exposes
+    a categorical accessor `pd.Series.cat`, which allows you to understand this more
+    deeply. To dive further into this, let’s first create a `pd.Series` of categorical
+    data where a given category is used more than once:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE65]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE66]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'If you inspect `pd.Series.cat.codes`, you will see a like-sized `pd.Series`,
+    but the value `foo` is replaced with the number `0`, and the value `bar` is replaced
+    with the value `1`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE67]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE68]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Separately, `pd.Series.cat.categories` will contain the values of each category,
+    in order:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE69]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE70]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Sparing some details around the internals, you can think of pandas as creating
+    a dictionary of the form `{0: "foo", 1: "bar"}`. While it internally stores a
+    `pd.Series` with values of `[0, 1, 0]`, when it comes time to display or access
+    the values in any way, those values are used like keys in a dictionary to access
+    the true value the end user would like to use. For this reason, you will often
+    see the categorical data type described as a `dictionary` type (Apache Arrow,
+    for one, uses the term dictionary).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'So, why bother? The process of *encoding* the labels into very small integer
+    lookup values can have a significant impact on memory usage. Note the difference
+    in memory usage between a normal string type:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE71]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE72]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'As compared to the equivalent categorical type, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE73]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE74]'
+  prefs: []
+  type: TYPE_PRE
+- en: Your numbers may or may not exactly match the output of `.memory_usage()`, but
+    you should at the very least see a rather drastic reduction when using the categorical
+    data type.
+  prefs: []
+  type: TYPE_NORMAL
+- en: There’s more…
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'If using `dtype=pd.CategoricalDtype()` works directly, why would users not
+    want to use that? Unfortunately, there is a rather large gap in the pandas API
+    that prevents missing values from propagating with categorical types, which can
+    unexpectedly introduce the `np.nan` missing value indicator we cautioned against
+    using in the *Missing value handling* recipe. This can lead to very surprising
+    behavior, even if you think you are properly using the `pd.NA` sentinel:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE75]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE76]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Notice in the preceding example that we tried to supply `pd.NA` but *still*
+    got an `np.nan` in return? The explicit construction of a `pd.CategoricalDtype`
+    from a `pd.Series` with `dtype=pd.StringDtype()` helps us avoid this very surprising
+    behavior:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE77]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE78]'
+  prefs: []
+  type: TYPE_PRE
+- en: If you find this behavior confusing or troublesome, trust that you are not alone.
+    The light at the end of the tunnel may be PDEP-16, which aims to make `pd.NA`
+    exclusively work as the missing value indicator. This would mean that you could
+    safely use the `pd.CategoricalDtype()` constructor directly and follow all the
+    same patterns you saw up until this point.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Unfortunately, this book was released around the time of the pandas 3.0 release
+    and before PDEP-16 had been officially accepted, so it is hard to see into the
+    future and advise when these inconsistencies in the API will go away. If you are
+    reading this book a few years after publication, be sure to check back on the
+    status of PDEP-16, as it may change the proper way to construct categorical data
+    (alongside other data types).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Temporal types – datetime
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: The term *temporal* generally encompasses data types that concern themselves
+    with dates and times, both in absolute terms as well as when measuring the duration
+    between two different points in time. Temporal types are a key enabler for time-series-based
+    analyses, which can be invaluable for trend detection and forecasting models.
+    In fact, pandas was initially written at a capital management firm before being
+    open sourced. Much of the time-series handling that was built into pandas has
+    been influenced by real-world reporting needs from financial and economic industries.
+  prefs: []
+  type: TYPE_NORMAL
+- en: While the *Categorical types* section started to show some inconsistencies in
+    the pandas type system API, temporal types take things a bit further. It would
+    be reasonable to expect `pd.DatetimeDtype()` to exist as a constructor, but that
+    is unfortunately not the case, at least as of writing. Additionally, and as mentioned
+    in the *Missing value handling* recipe, temporal types, which were implemented
+    before the pandas type extension system, use a different missing value indicator
+    of `pd.NaT` (i.e., “not a time”).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Despite these issues, pandas offers a mind-boggling amount of advanced functionality
+    for dealing with temporal data. *Chapter 9*, *Temporal Data Types and Algorithms*,
+    will dive further into the applications of these data types; for now, we will
+    just give a quick overview.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Unlike many database systems that offer separate `DATE` and `DATETIME` or `TIMESTAMP`
+    data types, pandas just has a single “datetime” type, which can be constructed
+    via the `dtype=` argument of the `"datetime64[<unit>]"` form.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Through much of the history of pandas, `ns` was the only accepted value for
+    `<unit>`, so, let’s start with that for now (but check *There’s more…* for a more
+    detailed explanation of the different values):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE79]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE80]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'You can also construct a `pd.Series` of this data type using string arguments
+    without time components:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE81]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE82]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The output of the preceding construction is slightly misleading; although the
+    timestamps are not displayed, pandas still internally stores these values as datetimes,
+    not dates. This might be problematic because there is no way to prevent subsequent
+    timestamps from being stored in that `pd.Series`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE83]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE84]'
+  prefs: []
+  type: TYPE_PRE
+- en: If preserving dates is important, be sure to read the *Temporal PyArrow types*
+    recipe later in this chapter.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Much like we saw back with string types, a `pd.Series` containing datetime data
+    gets an *accessor*, which unlocks features to fluidly deal with dates and times.
+    In this case, the accessor is `pd.Series.dt`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We can use this accessor to determine the year of each element in our `pd.Series`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE85]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE86]'
+  prefs: []
+  type: TYPE_PRE
+- en: '`pd.Series.dt.month` will yield the month:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE87]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE88]'
+  prefs: []
+  type: TYPE_PRE
+- en: '`pd.Series.dt.day` extracts the day of the month that the date falls on:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE89]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE90]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'There is also a `pd.Series.dt.day_of_week` function, which will tell you the
+    day of the week a date falls on. Monday starts at `0`, going up to `6`, meaning
+    Sunday:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE91]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE92]'
+  prefs: []
+  type: TYPE_PRE
+- en: If you’ve worked with timestamps before (especially in global organizations),
+    another thing you may question is what time these values represent. 2024-01-03
+    00:00:00 in New York City does not happen simultaneously with 2024-01-03 00:00:00
+    in London, nor in Shanghai. So, how can we get a *true* representation of time?
+  prefs: []
+  type: TYPE_NORMAL
+- en: The timestamps we have seen before are considered *timezone-naive*, (i.e., they
+    do not clearly represent a single point in time anywhere on Earth). By contrast,
+    you can make your timestamps *timezone-aware* by specifying a timezone as part
+    of the `dtype=` argument.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Strangely enough, pandas does have a `pd.DatetimeTZDtype()`, so we can use
+    that along with a `tz=` argument to specify the time zone in which our events
+    are assumed to occur. For example, to make your timestamps represent UTC, you
+    would do the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE93]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE94]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The string UTC represents an **Internet Assigned Numbers Authority** (**IANA**)
+    timezone identifier. You can use any of those identifiers as the `tz=` argument,
+    like `America/New_York`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE95]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE96]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'In case you did not want to use a timezone identifier, you could alternatively
+    specify a UTC offset:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE97]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE98]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The `pd.Series.dt` accessor we introduced in this recipe also has some nice
+    features for working with timezones. For instance, if you are working with data
+    that technically has no timezone associated with it, but you know in fact that
+    the times represent US eastern time values, `pd.Series.dt.tz_localize` can help
+    you express that:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE99]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE100]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'You can also use `pd.Series.dt.tz_convert` to translate times into another
+    timezone:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE101]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE102]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'You could even set all of your datetime data to midnight of whichever timezone
+    it is in using `pd.Series.dt.normalize`. This can be useful if you don’t really
+    care about the time component of your datetimes at all, and just want to treat
+    them as dates, even though pandas does not offer a first-class `DATE` type:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE103]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE104]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'While we have so far pointed out many great features of pandas when working
+    with datetime data, we should also take a look at one of the not-so-great aspects.
+    Back in *Missing value handling*, we talked about how `np.nan` was historically
+    used as a missing value indicator in pandas, even though more modern data types
+    use `pd.NA`. With datetime data types, there is even yet another missing value
+    indicator of `pd.NaT`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE105]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE106]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Again, this difference owes to the history that temporal types were offered
+    before pandas introduced its extension types, and progress to move to one consistent
+    missing value indicator has not fully occurred. Fortunately, functions like `pd.isna`
+    will still correctly identify `pd.NaT` as a missing value:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE107]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE108]'
+  prefs: []
+  type: TYPE_PRE
+- en: There’s more…
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'The historical `ns` precision to pandas limited timestamps to a range that
+    started slightly before 1677-09-21 and would go up to slightly after 2264-04-11\.
+    Attempting to assign a datetime value outside of those bounds would raise an `OutOfBoundsDatetime`
+    exception:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE109]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE110]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Starting with the 3.0 series of pandas, you could specify lower precisions
+    like `s`, `ms`, or `us` to extend your range beyond those windows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE111]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE112]'
+  prefs: []
+  type: TYPE_PRE
+- en: Temporal types – timedelta
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Timedeltas are useful for measuring the *duration* between two points in time.
+    This can be used to measure things like “on average, how much time passed between
+    events X and Y,” which can be helpful to monitor and predict the turnaround time
+    of certain processes and/or systems within your organization. Additionally, timedeltas
+    can be used to manipulate your datetimes, making it easy to “add X number of days”
+    or “subtract Y number of seconds” from your datetimes, all without having to dive
+    into the minutiae of how your datetime objects are stored internally.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'So far, we have introduced each data type by constructing it directly. However,
+    the use cases where you would construct a timedelta `pd.Series` by hand are exceedingly
+    rare. More commonly, you will come across this type as the result of an expression
+    that subtracts two datetimes from one another:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE113]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE114]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Within pandas, there is also the `pd.Timedelta` scalar, which can be used in
+    expressions to add or subtract a duration to datetimes. For instance, the following
+    code shows you how to add 3 days to every datetime in a `pd.Series`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE115]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE116]'
+  prefs: []
+  type: TYPE_PRE
+- en: There’s more…
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'While not a common pattern, if you ever needed to manually construct a `pd.Series`
+    of timedelta objects, you could do so using `dtype="timedelta[ns]"`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE117]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE118]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'What if we tried to create a timedelta of months? Let’s see:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE119]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE120]'
+  prefs: []
+  type: TYPE_PRE
+- en: The reason pandas does not allow this is that timedelta represents a consistently
+    measurable *duration*. While there are always 1,000 nanoseconds in a microsecond,
+    1,000 microseconds in a millisecond, 1,000 milliseconds in a second, and so on,
+    the number of days in a month is not consistent, ranging from 28-31\. Saying two
+    events occurred *one month apart* does not appease the rather strict requirements
+    of a timedelta to measure a finite duration of time passed between two points.
+  prefs: []
+  type: TYPE_NORMAL
+- en: If you need the ability to move dates by the calendar rather than by a finite
+    duration, you can still use the `pd.DateOffset` object we will introduce in *Chapter
+    9*, *Temporal Data Types and Algorithms*. While this does not have an associated
+    data type to introduce in this chapter, the object itself can be a great complement
+    or augmentation of the timedelta type, for analyses that don’t strictly think
+    of time as a finite duration.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Temporal PyArrow types
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: At this point, we have reviewed many of the “first-class” data types built into
+    pandas, while highlighting some rough edges and inconsistencies that plague them.
+    Despite those issues, the types baked into pandas can take you a long way in your
+    data journey.
+  prefs: []
+  type: TYPE_NORMAL
+- en: But there are still cases where the pandas types are not suitable, with a common
+    case being interoperability with databases. Most databases have distinct `DATE`
+    and `DATETIME` types, so the fact that pandas only offers a `DATETIME` type can
+    be disappointing to users fluent in SQL.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Fortunately, the Apache Arrow project defines a true `DATE` type. Starting in
+    version 2.0, pandas users can start leveraging Arrow types exposed through the
+    PyArrow library.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'To construct PyArrow types in pandas directly, you will always provide a `dtype=`
+    argument of the `pd.ArrowDtype(XXX)` form, replacing `XXX` with the appropriate
+    PyArrow type. The DATE type in PyArrow is called `pa.date32()`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE121]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE122]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The `pa.date32()` type can express a wider range of dates without having to
+    toggle the precision:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE123]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE124]'
+  prefs: []
+  type: TYPE_PRE
+- en: The PyArrow library offers a timestamp type; however, the functionality is nearly
+    identical to the datetime type you have already seen, so I would advise sticking
+    with the datetime type built into pandas.
+  prefs: []
+  type: TYPE_NORMAL
+- en: PyArrow List types
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Life would be so simple if every bit of data you came across fit nicely and
+    squarely in a single location of `pd.DataFrame`, but inevitably you will run into
+    issues where that is not the case. For a second, let’s imagine trying to analyze
+    the employees that work at a company:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE125]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE126]'
+  prefs: []
+  type: TYPE_PRE
+- en: This type of data is pretty easy to work with – you could easily add up or take
+    the average number of years that each employee has of experience. But what if
+    we also wanted to know that Bob and Michael reported to Alice while Janice reported
+    to Jim?
+  prefs: []
+  type: TYPE_NORMAL
+- en: Our picturesque view of the world has suddenly come crashing down – how could
+    we possibly express this in `pd.DataFrame`? If you are coming from a Microsoft
+    Excel or SQL background, you may be tempted to think that you need to create a
+    separate `pd.DataFrame` that holds the direct reports information. In pandas,
+    we can express this more naturally using the PyArrow `pa.list_()` data type.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'When working with a `pa.list_()` type, you must *parametrize* it with the data
+    type of elements it will contain. In our case, we want our list to contain values
+    like `Bob` and `Janice`, so we will parametrize our `pa.list_()` type with the
+    `pa.string()` type:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE127]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE128]'
+  prefs: []
+  type: TYPE_PRE
+- en: There’s more…
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'When working with a `pd.Series` that has a PyArrow list type, you can unlock
+    more features of the `pd.Series` by using the `.list` accessor. For instance,
+    to see how many items a list contains, you can call `ser.list.len()`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE129]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE130]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'You can access the list item at a given position using the `.list[]` syntax:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE131]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE132]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'There’s also a `.list.flatten` accessor, which could help you identify all
+    of the employees who report to someone:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE133]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE134]'
+  prefs: []
+  type: TYPE_PRE
+- en: PyArrow decimal types
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: When we looked at the *Floating point types* recipe earlier in this chapter,
+    one of the important things we mentioned was that floating types are *inexact*.
+    Most users of computer software can go their entire lives without knowing this
+    fact, and in many cases, the lack of precision may be an acceptable trade-off
+    to get the performance offered by floating point types. However, in some domains,
+    it is **critical** to have extremely precise computations.
+  prefs: []
+  type: TYPE_NORMAL
+- en: As a simplistic example, let’s assume that a movie recommender system used floating
+    point arithmetic to calculate the rating for a given movie as 4.3334 out of 5
+    stars when it *really* should have been 4.33337\. Even if that rounding error
+    was repeated a million times, it probably wouldn’t have a largely negative effect
+    on civilization. On the flip side, a financial system that processes billions
+    of transactions per day would find this rounding error to be unacceptable. Over
+    time, that rounding error would accumulate into a rather large number in its own
+    right.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Decimal data types are the solution to these problems. By giving up some performance
+    that you would get with floating point calculations, decimal values allow you
+    to achieve more precise calculations.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: The `pa.decimal128()` data type requires two arguments that define the *precision*
+    and *scale* of the numbers you wish to represent. The precision dictates how many
+    decimal digits can safely be stored, with the scale representing how many of those
+    decimal digits may appear after a decimal point.
+  prefs: []
+  type: TYPE_NORMAL
+- en: For example, with a *precision* of 5 and a *scale* of 2, you would be able to
+    accurately represent numbers between -999.99 and 999.99, whereas a precision of
+    5 with a scale of 0 gives you a range of -99999 to 99999\. In practice, the precision
+    you choose will be much higher.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Here’s an example of how to represent this in a `pd.Series`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE135]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE136]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Pay special attention to the fact that we provided our data as strings. If
+    we had tried to provide that as floating point data to begin with, we would have
+    immediately seen a loss in precision:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE137]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE138]'
+  prefs: []
+  type: TYPE_PRE
+- en: This happens because Python itself uses floating point storage for real numbers
+    by default, so the rounding error happens the moment the language runtime tries
+    to interpret the numbers you have provided. Depending on your platform, you may
+    even find that `99999999.9999999999 == 100000000.0` returns `True`. To a human
+    reader, that is obviously not true, but the limits of computer storage prevent
+    the language from being able to discern that.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Python’s solution to this issue is the `decimal` module, which ensures rounding
+    errors do not occur:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE139]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE140]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'While still giving you proper arithmetic, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE141]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE142]'
+  prefs: []
+  type: TYPE_PRE
+- en: '`decimal.Decimal` objects are also valid arguments when constructing the PyArrow
+    decimal type:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE143]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE144]'
+  prefs: []
+  type: TYPE_PRE
+- en: There’s more…
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'The `pa.decimal128` data type can only support up to 38 significant decimal
+    digits. If you need more than that, the Arrow ecosystem also provides a `pa.decimal256`
+    data type:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE145]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE146]'
+  prefs: []
+  type: TYPE_PRE
+- en: Just be aware that this will consume twice as much memory as the `pa.decimal128`
+    data type, with potentially even slower calculation times.
+  prefs: []
+  type: TYPE_NORMAL
+- en: NumPy type system, the object type, and pitfalls
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: As mentioned back in the introduction to this chapter, at least in the 2.x and
+    3.x series, pandas still defaults to types that are sub-optimal for general data
+    analysis. You will undoubtedly come across them in code from peer or online snippets,
+    however, so understanding how they work, their pitfalls, and how to avoid them
+    will be important for years to come.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Let’s look at the default construction of a `pd.Series` from a sequence of
+    integers:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE147]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE148]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'From this argument, pandas gave us back a `pd.Series` with an `int64` data
+    type. That seems normal, so what is the big deal? Well, let’s go ahead and see
+    what happens when you introduce missing values:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE149]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE150]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Huh? We provided integer data but now we got back a floating point type. Surely
+    specifying the `dtype=` argument will help us fix this:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE151]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE152]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Try as hard as you might, you simply *cannot* mix missing values with the NumPy
+    integer data type, which pandas returns by default. A common solution to this
+    pattern is to start filling missing values with another value like `0` before
+    casting back to an actual integer data type with `pd.Series.astype`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE153]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE154]'
+  prefs: []
+  type: TYPE_PRE
+- en: That solves the problem of getting us to a proper integer type, but it had to
+    change the data to get us there. Whether this matters is a context-dependent issue;
+    some users may be OK with treating missing values as 0 if all they wanted to do
+    was *sum* the column, but that same user might not be happy with the new *count*
+    and *average* that gets produced by that data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Note the difference between this `fillna` approach and using the pandas extension
+    types introduced at the start of this chapter:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE155]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE156]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE157]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE158]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Not only do we get different results, but the approach where we do not use
+    `dtype=pd.Int64Dtype()` takes longer to compute:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE159]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE160]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE161]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE162]'
+  prefs: []
+  type: TYPE_PRE
+- en: This is perhaps not surprising when you consider the number of steps you had
+    to go through to just get integers instead of floats.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'When you look at the historical Boolean data type in pandas, things get even
+    stranger. Let’s once again start with the seemingly sane base case:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE163]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE164]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Let’s throw a wrench into things with a missing value:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE165]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE166]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'This is the first time we have seen the `object` data type. Sparing some technical
+    details, you should trust that the `object` data type is one of the worst data
+    types to use in pandas. Essentially *anything* goes with an `object` data type;
+    it completely disallows the type system from enforcing anything about your data.
+    Even though we just want to store `True=/=False` values where some may be missing,
+    really any valid value can now be placed alongside those values:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE167]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE168]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'All of this nonsense can be avoided by using `pd.BooleanDtype`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE169]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE170]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Another rather unfortunate fact of the default pandas implementation (at least
+    in the 2.x series) is that the `object` data type is used for strings:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE171]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE172]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Once again, there is nothing there that strictly enforces we have string data:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE173]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE174]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'With `pd.StringDtype()`, that type of assignment would raise an error:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE175]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE176]'
+  prefs: []
+  type: TYPE_PRE
+- en: There’s more…
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'We have talked at length in this recipe about how the lack of type enforcement
+    with the `object` data type is a problem. On the flip side, there are some use
+    cases where having that flexibility can be helpful, especially when interacting
+    with Python objects where you cannot make assertions about the data up front:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE177]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE178]'
+  prefs: []
+  type: TYPE_PRE
+- en: If you have worked with a tool like Microsoft Excel in the past, the idea that
+    you can put any value anywhere in almost any format may not seem that novel. On
+    the flip side, if your experience is more based on using SQL databases, the idea
+    that you could just load *any* data may be a foreign concept.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In the realm of data processing, there are two major approaches: **extract,
+    transform, load** (**ETL**) and **extract, load, transform** (**ELT**). ETL requires
+    you to *transform* your data before you can load it into a data analysis tool,
+    meaning all of the cleansing has to be done upfront in another tool.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The ELT approach allows you to just load the data first and deal with cleaning
+    it up later; the `object` data type enables you to use the ELT approach in pandas,
+    should you so choose.
+  prefs: []
+  type: TYPE_NORMAL
+- en: With that said, I would generally advise that you strictly use the `object`
+    data type as a `staging` data type before transforming it into a more concrete
+    type. By avoiding the `object` data type, you will achieve much higher performance,
+    have a better understanding of your data, and be able to write cleaner code.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'As a final note in this chapter, it is pretty easy to control data types when
+    you work with a `pd.Series` constructor directly with the `dtype=` argument. While
+    the `pd.DataFrame` also has a `dtype=` argument, it does not allow you to specify
+    types per column, meaning you usually will end up with the historical NumPy data
+    types when creating a `pd.DataFrame`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE179]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE180]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Checking `pd.DataFrame.dtypes` will help us confirm this:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE181]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE182]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'To get us into using the more desirable pandas extension types, we could either
+    explicitly use the `pd.DataFrame.astype` method:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE183]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE184]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Or, we could use the `pd.DataFrame.convert_dtypes` method with `dtype_backend="numpy_nullable"`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE185]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE186]'
+  prefs: []
+  type: TYPE_PRE
+- en: The term `numpy_nullable` is a bit of a misnomer at this point in the history
+    of pandas, but, as we mentioned back in the introduction, it was the original
+    name for what later became referred to as the pandas extension type system.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Join our community on Discord
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Join our community’s Discord space for discussions with the authors and other
+    readers:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[https://packt.link/pandas](https://packt.link/pandas)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/QR_Code5040900042138312.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Leave a Review!
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Thank you for purchasing this book from Packt Publishing—we hope you enjoy it!
+    Your feedback is invaluable and helps us improve and grow. Once you’ve completed
+    reading it, please take a moment to leave an Amazon review; it will only take
+    a minute, but it makes a big difference for readers like you.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Scan the QR code below to receive a free ebook of your choice.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[https://packt.link/NzOWQ](Chapter_3.xhtml)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/QR_Code1474021820358918656.png)'
+  prefs: []
+  type: TYPE_IMG

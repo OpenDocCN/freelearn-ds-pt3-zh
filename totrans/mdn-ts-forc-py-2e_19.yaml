@@ -1,0 +1,3216 @@
+- en: '16'
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Specialized Deep Learning Architectures for Forecasting
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Our journey through the world of **deep learning** (**DL**) is coming to an
+    end. In the previous chapter, we were introduced to the global paradigm of forecasting
+    and saw how we can make a simple model such as a **Recurrent Neural Network**
+    (**RNN**) perform close to the high benchmark set by global machine learning models.
+    In this chapter, we are going to review a few popular DL architectures that were
+    designed specifically for time series forecasting. With these more sophisticated
+    model architectures, we will be better equipped to handle problems in the wild
+    that call for more powerful models than vanilla RNNs and LSTMs.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In this chapter, we will be covering these main topics:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The need for specialized architectures
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Introduction to NeuralForecast
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Neural Basis Expansion Analysis for Interpretable Time Series Forecasting
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Neural Basis Expansion Analysis for Interpretable Time Series Forecasting with
+    Exogenous Variables
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Neural Hierarchical Interpolation for Time Series Forecasting
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Autoformer
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: LTSF-Linear family
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Patch Time Series Forecasting
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: iTransformer
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Temporal Fusion Transformer
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: TSMixer
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Time Series Dense Encoder
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Technical requirements
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: You will need to set up an Anaconda environment by following the instructions
+    in the *Preface* to get a working environment with all the packages and datasets
+    required for the code in this book.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The code associated with this chapter can be found at [https://github.com/PacktPublishing/Modern-Time-Series-Forecasting-with-Python/tree/main/notebooks/Chapter16](https://github.com/PacktPublishing/Modern-Time-Series-Forecasting-with-Python/tree/main/notebooks/Chapter16).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'You will need to run the following notebooks for this chapter:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`02-Preprocessing_London_Smart_Meter_Dataset.ipynb` in `Chapter02`'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`01-Setting_up_Experiment_Harness.ipynb` in `Chapter04`'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`01-Feature_Engineering.ipynb` in `Chapter06`'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The need for specialized architectures
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Inductive bias, or learning bias, refers to a set of assumptions a learning
+    algorithm makes to generalize the function it learns on training data to unseen
+    data. Inductive bias is not inherently a bad thing and is different from “bias”
+    in the context of bias and variance in learning theory. We use and design inductive
+    bias either through model architectures or through feature engineering. For instance,
+    a **Convolutional Neural Network** (**CNN**) works better on images than a standard
+    **Feed Forward Network** (**FFN**) on pure pixel input because the CNN has the
+    locality and spatial bias that FFNs do not have. Although the FFN is theoretically
+    a universal approximator, we can learn better models with the inductive bias the
+    CNN has.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Deep learning is thought to be a completely data-driven approach where the feature
+    engineering and final task are learned end to end, thus avoiding the inductive
+    bias that the modelers bake in while designing the features. But that view is
+    not entirely correct. These inductive biases, which used to be put in through
+    the features, now make their way through the design of architecture. Every DL
+    architecture has its own inductive bias, which is why some types of models perform
+    better on some types of data. For instance, a CNN works well on images, but not
+    as much on sequences because the spatial inductive bias and translational equivariance
+    that the CNN brings to the table are most effective on images.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In an ideal world, we would have an infinite supply of good, annotated data
+    and we would be able to learn entirely data-driven networks with no strong inductive
+    bias. But sadly, in the real world, we will never have enough data to learn such
+    complex functions. This is where designing the right kind of inductive bias makes
+    or breaks the DL system. We used to heavily rely on RNNs for sequences and they
+    had a strong auto-regressive inductive bias baked into them. But later, Transformers,
+    which have a much weaker inductive bias for sequences, came in, and with large
+    amounts of data, they were able to learn better functions for sequences. Therefore,
+    this decision about how strong an inductive bias we bake into models is an important
+    question in designing DL architectures.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Over the years, many DL architectures have been proposed specifically for time
+    series forecasting and each of them has its own inductive bias attached to it.
+    We’ll not be able to review every single one of those models, but we will cover
+    the major ones that made a lasting impact on the field. We will also look at how
+    we can use a few open-source libraries to train those models on our data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We will exclusively focus on models that can handle the global modeling paradigm,
+    directly or indirectly. This is because of the infeasibility of training separate
+    models for each time series when we are forecasting at scale.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We are going to look at a few popular architectures developed for time series
+    forecasting. One of the major factors influencing the inclusion of a model is
+    also the availability of stable open-source frameworks that support these models.
+    This is in no way a complete list because there are many architectures we are
+    not covering here. I’ll try and share a few links in the *Further reading* section
+    to get you started on your journey of exploration.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Before we get into the meat of the chapter, let’s understand the library we
+    are going to use for it.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Introduction to NeuralForecast
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: NeuralForecast is yet another library from the wonderful folks at NIXTLA. You
+    might recall the name from *Chapter 4*, *Setting a Strong Baseline Forecast*,
+    where we used `statsforecast` for classical time series models like ARIMA, ETS,
+    and so on. They have a whole suite of open-source libraries for time series forecasting
+    (`mlforecast` for machine learning based forecasts, `hierarchicalforecast` for
+    reconciling forecasts for hierarchical data, `utilsforecast` with some utilities
+    for forecasting, `datasetsforecast` with some ready-to-use datasets, and `TimeGPT`,
+    their foundational model for time series).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Since we have learned how to use `statsforecast`, extending that to `neuralforecast`
+    is going to be easy because both libraries maintain similar APIs, structure, and
+    ways of working. `neuralforecast` offers both classic and cutting-edge deep learning
+    models in an easy-to-use API, which makes it perfect for the practical side of
+    the chapter.
+  prefs: []
+  type: TYPE_NORMAL
+- en: NeuralForecast is structured to offer an intuitive and flexible API that integrates
+    seamlessly with modern data science workflows. The package includes implementations
+    of several prominent models, each catering to different aspects of time series
+    forecasting.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Common parameters and configurations
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Similar to `statsforecast`, `neuralforecast` also expects the input data to
+    be in a particular form:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`ds`: This column should have the time index. It can either be a datetime column
+    or an integer column which represents time.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`y`: This column should have the time series we are trying to forecast.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`unique_id`: This column lets us differentiate different time series with a
+    unique ID that we choose. It can be the household ID in our data or any other
+    uniquely identifying ID that we give.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Most models in the `neuralforecast` package share a set of common parameters
+    that control aspects like:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`stat_exog_list`: This is a list of static continuous columns.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`hist_exog_list`: This is a list of temporal exogenous features for which the
+    history is available.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`futr_exog_list`: This is a list of temporal exogenous features for which the
+    future is available.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`learning_rate`: This dictates the speed at which a model learns. A higher
+    rate might converge faster but can overshoot optimal weights, while a lower rate
+    ensures more stable convergence at the cost of speed.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`batch_size`: This influences the amount of data fed into the model at each
+    training step, affecting both memory usage and training dynamics.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`max_steps`: This defines the maximum number of epochs – the number of times
+    the entire dataset is passed forward and backward through the neural network.
+    It is max because we can also add early stopping and, in that case, the number
+    of epochs can be lower than this as well.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`loss`: This is the metric used to gauge the difference between predicted values
+    and actual values, guiding the optimization process. For a list of loss functions
+    included, refer to the NIXTLA documentation: [https://nixtlaverse.nixtla.io/neuralforecast/losses.pytorch.html](https://nixtlaverse.nixtla.io/neuralforecast/losses.pytorch.html)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`scaler_type`: This is a string indicating the type of temporal normalization
+    used. Temporal normalization does the scaling for each instance of the batch separately
+    at the window level. Some examples include `[''minmax,'' ''robust,'' ''standard'']`.
+    This is only applicable for window-based models like NBEATS and TimesNet and not
+    recurrent models like RNNs. For a full list of scalers, check the NIXTLA temporal
+    scalers: [https://nixtlaverse.nixtla.io/neuralforecast/common.scalers.html](https://nixtlaverse.nixtla.io/neuralforecast/common.scalers.html).'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`early_stop_patience_steps`: If defined, this sets the number of steps we will
+    wait without any improvement in validation scores before stopping training.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`random_seed`: This defines the random seed, which is essential for reproducibility.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Practitioner’s tip**:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The parameters `stat_exog_list`, `hist_exog_list`, and `futr_exog_list` are
+    only available to models which support them. Do check the documentation of the
+    model you are going to use to see if it supports these parameters. Some models
+    support all three, some only support `futr_exog_list`, and so on. The entire list
+    of models and what is available can be found here: [https://nixtlaverse.nixtla.io/neuralforecast/docs/capabilities/overview.html](https://nixtlaverse.nixtla.io/neuralforecast/docs/capabilities/overview.html).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Also, if you have some features for which you only have historical data, they
+    go in `hist_exog_list`. If you have some features for which you have both historical
+    and future data, they go in both `hist_exog_list` and `futr_exog_list`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Apart from these common model parameters, `neuralforecast` also has a core
+    class, `NeuralForecast`, which orchestrates the training (just like we have `StatsForecast`
+    in `statsforecast`). Similar to `statsforecast`, this is where we define the list
+    of models we need to forecast and so on. Let’s look at a few parameters in this
+    class as well:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`models`: This defines a list of models that we need to fit or predict.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`freq`: This sets the frequency of the time series we want to forecast. It
+    can either be a string (a valid pandas or polars offset alias) or an integer.
+    This is used for generating future dataframes for prediction and should be defined
+    according to the data you have.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: If `ds` is a datetime column, then `freq` can be a string indicating the frequency
+    of repetition (like ‘D’ for days, ‘H’ for hours, etc.) or an integer indicating
+    a multiplier of the default unit (usually days) to determine the interval between
+    each date. And if `ds` is a numerical column, then `freq` should also be a numerical
+    column indicating a fixed numerical increment between values.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`local_scaler_type`: This is an alternate way to scale the time series. While
+    `scaler_type` in Windows-based models scales the time series for each window,
+    this scales each time series as a pre-processing step. For each `unique_id`, this
+    step scales the time series separately and stores the scalers so that the inverse
+    transformations can be applied while predicting.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'A typical workflow involving `neuralforecast` looks as below:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: “Auto” models
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'One of the standout features of the `neuralforecast` package is the inclusion
+    of “auto” models. These models automate the process of hyperparameter tuning and
+    model selection, simplifying the workflow for users. By utilizing techniques from
+    **automated machine learning** (**AutoML**), these models can adapt their architecture
+    and settings based on the dataset, significantly reducing the manual effort involved
+    in the model configuration. They have intelligent default ranges defined so that,
+    even if you don’t declare any ranges to tune, they will take the default ranges
+    and tune the models. Additional information can be found here: [https://nixtlaverse.nixtla.io/neuralforecast/models.html](https://nixtlaverse.nixtla.io/neuralforecast/models.html).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Exogenous features
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: NeuralForecast can also easily incorporate exogenous variables into the forecasting
+    process (depending on the capability of the model). Exogenous features, which
+    are external influences that can affect the target variable, are crucial for improving
+    forecasting accuracy, especially when these external factors significantly impact
+    the outcome. Many models within the `neuralforecast` package can integrate such
+    features to refine predictions by accounting for additional information that may
+    not be present in the time series data itself.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'For instance, the inclusion of holiday effects, weather conditions, or economic
+    indicators as exogenous variables can provide critical insights that pure historical
+    data cannot. This feature is especially useful in models like NBEATSx, NHITS,
+    and TSMixerx within the package, which can model complex interactions between
+    both the historical and future exogenous inputs. By handling exogenous features
+    effectively, NeuralForecast enhances the models’ ability to forecast accurately
+    in real-world scenarios where external factors play a pivotal role. To check which
+    models can handle exogenous information, refer to the documentation on the website:
+    [https://nixtlaverse.nixtla.io/neuralforecast/docs/capabilities/overview.html](https://nixtlaverse.nixtla.io/neuralforecast/docs/capabilities/overview.html)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now, without further ado, let’s get started on the first model on the list.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Neural Basis Expansion Analysis for Interpretable Time Series Forecasting (N-BEATS)
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: The first model that used some components from DL (we can’t call it DL because
+    it is essentially a mix of DL and classical statistics) and made a splash in the
+    field was a model that won the M4 competition (univariate) in 2018\. This was
+    a model by Slawek Smyl from Uber (at the time) and was a Frankenstein-style mix
+    of exponential smoothing and an RNN, dubbed **ES-RNN** (*Further reading* has
+    links to a newer and faster implementation of the model that uses GPU acceleration).
+    This led to Makridakis et al. putting forward an argument that “*hybrid approaches
+    and combinations of methods are the way forward*.” The creators of the **N-BEATS**
+    model aspired to challenge this conclusion by designing a pure DL architecture
+    for time series forecasting. They succeeded in this when they created a model
+    that beat all other methods in the M4 competition (although they didn’t publish
+    it in time to participate in the competition). It is a very unique architecture,
+    taking a lot of inspiration from signal processing. Let’s take a deeper look and
+    understand the architecture.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Reference check**:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The research paper by Makridakis et al. and the blog post by Slawek Smyl are
+    cited in the *References* section as *1* and *2*, respectively.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We need to establish a bit of context and terminology before moving ahead with
+    the explanation. The core problem that they are solving is univariate forecasting,
+    which means it is similar to classical methods such as exponential smoothing and
+    ARIMA in the sense that it takes only the history of the time series to generate
+    a forecast. There is no provision to include other covariates in the model. The
+    model is shown a window from the history and is asked to predict the next few
+    timesteps. The window of history is referred to as the **lookback period** and
+    the future timesteps are the **forecast period**.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The architecture of N-BEATS
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'The N-BEATS architecture was different from the existing architectures (at
+    the time) in a few aspects:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Instead of the common encoder-decoder (or sequence-to-sequence) formulation,
+    N-BEATS formulates the problem as a multivariate regression problem.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Most of the other architectures at the time were relatively shallow (~5 LSTM
+    layers). However, N-BEATS used the residual principle to stack many basic blocks
+    (we will explain this shortly) and the paper has shown that we can stack up to
+    150 layers and still facilitate efficient learning.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The model lets us extend it to human-interpretable output, still in a principled
+    way.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Let’s look at the architecture and go deeper:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 16.1 – N-BEATS architecture ](img/B22389_16_01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 16.1: N-BEATS architecture'
+  prefs: []
+  type: TYPE_NORMAL
+- en: We can see three columns of *rectangular blocks*, each one an exploded view
+    of another. Let’s start at the leftmost (which is the most granular view) and
+    then go up step by step, building up to the architecture. At the top, there is
+    a representative time series, which has a lookback window and a forecast period.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Blocks
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'The fundamental learning unit in N-BEATS is a `block`. Each block, *l*, takes
+    in an input, (*x*[l]), of the size of the lookback period and generates two outputs:
+    a forecast, (![](img/B22389_16_001.png)), and a backcast, (![](img/B22389_16_002.png)).
+    The backcast is the block’s own best prediction of the lookback period. It is
+    synonymous with fitted values in the classical sense; they tell us how the stack
+    would have predicted the lookback window using the function it has learned. The
+    block input is first processed by a stack of four standard, fully connected layers
+    (complete with a bias term and non-linear activation), transforming the input
+    into a hidden representation, *h*[l]. Now, this hidden representation is transformed
+    by two separate linear layers (no bias or non-linear activation) to something
+    the paper calls expansion coefficients for the backcast and forecast, ![](img/B22389_16_003.png)
+    and ![](img/B22389_16_004.png), respectively.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The last part of the block takes these expansion coefficients and maps them
+    to the output using a set of basis layers (![](img/B22389_16_005.png) and ![](img/B22389_16_006.png)).
+    We will talk about the basis layers in a bit more detail later, but for now, just
+    understand that they take the expansion coefficients and transform them into the
+    desired outputs (![](img/B22389_16_001.png) and![](img/B22389_16_002.png)).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Stacks
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'Now, let’s move one layer up the abstraction to the middle column of *Figure
+    16.1*. It shows how different blocks are arranged in a `stack`, *s*. All the blocks
+    in a stack share the same kind of basis layers and therefore are grouped as a
+    stack. As we saw earlier, each block has two outputs, ![](img/B22389_16_001.png)
+    and ![](img/B22389_16_002.png). The blocks are arranged in a residual manner,
+    each block processing and cleaning the time series step by step. The input to
+    a block, *l*, is ![](img/B22389_16_011.png) . At each step, the backcast generated
+    by the block is subtracted from the input to that block before it’s passed on
+    to the next layer. All the forecast outputs of all the blocks in a stack are added
+    up to make the *stack forecast*:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_16_012.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: The residual backcast from the last block in a stack is the *stack residual*
+    (*x*^s).
+  prefs: []
+  type: TYPE_NORMAL
+- en: The overall architecture
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'With that, we can move to the rightmost column of *Figure 16.1*, which shows
+    the top-level view of the architecture. We saw that each stack has two outputs—a
+    stack forecast (*y*^s) and a stack residual (*x*^s). There can be *N* stacks that
+    make up the N-BEATS model. Each stack is chained together so that for any stack
+    (*s*), the stack residual out of the previous stack (*x*^(s-1)) is the input and
+    the stack generates two outputs: the stack forecast (*y*^s) and the stack residual
+    (*x*^s). Finally, the N-BEATS forecast, ![](img/B22389_05_001.png), is the additive
+    sum of all the stack forecasts:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_16_014.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Now that we have understood what the model is doing, we need to come back to
+    one point that we left for later—**basis functions**.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Disclaimer**:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The explanation here is to mostly aid intuition, so we might be hand-waving
+    over a few mathematical concepts. For a more rigorous treatment of the subject,
+    you should refer to mathematical books/articles that cover the topic. For example,
+    *Functions as Vector Spaces* from the *Further reading* section and *Function
+    Spaces* ([https://cns.gatech.edu/~predrag/courses/PHYS-6124-12/StGoChap2.pdf](https://cns.gatech.edu/~predrag/courses/PHYS-6124-12/StGoChap2.pdf)).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Basis functions and interpretability
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: To understand what basis functions are, we need to understand a concept from
+    linear algebra. We talked about vector spaces in *Chapter 11*, *Introduction to
+    Deep Learning*, and gave you a geometric interpretation of vectors and vector
+    spaces. We talked about how a vector is a point in the *n*-dimensional vector
+    space. We had that discussion regarding regular Euclidean space (*R*^n), which
+    is intended to represent physical space. Euclidean spaces are defined with an
+    origin and an orthonormal basis. An orthonormal basis is a unit vector (magnitude=1)
+    and they are orthogonal (in simple intuition, at 90 degrees) to each other. Therefore,
+    a vector, ![](img/B22389_16_015.png), can be written as ![](img/B22389_16_016.png),
+    where ![](img/B22389_16_017.png) and ![](img/B22389_16_018.png) are the orthonormal
+    basis. You may remember this from high school.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now, there is a branch of mathematics that views a function as a point in a
+    vector space (at which point, we call it a functional space). This comes from
+    the fact that all the mathematical conditions that need to be satisfied for a
+    vector space (things such as additivity, associativity, and so on) are valid if
+    we consider functions instead of points. To better drive that intuition, let’s
+    consider a function, *f*(*x*) = 2*x* + 4*x*². We can consider this function as
+    a vector in the function space with basis *x* and *x*². Now, the coefficients,
+    2 and 4, can be changed to give us different functions; this can be any real number
+    from -![](img/B22389_11_014.png) to +![](img/B22389_11_014.png). This space of
+    all functions that can have a basis of *x* and *x*² is the functional space, and
+    every function in the function space can be defined as a linear combination of
+    the basis functions. We can have the basis of any arbitrary function, which gives
+    us a lot of flexibility. From a machine learning perspective, searching for the
+    best function in this functional space automatically means that we are restricting
+    the function search so that we have some properties defined by the basis functions.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Coming back to N-BEATS, we talked about the expansion coefficients, ![](img/B22389_16_021.png)and
+    ![](img/B22389_16_022.png), which are mapped to the output using a set of basis
+    layers (![](img/B22389_16_005.png) and ![](img/B22389_16_006.png)). A basis layer
+    can also be thought of as a basis function because we know that a layer is nothing
+    but a function that maps its inputs to its outputs. Therefore, by learning the
+    expansion coefficients, we are essentially searching for the best function that
+    can represent the output but is constrained by the basis functions we choose.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'There are two modes in which N-BEATS operates: *generic* and *interpretable*.
+    The N-BEATS paper shows that under both modes, N-BEATS managed to beat the best
+    in the M4 competition. Generic mode is where we do not have any basis function
+    constraining the function search. We can also think of this as setting the basis
+    function to be the identity function. So, in this mode, we are leaving the function
+    completely learned by the model through a linear projection of the basis coefficients.
+    This mode lacks human interpretability because we don’t have any idea how the
+    different functions are learned and what each stack signifies.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: But if we have fixed basis functions that constrain the function space, we can
+    bring in more interpretability. For instance, if we have a basis function that
+    constrains the output to represent the trends for all the blocks in a stack, we
+    can say that the forecast output of that stack represents the trend component.
+    Similarly, if we have another basis function that constrains the output to represent
+    the seasonality for all the blocks in a stack, we can say that the forecast output
+    of the stack represents seasonality.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This is exactly what the paper has proposed as well. They have defined specific
+    basis functions that capture trend and seasonality, and including such blocks
+    makes the final forecast more interpretable by giving us a decomposition. The
+    trend basis function is a polynomial of a small degree, *p*. So, as long as *p*
+    is low, such as 1, 2, or 3, it forces the forecast output to mimic the trend component.
+    For the seasonality basis function, the authors chose a Fourier basis (similar
+    to the one we saw in *Chapter 6*, *Feature Engineering for Time Series Forecasting*).
+    This forces the forecast output to be functions of these sinusoidal basis functions
+    that mimic seasonality. In other words, the model learns to combine these sinusoidal
+    waves with different coefficients to reconstruct the seasonality pattern as best
+    as possible.
+  prefs: []
+  type: TYPE_NORMAL
+- en: For a deeper understanding of these basis functions and how they are structured,
+    I have linked to a *Kaggle notebook* in the *Further reading* section that provides
+    a clear explanation of the trend and seasonality basis functions. The associated
+    notebook also has an additional section that visualizes the first few basis functions
+    of seasonality. Along with the original paper, these additional readings will
+    help you solidify your understanding.
+  prefs: []
+  type: TYPE_NORMAL
+- en: N-BEATS wasn’t designed to be a global model, but it does well in the global
+    setting. The M4 competition was a collection of unrelated time series and the
+    N-BEATS model was trained so that the model was exposed to all those series and
+    learned a common function to forecast each time series in the dataset. This, along
+    with ensembling multiple N-BEATS models with different lookback windows, was the
+    success formula for the M4 competition.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Reference check**:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The research paper by Boris Oreshkin et al. (N-BEATS) is cited in the *References*
+    section as *3*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Forecasting with N-BEATS
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: N-BEATS, along with many other specialized architectures we will explore in
+    this chapter, are implemented in NIXTLA’s NeuralForecast packages. First, let’s
+    look at the initialization parameters of the implementation.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The `NBEATS` class in NeuralForecast has lots of parameters, but here are the
+    most important ones:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`stack_types`: This defines the number of stacks that we need to have in the
+    N-BEATS model. This should be a list of strings (*generic*, *trend*, or *seasonality*)
+    denoting the number and type of stacks. Examples include `["trend", "seasonality"]`,
+    `["trend", "seasonality", "generic"]`, and `["generic", "generic", "generic"]`.
+    However, if the entire network is generic, we can just have a single generic stack
+    with more blocks as well.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`n_blocks`: This is a list of integers signifying the number of blocks in each
+    stack that we have defined. If we had defined `stack_types` as `["trend", "seasonality"]`,
+    and we want three blocks each, we can set `n_blocks` to `[3,3]`.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`input_size`: This is an integer which contains the autoregressive units (lags)
+    to be tested.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`shared_weights`: This is a list of Booleans signifying whether the weights
+    generating the expansion coefficients are shared with other blocks in a stack.
+    It is recommended to share the weights in the interpretable stacks and not share
+    them in the identity stacks.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: There are several other parameters, but these are not as important. A full list
+    of parameters and their descriptions can be found at [https://nixtlaverse.nixtla.io/neuralforecast/models.nbeats.html](https://nixtlaverse.nixtla.io/neuralforecast/models.nbeats.html).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Since the strength of the model is in forecasting slightly longer durations,
+    we can do a single-shot 48-step horizon simply by setting the forecast horizon
+    parameter `h = 48`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Notebook alert**:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The complete code for training N-BEATS can be found in the `01-NBEATS_NeuralForecast.ipynb`
+    notebook in the `Chapter16` folder.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Interpreting N-BEATS forecasting
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'N-BEATS, if we are running it in the interpretable model, also gives us more
+    interpretability by separating the forecast into trend and seasonality. To get
+    the interpretable output, we can call the `decompose` function. We must ensure
+    that, in our initial parameters, we include the stack type for the trend and seasonal
+    components: `stack_types = [''trend'',''seasonality'']`.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: This will return us an `array` from which trend and seasonality can be accessed,
+    like `y_hat =[0,1]`. The order of trend or seasonality depends on how you include
+    it in stack_types, though the default is `['seasonality','trend']`, meaning seasonality
+    is `y_hat =[0,1]` and trend is `y_hat =[0,1]`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let’s see how one of the household predictions decomposed:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 16.2 – Decomposed predictions from N-BEATS (interpretable) ](img/B22389_16_02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 16.2: Decomposed predictions from N-BEATS (interpretable)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: With all its success, N-BEATS was still a univariate model. It was not able
+    to take in any external information, apart from its history. This was fine for
+    the M4 competition, where all the time series in question were also univariate.
+    However, many real-world time series problems come with additional explanatory
+    variables (or exogenous variables). Let’s look at a slight modification that was
+    made to N-BEATS that enabled exogenous variables.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Neural Basis Expansion Analysis for Interpretable Time Series Forecasting with
+    Exogenous Variables (N-BEATSx)
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Olivares et al. proposed an extension of the N-BEATS model by making it compatible
+    with exogenous variables. The overall structure is the same (with blocks, stacks,
+    and residual connections) as N-BEATS (*Figure 16.1*), so we will only be focusing
+    on the key differences and additions that the **N-BEATSx** model puts forward.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Reference check**:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The research paper by Olivares et al. (N-BEATSx) is cited in the *References*
+    section as *4*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Handling exogenous variables
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'In N-BEATS, the input to a block was the lookback window, *y*^b. But here,
+    the input to a block is both the lookback window, *y*^b, and the array of exogenous
+    variables, *x*. These exogenous variables can be of two types: time-varying and
+    static. The static variables are encoded using a static feature encoder. This
+    is nothing but a single-layer FC that encodes the static information into a dimension
+    specified by the user. Now, the encoded static information, the time-varying exogenous
+    variables, and the lookback window are concatenated to form the input for a block
+    so that the hidden state representation, *h*[l], of block *l* is not *FC*(*y*^b)
+    like in N-BEATS, but *FC*([*y*^b;*x*]), where [;] represents concatenation. This
+    way, the exogenous information is part of the input to every block as it is concatenated
+    with the residual at each step.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Exogenous blocks
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'In addition to this, the paper also proposes a new kind of block—an *exogenous
+    block*. The exogenous block takes in the concatenated lookback window and exogenous
+    variables (just like any other block) as input and produces a backcast and forecast:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_16_025.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Here, *N*[x] is the number of exogenous features.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Here, we can see that the exogenous forecast is the linear combination of the
+    exogenous variables and that the weights for this linear combination are learned
+    by the expansion coefficients, ![](img/B22389_16_026.png). The paper refers to
+    this configuration as the interpretable exogenous block because, by using the
+    expansion weights, we can define the importance of each exogenous variable and
+    even figure out the exact part of the forecast, which is because of a particular
+    exogenous variable.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'N-BEATSx also has a generic version (which is not interpretable) of the exogenous
+    block. In this block, the exogenous variables are passed through an encoder that
+    learns a context vector, *C*[l], and the forecast is generated using the following
+    formula:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_16_027.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'They proposed two encoders: a **Temporal Convolutional Network** (**TCN**)
+    and **WaveNet** (a network similar to the TCN, but with dilation to expand the
+    receptive field). The *Further reading* section contains resources if you wish
+    to learn more about WaveNet, an architecture that originated in the sound domain.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: N-BEATSx is also implemented in NIXTLA `neuralforecast`, however, at the time
+    of writing, it cannot yet handle categorical data. Thus, we will need to encode
+    the categorical features into numerical representations (like we did in *Chapter
+    10*, *Global Forecasting Models*) before using `neuralforecast`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The research paper also showed that N-BEATSx outperformed N-BEATS, ES-RNN, and
+    other benchmarks on electricity price forecasting considerably.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Continuing with the legacy of N-BEATS, we will now talk about another modification
+    to the architecture that makes it suitable for long-term forecasting.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Neural Hierarchical Interpolation for Time Series Forecasting (N-HiTS)
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Although there has been a good amount of work from DL to tackle time series
+    forecasting, very little focus has been on long-horizon forecasting. Despite recent
+    progress, long-horizon forecasting remains a challenge for two reasons:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The expressiveness required to truly capture the variation
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The computational complexity
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Attention-based methods (Transformers) and N-BEATS-like methods scale quadratically
+    in memory and the computational cost concerning the forecasting horizon.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The authors claim that N-HiTS drastically cuts long-forecasting compute costs
+    while simultaneously showing 25% accuracy improvements compared to existing Transformer-based
+    architectures across a large array of multi-variate forecasting datasets.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Reference check**:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The research paper by Challu et al. on N-HiTS is cited in the *References* section
+    as *5*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The Architecture of N-HiTS
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: N-HiTS can be considered as an alteration to N-BEATS because the two share a
+    large part of their architectures. *Figure 16.1*, which shows the N-BEATS architecture,
+    is still valid for N-HiTS. N-HiTS also has stacks of blocks arranged in a residual
+    manner; it differs only in the kind of blocks it uses. For instance, there is
+    no provision for interpretable blocks. All the blocks in N-HiTS are generic. While
+    N-BEATS tries to decompose the signal into different patterns (trend, seasonality,
+    and so on), N-HiTS tries to decompose the signal into multiple frequencies and
+    forecast them separately.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'To enable this, a few key improvements have been proposed:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Multi-rate data sampling
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Hierarchical interpolation
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Synchronizing the rate of input sampling with a scale of output interpolation
+    across the blocks
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Multi-rate data sampling
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: N-HiTS incorporates sub-sampling layers before the fully connected blocks so
+    that the resolution of the input to each block is different. This is similar to
+    smoothing the signal with different resolutions so that each block is looking
+    at a pattern that occurs at different resolutions—for instance, if one block looks
+    at the input every day, another block looks at the output every week, and so on.
+    This way, when arranged with different blocks looking at different resolutions,
+    the model will be able to predict patterns that occur in those resolutions. This
+    significantly reduces the memory footprint and the computation required as well,
+    because instead of looking at all *H* steps of the lookback window, we are looking
+    at smaller series (such as H/2, H/4, and so on).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'N-HiTS accomplishes this using a Max Pooling or Average Pooling layer of kernel
+    size *k*[l] on the lookback window. A pooling operation is similar to a convolution
+    operation, but the function that is used is non-learnable. In *Chapter 12*, *Building
+    Blocks of Deep Learning for Time Series*, we learned about convolutions, kernels,
+    stride, and so on. While a convolution uses weights that are learned from data
+    while training, a pooling operation uses a non-learnable and fixed function to
+    aggregate the data in the receptive field of a kernel. Common examples of these
+    functions are the maximum, average, sum, and so on. N-HiTS uses `MaxPool1d` or
+    `AvgPool1d` (in `PyTorch` terminology) with different kernel sizes for different
+    blocks. Each pooling operation also has a stride equal to the kernel, resulting
+    in non-overlapping windows over which we do the aggregation operation. To refresh
+    our memory, let’s see what max pooling with `kernel=2` and `stride=2` looks like:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 16.3 – Max pooling on one dimension – kernel=2, stride=2 ](img/B22389_16_03.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 16.3: Max pooling on one dimension—kernel = 2, stride = 2'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Therefore, a larger kernel size will tend to cut more high-frequency (or small-timescale)
+    components from the input. This way, the block is forced to focus on larger-scale
+    patterns. The paper calls this **multi-rate signal sampling**.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Hierarchical interpolation
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: In a standard multi-step forecasting setting, the model must forecast *H* timesteps.
+    As *H* becomes larger, the compute requirements increase and lead to an explosion
+    of expressive power the model needs to have.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Training a model with such a large expressive power, without overfitting, is
+    a challenge in itself. To combat these issues, N-HiTS proposes a technique called
+    **temporal interpolatio****n** `(`not the simple interpolation between two known
+    points in time, but something specific to the architecture).
+  prefs: []
+  type: TYPE_NORMAL
+- en: The pooled input (which we saw in the previous section) goes into the block
+    along with the usual mechanism to generate expansion coefficients and finally
+    gets converted into forecast output. But here, instead of setting the dimension
+    of the expansion coefficients as *H*, N-HiTS sets them as *r*[l] X *H*, where
+    *r*[l] is the **expressiveness ratio**. This parameter essentially reduces the
+    forecast output dimension and thus controls the issues we discussed in the previous
+    paragraph. To recover the original sampling rate and predict all the *H* points
+    in the forecast horizon, we can use an interpolation function. There are many
+    options for the interpolation functions—linear, nearest neighbor, cubic, and so
+    on. All these options can easily be implemented in `PyTorch` using the `interpolate`
+    function.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Synchronizing the input sampling and output interpolation
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'In addition to proposing the input sampling through pooling and output interpolation,
+    N-HiTS also proposes arranging them in different blocks in a particular way. The
+    authors argue that hierarchical interpolation can only happen the right way if
+    the expressiveness ratios are distributed across blocks in a manner that is synchronized
+    with the multi-rate sampling. Blocks closer to the input should have a smaller
+    expressiveness ratio, *r*[l], and larger kernel sizes, *k*[l]. This means that
+    the blocks closer to the input will generate larger resolution patterns (because
+    of aggressive interpolation) while being forced to look at aggressively subsampled
+    input signals. The paper proposes exponentially increasing expressiveness ratios
+    as we move from the initial block to the last block to handle a wide range of
+    frequency bands. The official N-HiTS implementation uses the following formula
+    to set the expressiveness ratios and pooling kernels:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: We can also provide explicit `pooling_sizes` and `downsampling_fequencies` to
+    reflect known cycles of the time series (weekly seasonality, monthly seasonality,
+    and so on). The core principle of N-BEATS (one block removing the effect it captures
+    from the signal and passing it on to the next block) is used here as well so that,
+    at each level, the patterns or frequencies that a block captures are removed from
+    the input signal before being passed on to the next block. In the end, the final
+    forecast is the sum of all such individual block forecasts.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Forecasting with N-HiTS
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: '*N-HiTS* is implemented in NIXTLA forecasting. We can use the same framework
+    we were working with for NBEATS and extend it to train *N-HiTS* on our data. What’s
+    even better is that the implementation supports exogenous variables, the same
+    way N-BEATSx handles exogenous variables (although without the exogenous block).
+    First, let’s look at the initialization parameters of the implementation.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The `NHITS` class in `neuralforecast` has the following parameters:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`n_blocks`: This is a list of integers signifying the number of blocks to be
+    used in each stack. For instance, `[1,1,1]` means there will be three stacks with
+    one block each.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`n_pool_kernel_size`: This is a list of integers that defines the pooling size
+    (*k*[l]) for each stack. This is an optional parameter, and if provided, we can
+    have more control over how the pooling happens in the different stacks. Using
+    an ordering of higher to lower improves results.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`pooling_mode`: This defines the kind of pooling to be used. It should be either
+    `''MaxPool1d''` or `''AvgPool1d''`.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`n_freq_downsample`: This is a list of integers that defines the expressiveness
+    ratios (*r*[l]) for each stack. This is an optional parameter, and if provided,
+    we can have more control over how the interpolation happens in the different stacks.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Notebook alert**:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The complete code for training N-HiTS can be found in the `02-NHiTS_NeuralForecast.ipynb`
+    notebook in the `Chapter16` folder.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now, let’s shift our focus and look at a few modifications of the Transformer
+    model to make it better for time series forecasting.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Autoformer
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Recently, Transformer models have shown superior performance in capturing long-term
+    patterns than standard RNNs. One of the major factors of that is the fact that
+    self-attention, which powers Transformers, can reduce the length that the relevant
+    sequence information has to be held on to before it can be used for prediction.
+    In other words, in an RNN, if the timestep 12 steps before holds important information,
+    that information has to be stored in the RNN through 12 updates before it can
+    be used for prediction. But with self-attention in Transformers, the model is
+    free to create a shortcut between lag 12 and the current step directly because
+    of the lack of recurrence in the structure.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'But the same self-attention is also the reason why we can’t scale vanilla Transformers
+    to long sequences. In the previous section, we discussed how long-term forecasting
+    is a challenge because of two reasons: the expressiveness required to truly capture
+    the variation and computational complexity. Self-attention, with its quadratic
+    computational complexity, contributes to the second reason.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The research community has recognized this challenge and has put a lot of effort
+    into devising efficient transformers through many techniques, such as downsampling,
+    low-rank approximations, sparse attention, and so on. For a detailed account of
+    such techniques, refer to the link for *Efficient Transformers: A Survey* in the
+    *Further reading* section.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`Autoformer` is another model that is designed for long-term forecasting. Autoformer
+    invents a new kind of attention and couples it with aspects from time series decomposition.
+    Let’s take a look at what makes Autoformer special.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The architecture of the Autoformer model
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'The Autoformer model is a modification of Transformers. The following are its
+    major contributions:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Uniform Input Representation**: A methodical way to include the history of
+    the series along with other information, which will help in capturing long-term
+    signals such as the week, month, holidays, and so on'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Generative-style decoder**: Used to generate the long-term horizon in a single
+    forward pass instead of via dynamic recurrence'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**AutoCorrelation mechanism**: An alternative to standard dot product attention,
+    which takes into account sub-series similarity rather than point-to-point similarity'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Decomposition architecture**: A specially designed architecture that separates
+    seasonality, trend, and residual in a time series while modeling it'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Reference check**:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The research paper by Wu et al. on Autoformer is cited in the *References* section
+    as *9*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Uniform Input Representation
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: RNNs capture time series patterns with their recurrent structure, so they only
+    need the sequence; they don’t need information about the timestamp to extract
+    the patterns. However, the self-attention in Transformers is done via point-wise
+    operations that are performed in sets (the order doesn’t matter in a set). Typically,
+    we include positional encodings to capture the order of the sequence. Instead
+    of using positional encodings, we can use richer information, such as hierarchical
+    timestamp information (such as weeks, months, years, and so on). This is what
+    the authors proposed through **Uniform Input Representation**.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Uniform Input Representation uses three types of embeddings to capture the history
+    of the time series, the sequence of values in the time series, and the global
+    timestamp information. The sequence of values in the time series is captured by
+    the standard positional embedding of the `d_model` dimension.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Uniform Input Representation uses a one-dimensional convolutional layer with
+    `kernel=3` and `stride=1` to project the history (which is scalar or one-dimensional)
+    into an embedding of `d_model` dimensions. This is referred to as **value embedding**.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The global timestamp information is embedded by a learnable embedding of `d_model`
+    dimensions with limited vocabulary in a mechanism that is identical to embedding
+    categorical variables into fixed-size vectors (*Chapter 15*, *Strategies for Global
+    Deep Learning Forecasting Models*). This is referred to as **temporal embedding**.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now that we have three embeddings of the same dimension, `d_model`, all we need
+    to do is add them together to get the Uniform Input Representation.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Generative-style decoder
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: The standard way of inferencing a Transformer model is by decoding one token
+    at a time. This autoregressive process is time-consuming and repeats a lot of
+    calculations for each step. To alleviate this problem, the Autoformer model adopts
+    a more generative fashion where the entire forecasting horizon is generated in
+    a single forward pass.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In NLP, it is a popular technique to use a special token (START) to start the
+    dynamic decoding process. Instead of choosing a special token for this purpose,
+    the Autoformer model chooses a sample from the input sequence, such as an earlier
+    slice before the output window. For instance, if we say the input window is *t*[1]
+    to *t*[w], we will sample a sequence of length *C* from the input, *t*[w-c] to
+    *t*[w], and include this sequence as the starting sequence of the decoder. To
+    make the model predict the entire horizon in a single forward pass, we can extend
+    the decoder input tensor so that its length is *C* + *H*, where *H* is the length
+    of the prediction horizon. The initial *C* tokens are filled with the sample sequence
+    from the input, and the rest are filled as zeros—that is, ![](img/B22389_16_028.png).
+    This is just the target. Although ![](img/B22389_16_029.png) has zeros filled
+    in for the prediction horizon, this is just for the target. The other information,
+    such as the global timestamps, is included in ![](img/B22389_16_029.png). Sufficient
+    masking of the attention matrix is also employed so that each position does not
+    attend to future positions, thus maintaining the autoregressive nature of the
+    prediction.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now, let’s look at the time series decomposition architecture.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Decomposition architecture
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'We saw this idea of decomposition back in *Chapter 3*, *Analyzing and Visualizing
+    Time Series Data*, and even in this chapter (N-BEATS). Autoformer successfully
+    renovated the Transformer architecture into a deep-decomposition architecture:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 16.5 – Autoformer architecture ](img/B22389_16_04.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 16.4: Autoformer architecture'
+  prefs: []
+  type: TYPE_NORMAL
+- en: It is easier to understand the overall architecture first and then dive deeper
+    into the details. In *Figure 16.4*, there are boxes labeled **Auto-Correlation**
+    and **Series Decomp**. For now, just know that auto-correlation is a type of attention
+    and that series decomposition is a particular block that decomposes the signal
+    into trend-cyclical and seasonal components.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Encoder
+  prefs:
+  - PREF_H4
+  type: TYPE_NORMAL
+- en: 'With the level of abstraction discussed in the preceding section, let’s understand
+    what is happening in the encoder:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The uniform representation of the time series, *x*[en], is the input to the
+    encoder. The input is passed through an **Auto-Correlation** block (for self-attention)
+    whose output is *x*[ac].
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: The uniform representation, *x*[en], is added back to *x*[ac] as a residual
+    connection, *x*[ac] = *x*[ac] + *x*[en].
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Now, *x*[ac] is passed through a **Series Decomp** block, which decomposes the
+    signal into a trend-cyclical component (*x*[T]) and a seasonal component, *x*[seas].
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: We discard *x*[T] and pass *x*[seas] to a Feed Forward network, which gives
+    *x*[FF] as an output.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '*x*[seas] is again added to *x*[FF] as a residual connection, *x*[seas] = *x*[FF]
+    + *x*[seas].'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Finally, this *x*[seas] is passed through another **Series Decomp** layer, which
+    again decomposes the signal into the trend, ![](img/B22389_16_031.png), and a
+    seasonal component, ![](img/B22389_16_032.png).
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: We discard ![](img/B22389_16_031.png), and pass on ![](img/B22389_16_032.png)
+    as the final output from one block of the encoder.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: There may be *N* blocks of encoders stacked together, one taking in the output
+    of the previous encoder as input.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Now, let’s shift our attention to the decoder block.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Decoder
+  prefs:
+  - PREF_H4
+  type: TYPE_NORMAL
+- en: 'The Autoformer model uses a START token-like mechanism by including a sampled
+    window from the input sequence. But instead of just taking the sequence, Autoformer
+    does a bit of special processing on it. Autoformer uses the bulk of its learning
+    power to learn seasonality. The output of the transformer is also just the seasonality.
+    Therefore, instead of including the complete window from the input sequence, Autoformer
+    decomposes the signal and only includes the seasonal component in the START token.
+    Let’s look at this process step by step:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: If the input (the context window) is *x*, we decompose it with the **Series
+    Decomp** block into ![](img/B22389_16_035.png) and ![](img/B22389_16_036.png).
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Now, we sample *C* timesteps from the end of ![](img/B22389_16_036.png) and
+    append *H* zeros, where *H* is the forecast horizon, and construct *x*[ds].
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: This *x*[ds] is then used to create a uniform representation, *x*[dec].
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Meanwhile, we sample *C* timesteps from the end of ![](img/B22389_16_035.png)
+    and append *H* timesteps with the series mean (*mean*(*x*)), where *H* is the
+    forecast horizon, and construct *x*[dt].
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'This *x*[dec] is then used as the input for the decoder. This is what happens
+    in the decoder:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The input, *x*[dec] , is first passed through an `Auto-Correlation` (for self-attention)
+    block whose output is *x*[dac].
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: The uniform representation, *x*[dec] , is added back to *x*[dac] as a residual
+    connection, *x*[dac] = *x*[dac] + *x*[dec].
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Now, *x*[dac] is passed through a **Series Decomp** block that decomposes the
+    signal into a trend-cyclical component (*x*[dT][1]) and a seasonal component,
+    *x*[dseas].
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: In the decoder, we do not discard the trend component; instead, we save it.
+    This is because we will be adding all the trend components with the trend in it
+    (*x*[dt]) to come up with the overall trend part (*T*).
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: The seasonal output from the **Series Decomp** block (*x*[dseas]), along with
+    the output from the encoder (![](img/B22389_16_032.png)), is then passed into
+    another **Auto-Correlation** block where cross-attention between the decoder sequence
+    and encoder sequence is calculated. Let the output of this block be *x*[cross].
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Now, *x*[dseas] is added back to *x*[cross] as a residual connection, *x*[cross]
+    = *x*[cross] + *x*[dseas].
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '*x*[cross] is again passed through a **Series Decomp** block, which splits
+    *x*[cross] into two components— *x*[dT2] and *x*[dseas2].'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '*x*[dseas] is then transformed using a **Feed Forward** network into *x*[dff]
+    and *x*[dseas] is added to it in a residual connection, *x*[dff]= *x*[dff] + *x*[dseas].'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Finally, *x*[dff] is passed through yet another **Series Decomp** block, which
+    decomposes it into two components— *x*[dT3] and *x*[dseas3]. *x*[dseas3] is the
+    final output of the decoder, which captures seasonality.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Another output is the residual trend, ![](img/B22389_16_040.png), which is
+    a projection of the summation of all the trend components extracted in the decoder’s
+    **Series Decomp** blocks. The projection layer is a **Conv1d** layer, which projects
+    the extracted trend to the desired output dimension: ![](img/B22389_16_041.png).'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '*M* such decoder layers are stacked on top of each other, each one feeding
+    its output as the input to the next one.'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: The residual trend, ![](img/B22389_16_040.png), of each decoder layer gets added
+    to the trend init, *x*[dt], to model the overall trend component (*T*).
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: The *x*[dseas3] of the final decoder layer is considered to be the overall seasonality
+    component and is projected to the desired output dimension (*S*) using a linear
+    layer.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Finally, the prediction or the forecast *X*[out]= *T* + *S*.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: The whole architecture is cleverly designed so that the relatively stable and
+    easy-to-predict part of the time series (the trend-cyclical) is removed and the
+    difficult-to-capture seasonality can be modeled well.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now, how does the **Series Decomp** block decompose the series? The mechanism
+    may be familiar to you already: `AvgPool1d` with some padding so that it maintains
+    the same size as the input. This acts like a moving average over the specified
+    kernel width.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: We have been talking about the **Auto-Correlation** block throughout this explanation.
+    Now, let’s understand the ingenuity of the **Auto-Correlation** block.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Auto-correlation mechanism
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'Autoformer uses an auto-correlation mechanism in place of standard scaled dot
+    product attention. This discovers sub-series similarity based on periodicity and
+    uses this similarity to aggregate similar sub-series. This clever mechanism breaks
+    the information bottleneck by expanding the point-wise operation of the scaled
+    dot product attention to a sub-series level operation. The initial part of the
+    overall mechanism is similar to the standard attention procedure, where we project
+    the query, key, and values into the same dimension using weight matrices. The
+    key difference is the attention weight calculation and how they are used to calculate
+    the values. This mechanism achieves this by using two salient sub-mechanisms:
+    discovering period-based dependencies and time delay aggregation.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Period-based dependencies
+  prefs:
+  - PREF_H4
+  type: TYPE_NORMAL
+- en: Autoformer uses autocorrelation as the key measure of similarity. Auto-correlation,
+    as we know, represents the similarity between a given time series, *X*[t], and
+    its lagged series. For instance, ![](img/B22389_16_043.png) is the autocorrelation
+    between the time series *X*[t] and ![](img/B22389_16_044.png). Autoformer considers
+    this autocorrelation as the unnormalized confidence of the particular lag. Therefore,
+    from the list of all ![](img/B22389_16_045.png), we choose *k* most possible lags
+    and use *softmax* to convert these unnormalized confidences into probabilities.
+    We use these probabilities as weights to aggregate relevant sub-series (we will
+    talk about this in the next section).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The autocorrelation calculation is not the most efficient operation and Autoformer
+    suggests an alternative to make the calculation faster. Based on the **Wiener–Khinchin
+    theorem** in **Stochastic Processes** (this is outside the scope of the book,
+    but for those who are interested, I have included a link in the *Further reading*
+    section), autocorrelation can also be calculated using **Fast Fourier Transform**
+    (**FFT**). The process can be seen as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_16_046.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Here, ![](img/B22389_16_047.png) denotes the FFT and ![](img/B22389_16_048.png)
+    denotes the conjugate operation (the conjugate of a complex number is the number
+    with the same real part and an imaginary part, which is equal in magnitude but
+    with the sign reversed. The mathematics around this is outside the scope of this
+    book).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'This can easily be written in PyTorch as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Now, ![](img/B22389_16_049.png) is in the spectral domain. To bring it back
+    to the real domain, we need to do an inverse FFT:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_16_050.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Here, ![](img/B22389_16_051.png) denotes the inverse FFT. In PyTorch, we can
+    do this easily:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: When the query and key are the same, this calculates self-attention; when they
+    are different, they calculate cross-attention.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now, all we need to do is take the top-k values from `corr` and use them to
+    aggregate the sub-series.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Time delay aggregation
+  prefs:
+  - PREF_H4
+  type: TYPE_NORMAL
+- en: We have identified the major lags that are auto-correlated using the FFT and
+    inverse-FFT. For a more concrete example, the dataset we have been working on
+    (*London Smart Meter Dataset*) has a half-hourly frequency and has strong daily
+    and weekly seasonality. Therefore, the auto-correlation identification may have
+    picked out 48 and 48*7 as the two most important lags. In the standard attention
+    mechanism, we use the calculated probability as weights to aggregate the value.
+    Autoformer also does something similar, but instead of applying the weights to
+    points, it applies them to sub-series.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Autoformer does this by shifting the time series by the lag, ![](img/B22389_16_045.png),
+    and then using the lag’s weight to aggregate them:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_16_053.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Here, ![](img/B22389_16_054.png) is the *softmax*-ed probabilities on the *top-k*
+    autocorrelations.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In our example, we can think of this as shifting the series by 48 timesteps
+    so that the previous day’s timesteps are aligned with the current day and then
+    using the weight of the 48 lag to scale it. Then, we can move on to the 48*7 lag,
+    align the previous week’s timesteps with the current week, and then use the weight
+    of the 48*7 lag to scale it. So, in the end, we will get a weighted mixture of
+    the seasonality patterns that we can observe daily and weekly. Since these weights
+    are learned by the model, we can hypothesize that different blocks learn to focus
+    on different seasonalities, and thus as a whole, the blocks learn the overall
+    pattern in the time series.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Forecasting with Autoformer
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: '`Autoformer` is implemented in NIXTLA forecasting. We can use the same framework
+    we were working with for NBEATS and extend it to train `Autoformer` on our data.
+    First, let’s look at the initialization parameters of the implementation.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: We have to keep in mind that the Autoformer model does not support exogenous
+    variables. The only additional information it officially supports is global timestamp
+    information such as the week, month, and so on, along with holiday information.
+    We can technically extend this to any categorical feature (static or dynamic),
+    but no real-valued information is currently supported.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let’s look at the initialization parameters of the implementation.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The `Autoformer` class has the following major parameters:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`distil`: This is a Boolean flag for turning the attention distillation off
+    and on.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`encoder_layers`: This is an integer representing the number of encoder layers.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`decoder_layers`: This is an integer representing the number of decoder layers.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`n_head`: This is an integer representing the number of attention heads.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`conv_hidden_size`: This is an integer parameter that specifies the channels
+    of the convolutional encoder, which can be thought of similarly to controlling
+    the number of kernels or filters in the convolutional layers. The number of channels
+    effectively determines how many different filters are applied to the input data,
+    each capturing different features.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`activation`: This is a string that takes in one of two values—`relu` or `gelu`.
+    This is the activation to be used in the encoder and decoder layers.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`factor`: This is an int value that helps us control the top-k values that
+    will be selected in the Auto Correlation mechanism we discussed. `top_k = int(self.factor
+    * math.log(length))` is the exact formula used, but we can treat *k* as a factor
+    to control the top *K* selection.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`dropout`: This is a float between 0 and 1, which determines the strength of
+    the dropout in the network.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Notebook alert**:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The complete code for training the Autoformer model can be found in the `03-Autoformer_NeuralForecast.ipynb`
+    notebook in the `Chapter16` folder.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let’s switch tracks and look at a family of simple linear models that were proposed
+    to challenge Transformers in **Long-Term Time Series Forecasting** (**LTSF**).
+  prefs: []
+  type: TYPE_NORMAL
+- en: LTSF-Linear family of models
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: There has been a lot of debate on whether Transformers are right for forecasting
+    problems, how popular Transformer papers haven’t used strong baselines to show
+    their superiority, how the order-agnostic attention mechanism may not be the best
+    way to approach strongly ordered time series, and so on. The criticism was more
+    pronounced for Long-Term Time Series Forecasting as it relies more on the extraction
+    of strong trends and seasonalities. In 2023, Ailing Zeng et al. decided to put
+    the Transformer models to the test and conducted a wide study using 5 multivariate
+    datasets, pitting five Transformer models (FEDFormer, Autoformer, Informer, Pyraformer,
+    and LogTrans) against a set of simple linear models that they proposed. Surprisingly,
+    the simple linear models they proposed beat all the Transformer models comfortably.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Reference check**:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The research papers by Ailing Zeng et al. and the different Transformer models,
+    FEDFormer, Autoformer, Informer, Pyraformer, and LogTrans, are cited in the *References*
+    section as *14*, *16*, *9*, *8*, *15*, and *17* respectively.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'There are three models in the family of LTSF models that the authors proposed:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Linear
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: D-Linear
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: N-Linear
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: These models are so simple that it’s almost embarrassing that they outperformed
+    the Transformer models. But once you get to know them a bit more, you might appreciate
+    the simple but effective inductive biases that have been built into the model.
+    Let’s look at them one by one.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Linear
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Just as the name suggests, this is a simple linear model. It takes the context
+    window and applies a linear layer to predict the forecast horizon. It also considers
+    different time series as separate channels and applies different linear layers
+    to each of them. In `PyTorch`, all we need to have is an `nn.Linear` layer for
+    each of the channels:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: This embarrassingly simple model was able to outperform a few Transformer models
+    like the Informer, LogTrans, and so on.
+  prefs: []
+  type: TYPE_NORMAL
+- en: D-Linear
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'D-Linear took the simple linear model and injected a decomposition prior into
+    it. We saw in *Chapter 3* how we can decompose a time series into trend, seasonality,
+    and residual. D-Linear does exactly that and uses a moving average (the window
+    or the kernel size is a hyperparameter) and separates the input time series, *x*,
+    into trend, *t* (the moving average), and the rest, *r* (seasonality + residual).
+    Now, it proceeds to apply separate linear layers to *t* and *r* separately, and
+    finally add them back together for the final forecast. Let’s look at a simplified
+    `PyTorch` implementation:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: The decomposition prior in the model helps it perform better than a simple linear
+    model consistently and it also outperforms all the Transformer models in the study
+    in almost all the datasets used.
+  prefs: []
+  type: TYPE_NORMAL
+- en: N-Linear
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'The authors also proposed another model, which added another very simple modification
+    to the linear model. This modification was to handle the distributional shifts
+    in data that are inherent in time series data. In N-Linear, we just extract the
+    last value in the input context and subtract it from the entire series (in a sort
+    of normalization) and then use the linear layer for prediction. Now, once the
+    output from the linear layer is available, we add back the last value that we
+    subtracted earlier. In PyTorch, a simple implementation would look like this:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs: []
+  type: TYPE_PRE
+- en: N-Linear models also perform quite well in comparison to the other Transfomer
+    models in the study. In most of the datasets that were part of the study, N-Linear
+    or D-Linear came out to be the top-performing model, which is quite telling.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This paper exposed some major flaws in the way we were using Transformer models
+    for time series forecasting, especially for multivariate time series problems.
+    A typical input to a transformer is of the form (*Batch* x *Time steps* x *Embedding*).
+    The most common way to forecast multivariate time series is to pass in all the
+    time series or other features in a time step as the embedding. This results in
+    seemingly unrelated values being embedded in a single token and mixed together
+    in the attention mechanism (which itself isn’t strongly ordered). This leads to
+    a “muddled’ representation and thereby Transformers might be struggling to wean
+    out the real patterns from the data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This paper had such an impact that many newer models, including PatchTST and
+    iTransformer, which we will be seeing later in the chapter, have used these models
+    as benchmarks and showed that they perform better than them. This underlines the
+    need for strong and simple methods to be reserved as strong baselines so that
+    we aren’t misled by the “coolness” of any algorithm.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now let’s see how we can also use these simple linear models and get good long-term
+    forecasts.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Forecasting with the LTSF-Linear family
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: NLinear and DLinear are implemented in NIXTLA forecasting with the same framework
+    we have seen in the prior models.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let’s look at the initialization parameters of the implementation.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The `DLinear` class has similar parameters to many of the other models. Some
+    callouts are the following major parameters:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`moving_avg_window`: This is an integer value of the window size used for trend-seasonality
+    decomposition. This value should be an odd integer.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`exclude_insample_y`: This is a boolean value to skip the autoregressive features.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The `NLinear` class has no additional parameters because it is just an input
+    window to the output window map.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Notebook alert**:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The complete code for training the D-Linear model can be found in the `04-DLinear_NeuralForecast.ipynb`
+    notebook, and for the N-Linear model, in the `05-NLinear_NeuralForecast.ipynb`
+    notebook in the `Chapter16` folder.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Practitioner’s tip**:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The jury is out on this debate as Transformers are modified more and more to
+    suit time series forecasting. There might always be datasets where using a Transformer-based
+    model gives you better performance than some other class of models. As practitioners,
+    we should be able to suspend disbelief and try different classes of models to
+    see which one fits well for our use case. After all, we only care about the dataset
+    we are trying to forecast.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now, let’s look at a modification of how Transformers can be used for time series
+    that learned from the insights of the LTSF-Linear paper and showed that it can
+    outperform the simple linear models we just saw.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Patch Time Series Transformer (PatchTST)
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In 2021, Alexey Dosovitskiy et al. proposed Vision Transformer, which introduced
+    the Transformer architecture which was widely successful in Natural Language Processing
+    to Vision. Although not the first to introduce patching, they applied it in a
+    way that works really well for vision. The design broke up an image into patches
+    and fed the transformer each patch in sequence.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Reference check**:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The research paper by Alexey Dosovitskiy et al. on Vision Tranformers and Yuqi
+    Nie et al. on PatchTST are cited in the *References* section as *12* and *13*,
+    respectively.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Fast-forward to 2023, and we have the same patching design applied to time series
+    forecasting. Yuqi Nie et al. proposed **Patch Time Series Transformer** (**PatchTST**)
+    by adopting the patching design for time series. They were motivated by the apparent
+    ineffectiveness of more complicated Transformer designs (like Autoformer and Informer)
+    on time series forecasting.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In 2023, Zheng et al. showed up many Transformer models by comparing them with
+    a simple linear model which outperformed most of the Transformer models on common
+    benchmarks. One of the key insights from the paper was that the point-wise application
+    of time series to Transformer architecture doesn’t capture the locality information
+    and strong ordering in time series data. Therefore, the authors proposed a simpler
+    alternative that performs better than the linear models and solves the problem
+    of including long context windows to Transformers without blowing up the memory
+    and compute requirements.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The architecture of the PatchTST model
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'The PatchTST model is a modification of Transformers. The following are its
+    major contributions:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Patching**: A methodical way to include the history of the series along with
+    other information, which will help in capturing long-term signals such as the
+    week, month, holidays, and so on.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Channel-independence**: A conceptual way to process multi-variate time series
+    as separate, independent time series. Although I wouldn’t call this a major contribution,
+    this is indeed something we need to be aware of.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Let’s take a look at these in a bit more detail.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Patching
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: We saw some adaptations of Transformers for time series forecasting earlier
+    in the chapter. All of them focused on making attention mechanisms adapt to time
+    series forecasting and longer context windows. But all of them used attention
+    in a pointwise manner. Let’s use a diagram to make the point clearer and introduce
+    patching.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_16_05.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 16.5: Patched vs non-patched time series inputs to Transformers'
+  prefs: []
+  type: TYPE_NORMAL
+- en: In *Figure 16.5*, we are considering a time series with 8 time steps as an example.
+    On the left-hand side, we can see how all the other transformer architectures
+    we have discussed handle the time series. They use some mechanism, like the Uniform
+    Representation in AutoFormer, to convert a time series point into a k-dimensional
+    embedding and then feed it to the Transformer architecture point by point. The
+    attention mechanism for each point is calculated by looking at all the other points
+    in the context window.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The PatchTST paper claims that this kind of point-wise attention for time series
+    doesn’t capture the locality effectively and proposes converting the time series
+    into patches and feeding those patches to the Transformer instead. Patching is
+    nothing but making the time series into shorter time series in a process very
+    similar (or almost identical) to the sliding window operation we saw earlier in
+    the book. The major difference is that this patching is done after we have already
+    sampled a window from the larger time series.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Patching is typically defined by a couple of parameters:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Patch Length (*P*) is the length of each sub-time series or patch.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Stride (*S*) is the length of the non-overlapping region between two consecutive
+    patches. More intuitively, this is the number of time steps we move in each iteration
+    of patching. This holds the exact same meaning as stride in convolutions.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: With these two parameters fixed, a time series of length *L* would result in
+    ![](img/B22389_16_055.png) patches. Here, we also pad repeated numbers of the
+    last value to the end of the original sequence to ensure each patch is of the
+    same size.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In *Figure 16.5*, we can see that we have illustrated the patching process of
+    a time series with length ![](img/B22389_16_056.png), with ![](img/B22389_16_057.png),
+    and ![](img/B22389_16_058.png). Using the formula we saw just now, we can calculate
+    ![](img/B22389_16_059.png). We can also see that the last value, 8, has been repeated
+    at the end as a padding to make the last patch length also 4.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now, each of these patches is considered as the embedding, of sorts, and passed
+    into and processed by the Transformer architecture. With this kind of input patching,
+    for a given context of ![](img/B22389_16_060.png), the number of input tokens
+    to the Transformer can be reduced to, approximately, ![](img/B22389_16_061.png).
+    This means that the computational complexity and memory usage are also reduced
+    by a factor of ![](img/B22389_16_062.png). This enables the model to process longer
+    context windows with the same hardware constraints, thus possibly enhancing the
+    forecasting performance of the model.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now, let’s look at channel independence.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Channel independence
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: A multivariate time series can be thought of as a multi-channel signal. Transformer
+    inputs can either be a single channel or multiple. Most of the other Transformer-based
+    models capable of multivariate forecasting take the approach where the channels
+    are mixed together and processed. Or, in other words, input tokens take in information
+    from all time series and project it to a shared embedding space, mixing information.
+    But other simpler approaches process each channel separately, and the authors
+    of PatchTST bring that independence to Transformers.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In practice, this is very simple. Let’s try to understand it with an example.
+    Consider a dataset where there are ![](img/B22389_16_063.png) time series, making
+    it a multi-variate time series. So, the input to the PatchTST would be ![](img/B22389_16_064.png),
+    where ![](img/B22389_16_065.png) is the batch size and ![](img/B22389_16_066.png)
+    is the length of the context window. After patching, it becomes ![](img/B22389_16_067.png),
+    where ![](img/B22389_16_068.png) is the number of patches and ![](img/B22389_16_069.png)
+    is the patch length. Now, to process this multi-variate signal in a channel-independent
+    way, we just reshape the tensor such that each of the M time series becomes another
+    sample in the batch, i.e., ![](img/B22389_16_070.png), where ![](img/B22389_16_071.png).
+  prefs: []
+  type: TYPE_NORMAL
+- en: While this independence brings some desirable properties to the model, it also
+    means that any interaction between different time series is ignored as they are
+    treated as completely independent. The model is still trained in a global model
+    paradigm and will benefit from cross-learning, but any explicit interaction between
+    different time series (like two time series varying together) is not captured.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Apart from these major components, the architecture is pretty similar to vanilla
+    Transformer architecture. Now, let’s look at how we can practically forecast using
+    PatchTST.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Forecasting with PatchTST
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: PatchTST is implemented in NIXTLA forecasting. The same framework as used previously
+    can be used here with PatchTST as well.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let’s look at the initialization parameters of the implementation.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The `PatchTST` class has the following major parameters:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`encoder_layers`: This is an integer representing the number of encoder layers.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`hidden_size`: This parameter sets the size of the embeddings and the encoders,
+    directly influencing the model’s capacity and its ability to capture information
+    from the data. This is the activation to be used in the encoder and decoder layers.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`patch_len` & `stride`: These parameters define how the input sequence is divided
+    into patches, which affects how the model perceives temporal dependencies. `patch_len`
+    controls the length of each segment, while stride affects the overlap between
+    these segments.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`stride`: This parameter sets the size of the embeddings and the encoders,
+    directly influencing the model’s capacity and its ability to capture information
+    from the data. This is the activation to be used in the encoder and decoder layers.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Regularization parameters:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`dropout`: This is a float between 0 and 1, which determines the strength of
+    the dropout in the network.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`fc_dropout`: This is a float value that is the linear layer dropout.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`head_dropout`: This is a float value that is the flatten layer dropout.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`attn_dropout`: This is a float value that is the attention layer dropout.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Notebook alert**:'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: The complete code for training the PatchTST model can be found in the `06-PatchTST_NeuralForecast.ipynb`
+    notebook in the `Chapter16` folder.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: Now, let’s look at another Transformer-based model that took the innovation
+    from PatchTST and turned it on its head for good effect, outperforming the LTSF-Linear
+    models.
+  prefs: []
+  type: TYPE_NORMAL
+- en: iTransformer
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: We have already talked at length about the inadequacies of Transformer architectures
+    in handling multivariate time series, namely the inefficient capture of locality,
+    the order-agnostic attention mechanism muddling up information across time steps,
+    and so on. In 2024, Yong Liu et al. took a slightly different view of this problem
+    and, in their own words, “an extreme case of patching.”
+  prefs: []
+  type: TYPE_NORMAL
+- en: The architecture of iTransformer
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: They proposed that it is not that the Transformer architecture is ineffective
+    for time series forecasting, but rather it is improperly used. The authors suggested
+    that we flip the inputs to the Transformer architecture so that the attention
+    isn’t applied across time steps but rather across variates or different series/features
+    on the time series. *Figure 16.6* shows the difference clearly.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_16_06.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 16.6: Transformers vs iTransformers—the difference'
+  prefs: []
+  type: TYPE_NORMAL
+- en: In vanilla Transformers, we use the input as (*Batch* x *Time steps* x *Embeddings*
+    *(features)*), the attention gets applied across the time steps, and eventually,
+    the Position-Wise Feed Forward Network mixes the different features into a Variate-Mixed
+    Representation. But when you flip the input to (*Batch* x *Embeddings* *(features)*
+    x *Timesteps*), the attention gets calculated across the variables and the Position-Wise
+    Feed Forward Network mixes the time leaving variates separate in a Variate-Unmixed
+    Representation.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This “flipping” comes with some more benefits. Now that attention isn’t calculated
+    across time, we can include very large context windows with minimal computational
+    and memory constraints (remember that the computational and memory complexity
+    comes from the O(N²) of the attention mechanism). In fact, the paper suggests
+    including the entire time series history as the context window. On the other hand,
+    we need to be mindful of the number of features or concurrent time series we include
+    in the model.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'A typical Transformer architecture has these major components:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Attention mechanism
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Feed forward network
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Layer normalization
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: In the inverted version, we already saw that attention is applied across variates
+    and the **Feed Forward Network** (**FFN**) learns generalizable representations
+    of the lookback window for the final prediction of the forecast. The layer normalization
+    also works out well in the inverted version. In standard Transformers, layer normalization
+    is typically used to normalize the multivariate representation of each time step.
+    But in the inverted version, we normalize each variate separately across time.
+    This is similar to the normalization we were doing in the N-Linear model and has
+    been proven to work well on non-stationary time series problems.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Reference check**:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The research paper by Yong Liu et al. on iTransformers is cited in the *References*
+    section as *18*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Forecasting with iTransformer
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: iTransformer is implemented in NIXTLA forecasting. The same framework as was
+    used previously can be used here with iTransformer as well.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The `iTransformer` class has the following major parameters:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`n_series`: This is an integer representing the number of time series.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`e_layers`: This is an integer representing the number of encoder layers.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`d_layers`: This is an integer representing the number of decoder layers.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`d_ff`: This is an integer representing the number of kernels in the 1-dimensional
+    convolutional layers used in the encoder and decoder layers.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Notebook alert**:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The complete code for training the iTransformer model can be found in the `07-iTransformer_NeuralForecast.ipynb`
+    notebook in the `Chapter16` folder.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now, let’s look at one more, very successful, architecture that is well-designed
+    to utilize all kinds of information in a global context.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Temporal Fusion Transformer (TFT)
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: TFT is a model that is thoughtfully designed from the ground up to make the
+    most efficient use of all the different kinds of information in a global modeling
+    context—static and dynamic variables. TFT also has interpretability at the heart
+    of all design decisions. The result is a high-performing, interpretable, and global
+    DL model.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Reference check**:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The research paper by Lim et al. on TFT is cited in the *References* section
+    as *10*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: At first glance, the model architecture looks complicated and daunting. But
+    once you peel the onion, it is quite simple and ingenious. We will take this one
+    level of abstraction at a time to ease you into the full model. Along the way,
+    there will be many black boxes I’m going to ask you to take for granted, but don’t
+    worry—we will open every one of them as we dive deeper.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The architecture of TFT
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Let’s establish some notations and a setting before we start. We have a dataset
+    with *I* unique time series and each entity, *i*, has some static variables (*s*[i]).
+    The collection of all static variables of all entities can be represented by *S*.
+    We also have the context window of length *k*. Along with this, we have the time-varying
+    variables, which have one distinction—for some variables, we do not have the future
+    data (unknown), and for other variables, we know the future (known). Let’s denote
+    all the time-varying information (the context window, known, and unknown time-varying
+    variables) from the context window’s input, *x*[t-k]…*x*[t]. The known time-varying
+    variables for the future are denoted using ![](img/B22389_16_072.png), where ![](img/B22389_16_045.png)
+    is the forecast horizon. With these notations, we are ready to look at the first
+    level of abstraction:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 16.6 – TFT – a high-level overview ](img/B22389_16_07.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 16.7: TFT—a high-level overview'
+  prefs: []
+  type: TYPE_NORMAL
+- en: There is a lot to unpack here. Let’s start with the static variables, *S*. First,
+    the static variables are passed through a **Variable Selection Network** (**VSN**).
+    The VSN does instance-wise feature selection and performs some non-linear processing
+    on the inputs. This processed input is fed into a bunch of **Static Covariate
+    Encoders** (**SEs**). The SE block is designed to integrate the static metadata
+    in a principled way.
+  prefs: []
+  type: TYPE_NORMAL
+- en: If you follow the arrows from the SE block in *Figure 16.6*, you will see that
+    the static covariates are used in three (four distinct outputs) different places
+    in the architecture. We will see how these are used in each of these places when
+    we talk about them. But all these different places may be looking at different
+    aspects of the static information. To allow the model this flexibility, the processed
+    and variable-selected output is fed into four different **Gated Residual Networks**
+    (**GRNs**), which, in turn, generate four outputs— *c*[s], *c*[e], *c*[c], and
+    *c*[h]. We will explain what a GRN is later, but for now, just understand that
+    it is a block capable of non-linear processing, along with a residual connection,
+    which enables it to bypass the non-linear processing if needed.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The past inputs, *x*[t-k]…*x*[t], and the future known inputs, ![](img/B22389_16_072.png),
+    are also passed through separate VSNs and these processed outputs are fed into
+    a **Locality Enhancement** (**LE**) Seq2Seq layer. We can think of LE as a way
+    to encode the local context and temporal ordering into the embeddings of each
+    timestep. This is similar to the positional embeddings in vanilla Transformers.
+    We can also see similar attempts in the `Conv1d` layers that were used to encode
+    the history in the uniform representation in the Autoformer models. We will see
+    what is happening inside the LE later, but for now, just understand it captures
+    the local context conditioned on other observed variables and static information.
+    Let’s call the output of the block **Locality Encoded Context Vectors** ( ![](img/B22389_16_075.png),
+    and ![](img/B22389_16_076.png)).
+  prefs: []
+  type: TYPE_NORMAL
+- en: The terminology, notation, and grouping of major blocks are not the same as
+    in the original paper. I have changed these to make them more accessible and understandable.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now, these LE context vectors are fed into a **Temporal Fusion Decoder** (**TFD**).
+    The TFD applies a slight variation of multi-head self-attention in a Transfomer
+    model-like manner and produces the **Decoded Representation** (![](img/B22389_16_077.png)).
+    Finally, this decoded representation is passed through a **Gated Linear Unit**
+    (**GLU**) and an **Add & Norm** block that adds the LE context vectors as a residual
+    connection.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'A GLU is a unit that helps the model decide how much information it needs to
+    allow to flow through. We can think of it as a learned information throttle that
+    is widely used in **Natural Language Processing** (**NLP**) architectures. The
+    formula is really simple:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_16_078.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Here, *W* and *V* are learnable weight matrices, *b* and *c* are learnable biases,
+    ![](img/B22389_03_004.png) is an activation function, and ![](img/B22389_16_080.png)
+    is the Hadamard product operator (element-wise multiplication).
+  prefs: []
+  type: TYPE_NORMAL
+- en: The **Add & Norm** block is the same as in the vanilla Transformer; we discussed
+    this back in *Chapter 14*, *Attention and Transformers for Time Series*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now, to top it all off, we have a `Dense` layer (linear layer with bias) that
+    projects the output of the `Add & Norm` block to the desired output dimensions.
+  prefs: []
+  type: TYPE_NORMAL
+- en: And with that, it is time for us to step one level down in our abstraction.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Locality Enhancement Seq2Seq layer
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'Let’s peel back the onion and see what’s happening inside the LE Seq2Seq layer.
+    Let’s start with a figure:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 16.7 – TFT – LE Seq2Seq layer ](img/B22389_16_08.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 16.8: TFT—LE Seq2Seq layer'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The LE uses a Seq2Seq architecture to capture the local context. The process
+    starts with the processed past inputs. The LSTM encoder takes in these past inputs,
+    *x*[t-k]…*x*[t] . *c*[h] *c*[c] from the static covariate encoder acts as the
+    initial hidden states of the LSTM. The encoder processes each timestep at a time,
+    producing hidden states at each time step, *H*[t-k]…*H*[t]. The last hidden states
+    (context vector) are now passed on to the LSTM decoder, which processes the known
+    future inputs, ![](img/B22389_16_072.png), and produces the hidden states at each
+    of the future timesteps, ![](img/B22389_16_082.png). Finally, all these hidden
+    states are passed through a **GLU + AddNorm** block with the residual connection
+    from before the LSTM processing. The outputs are the LE context vectors ( ![](img/B22389_16_075.png)
+    and ![](img/B22389_16_076.png)).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now, let’s look at the next block: the TFD.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Temporal fusion decoder
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'Let’s start this discussion with another figure:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 16.8 – Temporal Fusion Transformer – Temporal Fusion Decoder ](img/B22389_16_09.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 16.9: Temporal Fusion Transformer—Temporal Fusion Decoder'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The LE context vectors from both the past input and known future input are concatenated
+    into a single LE context vector. Now, this can be thought of as the position-encoded
+    tokens in the Transformer paradigm. The first thing the TFD does is enrich these
+    encodings with static information, *c*[e], that was created from the static covariate
+    encoder. This was concatenated with the embeddings. A position-wise GRN is used
+    to enrich the embeddings. These enriched embeddings are now used as the query,
+    key, and values for the **Masked Interpretable Multi-Head Attention** block.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The paper posits that the **Masked Interpretable Multi-Head Attention** block
+    learns long-term dependencies across time steps. The local dependencies are already
+    captured by the LE Seq2Seq layer in the embeddings, but the point-wise long-term
+    dependencies are captured by **Masked Interpretable Multi-Head Attention**. This
+    block also enhances the interpretability of the architecture. The attention weights
+    that are generated in the process give us some indication of the major timesteps
+    involved in the process. However, the multi-head attention has one drawback from
+    the interpretability perspective.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In vanilla multi-head attention, we use separate projection weights for the
+    values, which means that the values for each head are different and hence the
+    attention weights are not straightforward to interpret.
+  prefs: []
+  type: TYPE_NORMAL
+- en: TFT gets over this limitation by employing a *single shared weight matrix* for
+    projecting the values into the attention dimension. Even with the shared value
+    projection weights, because of the individual query and key projection weights,
+    each head can learn different temporal patterns. In addition to this, TFT also
+    employs masking to make sure information from the future is not used in operations.
+    We discussed this type of causal masking in *Chapter 14*, *Attention and Transformers
+    for Time Series*. With these two modifications, TFT names this layer **Masked
+    Interpretable Multi-Head Attention**.
+  prefs: []
+  type: TYPE_NORMAL
+- en: And with that, it’s time to open the last and most granular level of abstraction
+    we have been using.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Gated residual networks
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: We have been talking about GRNs for some time now; so far, we have just taken
+    them at face value. Let’s understand what is happening inside a GRN—one of the
+    most basic building blocks of a TFT.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let’s look at a schematic diagram of a GRN to understand it better:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 16.9 – TFT – GRN (left) and VSN (right) ](img/B22389_16_10.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 16.10: TFT—GRN (left) and VSN (right)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The GRN takes in two inputs: the primary input, *a*, and the external context,
+    *c*. The context, *c*, is an optional input and is treated as zero if it’s not
+    present. First, both the inputs, *a* and *c*, are transformed by separate dense
+    layers and a subsequent activation function—the **Exponential Linear Unit** (**ELU**)
+    ([https://pytorch.org/docs/stable/generated/torch.nn.ELU.html](https://pytorch.org/docs/stable/generated/torch.nn.ELU.html)).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now, the transformed *a* and *c* inputs are added together and then transformed
+    again using another `Dense` layer. Finally, this is passed through a **GLU+Add
+    & Norm** layer with residual connections from the original *a*. This structure
+    bakes in enough non-linearity to learn complex interactions between the inputs,
+    but at the same time lets the model ignore those non-linearities through a residual
+    connection. Therefore, such a block allows the model to scale the computation
+    required up or down based on the data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Variable selection networks
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: The last building block of the TFT is the VSN. VSNs enable TFT to do instance-wise
+    variable selection. Most real-world time series datasets have many variables that
+    do not have a lot of predictive power, so being able to select the ones that do
+    have predictive power automatically will help the model pick out relevant patterns.
+    *Figure 16.9* (right) shows this VSN.
+  prefs: []
+  type: TYPE_NORMAL
+- en: These additional variables can be categorical or continuous. TFT uses entity
+    embeddings to convert the categorical features into numerical vectors of the dimension
+    that we desire (*d*[model]). We talked about this in *Chapter 15*, *Strategies
+    for Global Deep Learning Forecasting Models*. The continuous features are linearly
+    transformed (independently) into the same dimension, *d*[model]. This gives us
+    the transformed inputs, ![](img/B22389_16_085.png), where *m* is the number of
+    features and *t* is the timestep. We can concatenate all these embeddings (flatten
+    them) and that flattened representation can be represented as ![](img/B22389_16_086.png).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now, there are two parallel streams in which these embeddings are processed—one
+    for non-linear processing of the embeddings and another to do feature selection.
+    Each of these embeddings is processed by separate GRNs (but shared for all timesteps)
+    to give us the non-linearly processed ones, ![](img/B22389_16_085.png). In another
+    stream, the VSN processes the flattened representation, ![](img/B22389_16_086.png),
+    along with optional context information, *c*, and processes it through a GRN with
+    a softmax activation. This gives us a weight, *v*[t], which is a vector of length
+    *m*. This *v*[t] is now used in a weighted sum of all the non-linearly processed
+    feature embeddings, ![](img/B22389_16_085.png), which is calculated as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_16_090.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Forecasting with TFT
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: '*TFT* is implemented in NIXTLA forecasting. We can use the same framework we
+    were working with for NBEATS and extend it to train *TFT* on our data. Additionally,
+    NIXTLA supports exogenous variables, the same way N-BEATSx handles exogenous variables.
+    First, let’s look at the initialization parameters of the implementation.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The `TFT` class in NIXTLA has the following major parameters:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`hidden_size`: This is an integer representing the hidden dimension across
+    the model. This is the dimension in which all the GRNs work, the VSN, the LSTM
+    hidden sizes, the self-attention hidden sizes, and so on. Arguably, this is the
+    most important hyperparameter in the model.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`n_head`: This is an integer representing the number of attention heads.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`dropout`: This is a float between 0 and 1, which determines the strength of
+    the dropout in the Variable Selection Networks.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`attn_dropout`: This is a float between 0 and 1, which determines the strength
+    of the dropout in the decoder’s attention layer.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Notebook alert**:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The complete code for training TFT can be found in the `08-TFT_NeuralForecast.ipynb`
+    notebook in the `Chapter16` folder.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Interpreting TFT
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: TFT approaches interpretability from a slightly different perspective than N-BEATS.
+    While N-BEATS gives us a decomposed output for interpretability, TFT gives us
+    visibility into how the model has interpreted the variables it has used. On account
+    of the VSNs, we have ready access to feature weights. Like the feature importance
+    we get from tree-based models, TFT gives us access to similar scores. Because
+    of the self-attention layer, the attention weights can also be interpreted to
+    help us understand which time steps hold a large enough weightage in the attention
+    mechanism.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'PyTorch Forecasting makes this possible by performing a few steps. First, we
+    get the raw predictions using `mode="raw"` in the `predict` function. Then, we
+    use those raw predictions in the `interpret_output` function. There is a parameter
+    called `reduction` in the `interpret_output` function that decides how to aggregate
+    the weights across different instances. We know that TFT does instance-wise feature
+    selection in VSNs and attention is also done instance-wise. `''mean''` is a good
+    option for looking at the global interpretability:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'This `interpretation` variable is a dictionary with weights for different aspects
+    of the model, such as `attention`, `static_variables`, `encoder_variables`, and
+    `decoder_variables`. PyTorch Forecasting also provides us with an easy way to
+    visualize this importance:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'This generates four plots:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 16.10 – Interpreting TFT ](img/B22389_16_11.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 16.11: Interpreting TFT'
+  prefs: []
+  type: TYPE_NORMAL
+- en: We can also look at each instance and plot similar visualizations for each prediction
+    we make. All we need to do is use `reduction="none"` and then plot it ourselves.
+    The accompanying notebook explores how to do that and more.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now, let’s switch tracks and look at some models that proved that simple MLPs
+    are also more than capable of matching or beating Transformer-based models.
+  prefs: []
+  type: TYPE_NORMAL
+- en: TSMixer
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: While the Transformer-based models were forging ahead with steam, a parallel
+    track of research started by using **Multi-Layer Perceptrons** (**MLPs**) instead
+    of Transformers as the key learning unit. The trend kicked off in 2021 when MLP-Mixer
+    showed that one can attain state-of-the-art performance in vision problems by
+    using just MLPs, replacing Convolutional Neural Networks. And so, similar mixer
+    architectures using MLPs as the key learning component started popping up in all
+    domains. In 2023, Si-An Chen et al. from Google brought mixing MLPs into time
+    series forecasting.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Reference check**:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The research paper by Si-An et al. on TSMixer is cited in the *References* section
+    as *19*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The architecture of the TSMixer model
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: TSMixer really took inspiration from the Transformer model but tried to replicate
+    similar processes with an MLP. Let’s use *Figure 16.10* to understand the similarities
+    and differences.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_16_12.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 16.12: Transformer vs TSMixer'
+  prefs: []
+  type: TYPE_NORMAL
+- en: If you look at the Transformer block, we can see that there is a Multi-Head
+    Attention that looks across timesteps, and “mixes” them together using attention.
+    Then those outputs are passed on to the Position-Wise Feed Forward networks, which
+    “mix” the different features together. Drawing inspiration from these, the TSMixer
+    also has a Time-Mixing component and a Feature-Mixing component in a Mixer block.
+    There is a Temporal Projection that takes the output from the Mixer block and
+    projects it to the output space.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let’s take this one level of explanation at a time. *Figure 16.11* shows the
+    entire architecture.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_16_13.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 16.13: TSMixer Architecture'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The input, which is a multivariate time series is fed into N mixer layers, which
+    process it sequentially and the output from the final mixer layer is fed into
+    the temporal projection layer, which converts the learned representation into
+    the actual forecast. Although the figure and the paper refer to “features,” they
+    aren’t features in the way we have been discussing in this book. Here, “features”
+    means other time series in a multi-variate setting.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now, let’s double-click on Mixer Layer and see the Time Mixing and Feature Mixing
+    inside a block.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Mixer Layer
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: '![](img/B22389_16_14.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 16.14: TSMixer—Mixer block'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The input is of the form (*Batch Size* x *Features* x *Time Steps*) and is first
+    passed through the Time Mixing block. The input is first transposed into the form
+    (*Batch Size* x *Time Steps* x *Features*) such that the weights in the Time Mixing
+    MLP are mixing timesteps. Now, this “time-mixed” output is passed to the Feature
+    Mixing MLP, which uses its weights to mix the different features to give the final
+    learned representation. Batch Normalization layers and residual connections are
+    added in between to make the model more robust and learn deeper and smoother connections.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Given an input matrix ![](img/B22389_16_091.png), Time Mixing can be represented
+    mathematically as:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_16_092.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Feature mixing is actually a two-layer MLP, one projecting to a hidden dimension,
+    *H*[inner], and the next projecting from *H*[inner] to the output dimension, *H*.
+    If not specified explicitly, this defaults to the original number of features
+    (or number of time series), *C*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_16_093.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: '![](img/B22389_16_094.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Therefore the entire Mixer layer can be represented as:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_16_095.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Now, this output is passed through the Temporal Projection layer to get the
+    forecast.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Temporal Projection Layer
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: '![](img/B22389_16_15.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 16.15: TSMixer—Temporal Projection Layer'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The temporal projection layer is nothing but a fully connected layer applied
+    to the time domain. This is identical to the simple linear model we saw earlier,
+    where we apply a fully connected layer to the input context to get the forecast.
+    Instead of applying the layer to the input, TSMixer applies this layer to the
+    “mixed” output from the Mixer Layer.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The output from the previous layer is in the form (*Batch Size* x *Time Steps*
+    x *Features*). This is transposed to (*Batch Size* x *Features* x *Time Steps*)
+    and then passed through a fully connected layer, which projects the input into
+    (*Batch Size* x *Features* x *Forecast Horizon*) to get the final forecast.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Given ![](img/B22389_16_096.png) as the output of the *k*-th Mixer Layer and
+    forecast horizon, *T*:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_16_097.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: But how do we include additional features? Many time series problems have static
+    features and dynamic (future-looking) features, which adds quite a bit of information
+    to the problem. The architecture we have discussed so far doesn’t let you include
+    them. For this reason, the authors proposed a slight tweak to include this additional
+    information, TSMixerx.
+  prefs: []
+  type: TYPE_NORMAL
+- en: TSMixerx—TSMixer with auxiliary information
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: Following the same notation as before, consider we have the input time series
+    (or collection of time series), ![](img/B22389_16_098.png). Now, we would have
+    a few historical features, ![](img/B22389_16_099.png), some future-looking features,
+    ![](img/B22389_16_100.png), and some static features, ![](img/B22389_16_101.png).
+    To effectively include all this additional information, the authors defined another
+    unit of learning called the Conditional Feature Mixing layer and then used it
+    in a way that assimilates all the information.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The **Conditional Feature Mixing** (**CFM**) layer is almost identical to the
+    Feature Mixing layer, except for an additional layer to process the static information
+    along with the features. The static information is first repeated across time
+    steps and projected into the output dimension using a linear layer. This is then
+    concatenated with the input features and the concatenated input is then “mixed”
+    together and projected to the output dimension.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Mathematically, it can be represented as:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_16_102.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: '![](img/B22389_16_103.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: where ![](img/B22389_16_104.png) means concatenation and *Expand* means repeating
+    the static information for all the time steps.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now, let’s see how the CFM layer is used in the overall TSMixerx architecture.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_16_16.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 16.16: TSMixerx—architecture using exogenous variables'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'First off, we have *X* and ![](img/B22389_16_105.png), which have *L* timesteps,
+    which is the length of the context window. Therefore, we concatenate both and
+    use a simple temporal projection layer to project the combined tensor into ![](img/B22389_16_106.png),
+    where *T* is the length of the forecast horizon. This is also the length of the
+    future-looking features, *Z*. Now, we combine this with the static information
+    using a CFM layer, which projects them into a hidden dimension, *H*. Formally,
+    this step is represented as:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_16_107.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Now, we want to conditionally mix the future-looking features, *Z*, as well
+    with the static information, *S*. Therefore, we use a CFM layer to do that and
+    project this combined information into a hidden dimension, *H*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_16_108.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: At this point, we have ![](img/B22389_16_109.png) and ![](img/B22389_16_110.png),
+    which are both in ![](img/B22389_16_111.png) dimensions. So, we use another CFM
+    layer to mix these features further conditioned on ![](img/B22389_16_062.png).
+    This gives us the first feature mixed latent representation, ![](img/B22389_16_113.png).
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_16_114.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Now, this latent representation is passed through ![](img/B22389_16_115.png)
+    subsequent CFMs (similar to regular TSMixer architecture), where ![](img/B22389_16_116.png)
+    is the total number of Mixer layers, to give us ![](img/B22389_16_117.png), the
+    final latent representation. There are ![](img/B22389_16_115.png) layers because
+    the first Mixer layer is already defined and is different from the rest in just
+    the input dimensions.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_16_119.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Now, we can use a simple linear layer to project this output into the desired
+    output dimension. If it is a point prediction for a single time series, we can
+    project it to ![](img/B22389_16_120.png). In case we are predicting the M time
+    series, then we can project it to ![](img/B22389_16_121.png).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Forecasting with TSMixer and TSMixerx
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: TSMixer is implemented in NIXTLA forecasting with the same framework we have
+    seen in the prior models.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let’s look at the initialization parameters of the implementation.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The `TSMixer` class has the following major parameters:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`n_series`: This is an integer value indicating the number of time series.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`n_block`: This is an integer value indicating the number of mixing layers
+    used in the model.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`ff_dim`: This is an integer value indicating the number of units to use for
+    the second feed forward layer.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`revin`: This is a Boolean value that, if True, uses Reversible instance Normalization
+    to process inputs and outputs (ICLR 2022 paper: [https://openreview.net/forum?id=cGDAkQo1C0p](https://openreview.net/forum?id=cGDAkQo1C0p)).'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Similar to NBEATX, there is a `TSMixerx` class that can take exogenous information.
+    To forecast with exogenous information, you would add appropriate information
+    into the parameters below:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`futr_exog_list`: This takes a list of future exogenous columns.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`hist_exog_list`: This takes a list of historical exogenous columns.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`stag_exog_list`: This is a list of exogenous columns.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Notebook alert**:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The complete code for training the TSMixer model can be found in the `09-TSMixer_NeuralForecast.ipynb`
+    notebook in the `Chapter16` folder.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let’s now look at one more MLP-based architecture which has shown that it performs
+    better than PatchTST and the Linear family of models we saw earlier.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Time Series Dense Encoder (TiDE)
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: We saw earlier in the chapter that a linear family of models outperformed quite
+    a lot of Transformer models. In 2023, Das et al. from Google proposed a model
+    that extends that idea into non-linearity. They argued that the linear models
+    will fall short where there are inherent non-linearities in the dependence between
+    the future and the past. The inclusion of covariates compounds this problem.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Reference check**:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The research paper by Das et al. on TiDE is cited in the *References* section
+    as *20*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Therefore, they introduced a simple and efficient **Multi-Layer Perceptron**
+    (**MLP**) based architecture for long-term time series forecasting. The model
+    essentially encodes the past of the time series, along with the covariates using
+    dense MLPs, and then decodes this latent representation into a forecast. The model
+    assumes channel independence (similar to PatchTST) and considers different related
+    time series in a multivariate problem as separate time series.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The architecture of the TiDE model
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: The architecture has two main components—an encoder and a decoder. But all through
+    the architecture, one learning component they call a Residual block is reused.
+    Let’s take a look at the Residual block first.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Residual block
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: The residual block is an MLP with a ReLU and a subsequent linear projection
+    enabling a residual connection. *Figure 16.14* shows a residual block.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_16_17.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 16.17: TiDE: residual block'
+  prefs: []
+  type: TYPE_NORMAL
+- en: We define the layer by setting a hidden dimension and an output dimension. The
+    first Dense layer transforms the input to the hidden dimension and then ReLU non-linearity
+    is applied to the output. This output is then linearly projected to the output
+    dimension and a dropout layer is stacked on top of that. The residual connection
+    is then added to the output by projecting the input into the output dimension
+    using another linear projection. And to top it all off, the output is passed through
+    Layer Normalization.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let ![](img/B22389_16_122.png) be the input to the block, *h* be the hidden
+    dimension, and *o* be the output dimension. Then, the Residual block can be represented
+    as:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_16_123.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Let’s establish some notation to help us with the rest of the explanation. There
+    are *N* time series in the dataset, *L* is the length of the lookback window,
+    and *H* is the length of the forecast. So, the lookback of the i^(th) time series
+    can be represented as ![](img/B22389_16_124.png), and its forecast is ![](img/B22389_16_125.png).
+    The r-dimensional dynamic covariates at time ![](img/B22389_16_126.png) are represented
+    by ![](img/B22389_16_127.png). Static features of the i^(th) time series are ![](img/B22389_16_128.png).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now, let’s look at the larger architecture in *Figure 16.15*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_16_18.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 16.18: TiDE: overall architecture'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Encoder
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: The encoder is tasked with mapping the lookback window and the corresponding
+    covariates into a dense latent representation. The first step is a **Linear Projection**
+    of the dynamic covariates, ![](img/B22389_16_129.png), into ![](img/B22389_16_130.png),
+    where ![](img/B22389_16_131.png), called *temporal width*, is much smaller than
+    *r*. We use the Residual block for this projection.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_16_132.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: From a programmatic perspective (where *B* is the batch size), if the input
+    dimension of the dynamic covariates is ![](img/B22389_16_133.png), we project
+    it to ![](img/B22389_16_134.png).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'This is done so that when we flatten the time series and its covariates before
+    feeding it through the encoder, the dimension of the resulting tensor doesn’t
+    explode. That brings us to the next step, which is the flattening of the tensors
+    and concatenating them. The flattening and concatenation operation looks something
+    like this:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Lookback window: ![](img/B22389_16_135.png)'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Dynamic covariates: ![](img/B22389_16_136.png)'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Static information: ![](img/B22389_16_137.png)'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Concatenated representation: ![](img/B22389_16_138.png)'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Now, this concatenated representation is passed through a stack of *n*[e] Residual
+    blocks to encode them into a dense latent representation.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_16_139.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: In the programmatic perspective, the dimensions get transformed from ![](img/B22389_16_138.png)
+    to ![](img/B22389_16_141.png), where *H* is the hidden size of the latent representation.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now that we have the latent representation, let’s look at how we can decode
+    the forecast from this.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Decoder
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: Just like the encoder, the decoder also has two separate steps. In the first
+    step, we use a stack of *n*[d] of Residual Blocks to decode the latent representation
+    into a decoded vector of dimension, ![](img/B22389_16_142.png), where ![](img/B22389_16_143.png)
+    is the *decoder output dimension*. This decoded vector is reshaped into a ![](img/B22389_16_144.png)
+    dimensional vector.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_16_145.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: '![](img/B22389_16_146.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Now, we use a **Temporal Decoder** to convert this decoded vector into predictions.
+    The temporal decoder is just a Residual block that takes in the concatenated decoded
+    vector, ![](img/B22389_16_147.png) and the encoded future exogenous vector, ![](img/B22389_16_148.png).
+    The authors argue that this residual connection allows some future covariates
+    to affect the forecast in a stronger way. For instance, if one of the future covariates
+    is holidays in a retail forecasting problem, then you want that variable to have
+    a strong influence on the forecast.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This residual connection helps the model enable that “highway” if needed.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_16_149.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Finally, we add a Global Residual Connection that linearly maps the lookback
+    window to the prediction ![](img/B22389_16_150.png), after a linear mapping to
+    the right dimension. This ensures that the linear model that we saw earlier in
+    the chapter becomes a subclass of the TiDE model.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Forecasting with TiDE
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: '*TiDE* is implemented in NIXTLA forecasting with the same framework we have
+    seen in the prior models.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let’s look at the initialization parameters of the implementation.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The `TIDE` class has the following major parameters:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`decoder_output_dim`: An integer that controls the number of units in the output
+    of the decoder ![](img/B22389_16_151.png). It directly impacts the dimensionality
+    of the decoded sequence and can influence the model’s ability to reconstruct the
+    target series.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`temporal_decoder_dim`: An integer that defines the output size of the temporal
+    decoder. Although we discussed that the output of the temporal decoder is the
+    final forecast, `NeuralfForecast` has a uniform map from network output to desired
+    output dimension. Therefore, `temporal_decoder_dim` denotes the dimension of the
+    penultimate layer, which will finally be transformed into the final output. The
+    size of the dimension determines how much information you are allowing to pass
+    on to the final forecasting layer.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`num_encoder_layers`: The number of encoder layers stacked on top of each other.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`num_decoder_layers`: The number of decoder layers stacked on top of each other'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`temporal_width`: An integer that affects the lower temporal projected dimension
+    ![](img/B22389_16_152.png), influencing how exogenous data is projected and processed.
+    It plays a role in how the model incorporates and learns from exogenous information.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`layernorm`: This Boolean flag determines whether Layer Normalization is applied.
+    Layer Normalization can stabilize and accelerate training, which might lead to
+    better performance, especially in deeper networks.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Additionally, TIDE can handle exogenous information, which can be included
+    in the below parameters:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`futr_exog_list`: This takes a list of future exogenous columns'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`hist_exog_list`: This takes a list of historical exogenous columns'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`stag_exog_list`: This is a list of exogenous columns'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Notebook alert**:'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: The complete code for training the TIDE model can be found in the `10-TIDE_NeuralForecast.ipynb`
+    notebook in the `Chapter16` folder.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: We have covered a few popular specialized architectures for time series forecasting,
+    but this is in no way a complete list. There are so many model architectures and
+    techniques out there. I have included a few in the *Further reading* section to
+    get you started.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Congratulations on making it through probably one of the toughest and densest
+    chapters in this book. Give yourself a pat on the back, sit back, and relax.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Summary
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Our journey with deep learning for time series has finally reached a conclusion
+    with us reviewing a few specialized architectures for time series forecasting.
+    We got an understanding of why it makes sense to have specialized architectures
+    for time series and forecasting and went on to understand how different models
+    such as *N-BEATS*, *N-BEATSx*, *N-HiTS*, *Autoformer*, *TFT*, *PatchTST*, *TiDE*,
+    and *TSMixer* work. In addition to covering the architecture and theory behind
+    it, we also looked at how we can use these models on real datasets using `neuralforecast`
+    by NIXTLA. We never know which model will work better with our dataset, but as
+    practitioners, we need to develop intuition that will guide us in the experimentation.
+    Knowing how these models work behind the scenes is essential in developing that
+    intuition and will help us experiment more efficiently.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This brings this part of this book to a close. At this point, you should be
+    much more comfortable with using DL for time series forecasting problems.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the next chapter, let’s look at another important topic in forecasting—probabilistic
+    forecasting.
+  prefs: []
+  type: TYPE_NORMAL
+- en: References
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'The following is a list of the references that we used throughout this chapter:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Spyros Makridakis, Evangelos Spiliotis, and Vassilios Assimakopoulos. (2020).
+    *The M4 Competition: 100,000 time series and 61 forecasting methods*. International
+    Journal of Forecasting, Volume 36, Issue 1\. Pages 54–74\. [https://doi.org/10.1016/j.ijforecast.2019.04.014](https://doi.org/10.1016/j.ijforecast.2019.04.014).'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Slawek Smyl. (2018). *M4 Forecasting Competition: Introducing a New Hybrid
+    ES-RNN Model*. [https://www.uber.com/blog/m4-forecasting-competition/](https://www.uber.com/blog/m4-forecasting-competition/).'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Boris N. Oreshkin, Dmitri Carpov, Nicolas Chapados, and Yoshua Bengio. (2020).
+    *N-BEATS: Neural basis expansion analysis for interpretable time series forecasting*.
+    8^(th) International Conference on Learning Representations, (ICLR). [https://openreview.net/forum?id=r1ecqn4YwB](https://openreview.net/forum?id=r1ecqn4YwB).'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Kin G. Olivares and Cristian Challu and Grzegorz Marcjasz and R. Weron and
+    A. Dubrawski. (2022). *Neural basis expansion analysis with exogenous variables:
+    Forecasting electricity prices with NBEATSx*. International Journal of Forecasting,
+    2022\. [https://www.sciencedirect.com/science/article/pii/S0169207022000413](https://www.sciencedirect.com/science/article/pii/S0169207022000413).'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Cristian Challu and Kin G. Olivares and Boris N. Oreshkin and Federico Garza
+    and Max Mergenthaler-Canseco and Artur Dubrawski. (2022). *N-HiTS: Neural Hierarchical
+    Interpolation for Time Series Forecasting*. arXiv preprint arXiv: Arxiv-2201.12886\.
+    [https://arxiv.org/abs/2201.12886](https://arxiv.org/abs/2201.12886).'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Vaswani, Ashish, Shazeer, Noam, Parmar, Niki, Uszkoreit, Jakob, Jones, Llion,
+    Gomez, Aidan N, Kaiser, Lukasz, and Polosukhin, Illia. (2017). *Attention is All
+    you Need.* Advances in Neural Information Processing Systems. [https://papers.nips.cc/paper/2017/hash/3f5ee243547dee91fbd053c1c4a845aa-Abstract.html](https://papers.nips.cc/paper/2017/hash/3f5ee243547dee91fbd053c1c4a845aa-Abstract.html).
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Haoyi Zhou, Shanghang Zhang, Jieqi Peng, Shuai Zhang, Jianxin Li, Hui Xiong,
+    and Wancai Zhang. (2021). *Informer: Beyond Efficient Transformer for Long Sequence
+    Time-Series Forecasting*. Thirty-Fifth {AAAI} Conference on Artificial Intelligence,
+    {AAAI} 2021\. [https://ojs.aaai.org/index.php/AAAI/article/view/17325](https://ojs.aaai.org/index.php/AAAI/article/view/17325).'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Haixu Wu, Jiehui Xu, Jianmin Wang, and Mingsheng Long. (2021). *Autoformer:
+    Decomposition Transformers with Auto-Correlation for Long-Term Series Forecasting*.
+    Advances in Neural Information Processing Systems 34: Annual Conference on Neural
+    Information Processing Systems 2021, NeurIPS 2021, December 6–14, 2021\. [https://proceedings.neurips.cc/paper/2021/hash/bcc0d400288793e8bdcd7c19a8ac0c2b-Abstract.html](https://proceedings.neurips.cc/paper/2021/hash/bcc0d400288793e8bdcd7c19a8ac0c2b-Abstract.html).'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Bryan Lim, Sercan Ö. Arik, Nicolas Loeff, and Tomas Pfister. (2019). *Temporal
+    Fusion Transformers for Interpretable Multi-horizon Time Series Forecasting*.
+    International Journal of Forecasting, Volume 37, Issue 4, 2021, Pages 1,748–1,764\.
+    [https://www.sciencedirect.com/science/article/pii/S0169207021000637](https://www.sciencedirect.com/science/article/pii/S0169207021000637).
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Alexey Dosovitskiy, Lucas Beyer, Alexander Kolesnikov, Dirk Weissenborn, Xiaohua
+    Zhai, Thomas Unterthiner, Mostafa Dehghani, Matthias Minderer, Georg Heigold,
+    Sylvain Gelly, Jakob Uszkoreit, and Neil Houlsby. (2021). *An Image is Worth 16x16
+    Words: Transformers for Image Recognition at Scale*. 9th International Conference
+    on Learning Representations, ICLR 2021\. [https://openreview.net/forum?id=YicbFdNTTy](https://openreview.net/forum?id=YicbFdNTTy).'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Yuqi Nie, Nam H. Nguyen, and Phanwadee Sinthong and J. Kalagnanam. (2022).
+    *A Time Series is Worth 64 Words: Long-term Forecasting with Transformers*. 10th
+    International Conference on Learning Representations, ICLR 2022\. [https://openreview.net/forum?id=Jbdc0vTOcol](https://openreview.net/forum?id=Jbdc0vTOcol).'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Ailing Zeng and Mu-Hwa Chen, L. Zhang, and Qiang Xu. (2023). *Are Transformers
+    Effective for Time Series Forecasting?* AAAI Conference on Artificial Intelligence.
+    [https://ojs.aaai.org/index.php/AAAI/article/view/26317](https://ojs.aaai.org/index.php/AAAI/article/view/26317).
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Liu, Shizhan and Yu, Hang and Liao, Cong and Li, Jianguo and Lin, Weiyao and
+    Liu, Alex X and Dustdar, Schahram. (2022). *Pyraformer: Low-Complexity Pyramidal
+    Attention for Long-Range Time Series Modeling and Forecasting*. International
+    Conference on Learning Representations. [https://openreview.net/pdf?id=0EXmFzUn5I](https://openreview.net/pdf?id=0EXmFzUn5I).'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Zhou, Tian and Ma, Ziqing and Wen, Qingsong and Wang, Xue and Sun, Liang and
+    Jin, Rong. (2022). *{FEDformer}: Frequency enhanced decomposed transformer for
+    long-term series forecasting*. Proc. 39^(th) International Conference on Machine
+    Learning (ICML 2022). [https://proceedings.mlr.press/v162/zhou22g.html](https://proceedings.mlr.press/v162/zhou22g.html).'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Shiyang Li, Xiaoyong Jin, Yao Xuan, Xiyou Zhou, Wenhu Chen, Yu-Xiang Wang, and
+    Xifeng Yan. (2019). *Enhancing the locality and breaking the memory bottle neck
+    of transformer on time series forecasting*. Advances in Neural Information Processing
+    Systems. [https://proceedings.neurips.cc/paper_files/paper/2019/file/6775a0635c302542da2c32aa19d86be0-Paper.pdf](https://proceedings.neurips.cc/paper_files/paper/2019/file/6775a0635c302542da2c32aa19d86be0-Paper.pdf).
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Yong Liu, Tengge Hu, Haoran Zhang, Haixu Wu, Shiyu Wang, Lintao Ma, and Mingsheng
+    Long. (2024). *iTransformer: Inverted Transformers Are Effective for Time Series
+    Forecasting*.12^(th) International Conference on Learning Representations, ICLR
+    2024\. [https://openreview.net/forum?id=JePfAI8fah](https://openreview.net/forum?id=JePfAI8fah).'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Si-An Chen and Chun-Liang Li and Sercan O Arik and Nathanael Christian Yoder
+    and Tomas Pfister. (2023). *TSMixer: An All-MLP Architecture for Time Series Forecasting*.
+    Transactions on Machine Learning Research. [https://openreview.net/forum?id=wbpxTuXgm0](https://openreview.net/forum?id=wbpxTuXgm0).'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Abhimanyu Das, Weihao Kong, Andrew Leach, Shaan Mathur, Rajat Sen, and Rose
+    Yu. (2023). *Long-term Forecasting with TiDE: Time-series Dense Encoder*. Transactions
+    on Machine Learning Research. [https://openreview.net/forum?id=pCbC3aQB5W](https://openreview.net/forum?id=pCbC3aQB5W).'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Further reading
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'You can check out the following resources for further reading:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*Fast ES-RNN: A GPU Implementation of the ES-RNN Algorithm*: [https://arxiv.org/abs/1907.03329](https://arxiv.org/abs/1907.03329)
+    and [https://github.com/damitkwr/ESRNN-GPU](https://github.com/damitkwr/ESRNN-GPU)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*Functions as Vector Spaces*: [https://www.youtube.com/watch?v=NvEZol2Q8rs](https://www.youtube.com/watch?v=NvEZol2Q8rs)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*Forecast with N-BEATS*, by Gaetan Dubuc: [https://www.kaggle.com/code/gatandubuc/forecast-with-n-beats-interpretable-model/notebook](https://www.kaggle.com/code/gatandubuc/forecast-with-n-beats-interpretable-model/notebook)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*WaveNet: A Generative Model for Audio*, by DeepMind: [https://www.deepmind.com/blog/wavenet-a-generative-model-for-raw-audio](https://www.deepmind.com/blog/wavenet-a-generative-model-for-raw-audio)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*What is Residual Connection?*, by Wanshun Wong: [https://towardsdatascience.com/what-is-residual-connection-efb07cab0d55](https://towardsdatascience.com/what-is-residual-connection-efb07cab0d55)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*Efficient Transformers: A Survey*, by Tay et al.: [https://arxiv.org/abs/2009.06732](https://arxiv.org/abs/2009.06732)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*Autocorrelation and the Wiener-Khinchin theorem*: [https://www.itp.tu-berlin.de/fileadmin/a3233/grk/pototskyLectures2012/pototsky_lectures_part1.pdf](https://www.itp.tu-berlin.de/fileadmin/a3233/grk/pototskyLectures2012/pototsky_lectures_part1.pdf)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*Modelling Long- and Short-Term Temporal Patterns with Deep Neural Networks*,
+    by Lai et al.: [https://dl.acm.org/doi/10.1145/3209978.3210006](https://dl.acm.org/doi/10.1145/3209978.3210006)
+    and [https://github.com/cure-lab/SCINet](https://github.com/cure-lab/SCINet)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*Think Globally, Act Locally: A Deep Neural Network Approach to High-Dimensional
+    Time Series Forecasting*, by Sen et al.: [https://proceedings.neurips.cc/paper/2019/hash/3a0844cee4fcf57de0c71e9ad3035478-Abstract.html](https://proceedings.neurips.cc/paper/2019/hash/3a0844cee4fcf57de0c71e9ad3035478-Abstract.html)
+    and [https://github.com/rajatsen91/deepglo](https://github.com/rajatsen91/deepglo)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Join our community on Discord
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Join our community’s Discord space for discussions with authors and other readers:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[https://packt.link/mts](https://packt.link/mts)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/QR_Code15080603222089750.png)'
+  prefs: []
+  type: TYPE_IMG

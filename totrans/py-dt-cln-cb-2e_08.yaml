@@ -1,0 +1,1508 @@
+- en: '8'
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Encoding, Transforming, and Scaling Features
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Our data cleaning efforts are often intended to prepare that data for use with
+    a machine learning algorithm. Machine learning algorithms typically require some
+    form of encoding of variables. Our models also often perform better with some
+    form of scaling so that features with higher variability do not overwhelm the
+    optimization. We show examples of that in this chapter and of how standardizing
+    addresses the issue.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Machine learning algorithms typically require some form of encoding of variables.
+    We almost always need to encode our features for algorithms to understand them
+    correctly. For example, most algorithms cannot make sense of the values *female*
+    or *male*, or know not to treat zip codes as ordinal. Although not typically necessary,
+    scaling is often a very good idea when we have features with vastly different
+    ranges. When we are using algorithms that assume a Gaussian distribution of our
+    features, some form of transformation may be required for our features to be consistent
+    with that assumption.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Specifically, we explore the following in this chapter:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Creating training datasets and avoiding data leakage
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Identifying irrelevant or redundant observations to be removed
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Encoding categorical features: one-hot encoding'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Encoding categorical features: ordinal encoding'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Encoding features with medium or high cardinality
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Transforming features
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Binning features
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*k*-means binning'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Scaling features
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Technical requirements
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: You will need pandas, NumPy, and Matplotlib to complete the recipes in this
+    chapter. I used pandas 2.1.4, but the code will run on pandas 1.5.3 or later.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The code in this chapter can be downloaded from the book’s GitHub repository,
+    [https://github.com/PacktPublishing/Python-Data-Cleaning-Cookbook-Second-Edition](https://github.com/PacktPublishing/Python-Data-Cleaning-Cookbook-Second-Edition).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Creating training datasets and avoiding data leakage
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: One of the biggest threats to the performance of our models is data leakage.
+    **Data leakage** occurs whenever our models are informed by data that is not in
+    the training dataset. We sometimes inadvertently assist our model training with
+    information that cannot be gleaned from the training data alone, and we end up
+    with a too-rosy assessment of our model’s accuracy.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Data scientists do not really intend for this to happen, hence the term “leakage.”
+    This is not a “*don’t do it*” kind of discussion. We all know not to do it. This
+    is more of a “*which steps should I take to avoid the problem?*” discussion. It
+    is actually quite easy to have some data leakage unless we develop routines to
+    prevent it.
+  prefs: []
+  type: TYPE_NORMAL
+- en: For example, if we have missing values for a feature, we might impute the mean
+    across the whole dataset for those values. However, in order to validate our model,
+    we subsequently split our data into training and testing datasets. We would then
+    have accidentally introduced data leakage into our training dataset, since information
+    from the full dataset (the global mean) would have been used.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Data leakage can significantly compromise our model evaluation, making it look
+    like our predictions are much more reliable than they actually are. Among the
+    practices that data scientists have adopted to avoid this is to establish separate
+    training and testing datasets as close to the beginning of the analysis as possible.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Note**'
+  prefs: []
+  type: TYPE_NORMAL
+- en: I have mainly used the term *variable* in this book when referring to some statistical
+    property of something that can be counted or measured, such as age or duration
+    of time. I have used *column* when referring to some specific operation or attribute
+    of a column of data in a dataset. In this chapter, I will frequently use the word
+    feature to refer to variables used for predictive analysis. In machine learning,
+    we typically refer to features (also known as independent or predictor variables)
+    and targets (also known as dependent or response variables).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Getting ready
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: We will work extensively with the scikit-learn library throughout this chapter.
+    You can use `pip` to install scikit-learn with `pip install scikit-learn`. The
+    code in this chapter uses `sklearn` version 0.24.2.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We can use scikit-learn to create training and testing DataFrames for the **National
+    Longitudinal Survey of Youth** (**NLS**) data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Data note**'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The National Longitudinal Survey of Youth is conducted by the United States
+    Bureau of Labor Statistics. This survey started with a cohort of individuals in
+    1997 who were born between 1980 and 1985, with annual follow-ups each year through
+    2023\. For this recipe, I pulled 104 variables on grades, employment, income,
+    and attitudes toward government from the hundreds of data items on the survey.
+    The NLS data can be downloaded for public use from `nlsinfo.org`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'We will use scikit-learn to create training and testing data:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'First, we import the `train_test_split` module from `sklearn` and load the
+    NLS data:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Then, we can create training and testing DataFrames for the features (`X_train`
+    and `X_test`) and the target (`y_train` and `y_test`). `wageincome20` is the target
+    variable in this example. We set the `test_size` parameter to 0.3 to leave 30%
+    of the observations for testing. We will only work with the **Scholastic Assessment
+    Test** (**SAT**) and **Grade Point Average** (**GPA**) data from the NLS. We need
+    to remember to set a value for `random_state` to make sure we will get the same
+    DataFrames should we need to rerun `train_test_split` later:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Let’s take a look at the training DataFrames created with `train_test_split`.
+    We get the expected number of observations, 6,288, 70% of the total number of
+    observations in the NLS DataFrame of 8,984:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE3]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE4]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE5]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE6]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE7]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Let’s also look at the testing DataFrames. We get 30% of the observations as
+    we expected:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE9]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE10]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE11]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: These steps demonstrated how to create training and testing DataFrames.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How it works...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: For data scientists who use Python, and regularly use machine learning algorithms,
+    `train_test_split` is a very popular option to avoid data leakage while preparing
+    data for analysis.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`train_test_split` will return four DataFrames: a DataFrame with training data
+    consisting of the features or independent variables we intend to use in our analysis,
+    a DataFrame with testing data for those same variables, a DataFrame with training
+    data for our target variable (also known as a response or dependent variable),
+    and a testing DataFrame with that target variable.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The first arguments of `test_train_split` can take DataFrames, NumPy arrays,
+    or some other two-dimensional array-like structure. Here, we pass a pandas DataFrame
+    with our features to the first argument, and then another pandas DataFrame with
+    just our target variable. We also specify that we want the testing data to be
+    30% of our dataset’s rows.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Rows are selected randomly by `test_train_split`. We need to provide a value
+    for `random_state` if we want to reproduce the split.
+  prefs: []
+  type: TYPE_NORMAL
+- en: See also
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: When our projects involve predictive modeling and evaluation of these models,
+    our data preparation needs to be part of a machine learning pipeline, which often
+    starts with splitting the data between training and testing data. Scikit-learn
+    provides great tools for constructing machine learning pipelines that go from
+    data preparation all the way through to model evaluation. A good resource for
+    mastering those techniques is my book *Data Cleaning and Exploration with Machine
+    Learning*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We will use `sklearn`'s `train_test_split` to create separate training and testing
+    DataFrames in the rest of this chapter. Next, we begin our feature engineering
+    work by removing features that are obviously unhelpful because they have the same
+    data as another feature, or there is no variation in the responses.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Removing redundant or unhelpful features
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: During the process of data cleaning and manipulation, we often end up with data
+    that is no longer meaningful. Perhaps we subsetted data based on a single feature
+    value and we have retained that feature, even though it now has the same value
+    for all observations. Alternatively, for the subset of the data that we are using,
+    two features have the same value. Ideally, we catch those redundancies during
+    our data cleaning. However, if we do not catch them during that process, we can
+    use the open source `feature-engine` package to help us with that.
+  prefs: []
+  type: TYPE_NORMAL
+- en: There also may be features that are so highly correlated that it is very unlikely
+    that we could build a model that could use all of them effectively. `feature-engine`
+    has a method, `DropCorrelatedFeatures`, that makes it easy to remove a feature
+    when it is highly correlated with another feature.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Getting ready
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: We will work extensively with the `feature-engine` and `category_encoders` packages
+    in this chapter. You can use pip to install these packages with `pip install feature-engine`
+    and `pip install category_encoders`. The code in this chapter uses version 1.7.0
+    of `feature-engine` and version 2.6.3 of `category_encoders`. Note that either
+    `pip install feature-engine` or `pip install feature_engine` will work.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We will work with land temperature data, in addition to the NLS data, in this
+    section. We will only load temperature data for Poland here.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Data note**'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The land temperature DataFrame has the average temperature reading (in ^°C)
+    in 2023 from over 12,000 stations across the world, although a majority of the
+    stations are in the United States. The raw data was retrieved from the Global
+    Historical Climatology Network integrated database. It is made available for public
+    use by the United States National Oceanic and Atmospheric Administration at [https://www.ncei.noaa.gov/products/land-based-station/global-historical-climatology-network-monthly](https://www.ncei.noaa.gov/products/land-based-station/global-historical-climatology-network-monthly).
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Let’s import the modules we need from `feature_engine` and `sklearn`, and then
+    load the NLS data and temperature data for Poland. The data from Poland was pulled
+    from a larger dataset of 12,000 weather stations across the world. We use `dropna`
+    to drop observations with any missing data:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE12]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Next, we create training and testing DataFrames, as we did in the previous
+    section:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE13]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'We can use the pandas `corr` method to see how these features are correlated:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE14]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE15]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '`gpaoverall` is highly correlated with `gpascience`, `gpaenglish`, and `gpamath`.
+    The `corr` method returns the Pearson coefficients by default. This is fine when
+    we can assume a linear relationship between the features. When this assumption
+    does not make sense, we should consider requesting Spearman coefficients instead.
+    We can do that by passing `spearman` to the method parameter of `corr`.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let’s drop features that have a correlation higher than 0.75 with another feature.
+    We pass 0.75 to the `threshold` parameter of `DropCorrelatedFeatures`, and we
+    indicate that we want to use Pearson coefficients and evaluate all features by
+    setting variables to `None`. We use the `fit` method on the training data and
+    then transform both the training and testing data. The `info` method shows that
+    the resulting training DataFrame (`X_train_tr`) has all of the features except
+    `gpaoverall`, which has a `0.79` and `0.84` correlation with `gpascience` and
+    `gpaenglish`, respectively (`DropCorrelatedFeatures` will evaluate from left to
+    right, so if `gpamath` and `gpaoverall` are highly correlated, it will drop `gpaoverall`.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'If `gpaoverall` had been to the left of `gpamath`, it would have dropped `gpamath`):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE16]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE17]'
+  prefs: []
+  type: TYPE_PRE
+- en: We would typically evaluate a feature more carefully before deciding to drop
+    it. However, there are times when feature selection is part of a pipeline and
+    we need to automate the process. This can be done with `DropCorrelatedFeatures`,
+    since all `feature_engine` methods can be brought into a scikit-learn pipeline.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let’s now create training and testing DataFrames from the land temperatures
+    data for Poland. The value of `year` is the same for all observations, as is the
+    value for `country`. The value for `latabs` is also the same as for `latitude`
+    for each observation:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE18]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE19]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE20]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE21]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE22]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE23]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE24]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE25]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Let’s drop features with the same value throughout the training dataset. Notice
+    that `year` and `country` are removed after the transform:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE26]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE27]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Let’s drop features that have the same values as other features. In this case,
+    the transform drops `latitude`, which has the same values as `latabs`:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE28]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE29]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: How it works...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: This fixes some obvious problems with our features in the NLS data and the temperature
+    data for Poland. We dropped `gpaoverall` from a DataFrame that has the other GPA
+    features because it is highly correlated with them. We also removed redundant
+    data, dropping features with the same value throughout the DataFrame and features
+    that duplicate the values of another feature.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In *step 6*, we used the `fit` method of the *feature engine* `selection` object.
+    This gathers the information needed to do the transformation we request after
+    that. The transformation in this case is to drop features with constant values.
+    We typically perform the fitting on training data only. We can combine the fit
+    and transform on the training data by using `fit_transform`, which we will do
+    in most of this chapter.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The rest of this chapter explores somewhat messier feature engineering challenges:
+    encoding, transforming, binning, and scaling.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Encoding categorical features: one-hot encoding'
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: There are several reasons why we may need to encode features before using them
+    in most machine learning algorithms. First, these algorithms typically require
+    numeric data. Second, when a categorical feature is represented with numbers,
+    for example, 1 for female and 2 for male, we need to encode the values so that
+    they are recognized as categorical. Third, the feature might actually be ordinal,
+    with a discrete number of values that represent some meaningful ranking. Our models
+    need to capture that ranking. Finally, a categorical feature might have a large
+    number of values (known as high cardinality), and we might want our encoding to
+    collapse categories.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We can handle the encoding of features with a limited number of values, say
+    15 or fewer, with one-hot encoding. We go over one-hot encoding in this recipe
+    and then discuss ordinal encoding in the next recipe. We will look at strategies
+    for handling categorical features with high cardinality after that.
+  prefs: []
+  type: TYPE_NORMAL
+- en: One-hot encoding takes a feature and creates a binary vector for each value
+    of that feature. So, if a feature, called *letter*, has three unique values, *A*,
+    *B*, and *C*, one-hot encoding creates three binary vectors to represent those
+    values. The first binary vector, which we can call *letter_A*, has 1 whenever
+    *letter* has a value of *A*, and 0 when it is *B* or *C*. *letter_B* and *letter_C*
+    would be coded similarly. The transformed features, *letter_A*, *letter_B*, and
+    *letter_C*, are often referred to as **dummy variables**. *Figure 8.1* illustrates
+    one-hot encoding.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '| **letter** | **letter_A** | **letter_B** | **letter_C** |'
+  prefs: []
+  type: TYPE_TB
+- en: '| A | 1 | 0 | 0 |'
+  prefs: []
+  type: TYPE_TB
+- en: '| B | 0 | 1 | 0 |'
+  prefs: []
+  type: TYPE_TB
+- en: '| C | 0 | 0 | 1 |'
+  prefs: []
+  type: TYPE_TB
+- en: 'Figure 8.1: One-hot encoding of a categorical feature'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Getting ready
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: We will use the `OneHotEncoder` and `OrdinalEncoder` modules in the next two
+    recipes from `feature_engine` and `scikit_learn`, respectively. We will continue
+    working with the NLS data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'A number of features from the NLS data are appropriate for one-hot encoding.
+    We encode some of those features in the following code blocks:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let’s start by importing the `OneHotEncoder` module from `feature_engine` and
+    loading the data. We also import the `OrdinalEncoder` module from `scikit-learn`,
+    since we will use it later.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE30]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: Next, we create training and testing DataFrames for the NLS data.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'For our purposes in this recipe, we drop rows with missing data:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE31]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'One option we have for the encoding is the pandas `get_dummies` method. We
+    can use it to indicate that we want to convert the `gender` and `maritalstatus`
+    features. `get_dummies` gives us a dummy variable for each value of `gender` and
+    `maritalstatus`. For example, `gender` has the values Female and Male. `get_dummies`
+    creates a feature, `gender_Female`, which is 1 when `gender` is Female and 0 when
+    `gender` is Male. When `gender` is Male, `gender_Male` is 1 and `gender_Female`
+    is 0\. This is a tried-and-true method of doing this encoding that has served
+    statisticians well for many years:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE32]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE33]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: We are not creating a new DataFrame with `get_dummies` because we will be using
+    a different technique to do the encoding later in this recipe.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We typically create *k*-1 dummy variables for *k* unique values for a feature.
+    So, if `gender` has two values in our data, we only need to create one dummy variable.
+    If we know the value for `gender_Female`, we also know the value of `gender_Male`,
+    so the latter variable is redundant. Similarly, we know the value of `maritalstatus_Divorced`
+    if we know the values of the other `maritalstatus` dummies. Creating a redundancy
+    in this way is inelegantly referred to as the **dummy variable trap**. To prevent
+    this problem, we drop one dummy from each group.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Note**'
+  prefs: []
+  type: TYPE_NORMAL
+- en: For some machine learning algorithms, such as linear regression, dropping one
+    dummy variable is actually required. In estimating the parameters of a linear
+    model, the matrix is inverted. If our model has an intercept, and all dummy variables
+    are included, the matrix cannot be inverted.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We can set the `get_dummies` `drop_first` parameter to `True` to drop the first
+    dummy from each group:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE34]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE35]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: An alternative to `get_dummies` is the one-hot encoder in either `sklearn` or
+    `feature_engine`. These one-hot encoders have the advantage that they can be easily
+    brought into a machine learning pipeline, and they can persist information gathered
+    from the training dataset to the testing dataset.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let’s use the `OneHotEncoder` from `feature_engine` to do the encoding. We set
+    `drop_last` to `True` to drop one of the dummies from each group. We fit the encoding
+    to the training data and then transform both the training and testing data.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE36]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE37]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: This demonstrates that one-hot encoding is a fairly straightforward way to prepare
+    nominal data for a machine learning algorithm.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How it works...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: The pandas `get_dummies` method is a handy way to create dummy variables or
+    one-hot encoding. We saw this in *step 3* where we simply passed the training
+    DataFrame, and the columns where we want dummy variables, to `get_dummies`. Notice
+    that we used `float` for `dtype`. Depending on your version of pandas, this is
+    necessary to return 0 and 1 values rather than true and false values.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We typically need to remove one of the values in a dummy variable group to avoid
+    the *dummy variable trap*. We can set `drop_first` to `True` to drop the first
+    dummy variable from each dummy variable group. We did that in *step 4*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We looked at another tool for one-hot encoding, `feature_engine`, in *step 5*.
+    We are able to accomplish the same task as `get_dummies` using *feature_engine’s*
+    `OneHotEncoder`. The advantage of using `feature_engine` is its variety of tools
+    for working within scikit-learn data pipelines, including being able to handle
+    categories in either the training or testing DataFrame, but not in both.
+  prefs: []
+  type: TYPE_NORMAL
+- en: There’s more
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: I did not discuss scikit-learn’s own one-hot encoder in this recipe. It works
+    very much like the one-hot encoder for `feature_engine`. There is not much advantage
+    of using one rather than the other, although I find it handy that `feature_engine`'s
+    `transform` and `fit_transform` methods return DataFrames, whereas those methods
+    for scikit-learn return a NumPy array.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Encoding categorical features: ordinal encoding'
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Categorical features can be either nominal or ordinal. Gender and marital status
+    are nominal. Their values do not imply order. For example, never married is not
+    a higher value than divorced.
+  prefs: []
+  type: TYPE_NORMAL
+- en: When a categorical feature is ordinal, however, we want the encoding to capture
+    the ranking of the values. For example, if we have a feature that has the values
+    low, medium, and high, one-hot encoding would lose this ordering. Instead, a transformed
+    feature with values of 1, 2, and 3 for low, medium, and high, respectively, would
+    be better. We can accomplish this with ordinal encoding.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The college enrollment feature on the NLS dataset can be considered an ordinal
+    feature. The values range from *1\. Not enrolled* to *3\. 4-year college*. We
+    should use ordinal encoding to prepare it for modeling. We do that next.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Getting ready
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: We will use the `OrdinalEncoder` module in this recipe from `scikit-learn`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'College enrollment for 1999 might be a good candidate for ordinal encoding.
+    Let’s first take a look at the values of `colenroct99` prior to encoding. The
+    values are strings, but there is an implied order:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE38]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE39]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE40]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE41]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: We need to be careful about assumptions of linearity here. For example, if we
+    are trying to model the impact of the college enrollment feature on some target
+    variable, we cannot assume that movement from 1 to 2 (from not enrolled in college
+    to enrolled for 2 years in college) has the same impact as movement from 2 to
+    3 (from 2-year college to 4-year college enrollment).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We can tell the `OrdinalEncoder` to rank the values in the implied order by
+    passing the above array to the `categories` parameter. We can then use `fit_transform`
+    to transform the college enrollment field `colenroct99`. (The `fit_transform`
+    method of sklearn’s `OrdinalEncoder` returns a NumPy array, so we need to use
+    the pandas DataFrame method to create a DataFrame.) Finally, we join the encoded
+    features with the other features from the training data:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE42]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Let’s view a few observations from the resulting DataFrame. We should also
+    compare the counts of the original college enrollment feature to the transformed
+    feature:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE43]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE44]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE45]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE46]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE47]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE48]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: The ordinal encoding replaces the initial values for `colernoct99` with numbers
+    from 0 to 2\. It is now in a form that is consumable by many machine learning
+    models, and we have retained the meaningful ranking information.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How it works...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: '*Scitkit-learn’s* `OrdinalEncoder` is fairly straightforward to use. We passed
+    an array of values to use for the categories that is sorted in a meaningful order.
+    We did this at the start of *step 2* when we instantiated an `OrdinalEncoder`
+    object. We then passed training data with just the `colenroct99` column to the
+    `fit_transform` method of the `OrdinalEncoder`. We then converted the NumPy array
+    returned by `fit_transform` to a DataFrame, using the training data index, and
+    we used `join` to append the rest of the training data.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: There’s more
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Ordinal encoding is appropriate for non-linear models such as decision trees.
+    It might not make sense in a linear regression model because that would assume
+    that the distance between values was equally meaningful along the whole distribution.
+    In this example, that would assume that the increase from 0 to 1 (from no enrollment
+    to 2-year enrollment) is the same thing as the increase from 1 to 2 (from 2-year
+    enrollment to 4-year enrollment).
+  prefs: []
+  type: TYPE_NORMAL
+- en: One-hot and ordinal encoding are relatively straightforward approaches to engineering
+    categorical features. It can be more complicated to deal with categorical features
+    when there are many more unique values. We go over a couple of techniques for
+    handling those features in the next section.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Encoding categorical features with medium or high cardinality
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: When we are working with a categorical feature that has many unique values,
+    say 15 or more, it can be impractical to create a dummy variable for each value.
+    When there is high cardinality, a very large number of unique values, there may
+    be too few observations with certain values to provide much information for our
+    models. At the extreme, with an ID variable, there is just one observation for
+    each value.
+  prefs: []
+  type: TYPE_NORMAL
+- en: There are a couple of ways to handle medium or high cardinality. One is to create
+    dummies for the top k categories and group the remaining values into an *other*
+    category. Another is to use feature hashing, also known as the hashing trick.
+    We will explore both strategies in this recipe.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Getting ready
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: We continue to use the `OneHotEncoder` from `feature_engine` in this recipe.
+    We will also use the `HashingEncoder` from `category_encoders`. We will be working
+    with COVID-19 data in this recipe, which has total cases and deaths by country,
+    as well as demographic data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Data note**'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Our World in Data provides COVID-19 public use data at [https://ourworldindata.org/covid-cases](https://ourworldindata.org/covid-cases).
+    The data used in this recipe was downloaded on March 3, 2024.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Let’s create training and testing DataFrames from the COVID-19 data, and then
+    import the `feature_engine` and `category_encoders` libraries:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE49]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'The feature region has 16 unique values, the first 5 of which have counts of
+    10 or more:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE50]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE51]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'We can use the `OneHotEncoder` from `feature_engine` again to encode the `region`
+    feature. This time, we use the `top_categories` parameter to indicate that we
+    only want to create dummies for the top 6 category values. Any values for `region`
+    that do not fall into the top 6 will have a 0 value for all of the dummies:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE52]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE53]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: An alternative approach to one-hot encoding, when a categorical feature has
+    many unique values, is to use **feature hashing**.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Feature hashing maps a large number of unique feature values to a smaller number
+    of dummy variables. We can specify the number of dummy variables to create. Each
+    feature value maps to one and only one dummy variable combination. However, collisions
+    are possible—that is, some feature values might map to the same dummy variable
+    combination. The number of collisions increases as we decrease the number of requested
+    dummy variables.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We can use the `HashingEncoder` from `category_encoders` to do feature hashing.
+    We use `n_components` to indicate that we want 6 dummy variables (we copy the
+    `region` feature before we do the transform so that we can compare the original
+    values to the new dummies):'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE54]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE55]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: This gives us a large number of collisions, unfortunately. For example, Caribbean,
+    Central Africa, East Africa, and North Africa all get the same dummy variable
+    values. In this case at least, using one-hot encoding and specifying the number
+    of categories, or increasing the number of components for the hashing encoder,
+    would give us better results.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How it works...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'We used the `OneHotEncoder` from `feature_engine` in the same way we did in
+    the *Encoding categorical features: one-hot encoding* recipe. The difference here
+    is that we limited the dummies to the six regions with the most number of rows
+    (countries in this case). All countries not in one of the top six regions got
+    zeroes for all dummies, such as Algeria in *step 2*.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: In *step 3*, we used the `HashingEncoder` from `category_encoders`. We indicated
+    the column to use, `region`, and that we wanted six dummies. We used the `fit_transform`
+    method of the `HashingEncoder` to fit and transform our data, just as we did with
+    the `OneHotEncoder` of `feature_engine` and the `OrdinalEncoder` of scikit-learn.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We have covered common encoding strategies in the last three recipes: one-hot
+    encoding, ordinal encoding, and feature hashing. Almost all of our categorical
+    features will require some kind of encoding before we can use them in a model.
+    But we sometimes need to alter our features in other ways, including with transformations,
+    binning, and scaling. We consider the reasons why we might need to alter our features
+    in these ways, and explore tools to do that, in the next three recipes.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Using mathematical transformations
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: We sometimes want to use features that do not have a Gaussian distribution with
+    a machine learning algorithm that assumes our features are distributed in that
+    way. When that happens, we either need to change our minds about which algorithm
+    to use (choose KNN or random forest rather than linear regression, for example)
+    or transform our features so that they approximate a Gaussian distribution. We
+    go over a couple of strategies for doing the latter in this recipe.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Getting ready
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: We will use the transformation module from feature engine in this recipe. We
+    continue to work with the COVID-19 data, which has one row for each country with
+    the total cases and deaths and some demographic data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'We start by importing the `transformation` module from `feature_engine`, `train_test_split`
+    from `sklearn`, and `stats` from `scipy`. We also create a training and testing
+    DataFrame with the COVID-19 data:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE56]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Let’s take a look at how total cases by country are distributed. We should
+    also calculate the skew:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE57]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE58]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE59]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'This produces the following histogram:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B18596_08_01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 8.1: Histogram of total COVID-19 cases'
+  prefs: []
+  type: TYPE_NORMAL
+- en: This illustrates the very high skew for total cases. It actually looks log-normal,
+    which is not surprising given the large number of very low values and several
+    very high values.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let’s try a log transformation. All we need to do to get `feature_engine` to
+    do the transformation is to call `LogTransformer` and pass the feature or features
+    we would like to transform:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE60]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE61]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE62]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'This produces the following histogram:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B18596_08_02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 8.2: Histogram of total COVID-19 cases with log transformation'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Effectively, log transformations increase variability at the lower end of the
+    distribution and decrease variability at the upper end. This produces a more symmetrical
+    distribution. This is because the slope of the logarithmic function is steeper
+    for smaller values than for larger ones.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'This is definitely a big improvement, but let’s also try a Box-Cox transformation
+    to see what results we get:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE63]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE64]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE65]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'This produces the following histogram:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B18596_08_03.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 8.3: Histogram of total COVID-19 cases with a Box-Cox transformation'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Box-Cox transformations identify a value for lambda between -5 and 5 that generates
+    a distribution that is closest to normal. It uses the following equation for the
+    transformation:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B18596_08_001.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: or
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B18596_08_002.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Where ![](img/B18596_08_003.png) is our transformed feature. Just for fun,
+    let’s see the value of lambda that was used to transform `total_cases`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE66]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE67]'
+  prefs: []
+  type: TYPE_PRE
+- en: The lambda for the Box-Cox transformation is -0.02\. For comparison, the lambda
+    for a feature with a Gaussian distribution would be 1.000, meaning that no transformation
+    would be necessary.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How it works...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Many of our research or modeling projects require some transformation of features
+    or target variables for us to produce good results. Tools like *feature engine*
+    make it easy for us to incorporate such transformations in our data preparation
+    process. We imported the `transformation` module in *step 1*, and then we used
+    it to do a log transformation in *step 3* and a Box-Cox transformation in *step
+    4*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The transformed total cases feature looked good after the log and Box-Cox transformations.
+    This will likely be an easier target to model. It is also easy to integrate this
+    transformation with a pipeline with other preprocessing steps. `Feature_engine`
+    has a number of other transformations that are implemented similarly to the log
+    and Box-Cox transformations.
+  prefs: []
+  type: TYPE_NORMAL
+- en: See also
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: You may be wondering how we make predictions or evaluate a model with a transformed
+    target. It is actually fairly straightforward to set up our pipeline to restore
+    values to their original values when we make predictions. I go over this in detail
+    in my book *Data Cleaning and Exploration with Machine Learning*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Feature binning: equal width and equal frequency'
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'We sometimes want to convert a feature from continuous to categorical. The
+    process of creating *k* equally spaced intervals from the minimum to the maximum
+    value of a distribution is called **binning**, or the somewhat less friendly **discretization**.
+    Binning can address several important issues with a feature: skew, excessive kurtosis,
+    and the presence of outliers.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Getting ready
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Binning might be a good choice with the COVID-19 total cases data. It might
+    also be useful with other variables in the dataset, including total deaths and
+    population, but we will only work with total cases for now. `total_cases` is the
+    target variable in the following code, so it is a column—the only column—on the
+    `y_train` DataFrame.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let’s try equal width and equal frequency binning with the COVID-19 data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'We first need to import the `EqualFrequencyDiscretiser` and `EqualWidthDiscretiser`
+    from `feature_engine`. We also need to create training and testing DataFrames
+    from the COVID-19 data:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE68]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'We can use the pandas `qcut` method, and its `q` parameter, to create 10 bins
+    of relatively equal frequency:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE69]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE70]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'We can accomplish the same thing with the `EqualFrequencyDiscretiser`. First,
+    we define a function to run the transformation. The function takes a `feature_engine`
+    transformation and the training and testing DataFrames. It returns the transformed
+    DataFrames (it is not necessary to define a function, but it makes sense here,
+    since we will repeat these steps later in this recipe):'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE71]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Next, we create an `EqualFrequencyDiscretiser` transformer and call the `runtransform`
+    function we just created:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE72]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE73]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: This gives us the same results as `qcut`, but it has the advantage that it is
+    easier to bring into a machine learning pipeline, since we are using `feature_engine`
+    to produce it. The equal frequency binning addresses both the skew and outlier
+    problems.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The `EqualWidthDiscretiser` works similarly:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE74]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE75]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: This is a far less successful transformation. Almost all of the values are at
+    the bottom of the distribution in the data prior to the binning, so it is not
+    surprising that equal width binning would have the same problem. It results in
+    only 6 bins, despite the fact that we have requested 10.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let’s examine the range of each bin. We can see here that the equal width binner
+    is not even able to construct equal width bins because of the small number of
+    observations at the top of the distribution:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE76]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE77]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: Although equal width binning was a bad choice in this case, there are many times
+    when it makes sense. It can be useful when data is more uniformly distributed,
+    or when the equal widths make sense substantively.
+  prefs: []
+  type: TYPE_NORMAL
+- en: k-means binning
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Another option is to use *k*-means clustering to determine the bins. The *k*-means
+    algorithm randomly selects *k* data points as centers of clusters, and then it
+    assigns the other data points to the closest cluster. The mean of each cluster
+    is computed, and the data points are reassigned to the nearest new cluster. This
+    process is repeated until the optimal centers are found.
+  prefs: []
+  type: TYPE_NORMAL
+- en: When *k*-means is used for binning, all data points in the same cluster will
+    have the same ordinal value.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Getting ready
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: We will use scikit-learn this time for our binning. *Scitkit-learn* has a great
+    tool for creating bins based on *k*-means, `KBinsDiscretizer`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'We start by instantiating a `KBinsDiscretizer` object. We will use it to create
+    bins with the COVID-19 cases data:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE78]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE79]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Let’s compare the skew and kurtosis of the original total cases variable to
+    that of the binned variable. Recall that we would expect a skew of 0 and a kurtosis
+    near 3 for a variable with a Gaussian distribution. The distribution of the binned
+    variable is much closer to Gaussian:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE80]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE81]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE82]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE83]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Let’s take a closer look at the range of total cases values in each bin. The
+    first bin goes up to 272,010 total cases, and the next goes up to 834,470\. There
+    is a fair bit of drop-off in terms of the number of countries after about 8.6
+    million total cases. We might consider reducing the number of bins to 5 or 6:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE84]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE85]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: These steps demonstrate how to use *k*-means for binning.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How it works...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: All we need to run *k*-means binning is to instantiate a `KBinsDiscretizer`
+    object. We indicated the number of bins we wanted, `10`, and that we wanted the
+    bins to be `ordinal`. We specified `ordinal` because we want higher bin values
+    to reflect higher total cases values. We converted the NumPy array returned from
+    the scikit-learn `fit_transform` into a DataFrame. This is often not necessary
+    in a data pipeline, but we did it here because we will use the DataFrame in subsequent
+    steps.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Binning can help us address skew, kurtosis, and outliers in our data. It does,
+    however, mask much of the variation in the feature and reduces its explanatory
+    potential. Often, some form of scaling, such as min-max or z-score, is a better
+    option. Let’s examine feature scaling in the next recipe.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Feature scaling
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Often, the features we want to use in our model are on very different scales.
+    Put another way, the distance between the min and max values, or the range, varies
+    substantially across possible features. In the COVID-19 data for example, the
+    `total cases` feature goes from 5,000 to almost 100 million, while `aged 65 or
+    older` goes from 9 to 27 (the number represents the percent of population).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Having features on very different scales impacts many machine learning algorithms.
+    For example, KNN models often use Euclidean distance, and features with greater
+    ranges will have greater influence on the model. Scaling can address this problem.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We will go over two popular approaches to scaling in this section: **min-max
+    scaling** and **standard** (or **z-score**) scaling. Min-max scaling replaces
+    each value with its location in the range. More precisely:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B18596_08_004.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Here, *z*[ij] is the min-max score, *x*[ij] is the value for the *i*^(th) observation
+    of the *j*^(th) feature, and *min*[j] and *max*[j] are the min and max values
+    of the *j*^(th) feature.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Standard scaling normalizes the feature values around a mean of 0\. Those who
+    studied undergraduate statistics will recognize it as the z-score. Specifically:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B18596_08_005.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Here, *x*[ij] is the value for the *i*^(th) observation of the *j*^(th) feature,
+    *u*[j] is the mean for feature *j*, and *s*[j] is the standard deviation for that
+    feature.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Getting ready
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: We will use scikit-learn’s preprocessing module for all of the transformations
+    in this recipe. We will work with the COVID-19 data again.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'We can use scikit-learn’s preprocessing module to get the min-max and standard
+    scalers:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We start by importing the `preprocessing` module and creating training and
+    testing DataFrames from the COVID-19 data:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE86]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'We can now run the min-max scaler. As we have done in previous recipes when
+    working with the scikit-learn `fit_transform`, we convert the NumPy array so that
+    it returns to a DataFrame using the columns and index from the training DataFrame.
+    Notice that all features now have values between 0 and 1:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE87]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE88]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'We run the standard scaler in the same manner:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE89]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE90]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'If we have outliers in our data, robust scaling might be a good option. Robust
+    scaling subtracts the median from each value of a variable and divides that value
+    by the interquartile range. So, each value is:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B18596_08_006.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Where ![](img/B18596_08_007.png) is the value for the *j*^(th) feature, and
+    *median*[j], 3^(rd) *quantile*[j], and 1^(st) *quantile*[j], are the median, third,
+    and first quantile of the *j*^(th) feature, respectively. Robust scaling is less
+    sensitive to extreme values, since it does not use the mean or variance.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We can use scikit-learn’s `RobustScaler` module to do robust scaling:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE91]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE92]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: The previous steps demonstrate three popular scaling transformations, standard
+    scaling, min-max scaling, and robust scaling.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How it works...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: We use feature scaling with most machine learning algorithms. Although it is
+    not often required, it yields noticeably better results. Min-max scaling and standard
+    scaling are popular scaling techniques, but there are times when robust scaling
+    might be the better option.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*Scitkit-learn’s* `preprocessing` module makes it easy to use a variety of
+    scaling transformations. We just need to instantiate the scaler and then run the
+    `fit`, `transform`, or `fit_transform` method.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Summary
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: We have covered a wide range of feature engineering techniques in this chapter.
+    We used tools to drop redundant or highly correlated features. We explored the
+    most common kinds of encoding—one-hot, ordinal, and hashing encoding. We then
+    used transformations to improve the distribution of our features. Finally, we
+    used common binning and scaling approaches to address skew, kurtosis, and outliers,
+    and to adjust for features with widely different ranges. In the next chapter,
+    we’ll learn how to fix messy data when aggregating.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Leave a review!
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Enjoying this book? Help readers like you by leaving an Amazon review. Scan
+    the QR code below to get a free eBook of your choice.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/Review_copy.png)'
+  prefs: []
+  type: TYPE_IMG

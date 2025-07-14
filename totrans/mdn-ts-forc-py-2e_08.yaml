@@ -1,0 +1,934 @@
+- en: '6'
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Feature Engineering for Time Series Forecasting
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In the previous chapter, we started looking at **machine learning** (**ML**)
+    as a tool to solve the problem of **time series forecasting**. We also discussed
+    a few techniques, such as **time delay embedding** and **temporal embedding**,
+    which cast time series forecasting problems as classical regression problems from
+    the ML paradigm. In this chapter, we’ll look at those techniques in detail and
+    go through them in a practical sense, using the dataset we have worked with throughout
+    this book.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In this chapter, we will cover the following topics:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Understanding feature engineering
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Avoiding data leakage
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Setting a forecast horizon
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Time delay embedding
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Temporal embedding
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Technical requirements
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: You will need to set up the **Anaconda** environment, following the instructions
+    in the *Preface* of the book, to get a working environment with all the libraries
+    and datasets required for the code in this book. Any additional libraries needed
+    will be installed while running the notebooks.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'You will need to run the following notebooks before using the code in this
+    chapter:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`02-Preprocessing_London_Smart_Meter_Dataset.ipynb from Chapter02`'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`01-Setting_up_Experiment_Harness.ipynb from Chapter04`'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The code for this chapter can be found at [https://github.com/PacktPublishing/Modern-Time-Series-Forecasting-with-Python-2E/tree/main/notebooks/Chapter06](https://github.com/PacktPublishing/Modern-Time-Series-Forecasting-with-Python-2E/tree/main/notebooks/Chapter06).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Understanding feature engineering
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '**Feature engineering**, as the name suggests, is the process of engineering
+    features from data, mostly using domain knowledge, to make the learning process
+    smoother and more efficient. In a typical ML setting, engineering good features
+    is essential to get good performance from any ML model. Feature engineering is
+    a highly subjective part of ML, where each problem at hand has a different path
+    of solution—one that is handcrafted for that problem. Suppose you have a dataset
+    of house prices and you have a feature, *Year Built*, which tells you the year
+    the house was built. Now, to make the information better, we can create another
+    feature, *House Age*, from the *Year Built* feature. This may give the model better
+    information, and this is called feature engineering.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: When we are casting a time series problem as a regression problem, there are
+    a few standard techniques that we can apply. This is a key step in the process,
+    as how well an ML model acquires an understanding of *time* is dependent on how
+    well we engineer features to capture *time*. The baseline methods we covered in
+    *Chapter 4*, *Setting a Strong Baseline Forecast*, are the methods that are created
+    for the specific use case of time series forecasting, and because of that, the
+    temporal aspect of the problem is built into those models. For instance, ARIMA
+    doesn’t need any feature engineering to understand time because it is built into
+    the model. However, a standard regression model has no explicit understanding
+    of time, so we need to create good features to embed the temporal aspect of the
+    problem.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In the previous chapter (*Chapter 5*, *Time Series Forecasting as Regression*),
+    we talked about two main ways to encode time in the regression framework: **time
+    delay embedding** and **temporal embedding**. Although we touched on these concepts
+    at a high level, it is time to dig deeper and see them in action.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Notebook alert**:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: To follow along with the complete code, use the `01-Feature_Engineering.ipynb`
+    notebook in the `Chapter06` folder.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We have already split the dataset that we were working on into train, validation,
+    and test datasets. However, since we are generating features that are based on
+    previous observations, operationally, it is better when we have the train, validation,
+    and test datasets combined. It will be clearer why shortly, but for now, let’s
+    take it on faith and move ahead. Now, let’s combine the two datasets:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: Now, we have a `full_df`, which combines the train, validation, and test datasets.
+    Some of you may already have alarm bells ringing in your head at combining the
+    train and test sets. What about **data leakage**? Let’s check it out.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Avoiding data leakage
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '**Data leakage** occurs when a model is trained with some information that
+    would not be available at the time of prediction. Typically, this leads to high
+    performance in the training set but very poor performance in unseen data. There
+    are two types of data leakage:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Target leakage** is when the information about the target (that we are trying
+    to predict) leaks into some of the features in the model, leading to an overreliance
+    of the model on those features, ultimately leading to poor generalization. This
+    includes features that use the target in any way.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Train-test contamination** is when there is some information leakage between
+    the train and test datasets. This can happen because of the careless handling
+    and splitting of data. But it can also happen in more subtle ways, such as scaling
+    a dataset before splitting the train and test sets.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'When we work with time series forecasting problems, the biggest and most common
+    mistake that we can make is target leakage. We will have to think hard about each
+    of the features to ensure that we don’t use any data that will not be available
+    during prediction. The following diagram will help us remember and internalize
+    this concept:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 6.1 – Usable and not-usable information to avoid data leakage ](img/B22389_06_01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 6.1: Usable and unusable information to avoid data leakage'
+  prefs: []
+  type: TYPE_NORMAL
+- en: To make this concept clearer and more relevant to the time series forecasting
+    context, let’s look at an example. Let’s say we are forecasting sales for shampoo,
+    and we are using sales for conditioner as a feature. We developed the model, trained
+    it on the training data, and tested it on the validation data. The model does
+    very well. The moment we start predicting for the future, we can see a problem.
+    We don’t know what the sales for conditioner are in the future either. While this
+    example is pretty straightforward, there will be times when this becomes not so
+    obvious. And that is why we need to exercise a fair amount of caution while creating
+    features and always evaluate the features through the lens of *will this feature
+    be available at the time of prediction?*
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Best practices**:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'There are many ways of identifying target leakage, apart from thinking hard
+    about the features:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: If the model you’ve built is too good to be true, you most likely have a leakage
+    problem
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: If any single feature has too much weightage in the feature importance of the
+    model, that feature may have a problem with leakage
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Double-check the features that are highly correlated with the target
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Although we generated forecasts earlier in this book, we never explicitly discussed
+    **forecast horizons**. It is an important concept and essential for what we will
+    discuss. Let’s take a bit of time to understand forecast horizons.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Setting a forecast horizon
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: A forecast horizon is the number of time steps into the future we want to forecast
+    at any point in time. For instance, if we want to forecast the next 24 hours for
+    the electricity consumption dataset that we have worked with, the forecast horizon
+    becomes 48 (because the data is half-hourly). In *Chapter 5*, *Time Series Forecasting
+    as Regression*, where we generated baselines, we just predicted the entire test
+    data at once. In such cases, the forecast horizon becomes equal to the length
+    of the test data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We never had to worry about this until now because, in the classical statistical
+    methods of forecasting, this decision is decoupled from modeling. If we train
+    a model, we can use it to predict any future point without retraining. But with
+    *time series forecasting as regression*, we have a constraint on the forecast
+    horizon, and it has its roots in data leakage. This might be unclear to you now,
+    so we’ll revisit this point after we have learned about the feature engineering
+    techniques. For now, let’s only look at single-step-ahead forecasting. In the
+    context of the dataset we are working with, this means that we will be answering
+    the question, *What is the energy consumption in the next half an hour?* We will
+    talk about multi-step forecasting and other mechanics of forecasting in *Part
+    4*, *The Mechanics of Forecasting*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now that we have set some ground rules, let’s start looking at the different
+    feature engineering techniques. To follow along with the Jupyter notebook, head
+    over to the `Chapter06` folder and use the `01-Feature_Engineering.ipynb` file.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Time delay embedding
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: The basic idea behind time delay embedding is to embed time in terms of recent
+    observations. In *Chapter 5*, *Time Series Forecasting as Regression*, we discussed
+    including previous observations of a time series as **lags** (*Figure 5.6* under
+    the subsection *Time delay embedding*).
+  prefs: []
+  type: TYPE_NORMAL
+- en: However, there are a few more ways to capture recent and seasonal information
+    using this concept.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Lags
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Rolling window aggregations
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Seasonal rolling window aggregations
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Exponentially weighted moving averages
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Let’s take a look.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Lags or backshift
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Let’s assume we have a time series with time steps, *Y*[L]. Consider that we
+    are at time *T* and that we have a time series where the length of history is
+    *L*. So our time series will have *y*[T] as the latest observation in the time
+    series, and then *y*[T-1], *y*[T-2], and so on as we move back in time. So lags,
+    as explained in *Chapter 5*, *Time Series Forecasting as Regression*, are features
+    that include the previous observations in the time series, as shown in the following
+    diagram:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 6.2 – Lag features ](img/B22389_06_02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 6.2: Lag features'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We can create multiple lags by including observations that are *a* timesteps
+    before (*y*[T-a]); we will call this *Lag a*. In the preceding diagram, we have
+    shown *Lag 1*, *Lag 2*, and *Lag 3*. However, we can add any number of lags we
+    like. Let’s learn how to do that now in code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: Remember when we combined the train and test datasets and I asked you to take
+    it in good faith? It’s time to repay that faith. If we consider the lag operation
+    (or any autoregressive feature), it relies on a continuous representation along
+    the time axis. If we consider the test dataset, for the first few rows (or earliest
+    dates), the lags would be missing because they are part of the training dataset.
+    So by combining the two, we create a continuous representation along the time
+    axis where standard functions in pandas, such as `shift`, can be utilized to create
+    these features easily and efficiently.
+  prefs: []
+  type: TYPE_NORMAL
+- en: It is as simple as that, but we need to perform the lag operation for each `LCLid`
+    separately. We have included a helpful method in `src.feature_engineering.autoregressive_features`
+    called `add_lags` that adds all the lags you want for each `LCLid` quickly and
+    efficiently. Let’s see how we can use that.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We are going to import the method and use a few of its parameters to configure
+    the lag operation the way we want:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Now, let’s look at the parameters that we used in the previous code snippet:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`lags`: This parameter takes in a list of integers, denoting all the lags we
+    need to create as features.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`column`: The name of the column to be lagged. In our case, this is `energy_consumption`.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`ts_id`: The name of the column that contains the unique ID of a time series.
+    If `None`, it assumes that the DataFrame only contains a single time series. In
+    our case, `LCLid` is the name of that column.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`use_32_bit`: This parameter doesn’t do anything functionally but makes the
+    DataFrames much smaller in memory, sacrificing the precision of the floating-point
+    numbers.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: This method returns the DataFrame with the lags added, as well as a list with
+    the column names of the newly added features.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Rolling window aggregations
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'With lags, we connect the present points to single points in the past, but
+    with rolling window features, we connect the present with an aggregate statistic
+    of a window from the past. Instead of looking at the observation from previous
+    time steps, we would look at an average of the observations from the last three
+    timesteps. Take a look at the following diagram to understand this better:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 6.3 – Rolling window aggregation features ](img/B22389_06_03.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 6.3: Rolling window aggregation features'
+  prefs: []
+  type: TYPE_NORMAL
+- en: We can calculate rolling statistics with different windows, and each of them
+    will capture slightly different aspects of the history. In the preceding diagram,
+    we can see an example of a window of three and a window of four. When we are at
+    timestep *T*, a rolling window of three would have *y*[T] [– 3], *y*[T] [– 2],
+    *y*[T] [– 1] as the vector of past observations. Once we have these, we can apply
+    any aggregation functions, such as the mean, standard deviation, min, max, and
+    so on. Once we have a scalar value after the aggregation function, we can include
+    that as a feature for timestep *t*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We do *not include* *y*[T] in the vector of past observations because that leads
+    to data leakage.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let’s see how we can do this with pandas:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: Similar to the lags, we need to do this operation for each `LCLid` column separately.
+    We have included a helpful method in `src.feature_engineering.autoregressive_features`
+    called `add_rolling_features` that adds all the rolling features you want for
+    each `LCLid` quickly and efficiently. Let’s see how we can use that.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We are going to import this method and use a few of its parameters to configure
+    the rolling operation the way we want:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Now, let’s look at the parameters that we used in the previous code snippet:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`rolls`: This parameter takes in a list of integers denoting all the windows
+    over which we need to calculate the aggregate statistics.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`column`: The name of the column to be lagged. In our case, this is `energy_consumption`.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`agg_funcs`: This is a list of aggregations that we want to do for each window
+    we declared in `rolls`. Allowable aggregation functions include `{mean, std, max,
+    min}`.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`n_shift`: This is the number of timesteps we need to shift before doing the
+    rolling operation. This parameter avoids data leakage. Although we are shifting
+    by one here, there are cases where we need to shift by more than one as well.
+    This is typically used in multi-step forecasting, which we will cover in *Part
+    4*, *The Mechanics of Forecasting*.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`ts_id`: The name of the column name that contains the unique ID of a time
+    series. If `None`, it assumes that the DataFrame only has a single time series.
+    In our case, `LCLid` is the name of that column.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`use_32_bit`: This parameter doesn’t do anything functionally but makes the
+    DataFrames much smaller in memory, sacrificing the precision of the floating-point
+    numbers.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: This method returns the DataFrame with the rolling features added, as well as
+    a list with the column names of the newly added features.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Seasonal rolling window aggregations
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Seasonal rolling window aggregations are very similar to rolling window aggregations,
+    but instead of taking past *n* consecutive observations in the window, they take
+    a seasonal window, skipping a constant number of timesteps between each item in
+    a window. The following diagram will make this clearer:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 6.4 – Seasonal rolling window aggregations ](img/B22389_06_04.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 6.4: Seasonal rolling window aggregations'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The key parameter here is the seasonality period, which is commonly referred
+    to as *M*. This is the number of timesteps after which we expect the seasonality
+    pattern to repeat. When we are at timestep *T*, a rolling window of three would
+    have *y*[T] [– 3], *y*[T] [– 2], *y*[T] [– 1], as the vector of past observations.
+    But the seasonal rolling window would skip *m* timesteps between each item in
+    the window. This means that the observations that are there in the seasonal rolling
+    window would be *y*[T] [–] [M], *y*[T] [– 2][M], *y*[T] [– 3][M]. Also, as usual,
+    once we have the window vector, we just need to apply the aggregation function
+    to get a scalar value and include that as a feature.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We do *not include* *y*[T] as an element in the seasonal rolling window vector
+    to avoid data leakage.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This is not an operation that you can do easily and efficiently with pandas.
+    Some fancy NumPy indexing and Python loops should do the trick. We will use an
+    implementation from `github.com/jmoralez/window_ops/` that uses NumPy and Numba
+    to make the operation fast and efficient.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Just like the features we saw earlier, we need to do this operation for each
+    `LCLid` separately. We have included a helpful method in `src.feature_engineering.autoregressive_features`
+    called `add_seasonal_rolling_features` that adds all the seasonal rolling features
+    you want for each `LCLid` quickly and efficiently. Let’s see how we can use that.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We are going to import the method and use a few parameters of the method to
+    configure the seasonal rolling operation the way we want:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Now, let’s look at the parameters that we used in the previous code snippet:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`seasonal_periods`: This is a list of seasonal periods that should be used
+    in the seasonal rolling windows. In the case of multiple seasonalities, we can
+    include the seasonal rolling features of all the seasonalities.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`rolls`: This parameter takes in a list of integers denoting all the windows
+    over which we need to calculate aggregate statistics.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`column`: The name of the column to be lagged. In our case, this is `energy_consumption`.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`agg_funcs`: This is a list of aggregations that we want to do for each window
+    we declared in `rolls`. The allowable aggregation functions are `{mean, std, max,
+    min}`.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`n_shift`: This is the number of seasonal timesteps we need to shift before
+    doing the rolling operation. This parameter prevents data leakage.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`ts_id`: The name of the column name that contains the unique ID of a time
+    series. If `None`, it assumes that the DataFrame only contains a single time series.
+    In our case, `LCLid` is the name of that column.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`Use_32_bit`: This parameter doesn’t do anything functionally but makes the
+    DataFrames much smaller in memory, sacrificing the precision of the floating-point
+    numbers.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: As always, the method returns the DataFrame with seasonal rolling features and
+    a list containing the column names of the newly added features.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Exponentially weighted moving average (EWMA)
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'With the rolling window mean operation, we calculated the average of the window,
+    and it works synonymously with the **moving average**. EWMA is the slightly smarter
+    cousin of the moving average. While the moving average considers a rolling window
+    and considers each item in the window equally on the computed average, EWMA tries
+    to do a weighted average on the window, and the weights decay at an exponential
+    rate. There is a parameter, ![](img/B22389_04_009.png), that determines how fast
+    the weights decay. Because of this, we can consider all the history available
+    as a window and let the ![](img/B22389_04_009.png) parameter decide how much recency
+    is included in EWMA. This can be written simply and recursively, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_06_003.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Here, we can see that the larger the value of ![](img/B22389_04_009.png), the
+    more the average is skewed toward recent values (see *Figure 6.6* to get a visual
+    impression of how the weights would be). If we expand the recursion, the weights
+    of each term work out to be:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_06_005.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'where *k* is the number of timesteps behind *T*. If we plot the weights, we
+    can see them in an exponential decay; ![](img/B22389_04_009.png) determines how
+    fast the decay happens. Another way to think about ![](img/B22389_04_009.png)
+    is in terms of **span**. Span is the number of periods at which the decayed weights
+    approach zero (not in a strictly mathematical way but intuitively). ![](img/B22389_04_009.png)
+    and span are related through this equation:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_06_009.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'This will become clearer in the following diagram, where we have plotted how
+    the weights decay for different values of ![](img/B22389_04_009.png):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 6.5 – Exponential weight decay for different values of  ](img/B22389_06_05.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 6.5: Exponential weight decay for different values of ![](img/B22389_04_009.png)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Here, we can see that the weight becomes small by the time we reach the span.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Intuitively, we can think of EWMA as an average of the entire history of the
+    time series, but with parameters such as ![](img/B22389_04_009.png) and **span**,
+    we can make different periods of history more representative of the average. If
+    we define a 60-period span, we can think that the last 60 time periods are what
+    majorly drive the average. So making EWMAs with different spans or ![](img/B22389_04_009.png)
+    s gives us representative features that capture different periods of history.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The overall process is depicted in the following diagram:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 6.6 – EWMA features ](img/B22389_06_06.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 6.6: EWMA features'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now, let’s see how we can do this in pandas:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: Like the other features we discussed earlier, EWMA also needs to be done for
+    each `LCLid` separately. We have included a helpful method in `src.feature_engineering.autoregressive_features`
+    called `add_ewma` that adds all the EWMA features you want for each `LCLid` quickly
+    and efficiently. Let’s see how we can use that.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We are going to import the method and use a few parameters of the method to
+    configure EWMA the way we want to:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Now, let’s look at the parameters that we used in the previous code snippet:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`alphas`: This is a list of all ![](img/B22389_04_009.png)s we need to calculate
+    the EWMA features for.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`spans`: Alternatively, we can use this to list all the spans we need to calculate
+    the EWMA features for. If you use this feature, `alphas` will be ignored.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`column`: The name of the column to be lagged. In our case, this is `energy_consumption`.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`n_shift`: This is the number of seasonal timesteps we need to shift before
+    doing the rolling operation. This parameter avoids data leakage.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`ts_id`: The name of the column name that has a unique ID for a time series.
+    If `None`, it assumes the DataFrame only contains a single time series. In our
+    case, `LCLid` is the name of that column.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`use_32_bit`: This parameter doesn’t do anything functionally but makes the
+    DataFrames much smaller in memory, sacrificing the precision of the floating-point
+    numbers.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: As always, the method returns the DataFrame containing the EWMA features, as
+    well as a list with the column names of the newly added features.
+  prefs: []
+  type: TYPE_NORMAL
+- en: These are a few standard ways of including time delay embedding in your ML model,
+    but you are not restricted to just these. As always, feature engineering is a
+    space that is not bound by rules, and we can get as creative as we want and inject
+    domain knowledge into the model. Apart from the features we have seen, we can
+    include the difference in lag as custom lags that inject domain knowledge, and
+    so on. In most practical cases, we end up using more than one way of time delay
+    embedding into our models. The lag feature is the most basic and essential in
+    most cases, but we do end up encoding more information with seasonal lags, rolling
+    features, and so on. As with everything in ML, there is no silver bullet. Each
+    dataset has its own intricacies, which makes feature engineering very important
+    and different for each case.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now, let’s look at the other class of features we can add via **temporal embedding**.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Temporal embedding
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In *Chapter 5*, *Time Series Forecasting as Regression*, we briefly discussed
+    temporal embedding as a process where we try to embed *time* into features that
+    an ML model can leverage. If we think about *time* for a second, we can see that
+    two aspects of time are important to us in the context of time series forecasting—the
+    *passage of time* and the *periodicity of time*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'There are a few features that we can add to help us capture these aspects in
+    an ML model:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Calendar features
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Time elapsed
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Fourier terms
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Let’s look at each of them.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Calendar features
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: The first set of features that we can extract are features based on calendars.
+    Although the strict definition of time series is a set of observations taken sequentially
+    in time, more often than not, we will have the timestamps of these collected observations
+    alongside the time series. We can utilize these timestamps and extract calendar
+    features, such as the month, quarter, day of the year, hour, minutes, and so on.
+    These features capture the periodicity of time and help an ML model capture seasonality
+    well. Only the calendar features that are temporally higher than the frequency
+    of the time series make sense. For instance, an hour feature in a time series
+    with a weekly frequency doesn’t make sense, but a month feature and week feature
+    make sense. We can utilize in-built datetime functionalities in pandas to create
+    these features and treat them as categorical features in the model.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Time elapsed
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'This is another feature that captures the passage of time in an ML model. This
+    feature increases monotonically as time increases, giving the ML model a sense
+    of the passage of time. There are many ways to create this feature, but one of
+    the easiest and most efficient ways is to use the integer representation of dates
+    in NumPy:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs: []
+  type: TYPE_PRE
+- en: We have included a helpful method in `src.feature_engineering.temporal_features`
+    called `add_temporal_features` that adds all relevant temporal features automatically.
+    Let’s see how we can use it.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We are going to import the method and use a few parameters of this method to
+    configure and create the temporal features:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Now, let’s look at the parameters that we used in the previous code snippet:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`field_name`: This is the column name that contains the datetime that should
+    be used to create features.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`frequency`: We should provide the frequency of the time series as input so
+    that the method automatically extracts the relevant features. These are standard
+    pandas frequency strings.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`add_elapsed`: This flag turns the creation of the time elapsed feature on
+    or off.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`use_32_bit`: This parameter doesn’t do anything functionally but makes the
+    DataFrames much smaller in memory, sacrificing the precision of the floating-point
+    numbers.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Just like the previous methods we discussed, this also returns the new DataFrame
+    with the temporal features added and a list containing the column names of the
+    newly added features.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Fourier terms
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Previously, we extracted a few calendar features such as the month, year, and
+    so on, and we discussed using them as categorical variables in the ML model. Another
+    way we can represent the same information, but on a continuous scale, is by using
+    **Fourier terms**. We discussed the Fourier series in *Chapter 3*, *Analyzing
+    and Visualizing Time Series Data*. Just to reiterate, the sine-cosine form of
+    the Fourier series is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_06_015.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Here, *S*[N] is the *N*-term approximation of the signal, *S*. Theoretically,
+    when *N* is infinite, the resulting approximation is equal to the original signal.
+    *P* is the maximum length of the cycle, *a*[n] and *b*[n] are the coefficients
+    of the cosine and sine term, respectively, of the *n*^(th) term in the expansion,
+    and *a*[0] is the intercept.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We can create these cosine and sine functions as features to represent the seasonal
+    cycle. If we encode the month, we know that it goes from 1 to 12 and then repeats
+    itself. So *P*, in this case, will be 12, and *x* will be 1, 2, …12\. Therefore,
+    for each *x*, we can calculate the cosine and sine terms and add them as features
+    to the ML model. Intuitively, we can think that the model will infer the coefficients
+    based on the data and, thus, help the model predict the time series easier.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The following diagram shows the difference in representations between the month
+    on an ordinal scale and as a Fourier series:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 6.7 – Month as an ordinal step function (top) versus Fourier terms
+    (bottom) ](img/B22389_06_07.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 6.7: Month as an ordinal step function (top) versus Fourier terms (bottom)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The preceding diagram shows just a single Fourier term; we can add multiple
+    Fourier terms to help capture complex seasonality.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We cannot say that continuous representation of seasonality is better than categorical
+    because it depends on the type of model you use and the dataset. This is something
+    we will have to find out empirically.
+  prefs: []
+  type: TYPE_NORMAL
+- en: To make the process of adding Fourier features easy, we have made some easy-to-use
+    methods available in `src.feature_engineering.temporal_features`, in a file called
+    `bulk_add_fourier_features` that adds Fourier features for all the calendar features
+    we want automatically. Let’s see how we can use that.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We are going to import the method and use a few of its parameters to configure
+    and create the Fourier series-based features:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Now, let’s look at the parameters that we used in the previous code snippet:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`columns_to_encode`: This is the list of calendar features we need to encode
+    using Fourier terms.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`max_values`: This is a list of max values for the seasonal cycle for the calendar
+    features, in the same order as they are given in `columns_to_encode`. For instance,
+    for `month` to encode as a column, we give `12` as the corresponding `max_value`.
+    If not given, `max_value` will be inferred. This is only recommended if the data
+    you have contains at least a single complete seasonal cycle.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`n_fourier_terms`: This is the number of Fourier terms to be added. This is
+    synonymous with *n* in the equation for the Fourier series mentioned previously.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`use_32_bit`: This parameter doesn’t do anything functionally but makes the
+    DataFrames much smaller in memory, sacrificing the precision of the floating-point
+    numbers.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Just like the previous methods we’ve discussed, this also returns a new DataFrame
+    with the Fourier features added, as well as a list with column names of the newly
+    added features.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'After executing the `01-Feature_Engineering.ipynb` notebook in `Chapter06`,
+    we will have the following feature-engineered files written to disk:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`selected_blocks_train_missing_imputed_feature_engg.parquet`'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`selected_blocks_val_missing_imputed_feature_engg.parquet`'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`selected_blocks_test_missing_imputed_feature_engg.parquet`'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: In this section, we looked at a few popular and effective ways to generate features
+    for time series. But there are many more, and depending on your problem and the
+    domain, many of them will be relevant.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Additional information**:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The world of feature engineering is vast, and there are a few open-source libraries
+    that make exploring that space easier. A few of them are [https://github.com/Nixtla/tsfeatures](https://github.com/Nixtla/tsfeatures),
+    [https://tsfresh.readthedocs.io/en/latest/](https://tsfresh.readthedocs.io/en/latest/),
+    and [https://github.com/DynamicsAndNeuralSystems/catch22](https://github.com/DynamicsAndNeuralSystems/catch22).
+    A preprint by Ben D. Fulcher titled *Feature-based time-series analysis* at [https://arxiv.org/abs/1709.08055](https://arxiv.org/abs/1709.08055)
+    also gives a nice summary of the space.
+  prefs: []
+  type: TYPE_NORMAL
+- en: A newer library called functime ([https://github.com/functime-org/functime](https://github.com/functime-org/functime))
+    also provides fast feature engineering routines, written in Polars, and is worth
+    checking out. A lot of the feature engineering discussed in the book can be made
+    even faster using functime and Polars.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Summary
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: After a brief overview of the ML for time series forecasting paradigm in the
+    previous chapter, in this chapter, we looked at this practically and saw how we
+    can prepare the dataset with the required features to start using these models.
+    We reviewed a few time series-specific feature engineering techniques, such as
+    lags, rolling, and seasonal features. All the techniques we learned in this chapter
+    are tools with which we can quickly iterate through experiments to find out what
+    works for our dataset. However, we only talked about feature engineering, which
+    affects one side of the standard regression equation (*y* = *mX* + *c*). The other
+    side, which is the target (*y*) we predict, is also equally important. In the
+    next chapter, we’ll look at a few concepts such as stationarity and some transformations
+    that affect the target.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Join our community on Discord
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Join our community’s Discord space for discussions with authors and other readers:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[https://packt.link/mts](https://packt.link/mts)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/QR_Code15080603222089750.png)'
+  prefs: []
+  type: TYPE_IMG

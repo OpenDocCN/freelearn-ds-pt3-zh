@@ -1,0 +1,653 @@
+- en: '10'
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: General Usage and Performance Tips
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: At this point in the book, we have covered a rather large part of the pandas
+    library while walking through sample applications to reinforce good usage. Equipped
+    with all of this knowledge, you are now well prepared to step into the real world
+    and start applying everything you have learned to your data analysis problems.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This chapter will offer some tips and tricks you should keep in mind as you
+    go out on your own. The recipes presented in this chapter are common mistakes
+    I see by pandas users of all experience levels. While well-intentioned, improper
+    usage of pandas constructs can leave a lot of performance on the table. When your
+    datasets are smaller in size that may not be a big issue, but data has the tendency
+    to grow, not to retreat in size. Using proper idioms and avoiding the maintenance
+    burden of inefficient code can yield significant time and money savings for your
+    organization.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We are going to cover the following recipes in this chapter:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Avoid `dtype=object`
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Be cognizant of data sizes
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Use vectorized functions instead of loops
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Avoid mutating data
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Dictionary-encode low cardinality data
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Test-driven development features
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Avoid dtype=object
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Using `dtype=object` to store strings is one of the most error-prone and inefficient
+    things you can do in pandas. Unfortunately, for the longest time, `dtype=object`
+    was the only way to work with string data; this wasn’t “solved” until the 1.0
+    release.
+  prefs: []
+  type: TYPE_NORMAL
+- en: I intentionally put “solved” in quotes because, while pandas 1.0 did introduce
+    the `pd.StringDtype()`, it was not used by default by many construction and I/O
+    methods until the 3.0 release. In effect, unless you told pandas otherwise, you
+    would end up with `dtype=object` for all your string data in the 2.x series. For
+    what it’s worth, the `pd.StringDtype()` that was introduced in 1.0 helped to assert
+    you *only* stored strings, but it was never optimized for performance until the
+    pandas 3.0 release.
+  prefs: []
+  type: TYPE_NORMAL
+- en: If you are using the 3.0 release of pandas and beyond, chances are you will
+    still come across legacy code that reads like `ser = ser.astype(object)`. More
+    often than not, such calls should be replaced with `ser = ser.astype(pd.StringDtype())`,
+    unless you truly do need to store Python objects in a `pd.Series`. Unfortunately,
+    there is no true way to know the intent, so you as a developer should be aware
+    of the pitfalls of using `dtype=object` and how to identify if it can suitably
+    be replaced with the `pd.StringDtype()`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: We already covered some of the issues with using `dtype=object` back in *Chapter
+    3*, *Data Types,* but it is worth restating and expanding upon some of those issues
+    here.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'For an easy comparison, let’s create two `pd.Series` objects with identical
+    data, where one uses the `object` data type and the other uses the `pd.StringDtype`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Attempting to assign a non-string value to `ser_str` will fail:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'By contrast, the object-typed `pd.Series` will gladly accept our `Boolean`
+    value:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'In turn, this just ends up obfuscating where issues with your data may occur.
+    With `pd.StringDtype`, the point of failure was very obvious when we tried to
+    assign non-string data. With the object data type, you may not discover there
+    is a problem until later in your code, when you try some string operation like
+    capitalization:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: Instead of raising an error, pandas just decided to set our `False` entry in
+    the first row to a missing value. Odds are just silently setting things to missing
+    values like that is not the behavior you wanted, but with the object data type,
+    you lose a lot of control over your data quality.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'If you are working with pandas 3.0 and beyond, you will also see that, when
+    PyArrow is installed, `pd.StringDtype` becomes significantly faster. Let’s recreate
+    our `pd.Series` objects to measure this:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'For a quick timing comparison, let’s use the `timeit` module, built into the
+    standard library:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE8]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Compare that runtime to the same values but with the proper `pd.StringDtype`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE10]'
+  prefs: []
+  type: TYPE_PRE
+- en: Unfortunately, users prior to the 3.0 release will not see any performance difference,
+    but the data validation alone is worth it to move away from `dtype=object`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'So what is the easiest way to avoid `dtype=object`? If you are fortunate enough
+    to be working with the 3.0 release and beyond of pandas, you will naturally not
+    run into this data type as often, as a natural evolution in the library. Even
+    still, and for users that may still be using the pandas 2.x series, I advise using
+    the `dtype_backend="numpy_nullable"` argument with I/O methods:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE12]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'If you are constructing a `pd.DataFrame` by hand, you can use `pd.DataFrame.convert_dtypes`
+    paired with the same `dtype_backend="numpy_nullable"` argument:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE13]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE14]'
+  prefs: []
+  type: TYPE_PRE
+- en: Please note that the `numpy_nullable` term is a bit of a misnomer. The argument
+    would have probably been better named `pandas_nullable` or even just `pandas`
+    or `nullable`, but when it was first introduced, it was strongly tied to the NumPy
+    system still. Over time, the term `numpy_nullable` stuck, but the types moved
+    away from using NumPy. Beyond the publication of this book, there may be a more
+    suitable value to use to get the same behavior, which essentially asks for optimal
+    data types in pandas that can support missing values.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'While using `dtype=object` is most commonly *misused* for strings, it also
+    exposes some rough edges with datetimes. I commonly see code like this from new
+    users trying to create what they think is a `pd.Series` of dates:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE15]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE16]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'While this is a logical way to try and accomplish the task at hand, the problem
+    is that pandas does not have a true *date* type. Instead, these get stored in
+    an `object` data type array using the `datetime.date` type from the Python standard
+    library. This rather unfortunate usage of Python objects obfuscates the fact that
+    you are trying to work with dates, and subsequently trying to use the `pd.Series.dt`
+    accessor will throw an error:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE17]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE18]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Back in *Chapter 3*, *Data Types*, we talked briefly about the PyArrow `date32`
+    type, which would be a more native solution to this problem:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE19]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE20]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'This will then unlock the `pd.Series.dt` attributes for use:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE21]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE22]'
+  prefs: []
+  type: TYPE_PRE
+- en: I find this nuance rather unfortunate and hope future versions of pandas will
+    be able to abstract these issues away, but nonetheless, they are present at the
+    time of publication and may be for some time.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In spite of all of the downsides that I have highlighted with respect to `dtype=object`,
+    it still does have its uses when dealing with messy data. Sometimes, you may not
+    know anything about your data and just need to inspect it before making further
+    decisions. The object data type gives you the flexibility to load essentially
+    any data and apply the same pandas algorithms to it. While these algorithms may
+    not be very efficient, they still give you a consistent way to interact with and
+    explore your data, ultimately buying you time to figure out how to best cleanse
+    it and store it in a more proper data form. For this reason, I consider `dtype=object`
+    best as a staging area – I would not advise keeping your types in it, but the
+    fact that it buys you time to make assertions about your data types can be an
+    asset.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Be cognizant of data sizes
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: As your datasets grow larger, you may find that you have to pick more optimal
+    data types to ensure your `pd.DataFrame` can still fit into memory.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Back in *Chapter 3*, *Data Types*, we discussed the different integral types
+    and how they are a trade-off between memory usage and capacity. When dealing with
+    untyped data sources like CSV and Excel files, pandas will err on the side of
+    using too much memory as opposed to picking the wrong capacity. This conservative
+    approach can lead to inefficient usage of your system’s memory, so knowing how
+    to optimize that can make the difference between loading a file and receiving
+    an `OutOfMemory` error.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'To illustrate the impact of picking proper data types, let’s start with a relatively
+    large `pd.DataFrame` composed of Python integers:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE23]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE24]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'With the integral types, determining how much memory each `pd.Series` requires
+    is a rather simple exercise. With a `pd.Int64Dtype`, each record is a 64-bit integer
+    that requires 8 bytes of memory. Alongside each record, the `pd.Series` associates
+    a single byte that is either 0 or 1, telling us if the record is missing or not.
+    Thus, in total, we need 9 bytes for each record, and with 100,000 records per
+    `pd.Series`, our memory usage should come out to 900,000 bytes. `pd.DataFrame.memory_usage`
+    confirms that this math is correct:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE25]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE26]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'If you know what the types should be, you could explicitly pick better sizes
+    for the `pd.DataFrame` columns using `.astype`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE27]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE28]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'As a convenience, pandas can try and infer better sizes for you with a call
+    `pd.to_numeric`. Passing the `downcast="signed"` argument will ensure that we
+    continue to work with signed integers, and we will continue to pass `dtype_backend="numpy_nullable"`
+    to ensure we get proper missing value support:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE29]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE30]'
+  prefs: []
+  type: TYPE_PRE
+- en: Use vectorized functions instead of loops
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Python as a language is celebrated for its looping prowess. Whether you are
+    working with a list or a dictionary, looping over an object in Python is a relatively
+    easy task to perform, and can allow you to write really clean, concise code.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Even though pandas is a Python library, those same looping constructs are ironically
+    an impediment to writing idiomatic, performant code. In contrast to looping, pandas
+    offers *vectorized computations*, i.e, computations that work with all of the
+    elements contained within a `pd.Series` but which do not require you to explicitly
+    loop.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Let’s start with a simple `pd.Series` constructed from a range:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE31]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'We could use the built-in `pd.Series.sum` method to easily calculate the summation:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE32]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE33]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Looping over the `pd.Series` and accumulating your own result will yield the
+    same number:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE34]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE35]'
+  prefs: []
+  type: TYPE_PRE
+- en: Yet the two code samples are nothing alike. With `pd.Series.sum`, pandas performs
+    the summation of elements in a lower-level language like C, avoiding any interaction
+    with the Python runtime. In pandas speak, we would refer to this as a *vectorized*
+    function.
+  prefs: []
+  type: TYPE_NORMAL
+- en: By contrast, the `for` loop is handled by the Python runtime, and as you may
+    or may not be aware, Python is a much slower language than C.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'To put some tangible numbers forth, we can run a simple timing benchmark using
+    Python’s `timeit` module. Let’s start with `pd.Series.sum`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE36]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE37]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Let’s compare that to the Python loop:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE38]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE39]'
+  prefs: []
+  type: TYPE_PRE
+- en: That’s a huge slowdown with the loop!
+  prefs: []
+  type: TYPE_NORMAL
+- en: Generally, you should look to use the built-in vectorized functions of pandas
+    for most of your analysis needs. For more complex applications, reach for the
+    `.agg`, `.transform`, `.map`, and `.apply` methods, which were covered back in
+    *Chapter 5**, Algorithms and How to Apply Them*. You should be able to avoid using
+    `for`loops in 99.99% of your analyses; if you find yourself using them more often,
+    you should rethink your design, more than likely after a thorough re-read of *Chapter
+    5**, Algorithms and How to Apply Them*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The one exception to this rule where it may make sense to use a `for`loop is
+    when dealing with a `pd.GroupBy` object, which can be efficiently iterated like
+    a dictionary:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE40]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE41]'
+  prefs: []
+  type: TYPE_PRE
+- en: Avoid mutating data
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Although pandas allows you to mutate data, the cost impact of doing so varies
+    by data type. In some cases, it can be prohibitively expensive, so you will be
+    best served trying to minimize mutations you have to perform at all costs.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'When thinking about data mutation, a best effort should be made to mutate before
+    loading into a pandas structure. We can easily illustrate a performance difference
+    by comparing the time to mutate a record after loading it into a `pd.Series`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE42]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE43]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'To the time it takes if the mutation was performed beforehand:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE44]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE45]'
+  prefs: []
+  type: TYPE_PRE
+- en: There’s more…
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: You can go down a technical rabbit hole trying to decipher the impact of mutating
+    various data types in pandas, across all of the different versions. However, starting
+    in pandas 3.0, the behavior started to become more consistent with the introduction
+    of Copy-on-Write, which was proposed as part of PDEP-07\. In essence, any time
+    you try to mutate a `pd.Series` or `pd.DataFrame`, you end up with a copy of the
+    original data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: While this behavior is now easier to anticipate, it also means that mutations
+    are potentially very expensive, especially if you try to mutate a large `pd.Series`
+    or `pd.DataFrame`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Dictionary-encode low cardinality data
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Back in *Chapter 3*, *Data Types*, we talked about the categorical data type,
+    which can help to reduce memory usage by replacing occurrences of strings (or
+    any data type really) with much smaller integral code. While *Chapter 3*, *Data
+    Types*, provides a good technical deep dive, it is worth restating this as a best
+    practice here, given how significant of a saving this can represent when working
+    with *low cardinality* data, i.e, data where the ratio of unique values to the
+    overall record count is relatively low.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Just to drive home the point about memory savings, let’s create a *low cardinality*
+    `pd.Series`. Our `pd.Series` is going to have 300,000 rows of data, but only three
+    unique values of `"foo"`, `"bar"`, and `"baz"`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE46]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE47]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Simply changing this to a categorical data type will yield massive memory improvements:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE48]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE49]'
+  prefs: []
+  type: TYPE_PRE
+- en: Test-driven development features
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '**Test-driven development** (or **TDD**, for short) is a popular software development
+    practice that aims to improve code quality and maintenance. At a high level, TDD
+    starts with a developer creating tests that describe the expected functionality
+    of their change. The tests start in a failed state, and the developer can become
+    confident that their implementation is correct when the tests finally pass.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Tests are often the first thing code reviewers look at when considering code
+    changes (when contributing to pandas, tests are a must!). After a change with
+    an accompanying test has been accepted, that same test will be re-run for any
+    subsequent code changes, ensuring that your code base continues to work as expected
+    over time. Generally, properly constructed tests can help your code base scale
+    out, while mitigating the risk of regressions as you develop new features.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The pandas library exposes utilities that make writing tests for your `pd.Series`
+    and `pd.DataFrame` objects possible through the `pd.testing` module, which we
+    will review in this recipe.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How it works
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: The Python standard library offers the `unittest` module to declare and automate
+    the execution of your tests. To create tests, you typically create a class that
+    inherits from `unittest.TestCase`, and create methods on that class that make
+    assertions about your program behavior.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In the following code sample, the `MyTests.test_42` method is going to call
+    `unittest.TestCase.assertEqual` with two arguments, `21 * 2` and `42`. Since those
+    arguments are logically equal, the test execution will pass:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE50]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE51]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Now let’s try to follow that same execution framework with pandas, but instead
+    of comparing `21 * 2` to `42`, we are going to try and compare two `pd.Series`
+    objects:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE52]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE53]'
+  prefs: []
+  type: TYPE_PRE
+- en: Well…that was surprising!
+  prefs: []
+  type: TYPE_NORMAL
+- en: The underlying issue here is that the call to `self.assertEqual(result, expected)`
+    executes the expression `result == expected`. If the result of that expression
+    were `True`, the test would pass; an expression that returns `False` would fail
+    the test.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'However, pandas overloads the equality operator for a `pd.Series`, so that
+    instead of returning `True` or `False`, you actually get back another `pd.Series`
+    with an element-wise comparison:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE54]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE55]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Since testing frameworks don’t know what to make of this, you will have to
+    reach for custom functions in the `pd.testing` namespace. For `pd.Series` comparison,
+    `pd.testing.assert_series_equal` is the right tool for the job:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE56]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE57]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'For completeness, let’s trigger an intentional failure and review the output:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE58]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE59]'
+  prefs: []
+  type: TYPE_PRE
+- en: Within the test failure traceback, pandas is telling us that the data types
+    of the compared objects are not the same. The result of a call to `some_cool_numbers`
+    returns a `pd.Series` with a `pd.Int64Dtype`, whereas our expectation was looking
+    for a `pd.Int32Dtype`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: While these examples focused on using `pd.testing.assert_series_equal`, the
+    equivalent method for a `pd.DataFrame` is `pd.testing.assert_frame_equal`. Both
+    of these functions know how to handle potentially different row indexes, column
+    indexes, values, and missing value semantics, and will report back informative
+    errors to the test runner if expectations are not met.
+  prefs: []
+  type: TYPE_NORMAL
+- en: There’s more…
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: This recipe used the `unittest` module because it is built into the Python language.
+    However, many large Python projects, particularly in the scientific Python space,
+    use the `pytest` library to write and execute unit tests.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In contrast to `unittest`, `pytest` abandons a class-based testing structure
+    with `setUp` and `tearDown` methods, opting instead for a test fixture-based approach.
+    A comparison of these two different testing paradigms can be found within the
+    *pytest* documentation.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The `pytest` library also offers a rich set of plugins. Some plugins may aim
+    to improve integration with third-party libraries (as is the case for `pytest-django`
+    and `pytest-sqlalchemy`), whereas others may be focused on scaling your test suite
+    to use all of your system’s resources (as is the case for `pytest-xdist`). There
+    are countless plugin use cases in between, so I strongly recommend giving `pytest`
+    and its plugin ecosystem a look for testing your Python code bases.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Join our community on Discord
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Join our community’s Discord space for discussions with the authors and other
+    readers:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[https://packt.link/pandas](https://packt.link/pandas)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/QR_Code5040900042138312.png)'
+  prefs: []
+  type: TYPE_IMG

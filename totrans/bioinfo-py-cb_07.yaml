@@ -1,0 +1,1359 @@
+- en: '6'
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Population Genetics
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Population genetics is the study of the changes in the frequency of alleles
+    in a population on the basis of selection, drift, mutation, and migration. The
+    previous chapters focused mainly on data processing and cleanup; this is the first
+    chapter in which we will actually infer interesting biological results.
+  prefs: []
+  type: TYPE_NORMAL
+- en: There is a lot of interesting population genetics analysis based on sequence
+    data, but as we already have quite a few recipes for dealing with sequence data,
+    we will divert our attention elsewhere. Also, we will not cover genomic structural
+    variations such as **Copy Number Variations** (**CNVs**) or inversions here. We
+    will concentrate on analyzing SNP data, which is one of the most common data types.
+    We will perform many standard population genetic analyses with Python, such as
+    using the **Fixation Index** (**FST**) with computing F-statistics, **Principal
+    Components Analysis** (**PCA**), and studying population structure.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We will use Python mostly as a scripting language that glues together applications
+    that perform necessary computations, which is the old-fashioned way of doing things.
+    Having said that, as the Python software ecology is still evolving, you can at
+    least perform the PCA in Python using scikit-learn as we will see in [*Chapter
+    11*](B17942_11.xhtml#_idTextAnchor272).
+  prefs: []
+  type: TYPE_NORMAL
+- en: There is no such thing as a default file format for population genetics data.
+    The bleak reality of this field is that there is a plenitude of formats, most
+    of them developed with a specific application in mind; therefore, none are generically
+    applicable. Some of the efforts to create a more general format (or even just
+    a file converter to support many formats) had limited success. Furthermore, as
+    our knowledge of genomics increases, we will require new formats anyway (for example,
+    to support some kind of previously unknown genomic structural variation). Here,
+    we will work with PLINK ([https://www.cog-genomics.org/plink/2.0/](https://www.cog-genomics.org/plink/2.0/)),
+    which was originally developed to perform **Genome-Wide Association Studies**
+    (**GWAS**) with human data but has many more applications. If you have **Next-Generation
+    Sequencing** (**NGS**) data, you may question, why not use the **Variant Call
+    Format** (**VCF**)? Well, a VCF file is normally annotated to help with sequencing
+    analysis, which you do not need at this stage (you should now have a filtered
+    dataset). If you convert your **Single-Nucleotide Polymorphism** (**SNP**) calls
+    from VCF to PLINK, you will get roughly a 95 percent reduction in terms of size
+    (this is in comparison to a compressed VCF). More importantly, the computational
+    cost of processing a VCF file is much bigger (think of processing all this highly
+    structured text) than the cost of the other two formats. If you use Docker, use
+    the image tiagoantao/bioinformatics_popgen.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In this chapter, we will cover the following recipes:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Managing datasets with PLINK
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Using sgkit for population genetics analysis with xarray
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Exploring a dataset with sgkit
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Analyzing population structure
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Performing a PCA
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Investigating population structure with admixture
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: First, let’s start with a discussion on file format issues and then continue
+    to discuss interesting data analysis.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Managing datasets with PLINK
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Here, we will manage our dataset using PLINK. We will create subsets of our
+    main dataset (from the HapMap project) that are suitable for analysis in the following
+    recipes.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Warning
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note that neither PLINK nor any similar programs were developed for their file
+    formats. There was probably no objective to create a default file standard for
+    population genetics data. In this field, you will need to be ready to convert
+    from format to format (for this, Python is quite appropriate) because every application
+    that you will use will probably have its own quirky requirements. The most important
+    point to learn from this recipe is that it’s not formats that are being used,
+    although these are relevant, but a ‘file conversion mentality’. Beyond this, some
+    of the steps in this recipe also convey genuine analytical techniques that you
+    may want to consider using, for example, subsampling or **Linkage Disequilibrium-**
+    (**LD-**) pruning.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Getting ready
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Throughout this chapter, we will use data from the International HapMap Project.
+    You may recall that we used data from the 1,000 Genomes Project in [*Chapter 3*](B17942_03.xhtml#_idTextAnchor068),
+    *Next-Generation Sequencing*, and that the HapMap project is in many ways the
+    precursor to the 1,000 Genomes Project; instead of whole genome sequencing, genotyping
+    was used. Most of the samples of the HapMap project were used in the 1,000 Genomes
+    Project, so if you have read the recipes in [*Chapter 3*](B17942_03.xhtml#_idTextAnchor068),
+    *Next-Generation Sequencing*, you will already have an idea of the dataset (including
+    the available population). I will not introduce the dataset much more, but you
+    can refer to [*Chapter 3*](B17942_03.xhtml#_idTextAnchor068), *Next-Generation
+    Sequencing*, and, of course, the HapMap site ([https://www.genome.gov/10001688/international-hapmap-project](https://www.genome.gov/10001688/international-hapmap-project))
+    for more information. Remember that we have genotyping data for many individuals
+    split across populations around the globe. We will refer to these populations
+    by their acronyms. Here is the list taken from [http://www.sanger.ac.uk/resources/downloads/human/hapmap3.xhtml](http://www.sanger.ac.uk/resources/downloads/human/hapmap3.xhtml):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '| **Acronym** | **Population** |'
+  prefs: []
+  type: TYPE_TB
+- en: '| ASW | African ancestry in Southwest USA |'
+  prefs: []
+  type: TYPE_TB
+- en: '| CEU | Utah residents with Northern and Western European ancestry from the
+    CEPH collection |'
+  prefs: []
+  type: TYPE_TB
+- en: '| CHB | Han Chinese in Beijing, China |'
+  prefs: []
+  type: TYPE_TB
+- en: '| CHD | Chinese in Metropolitan Denver, Colorado |'
+  prefs: []
+  type: TYPE_TB
+- en: '| GIH | Gujarati Indians in Houston, Texas |'
+  prefs: []
+  type: TYPE_TB
+- en: '| JPT | Japanese in Tokyo, Japan |'
+  prefs: []
+  type: TYPE_TB
+- en: '| LWK | Luhya in Webuye, Kenya |'
+  prefs: []
+  type: TYPE_TB
+- en: '| MXL | Mexican ancestry in Los Angeles, California |'
+  prefs: []
+  type: TYPE_TB
+- en: '| MKK | Maasai in Kinyawa, Kenya |'
+  prefs: []
+  type: TYPE_TB
+- en: '| TSI | Toscani in Italy |'
+  prefs: []
+  type: TYPE_TB
+- en: '| YRI | Yoruba in Ibadan, Nigeria |'
+  prefs: []
+  type: TYPE_TB
+- en: Table 6.1 - The populations in the Genome Project
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs: []
+  type: TYPE_NORMAL
+- en: We will be using data from the HapMap project that has, in practice, been replaced
+    by the 1,000 Genomes Project. For the purpose of teaching population genetics
+    programming techniques in Python, the HapMap Project dataset is more manageable
+    than the 1,000 Genomes Project, as the data is considerably smaller. The HapMap
+    samples are a subset of the 1,000 Genomes samples. If you do research in human
+    population genetics, you are strongly advised to use the 1,000 Genomes Project
+    as a base dataset.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This will require a fairly big download (approximately 1 GB), which will have
+    to be uncompressed. Make sure that you have approximately 20 GB of disk space
+    for this chapter. The files can be found at [https://ftp.ncbi.nlm.nih.gov/hapmap/genotypes/hapmap3_r3/plink_format/](https://ftp.ncbi.nlm.nih.gov/hapmap/genotypes/hapmap3_r3/plink_format/).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Decompress the PLINK file using the following commands:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: Now, we have PLINK files; the MAP file has information on the marker position
+    across the genome, whereas the PED file has actual markers for each individual,
+    along with some pedigree information. We also downloaded a metadata file that
+    contains information about each individual. Take a look at all these files and
+    familiarize yourself with them. As usual, this is also available in the `Chapter06/Data_Formats.py`
+    Notebook file, where everything has been taken care of.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Finally, most of this recipe will make heavy usage of PLINK ([https://www.cog-genomics.org/plink/2.0/](https://www.cog-genomics.org/plink/2.0/)).
+    Python will mostly be used as the glue language to call PLINK.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Take a look at the following steps:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let’s get the metadata for our samples. We will load the population of each
+    sample and note all the individuals that are offspring of others in the dataset:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: This will load a dictionary where the population is the key (`CEU`, `YRI`, and
+    so on) and its value is the list of individuals in that population. This dictionary
+    will also store information on whether the individual is the offspring of another.
+    Each individual is identified by the family and individual ID (information that
+    can be found in the PLINK file). The file provided by the HapMap project is a
+    simple tab-delimited file, which is not difficult to process. While we are reading
+    the files using standard Python text processing, this is a typical example where
+    pandas would help.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'There is an important point to make here: the reason this information is provided
+    in a separate, ad hoc file is that the PLINK format makes no provision for the
+    population structure (this format makes provision only for the case and control
+    information for which PLINK was designed). This is not a flaw of the format, as
+    it was never designed to support standard population genetic studies (it’s a GWAS
+    tool). However, this is a general feature of data formats in population genetics:
+    whichever you end up working with, there will be something important missing.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: We will use this metadata in other recipes in this chapter. We will also perform
+    some consistency analysis between the metadata and the PLINK file, but we will
+    defer this to the next recipe.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now, let’s subsample the dataset at 10 percent and 1 percent of the number
+    of markers, as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'With Jupyter Notebook, you can just do this instead:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: Note the subtlety that you will not really get 1 or 10 percent of the data;
+    each marker will have a 1 or 10 percent chance of being selected, so you will
+    get approximately 1 or 10 percent of the markers.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Obviously, as the process is random, different runs will produce different marker
+    subsets. This will have important implications further down the road. If you want
+    to replicate the exact same result, you can nonetheless use the `--seed` option.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We will also remove all SNPs that have a genotyping rate lower than 90 percent
+    (with the `--geno 0.1` parameter).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs: []
+  type: TYPE_NORMAL
+- en: There is nothing special about Python in this code, but there are two reasons
+    you may want to subsample your data. First, if you are performing an exploratory
+    analysis of your own dataset, you may want to start with a smaller version because
+    it will be easy to process. Also, you will have a broader view of your data. Second,
+    some analytical methods may not require all your data (indeed, some methods might
+    not be even able to use all of your data). Be very careful with the last point
+    though; that is, for every method that you use to analyze your data, be sure that
+    you understand the data requirements for the scientific questions you want to
+    answer. Feeding too much data may be okay normally (even if you pay a time and
+    memory penalty) but feeding too little will lead to unreliable results.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now, let’s generate subsets with just the autosomes (that is, let’s remove
+    the sex chromosomes and mitochondria), as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: Let’s create a function that generates a list with all the SNPs not belonging
+    to autosomes. With human data, that means all non-numeric chromosomes. If you
+    use another species, be careful with your chromosome coding because PLINK is geared
+    toward human data. If your species are diploid, have less than 23 autosomes, and
+    a sex determination system, that is, X/Y, this will be straightforward; if not,
+    refer to [https://www.cog-genomics.org/plink2/input#allow_extra_chr](https://www.cog-genomics.org/plink2/input#allow_extra_chr)
+    for some alternatives (such as the `--allow-extra-chr` flag).
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: We then create autosome-only PLINK files for subsample datasets of 10 and 1
+    percent (prefixed as `hapmap10_auto` and `hapmap1_auto`).
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Let’s create some datasets without offspring. These will be needed for most
+    population genetic analysis, which requires unrelated individuals to a certain
+    degree:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: Note
+  prefs: []
+  type: TYPE_NORMAL
+- en: This step is representative of the fact that most population genetic analyses
+    require samples to be unrelated to a certain degree. Obviously, as we know that
+    some offspring are in HapMap, we remove them.
+  prefs: []
+  type: TYPE_NORMAL
+- en: However, note that with your dataset, you are expected to be much more refined
+    than this. For instance, run `plink --genome` or use another program to detect
+    related individuals. The fundamental point here is that you have to dedicate some
+    effort to detect related individuals in your samples; this is not a trivial task.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We will also generate an LD-pruned dataset, as required by many PCA and admixture
+    algorithms, as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: The first step generates a list of markers to be kept if the dataset is LD-pruned.
+    This uses a sliding window of `50` SNPs, advancing by `10` SNPs at a time with
+    a cut value of `0.1`. The second step extracts SNPs from the list that was generated
+    earlier.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let’s recode a couple of cases in different formats:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: The first operation will convert a PLINK format that uses nucleotide letters
+    from the ACTG to another, which recodes alleles with `1` and `2`. We will use
+    this in the *Performing a PCA* recipe later.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The second operation recodes a file in a binary format. If you work inside PLINK
+    (using the many useful operations that PLINK has), the binary format is probably
+    the most appropriate format (offering, for example, a smaller file size). We will
+    use this in the admixture recipe.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We will also extract a single chromosome (`2`) for analysis. We will start
+    with the autosome dataset, which has been subsampled at 10 percent:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: There’s more...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: There are many reasons why you might want to create different datasets for analysis.
+    You may want to perform some fast initial exploration of data – for example, if
+    the analysis algorithm that you plan to use has some data format requirements
+    or a constraint on the input, such as the number of markers or relationships between
+    individuals. Chances are that you will have lots of subsets to analyze (unless
+    your dataset is very small to start with, for instance, a microsatellite dataset).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'This may seem to be a minor point, but it’s not: be very careful with file
+    naming (note that I have followed some simple conventions while generating filenames).
+    Make sure that the name of the file gives some information about the subset options.
+    When you perform the downstream analysis, you will want to be sure that you choose
+    the correct dataset; you will want your dataset management to be agile and reliable,
+    above all. The worst thing that can happen is that you create an analysis with
+    an erroneous dataset that does not obey the constraints required by the software.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The LD-pruning that we used is somewhat standard for human analysis, but be
+    sure to check the parameters, especially if you are using non-human data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The HapMap file that we downloaded is based on an old version of the reference
+    genome (build 36). As stated in the previous chapter, [*Chapter 5*](B17942_05.xhtml#_idTextAnchor122),
+    *Working with Genomes*, be sure to use annotations from build 36 if you plan to
+    use this file for more analysis of your own.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This recipe sets the stage for the following recipes and its results will be
+    used extensively.
+  prefs: []
+  type: TYPE_NORMAL
+- en: See also
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: The Wikipedia page [http://en.wikipedia.org/wiki/Linkage_disequilibrium](http://en.wikipedia.org/wiki/Linkage_disequilibrium)
+    on LD is a good place to start.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The website of PLINK [https://www.cog-genomics.org/plink/2.0/](https://www.cog-genomics.org/plink/2.0/)
+    is very well documented, something lacking in much of genetics software.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Using sgkit for population genetics analysis with xarray
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Sgkit is the most advanced Python library for doing population genetics analysis.
+    It’s a modern implementation, leveraging almost all of the fundamental data science
+    libraries in Python. When I say almost all, I am not exaggerating; it uses NumPy,
+    pandas, xarray, Zarr, and Dask. NumPy and pandas were introduced in [*Chapter
+    2*](B17942_02.xhtml#_idTextAnchor040). Here, we will introduce xarray as the main
+    data container for sgkit. Because I feel that I cannot ask you to get to know
+    data engineering libraries to an extreme level, I will gloss over the Dask part
+    (mostly by treating Dask structures as equivalent NumPy structures). You can find
+    more advanced details about out-of-memory Dask data structures in [*Chapter 11*](B17942_11.xhtml#_idTextAnchor272).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Getting ready
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'You will need to run the previous recipe because its output is required for
+    this one: we will be using one of the PLINK datasets. You will need to install
+    sgkit.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: As usual, this is available in the `Chapter06/Sgkit.py` Notebook file, but it
+    will still require you to run the previous Notebook file in order to generate
+    the required files.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Take a look at the following steps:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let’s load the `hapmap10_auto_noofs_ld` dataset generated in the previous recipe:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: Remember that we are loading a set of PLINK files. It turns out that sgkit creates
+    a very rich and structured representation for that data. That representation is
+    based on an xarray dataset.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let’s check the structure of our data – if you are in a notebook, just enter
+    the following:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '`sgkit` – if in a notebook – will generate the following representation:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 6.1 - An overview of the xarray data loaded by sgkit for our PLINK
+    file ](img/B17942_06_1.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 6.1 - An overview of the xarray data loaded by sgkit for our PLINK file
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`data` is an xarray DataSet. An xarray DataSet is essentially a dictionary
+    in which each value is a Dask array. For our purposes, you can assume it is a
+    NumPy array. In this case, we can see that we have **56241** variants for **1198**
+    samples. We have **2** alleles per variant and a ploidy of **2**.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the notebook, we can expand each entry. In our case, we expanded `call_genotype`.
+    This is a three-dimensional array, with `variants`, `samples`, and `ploidy` dimensions.
+    The type of the array is `int8`. After this, we can find some metadata relevant
+    to the entry, `mixed_ploidy`, and comment. Finally, you have a summary of the
+    Dask implementation. The **Array** column presents details about the size and
+    shape of the array. For the **Chunk** column, see [*Chapter 11*](B17942_11.xhtml#_idTextAnchor272)
+    – but you can safely ignore it for now.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Another way to get summary information, which is especially useful if you are
+    not using notebooks, is by inspecting the `dims` field:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'The output should be self-explanatory:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE12]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Let’s extract some information about the samples:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE13]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'The output is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE14]'
+  prefs: []
+  type: TYPE_PRE
+- en: We have `1198` samples. The first one has a sample ID of `NA19916`, a family
+    ID of `2431`, and a sex of `1` (Male). Remember that, given PLINK as the data
+    source, a sample ID is not enough to be a primary key (you can have different
+    samples with the same sample ID). The primary key is a composite of the sample
+    ID and sample family ID.
+  prefs: []
+  type: TYPE_NORMAL
+- en: TIP
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'You might have noticed that we add `.values` to all the data fields: this is
+    actually rendering a lazy Dask array into a materialized NumPy one. For now, I
+    suggest that you ignore it, but if you revisit this chapter after reading [*Chapter
+    11*](B17942_11.xhtml#_idTextAnchor272), `.values` is akin to the `compute` method
+    in Dask.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The `.values` call is no nuisance – the reason our code works is that our dataset
+    is small enough to fit into memory, which is great for our teaching example. But
+    if you have a very large dataset, the preceding code is too naive. Again, [*Chapter
+    11*](B17942_11.xhtml#_idTextAnchor272) will help you with this. For now, the simplicity
+    is pedagogical.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Before we look at the variant data, we have to be aware of how sgkit stores
+    `contigs`:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE15]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'The output is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE16]'
+  prefs: []
+  type: TYPE_PRE
+- en: The `contigs` here are the human autosomes (you will not be so lucky if your
+    data is based on most other species – you will probably have some ugly identifier
+    here).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now, let’s look at the variants:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE17]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Here is an abridged version of the output:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE18]'
+  prefs: []
+  type: TYPE_PRE
+- en: We have `56241` variants. The `contig` index is `0`, which if you look at the
+    step from the previous recipe, is chromosome `1`. The variant is in position `557616`
+    (against build 36 of the human genome) and has possible alleles `G` and `A`. It
+    has an SNP ID of `rs11510103`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Finally, let’s look at the `genotype` data:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE19]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '`call_genotype` has a shape of 56,241 x 1,1198,2, which is its dimensioned
+    variants, samples, and ploidy.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: To get all variants for the first individual, you fixate the second dimension.
+    To get all the samples for the first variant, you fixate the first dimension.
+  prefs: []
+  type: TYPE_NORMAL
+- en: If you print the first individual’s details (sample and family ID), you get
+    `2431` and `NA19916` – as expected, exactly as in the first case in the previous
+    sample exploration.
+  prefs: []
+  type: TYPE_NORMAL
+- en: There’s more...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: This recipe is mostly an introduction to xarray, disguised as a sgkit tutorial.
+    There is much more to be said about xarray – be sure to check [https://docs.xarray.dev/](https://docs.xarray.dev/).
+    It is worth reiterating that xarray depends on a plethora of Python data science
+    libraries and that we are glossing over Dask for now.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Exploring a dataset with sgkit
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In this recipe, we will perform an initial exploratory analysis of one of our
+    generated datasets. Now that we have some basic knowledge of xarray, we can actually
+    try to do some data analysis. In this recipe, we will ignore population structure,
+    an issue we will return to in the following one.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Getting ready
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: You will need to have run the first recipe and should have the `hapmap10_auto_noofs_ld`
+    files available. There is a Notebook file with this recipe called `Chapter06/Exploratory_Analysis.py`.
+    You will need the software that you installed for the previous recipe.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Take a look at the following steps:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We start by loading the PLINK data with sgkit, exactly as in the previous recipe:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE20]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Let’s ask sgkit for `variant_stats`:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE21]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'The output is the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 6.2 - The variant statistics provided by sgkit’s variant_stats ](img/B17942_06_2.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 6.2 - The variant statistics provided by sgkit’s variant_stats
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let’s now look at the statistic, `variant_call_rate`:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE22]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'There is more to unpack here than it may seem. The fundamental part is the
+    `to_series()` call. Sgkit is returning a Pandas series to you – remember that
+    sgkit is highly integrated with Python data science libraries. After you get the
+    Series object, you can call the Pandas `describe` function and get the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE23]'
+  prefs: []
+  type: TYPE_PRE
+- en: Our variant call rate is quite good, which is not shocking because we are looking
+    at array data – you would have worse numbers if you had a dataset based on NGS.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let’s now look at sample statistics:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE24]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Again, sgkit provides a lot of sample statistics out of the box:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 6.3 - The sample statistics obtained by calling sample_stats  ](img/B17942_06_3.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 6.3 - The sample statistics obtained by calling sample_stats
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We will now have a look at sample call rates:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE25]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'This time, we plot a histogram of sample call rates. Again, sgkit gets this
+    for free by leveraging Pandas:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 6.4 - The histogram of sample call rates ](img/B17942_06_4.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 6.4 - The histogram of sample call rates
+  prefs: []
+  type: TYPE_NORMAL
+- en: There’s more...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: The truth is that for population genetic analysis, nothing beats R; you are
+    definitely encouraged to take a look at the existing R libraries for population
+    genetics. Do not forget that there is a Python-R bridge, which was discussed in
+    [*Chapter 1*](B17942_01.xhtml#_idTextAnchor020), *Python and the Surrounding Software
+    Ecology*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Most of the analysis presented here will be computationally costly if done on
+    bigger datasets. Indeed, sgkit is prepared to deal with that because it leverages
+    Dask. It would be too complex to introduce Dask at this stage, but for large datasets,
+    [*Chapter 11*](B17942_11.xhtml#_idTextAnchor272) will discuss ways to address
+    those.
+  prefs: []
+  type: TYPE_NORMAL
+- en: See also
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: A list of R packages for statistical genetics is available at [http://cran.r-project.org/web/views/Genetics.xhtml](http://cran.r-project.org/web/views/Genetics.xhtml).
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: If you need to know more about population genetics, I recommend the book *Principles
+    of Population Genetics*, by *Daniel L. Hartl and Andrew G. Clark*, *Sinauer Associates.*
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Analyzing population structure
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Previously, we introduced data analysis with sgkit ignoring the population structure.
+    Most datasets, including the one we are using, actually do have a population structure.
+    Sgkit provides functionality to analyze genomic datasets with population structure
+    and that is what we are going to investigate here.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Getting ready
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: You will need to have run the first recipe, and should have the `hapmap10_auto_noofs_ld`
+    data we produced and also the original population meta data `relationships_w_pops_041510.txt`
+    file downloaded. There is a Notebook file with the `06_PopGen/Pop_Stats.py` recipe
+    in it.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Take a look at the following steps:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'First, let’s load the PLINK data with sgkit:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE26]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Now, let’s load the data assigning individuals to populations:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE27]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: We end up with a dictionary, `pop_ind`, where the key is the population code,
+    and the value is a list of samples. Remember that a sample primary key is the
+    family ID and the sample ID.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We also have a list of populations in the `pops` variable.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We now need to inform sgkit about to which population or cohort each sample
+    belongs:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE28]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Remember that each sample in sgkit has a position in an array. So, we have
+    to create an array where each element refers to a specific population or cohort
+    within a sample. The `assign_cohort` function does exactly that: it takes the
+    metadata that we loaded from the `relationships` file and the list of samples
+    from the sgkit file, and gets the population index for each sample.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now that we have loaded population information structure into the sgkit dataset,
+    we can start computing statistics at the population or cohort level. Let’s start
+    by getting the number of monomorphic loci per population:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE29]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'We start by asking sgkit to calculate the allele frequencies per cohort or
+    population. After that, we filter all loci per population where the allele frequency
+    of the first allele is either `0` or `1` (that is, there is the fixation of one
+    of the alleles). Finally, we print it. Incidentally, we use the `pprint.pprint`
+    function to make it look a bit better (the function is quite useful for more complex
+    structures if you want to render the output in a readable way):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE30]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Let’s get the minimum allele frequency for all loci per population. This is
+    still based in `cohort_allele_frequency` – so no need to call sgkit again:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE31]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: We create Pandas `Series` objects for each population, as this permits lots
+    of helpful functions, such as plotting.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We will now print the MAF histograms for the `YRI` and `JPT` populations. We
+    will leverage Pandas and Matplotlib for this:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE32]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'We get Pandas to generate the histograms and put the results in a Matplotlib
+    plot. The result is the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 6.5 - A MAF histogram for the YRI and JPT populations ](img/B17942_06_5.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 6.5 - A MAF histogram for the YRI and JPT populations
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We are now going to concentrate on computing the FST. The FST is a widely used
+    statistic that tries to represent the genetic variation created by population
+    structure. Let’s compute it with sgkit:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE33]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: The first line computes `fst`, which, in this case, will be pairwise `fst` across
+    cohorts or populations. The second line assigns names to each cohorts by using
+    the xarray coordinates feature. This makes it easier and more declarative.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let’s compare `fst` between the `CEU` and `CHB` populations with `CHB` and
+    `CHD`:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE34]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: We take the pairwise results returned by the `sel` function from `stat_FST`
+    to both compare and create a Pandas Series with it. Note that we can refer to
+    populations by name, as we have prepared the coordinates in the previous step.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let’s plot the distance matrix across populations based on the multi-locus
+    pairwise FST. Before we do it, we will prepare the computation:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE35]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: We compute all the FST values for the population pairs. The execution of this
+    code will be demanding in terms of time and memory, as we are actually requiring
+    Dask to perform a lot of computations to render our NumPy arrays.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We can now do a pairwise plot of all mean FSTs across populations:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE36]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'In the following diagram, we will draw an upper triangular matrix, where the
+    background color of a cell represents the measure of differentiation; white means
+    less different (a lower FST) and blue means more different (a higher FST). The
+    lowest value between **CHB** and **CHD** is represented in yellow, and the biggest
+    value between **JPT** and **YRI** is represented in magenta. The value on each
+    cell is the average pairwise FST between these two populations:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 6.6 - The average pairwise FST across the 11 populations in the HapMap
+    project for all autosomes ](img/B17942_06_6.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 6.6 - The average pairwise FST across the 11 populations in the HapMap
+    project for all autosomes
+  prefs: []
+  type: TYPE_NORMAL
+- en: See also
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: F-statistics is an immensely complex topic, so I will direct you firstly to
+    the Wikipedia page at [http://en.wikipedia.org/wiki/F-statistics](http://en.wikipedia.org/wiki/F-statistics).
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'A very good explanation can be found in Holsinger and Weir’s paper (*Genetics
+    in geographically structured populations: defining, estimating, and interpreting
+    FST*) in *Nature Reviews Genetics*, at [http://www.nature.com/nrg/journal/v10/n9/abs/nrg2611.xhtml](http://www.nature.com/nrg/journal/v10/n9/abs/nrg2611.xhtml).'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Performing a PCA
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: PCA is a statistical procedure that’s used to perform a reduction of the dimension
+    of a number of variables to a smaller subset that is linearly uncorrelated. Its
+    practical application in population genetics is assisting with the visualization
+    of the relationships between the individuals that are being studied.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'While most of the recipes in this chapter make use of Python as a *glue language*
+    (Python calls external applications that actually do most of the work), with PCA,
+    we have an option: we can either use an external application (for example, EIGENSOFT
+    SmartPCA) or use scikit-learn and perform everything on Python. In this recipe,
+    we will use SmartPCA – for a native machine learning experience with scikit-learn,
+    see [*Chapter 10*](B17942_10.xhtml#_idTextAnchor255).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: TIP
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'You actually have a third option: using sgkit. However, I want to show you
+    alternatives on how to perform computations. There are two good reasons for this.
+    Firstly, you might prefer not to use sgkit – while I recommend it, I don’t want
+    to force it – and secondly, you might be required to run an alternative method
+    that is not implemented in sgkit. PCA is actually a good example of this: a reviewer
+    on a paper might require you to run a published and widely used method such as
+    EIGENSOFT SmartPCA.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Getting ready
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: You will need to run the first recipe in order to make use of the `hapmap10_auto_noofs_ld_12`
+    PLINK file (with alleles recoded as `1` and `2`). PCA requires LD-pruned markers;
+    we will not risk using the offspring here because it will probably bias the result.
+    We will use the recoded PLINK file with alleles as `1` and `2` because this makes
+    processing with SmartPCA and scikit-learn easier.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'I have a simple library to help with some genomics processing. You can find
+    this code at [https://github.com/tiagoantao/pygenomics](https://github.com/tiagoantao/pygenomics).
+    You can install it with the following command:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE37]'
+  prefs: []
+  type: TYPE_PRE
+- en: For this recipe, you will need to download EIGENSOFT ([http://www.hsph.harvard.edu/alkes-price/software/](http://www.hsph.harvard.edu/alkes-price/software/)),
+    which includes the SmartPCA application that we will use.
+  prefs: []
+  type: TYPE_NORMAL
+- en: There is a Notebook file in the `Chapter06/PCA.py` recipe, but you will still
+    need to run the first recipe.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Take a look at the following steps:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let’s load the metadata, as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE38]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: In this case, we will add an entry that is consistent with what is available
+    in the PLINK file.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let’s convert the PLINK file into the EIGENSOFT format:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE39]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: This uses a function that I have written to convert from PLINK to the EIGENSOFT
+    format. This is mostly text manipulation—not exactly the most exciting code.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now, we will run `SmartPCA` and parse its results, as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE40]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: Again, this will use a couple of functions from `pygenomics` to control `SmartPCA`
+    and then parse the output. The code is typical for this kind of operation, and
+    while you are invited to inspect it, it’s quite straightforward.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The `parse` function will return the PCA weights (which we will not use, but
+    you should inspect), normalized weights, and then the principal components (usually
+    up to PC `10`) per individual.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Then, we plot PC `1` and PC `2`, as shown in the following code:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE41]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'This will produce the following diagram. We will supply the plotting function
+    and the population information retrieved from the metadata, which allows you to
+    plot each population with a different color. The results are very similar to published
+    results; we will find four groups. Most Asian populations are located at the top,
+    the African populations are located on the right-hand side, and the European populations
+    are located at the bottom. Two more admixed populations (**GIH** and **MEX**)
+    are located in the middle:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 6.7 - PC 1 and PC 2 of the HapMap data, as produced by SmartPCA ](img/B17942_06_7.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 6.7 - PC 1 and PC 2 of the HapMap data, as produced by SmartPCA
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note that PCA plots can be symmetrical in any axis across runs, as the signal
+    does not matter. What matters is that the clusters should be the same and that
+    the distances between individuals (and these clusters) should be similar.
+  prefs: []
+  type: TYPE_NORMAL
+- en: There’s more...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: An interesting question here is which method you should use – SmartPCA or scikit-learn,
+    which we will use in [*Chapter 10*](B17942_10.xhtml#_idTextAnchor255). The results
+    are similar, so if you are performing your own analysis, you are free to choose.
+    However, if you publish your results in a scientific journal, SmartPCA is probably
+    a safer choice because it’s based on the published piece of software in the field
+    of genetics; reviewers will probably prefer this.
+  prefs: []
+  type: TYPE_NORMAL
+- en: See also
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: The paper that probably popularized the use of PCA in genetics was Novembre
+    et al.’s *Genes mirror geography within Europe* on *Nature*, where a PCA of Europeans
+    mapped almost perfectly to a map of Europe. This can be found at [http://www.nature.com/nature/journal/v456/n7218/abs/nature07331.xhtml](http://www.nature.com/nature/journal/v456/n7218/abs/nature07331.xhtml).
+    Note that there is nothing about PCA that assures it will map to geographical
+    features (just check our PCA earlier).
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The SmartPCA is described in Patterson et al.’s *Population Structure and Eigenanalysis*,
+    *PLoS Genetics*, at [http://journals.plos.org/plosgenetics/article?id=10.1371/journal.pgen.0020190](http://journals.plos.org/plosgenetics/article?id=10.1371/journal.pgen.0020190).
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: A discussion of the meaning of PCA can be found in McVean’s paper on *A Genealogical
+    Interpretation of Principal Components Analysis*, *PLoS Genetics*, at [http://journals.plos.org/plosgenetics/article?id=10.1371/journal.pgen.1000686](http://journals.plos.org/plosgenetics/article?id=10.1371/journal.pgen.1000686).
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Investigating population structure with admixture
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: A typical analysis in population genetics was the one popularized by the program
+    structure ([https://web.stanford.edu/group/pritchardlab/structure.xhtml](https://web.stanford.edu/group/pritchardlab/structure.xhtml)),
+    which is used to study population structure. This type of software is used to
+    infer how many populations exist (or how many ancestral populations generated
+    the current population), and to identify potential migrants and admixed individuals.
+    The structure was developed quite some time ago, when far fewer markers were genotyped
+    (at that time, this was mostly a handful of microsatellites), and faster versions
+    were developed, including one from the same laboratory called `fastStructure`
+    ([http://rajanil.github.io/fastStructure/](http://rajanil.github.io/fastStructure/)).
+    Here, we will use Python to interface with a program of the same type that was
+    developed at UCLA, called admixture ([https://dalexander.github.io/admixture/download.xhtml](https://dalexander.github.io/admixture/download.xhtml)).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Getting ready
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: You will need to run the first recipe in order to use the `hapmap10_auto_noofs_ld`
+    binary PLINK file. Again, we will use a 10 percent subsampling of autosomes that
+    have been LD-pruned with no offspring.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'As in the previous recipe, you will use the `pygenomics` library to help; you
+    can find these code files at [https://github.com/tiagoantao/pygenomics](https://github.com/tiagoantao/pygenomics).
+    You can install it with the following command:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE42]'
+  prefs: []
+  type: TYPE_PRE
+- en: In theory, for this recipe, you will need to download admixture ([https://www.genetics.ucla.edu/software/admixture/](https://www.genetics.ucla.edu/software/admixture/)).
+    However, in this case, I will provide the outputs of running admixture on the
+    HapMap data that we will use, because running admixture takes a lot of time. You
+    can either use the results available or run admixture yourself. There is a Notebook
+    file for this in the `Chapter06/Admixture.py` recipe, but you will still need
+    to run the recipe first.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Take a look at the following steps:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'First, let’s define our `k` (a number of ancestral populations) range of interest,
+    as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE43]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Let’s run admixture for all our `k` (alternatively, you can skip this step
+    and use the example data provided):'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE44]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: Note
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'This is the worst possible way of running admixture and will probably take
+    more than 3 hours if you do it this way. This is because it will run all `k` from
+    `2` to `9` in a sequence. There are two things that you can do to speed this up:
+    use the multithreaded option (`-j`), which admixture provides, or run several
+    applications in parallel. Here, I have to assume a worst-case scenario where you
+    only have a single core and thread available, but you should be able to run this
+    more efficiently by parallelizing. We will discuss this issue at length in [*Chapter
+    11*](B17942_11.xhtml#_idTextAnchor272).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We will need the order of individuals in the PLINK file, as admixture outputs
+    individual results in this order:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE45]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'The cross-validation error gives a measure of the “best” `k`, as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE46]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: The following graph plots the `CV` between a `K` of `2` and `9`, the lower,
+    the better. It should be clear from this graph that we should maybe run some more
+    `K` (indeed, we have 11 populations; if not more, we should at least run up to
+    11), but due to computation costs, we stopped at `9`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'It would be a very technical debate on whether there is such thing as the “best”
+    `K`. Modern scientific literature suggests that there may not be a “best” `K`;
+    these results are worthy of some interpretation. I think it’s important that you
+    are aware of this before you go ahead and interpret the `K` results:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 6.8 - The error by K ](img/B17942_06_8.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 6.8 - The error by K
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We will need the metadata for the population information:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE47]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: We will ignore individuals that are not in the PLINK file.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let’s load the individual component, as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE48]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: Admixture produces a file with the ancestral component per individual (for an
+    example, look at any of the generated `Q` files); there will be as many components
+    as the number of `k` that you decided to study. Here, we will load the `Q` file
+    for all `k` that we studied and store them in a dictionary where the individual
+    ID is the key.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Then, we cluster individuals, as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE49]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: Remember that individuals were given components of ancestral populations by
+    admixture; we would like to order them per their similarity in terms of ancestral
+    components (not by their order in the PLINK file). This is not a trivial exercise
+    and requires a clustering algorithm.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Furthermore, we do not want to order all of them; we want to order them in each
+    population and then order each population accordingly.
+  prefs: []
+  type: TYPE_NORMAL
+- en: For this purpose, I have some clustering code available at [https://github.com/tiagoantao/pygenomics/blob/master/genomics/popgen/admix/__init__.py](https://github.com/tiagoantao/pygenomics/blob/master/genomics/popgen/admix/__init__.py).
+    This is far from perfect but allows you to perform some plotting that still looks
+    reasonable. My code makes use of the SciPy clustering code. I suggest you take
+    a look (by the way, it’s not very difficult to improve upon it).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'With a sensible individual order, we can now plot the admixture:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE50]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: This will produce two charts; the second chart is shown in the following diagram
+    (the first chart is actually a variation of the third admixture plot from the
+    top).
+  prefs: []
+  type: TYPE_NORMAL
+- en: The first figure of `K` = `4` requires the components per individual and their
+    order. It will plot all individuals, ordered and split by population.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The second chart will perform a set of stacked plots of admixture from `K` =
+    `2` to `9`. It requires a `figure` object (as the dimension of this figure can
+    vary widely with the number of stacked admixtures that you require). The individual
+    order will typically follow one of the `K` (we have chosen a `K` of `7` here).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Note that all `K` are worthy of some interpretation (for example, `K` = `2`
+    separates the African population from others, and `K` = `3` separates the European
+    population and shows the admixture of **GIH** and **MEX**):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 6.9 - A stacked admixture plot (between K of 2 and 9) for the HapMap
+    example ](img/B17942_06_9.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 6.9 - A stacked admixture plot (between K of 2 and 9) for the HapMap
+    example
+  prefs: []
+  type: TYPE_NORMAL
+- en: There’s more...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Unfortunately, you cannot run a single instance of admixture to get a result.
+    The best practice is to actually run 100 instances and get the one with the best
+    log likelihood (which is reported in the admixture output). Obviously, I cannot
+    ask you to run 100 instances for each of the 7 different `K` for this recipe (we
+    are talking about two weeks of computation), but you will probably have to perform
+    this if you want to have publishable results. A cluster (or at least a very good
+    machine) is required to run this. You can use Python to go through outputs and
+    select the best log likelihood. After selecting the result with the best log likelihood
+    for each `K`, you can easily apply this recipe to plot the output.
+  prefs: []
+  type: TYPE_NORMAL

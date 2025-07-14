@@ -1,0 +1,609 @@
+- en: 'Chapter 12: Spark SQL Primer'
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In the previous chapter, you learned about data visualizations as a powerful
+    and key tool of data analytics. You also learned about various Python visualization
+    libraries that can be used to visualize data in pandas DataFrames. An equally
+    important and ubiquitous and essential skill in any data analytics professional's
+    repertoire is **Structured Query Language** or **SQL**. **SQL** has existed as
+    long as the field of data analytics has existed, and even with the advent of big
+    data, data science, and **machine learning** (**ML**), SQL is still proving to
+    be indispensable.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This chapter introduces you to the basics of SQL and looks at how SQL can be
+    applied in a distributed computing setting via Spark SQL. You will learn about
+    the various components that make up Spark SQL, including the storage, metastore,
+    and the actual query execution engine. We will look at the differences between
+    **Hadoop Hive** and Spark SQL, and finally, end with some techniques for improving
+    the performance of Spark SQL queries.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In this chapter, we''re going to cover the following main topics:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Introduction to SQL
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Introduction to Spark SQL
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Spark SQL language reference
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Optimizing Spark SQL performance
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Some of the areas covered in this chapter include the usefulness of SQL as a
+    language for slicing and dicing of data, the individual components of Spark SQL,
+    and how they come together to create a powerful distributed SQL engine on Apache
+    Spark. You will look at a Spark SQL language reference to help with your data
+    analytics needs and some techniques to optimize the performance of your Spark
+    SQL queries.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Technical requirements
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Here is what you''ll need for this chapter:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this chapter, we will be using Databricks Community Edition to run our code
+    (https://community.cloud.databricks.com). Sign-up instructions can be found at
+    [https://databricks.com/try-databricks](https://databricks.com/try-databricks).
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The code and data used in this chapter can be downloaded from [https://github.com/PacktPublishing/Essential-PySpark-for-Scalable-Data-Analytics/tree/main/Chapter12](https://github.com/PacktPublishing/Essential-PySpark-for-Scalable-Data-Analytics/tree/main/Chapter12).
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Introduction to SQL
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '**SQL** is a declarative language for storing, manipulating, and querying data
+    stored in relational databases, also called **relational database management systems**
+    (**RDBMSes**). A relational database contains data in tables, which in turn contain
+    rows and columns. In the real world, entities have relationships among themselves,
+    and a relational database tries to mimic these real-world relationships as relationships
+    between tables. Thus, in relational databases, individual tables contain data
+    related to individual entities, and these tables might be related.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: SQL is a declarative programming language that helps you specify which rows
+    and columns you want to retrieve from a given table and specify constraints to
+    filter out any data. An RDBMS contains a query optimizer that turns a SQL declaration
+    into a query plan and executes it on the database engine. The query plan is finally
+    translated into an execution plan for the database engine to read table rows and
+    columns into memory and filter them based on the provided constraints.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The SQL language includes subsets for defining schemas—called **Data Definition
+    Language** (**DDL**)—and modifying and querying data—called **Data Manipulation
+    Language** (**DML**), as discussed in the following sections.
+  prefs: []
+  type: TYPE_NORMAL
+- en: DDL
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: '`CREATE`, `ALTER`, `DROP`, `TRUNCATE`, and so on. The following SQL query represents
+    a DDL SQL statement:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: The previous SQL statement represents a typical command to create a new table
+    within a specific database and a schema with a few columns and its data types
+    defined. A database is a collection of data and log files, while a schema is a
+    logical grouping within a database.
+  prefs: []
+  type: TYPE_NORMAL
+- en: DML
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: '`SELECT`, `UPDATE`, `INSERT`, `DELETE`, `MERGE`, and so on. An example DML
+    query is shown here:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: The previous query results in `column2` being aggregated by each distinct value
+    of `column1` after filtering rows based on the constraint specified on `column3`,
+    and finally, the results being sorted by the aggregated value.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs: []
+  type: TYPE_NORMAL
+- en: Although SQL generally adheres to certain standards set by the **American National
+    Standards Institute** (**ANSI**), each RDBMS vendor has a slightly different implementation
+    of the SQL standards, and you should refer to the specific RDBMS's documentation
+    for the correct syntax.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The previous SQL statement represents standard DDL and DML queries; however,
+    there might be subtle implementation details between each RDBMS's implementation
+    of the SQL standard. Similarly, Apache Spark also has its own implementation of
+    the ANSI SQL 2000 standard.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Joins and sub-queries
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Tables within relational databases contain data that is related, and it is
+    often required to join the data between various tables to produce meaningful analytics.
+    Thus, SQL supports operations such as joins and sub-queries for users to be able
+    to combine data across tables, as shown in the following SQL statement:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: In the previous SQL query, we join two tables using a common key column and
+    produce columns from both the tables after the `JOIN` operation. Similarly, sub-queries
+    are queries within queries that can occur in a `SELECT`, `WHERE`, or `FROM` clause
+    that lets you combine data from multiple tables. A specific implementation of
+    these SQL queries within Spark SQL will be explored in the following sections.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Row-based versus columnar storage
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Databases physically store data in one of two ways, either in a row-based manner
+    or in a columnar fashion. Each has its own advantages and disadvantages, depending
+    on its use case. In row-based storage, all the values are stored together, and
+    in columnar storage, all the values of a column are stored contiguously on a physical
+    storage medium, as shown in the following screenshot:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 12.1 – Row-based versus columnar storage'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/B16736_12_1.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Figure 12.1 – Row-based versus columnar storage
+  prefs: []
+  type: TYPE_NORMAL
+- en: As depicted in the previous screenshot, in row-based storage, an entire row
+    with all its column values is stored together on physical storage. This makes
+    it easier to find an individual row and retrieve all its columns from storage
+    in a fast and efficient manner. Columnar storage, on the other hand, stores all
+    the values of an individual column contiguously on physical storage, which makes
+    retrieving an individual column fast and efficient.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Row-based storage is more popular with transactional systems, where quickly
+    retrieving an individual transactional record or a row is more important. On the
+    other hand, analytical systems typically deal with aggregates of rows and only
+    need to retrieve a few columns per query. Thus, it is more efficient to choose
+    columnar storage while designing analytical systems. Columnar storage also offers
+    a better data compression ratio, thus making optimal use of available storage
+    space when storing huge amounts of historical data. Analytical storage systems
+    including **data warehouses** and **data lakes** prefer columnar storage over
+    row-based storage. Popular big data file formats such as **Parquet** and **Optimized
+    Row Columnar** (**ORC**) are also columnar.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The ease of use and ubiquity of SQL has led the creators of many non-relational
+    data processing frameworks such as Hadoop and Apache Spark to adopt subsets or
+    variations of SQL in creating Hadoop Hive and Spark SQL. We will explore Spark
+    SQL in detail in the following section.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Introduction to Spark SQL
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '**Spark SQL** brings native support for SQL to Apache Spark and unifies the
+    process of querying data stored both in Spark DataFrames and in external data
+    sources. Spark SQL unifies DataFrames and relational tables and makes it easy
+    for developers to intermix SQL commands with querying external data for complex
+    analytics. With the release of **Apache Spark 1.3**, Spark DataFrames powered
+    by Spark SQL became the de facto abstraction of Spark for expressing data processing
+    code, while **resilient distributed datasets** (**RDDs**) still remain Spark''s
+    core abstraction method, as shown in the following diagram:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 12.2 – Spark SQL architecture'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/B16736_12_2.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Figure 12.2 – Spark SQL architecture
+  prefs: []
+  type: TYPE_NORMAL
+- en: As shown in the previous diagram, you can see that most of Spark's components
+    now leverage Spark SQL and DataFrames. Spark SQL provides more information about
+    the structure of the data and the computation being performed, and the **Spark
+    SQL engine** uses this extra information to perform additional optimizations to
+    the query. With Spark SQL, all of Spark's components—including **Structured Streaming**,
+    **DataFrames**, **Spark ML**, and **GraphFrames**—and all its programming **application**
+    **programming interfaces** (**APIs**)—including **Scala**, **Java**, **Python**,
+    **R**, and **SQL**—use the same execution engine to express computations. This
+    unification makes it easy for you to switch back and forth between different APIs
+    and lets you choose the right API for the task at hand. Certain data processing
+    operations, such as joining multiple tables, are expressed much more easily in
+    SQL, and developers can easily mix **SQL** with **Scala**, **Java**, or **Python**
+    code.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Spark SQL also brings a powerful new optimization framework called **Catalyst**,
+    which can automatically transform any data processing code, whether expressed
+    using Spark DataFrames or using Spark SQL, to execute more efficiently. We will
+    explore the **Catalyst** optimizer in the following section.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Catalyst optimizer
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: A **SQL query optimizer** in an RDBMS is a process that determines the most
+    efficient way for a given SQL query to process data stored in a database. The
+    SQL optimizer tries to generate the most optimal execution for a given SQL query.
+    The optimizer typically generates multiple query execution plans and chooses the
+    optimal one among them. It typically takes into consideration factors such as
+    the **central processing unit** (**CPU**), **input/output** (**I/O**), and any
+    available statistics on the tables being queried to choose the most optimal query
+    execution plan. The optimizer based on the chosen query execution plan chooses
+    to re-order, merge, and process a query in any order that yields the optimal results.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The Spark SQL engine also comes equipped with a query optimizer named **Catalyst**.
+    **Catalyst** is based on **functional programming** concepts, like the rest of
+    Spark''s code base, and uses Scala''s programming language features to build a
+    robust and extensible query optimizer. Spark''s Catalyst optimizer generates an
+    optimal execution plan for a given Spark SQL query by following a series of steps,
+    as depicted in the following diagram:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 12.3 – Spark''s Catalyst optimizer'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/B16736_12_03.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Figure 12.3 – Spark's Catalyst optimizer
+  prefs: []
+  type: TYPE_NORMAL
+- en: As shown in the previous diagram, the Catalyst optimizer first generates a logical
+    plan after resolving references, then optimizes the logical plan based on standard
+    rule-based optimization techniques. It then generates a set of physical execution
+    plans using the optimized logical plan and chooses the best physical plan, and
+    finally, generates **Java virtual machine** (**JVM**) bytecode using the best
+    possible physical plan. This process allows Spark SQL to translate user queries
+    into the best possible data processing code without the developer having any nuanced
+    understanding of the microscopic inner workings of Spark's distributed data processing
+    paradigm. Moreover, Spark SQL DataFrame APIs in the Java, Scala, Python, and R
+    programming languages all go through the same Catalyst optimizer. Thus, Spark
+    SQL or any data processing written using DataFrame APIs irrespective of the programming
+    language yields comparable performance.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Tip
+  prefs: []
+  type: TYPE_NORMAL
+- en: There are a few exceptions where PySpark DataFrame code might not be comparable
+    to Scala or Java code in performance. One such example is when using non-vectorized
+    **user-defined functions** (**UDFs**) in PySpark DataFrame operations. Catalyst
+    doesn't have any visibility into UDFs in Python and will not be able to optimize
+    the code. Thus, these should be replaced with either Spark SQL's built-in function
+    or the UDFs defined in Scala or Java.
+  prefs: []
+  type: TYPE_NORMAL
+- en: A seasoned data engineer with a thorough understanding of the RDD API can possibly
+    write a little more optimized code than the Catalyst optimizer; however, by letting
+    Catalyst handle the code-generation complexity, developers can focus their valuable
+    time on actual data processing tasks, thus making them even more efficient. After
+    gaining an understanding of the inner workings of the Spark SQL engine, it would
+    be useful to understand the kinds of data sources that Spark SQL can work with.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Spark SQL data sources
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Since Spark DataFrame API and SQL API are both based on the same Spark SQL engine
+    powered by the Catalyst optimizer, they also support the same set of data sources.
+    A few prominent Spark SQL data sources are presented here.
+  prefs: []
+  type: TYPE_NORMAL
+- en: File data source
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'File-based data sources such as Parquet, ORC, Delta, and so on are supported
+    by Spark SQL out of the box, as shown in the following SQL query example:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: In the previous SQL statement, data is directly queried from a `delta.` prefix.
+    The same SQL construct can also be used with a Parquet file location on the data
+    lake.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Other file types such as **JavaScript Object Notation** (**JSON**) and **comma-separated
+    values** (**CSV**) would require first registering a table or a view with the
+    metastore, as these files are not self-describing and lack any inherent schema
+    information. An example of using a CSV file with Spark SQL is presented in the
+    following SQL query:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: In the previous SQL statement, we first create a temporary view by using a CSV
+    file on the data lake using a CSV data source. We also use `OPTIONS` to specify
+    the CSV file has a header row and to infer a schema from the file itself.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs: []
+  type: TYPE_NORMAL
+- en: A metastore is an RDBMS database where Spark SQL persists metadata information
+    such as databases, tables, columns, and partitions.
+  prefs: []
+  type: TYPE_NORMAL
+- en: You could also create a permanent table instead of a temporary view if the table
+    needs to persist across cluster restarts and will be reused later.
+  prefs: []
+  type: TYPE_NORMAL
+- en: JDBC data source
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'Existing RDBMS databases can also be registered with the metastore via **Java
+    Database Connectivity** (**JDBC**) and used as a data source in Spark SQL. An
+    example is presented in the following code block:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: In the previous code block, we create a temporary view using the `jdbc` data
+    source and specify database connectivity options such as the database **Uniform
+    Resource Locator** (**URL**), table name, username, password, and so on.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Hive data source
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: '**Apache Hive** is a data warehouse in the Hadoop ecosystem that can be used
+    to read, write, and manage datasets on a Hadoop filesystem or a data lake using
+    SQL. Spark SQL can be used with Apache Hive, including a Hive metastore, Hive
+    **Serializer/Deserializer** (**SerDes**), and Hive UDFs. Spark SQL supports most
+    Hive features such as the Hive query language, Hive expressions, user-defined
+    aggregate functions, window functions, joins, unions, sub-queries, and so on.
+    However, features such as Hive **atomicity, consistency, isolation, durability**
+    (**ACID**) table updates, Hive I/O formats, and certain Hive-specific optimizations
+    are not supported. A full list of the supported and unsupported features can be
+    found in Databricks'' public documentation here: [https://docs.databricks.com/spark/latest/spark-sql/compatibility/hive.html](https://docs.databricks.com/spark/latest/spark-sql/compatibility/hive.html).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now that you have gained an understanding of Spark SQL components such as the
+    Catalyst optimizer and its data sources, we can delve into Spark SQL-specific
+    syntax and functions.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Spark SQL language reference
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Being a part of the overarching Hadoop ecosystem, Spark has traditionally been
+    Hive-compliant. While the Hive query language diverges greatly from ANSI SQL standards,
+    Spark 3.0 Spark SQL can be made ANSI SQL-compliant using a `spark.sql.ansi.enabled`
+    configuration. With this configuration enabled, Spark SQL uses an ANSI SQL-compliant
+    dialect instead of a Hive dialect.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Even with ANSI SQL compliance enabled, Spark SQL may not entirely conform to
+    ANSI SQL dialect, and in this section, we will explore some of the prominent DDL
+    and DML syntax of Spark SQL.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Spark SQL DDL
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'The syntax for creating a database and a table using Spark SQL is presented
+    as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'In the previous code block, we do the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: First, we create a database if it doesn't already exist, using the `CREATE DATABASE`
+    command. With this command, options such as the physical warehouse location on
+    persistent storage and other database properties can also be specified as options.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Then, we create a table using `delta` as the data source and specify the location
+    of the data. Here, data at the specified location already exists, so there is
+    no need to specify any schema information such as column names and their data
+    types. However, to create an empty table structure, columns and their data types
+    need to be specified.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'To change certain properties of an existing table such as renaming the table,
+    altering or dropping columns, or ammending table partition information, the `ALTER`
+    command can be used, as shown in the following code sample:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'In the previous code sample, we rename the table in the first SQL statement.
+    The second SQL statement alters the table and adds a new column of the `String`
+    type. Only changing column comments and adding new columns are supported in Spark
+    SQL. The following code sample presents Spark SQL syntax for dropping or deleting
+    artifacts altogether:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs: []
+  type: TYPE_PRE
+- en: In the previous code sample, the `TRUNCATE` command deletes all the rows of
+    the table and leaves the table structure and schema intact. The `DROP TABLE` command
+    deletes the table along with its schema, and the `DROP DATABASE` command deletes
+    the entire database itself.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Spark DML
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Data manipulation involves adding, changing, and deleting data from tables.
+    Some examples of this are presented in the following code statements:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The previous SQL statement inserts data into an existing table using results
+    from another SQL query. Similarly, the `INSERT OVERWRITE` command can be used
+    to overwrite existing data and then load new data into a table. The following
+    SQL statement can be used to selectively delete data from a table:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The previous SQL statement deletes selective data from the table based on a
+    filter condition. Though `SELECT` statements are not necessary, they are quintessential
+    in data analysis. The following SQL statement depicts the use of `SELECT` statements
+    for data analysis using Spark SQL:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs: []
+  type: TYPE_PRE
+- en: The previous SQL statement performs an **inner join** of two tables based on
+    a common key and calculates the average salary of each employee by year. The results
+    of this query give insights into employee salary changes over the years and can
+    be easily scheduled to be refreshed periodically.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'This way, using the powerful distributed SQL engine of Apache Spark and its
+    expressive Spark SQL language, you can perform complex data analysis in a fast
+    and efficient manner without having to learn any new programming languages. A
+    complete Spark SQL reference guide for an exhaustive list of supported data types,
+    function libraries, and SQL syntax can be found in Apache Spark''s public documentation
+    here: [https://spark.apache.org/docs/latest/sql-ref-syntax.html](https://spark.apache.org/docs/latest/sql-ref-syntax.html).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Though Spark SQL's **Catalyst** optimizer does most of the heavy lifting, it's
+    useful to know a few techniques to further tune Spark SQL's performance, and a
+    few prominent ones are presented in the following section.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Optimizing Spark SQL performance
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In the previous section, you learned how the Catalyst optimizer optimizes user
+    code by running the code through a set of optimization steps until an optimal
+    execution plan is derived. To take advantage of the Catalyst optimizer, it is
+    recommended to use Spark code that leverages the Spark SQL engine—that is, Spark
+    SQL and DataFrame APIs—and avoid using RDD-based Spark code as much as possible.
+    The Catalyst optimizer has no visibility into UDFs, thus users could end up writing
+    sub-optimal code that might degrade performance. Thus, it is recommended to use
+    built-in functions instead of UDFs or to define functions in Scala and Java and
+    then use them in SQL and Python APIs.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Though Spark SQL supports file-based formats such as CSV and JSON, it is recommended
+    to use serialized data formats such as Parquet, AVRO, and ORC. Semi-structured
+    formats such as CSV or JSON incur performance costs, firstly during the schema
+    inference phase, as they cannot present their schema readily to the Spark SQL
+    engine. Secondly, they do not support any data filtering features such as **Predicate
+    Pushdown**, thus entire files must be loaded into memory before any data can be
+    filtered out at the source. Being inherently uncompressed file formats, CSV and
+    JSON also consume more memory compared to binary compressed formats such as Parquet.
+    Even traditional relational databases are preferred over using semi-structured
+    data formats as they support Predicate Pushdown, and some data processing responsibility
+    can be delegated down to the databases.
+  prefs: []
+  type: TYPE_NORMAL
+- en: For iterative workloads such as ML, where the same dataset is accessed multiple
+    times, it is useful to cache the dataset in memory so that subsequent scans of
+    the table or DataFrame happen in memory, improving query performance greatly.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Spark comes with various `BROADCAST`, `MERGE`, `SHUFFLE_HASH`, and so on. However,
+    the Spark SQL engine might sometimes not be able to predict the strategy for a
+    given query. This can be mitigated by passing in **hints** to the Spark SQL query,
+    as shown in the following code block:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE12]'
+  prefs: []
+  type: TYPE_PRE
+- en: In the previous code block, we are passing in a `SELECT` clause. This specifies
+    that the smaller table is broadcasted to all the worker nodes, which should improve
+    join performance and thus the overall query performance. Similarly, `COALESCE`
+    and `REPARTITION` hints can also be passed to Spark SQL queries; these hints reduce
+    the number of output files, thus improving performance.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs: []
+  type: TYPE_NORMAL
+- en: SQL hints, query hints, or optimizer hints are additions to standard SQL statements
+    used to nudge the SQL execution engine to choose a particular physical execution
+    plan that the developer thinks is optimal. SQL hints have traditionally been supported
+    by all RDBMS engines and are now supported by Spark SQL as well as for certain
+    kinds of queries, as discussed previously.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'While the Catalyst optimizer does an excellent job of producing the best possible
+    physical query execution plan, it can still be thrown off by stale statistics
+    on the table. Starting with Spark 3.0, `spark.sql.adaptive.enabled` configuration.
+    These are just a few of the Spark SQL performance-tuning techniques available,
+    and detailed descriptions of each can be found in the Apache Spark public documentation
+    here: [https://spark.apache.org/docs/latest/sql-performance-tuning.html](https://spark.apache.org/docs/latest/sql-performance-tuning.html).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Summary
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In this chapter, you learned about SQL as a declarative language that has been
+    universally accepted as the language for structured data analysis because of its
+    ease of use and expressiveness. You learned about the basic constructions of SQL,
+    including the DDL and DML dialects of SQL. You were introduced to the Spark SQL
+    engine as the unified distributed query engine that powers both Spark SQL and
+    DataFrame APIs. SQL optimizers, in general, were introduced, and Spark's very
+    own query optimizer Catalyst was also presented, along with its inner workings
+    as to how it takes a Spark SQL query and converts it into Java JVM bytecode. A
+    reference to the Spark SQL language was also presented, along with the most important
+    DDL and DML statements, with examples. Finally, a few performance optimizations
+    techniques were also discussed to help you get the best out of Spark SQL for all
+    your data analysis needs. In the next chapter, we will extend our Spark SQL knowledge
+    and see how external data analysis tools such as **business intelligence** (**BI**)
+    tools and SQL analysis tools can also leverage Apache Spark's distributed SQL
+    engine to process and visualize massive amounts of data in a fast and efficient
+    manner.
+  prefs: []
+  type: TYPE_NORMAL

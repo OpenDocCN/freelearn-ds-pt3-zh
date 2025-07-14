@@ -1,0 +1,1106 @@
+- en: '2'
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Getting to Know NumPy, pandas, Arrow, and Matplotlib
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: One of Python’s biggest strengths is its profusion of high-quality science and
+    data processing libraries. At the core of all of them is **NumPy**, which provides
+    efficient array and matrix support. On top of NumPy, we can find almost all of
+    the scientific libraries. For example, in our field, there’s **Biopython**. But
+    other generic data analysis libraries can also be used in our field. For example,
+    **pandas** is the *de facto* standard for processing tabled data. More recently,
+    **Apache Arrow** provides efficient implementations of some of pandas’ functionality,
+    along with language interoperability. Finally, **Matplotlib** is the most common
+    plotting library in the Python space and is appropriate for scientific computing.
+    While these are general libraries with wide applicability, they are fundamental
+    for bioinformatics processing, so we will study them in this chapter.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We will start by looking at pandas as it provides a high-level library with
+    very broad practical applicability. Then, we’ll introduce Arrow, which we will
+    use only in the scope of supporting pandas. After that, we’ll discuss NumPy, the
+    workhorse behind almost everything we do. Finally, we’ll introduce Matplotlib.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Our recipes are very introductory – each of these libraries could easily occupy
+    a full book, but the recipes should be enough to help you through this book. If
+    you are using Docker, and because all these libraries are fundamental for data
+    analysis, they can be found in the `tiagoantao/bioinformatics_base` Docker image
+    from [*Chapter 1*](B17942_01.xhtml#_idTextAnchor020).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In this chapter, we will cover the following recipes:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Using pandas to process vaccine-adverse events
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Dealing with the pitfalls of joining pandas DataFrames
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Reducing the memory usage of pandas DataFrames
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Accelerating pandas processing with Apache Arrow
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Understanding NumPy as the engine behind Python data science and bioinformatics
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Introducing Matplotlib for chart generation
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Using pandas to process vaccine-adverse events
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'We will be introducing pandas with a concrete bioinformatics data analysis
+    example: we will be studying data from the **Vaccine Adverse Event Reporting System**
+    (**VAERS**, [https://vaers.hhs.gov/](https://vaers.hhs.gov/)). VAERS, which is
+    maintained by the US Department of Health and Human Services, includes a database
+    of vaccine-adverse events going back to 1990.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: VAERS makes data available in **comma-separated values** (**CSV**) format. The
+    CSV format is quite simple and can even be opened with a simple text editor (be
+    careful with very large file sizes as they may crash your editor) or a spreadsheet
+    such as Excel. pandas can work very easily with this format.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Getting ready
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'First, we need to download the data. It is available at [https://vaers.hhs.gov/data/datasets.xhtml](https://vaers.hhs.gov/data/datasets.xhtml).
+    Please download the ZIP file: we will be using the 2021 file; do not download
+    a single CSV file only. After downloading the file, unzip it, and then recompress
+    all the files individually with `gzip –9 *csv` to save disk space.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Feel free to have a look at the files with a text editor, or preferably with
+    a tool such as `less` (`zless` for compressed files). You can find documentation
+    for the content of the files at [https://vaers.hhs.gov/docs/VAERSDataUseGuide_en_September2021.pdf](https://vaers.hhs.gov/docs/VAERSDataUseGuide_en_September2021.pdf).
+  prefs: []
+  type: TYPE_NORMAL
+- en: If you are using the Notebooks, code is provided at the beginning of them so
+    that you can take care of the necessary processing. If you are using Docker, the
+    base image is enough.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The code can be found in `Chapter02/Pandas_Basic.py`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Follow these steps:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let’s start by loading the main data file and gathering the basic statistics:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'We start by loading the data. In most cases, there is no need to worry about
+    the text encoding as the default, UTF-8, will work, but in this case, the text
+    encoding is `legacy iso-8859-1`. Then, we print the column names, which start
+    with `VAERS_ID`, `RECVDATE`, `STATE`, `AGE_YRS`, and so on. They include 35 entries
+    corresponding to each of the columns. Then, we print the types of each column.
+    Here are the first few entries:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'By doing this, we get the shape of the data: `(654986, 35)`. This means 654,986
+    rows and 35 columns. You can use any of the preceding strategies to get the information
+    you need regarding the metadata of the table.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now, let’s explore the data:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'There are many ways we can look at the data. We will start by inspecting the
+    first row, based on location. Here is an abridged version:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: After we index by `VAERS_ID`, we can use one ID to get a row. We can use 916600
+    (which is the ID from the preceding record) and get the same result.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Then, we retrieve the first three rows. Notice the two different ways we can
+    do so:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Using the `head` method
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Using the more general array specification; that is, `iloc[:3]`
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Finally, we retrieve the first five rows, but only the second and third columns
+    –`iloc[:5, 2:4]`. Here is the output:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Let’s do some basic computations now, namely computing the maximum age in the
+    dataset:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: The maximum value is 119 years. More importantly than the result, notice the
+    two dialects for accessing `AGE_YRS` (as a dictionary key and as an object field)
+    for the access columns.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now, let’s plot the ages involved:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: This generates two plots (a condensed version is shown in the following step).
+    We use pandas plotting machinery here, which uses Matplotib underneath.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'While we have a full recipe for charting with Matplotlib (*Introducing Matplotlib
+    for chart generation*), let’s have a sneak peek here by using it directly:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'This includes both figures from the previous steps. Here is the output:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 2.1 – Left – the age for each observation of adverse effect;  right
+    – a histogram showing the distribution of ages  ](img/B17942_02_001.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 2.1 – Left – the age for each observation of adverse effect; right –
+    a histogram showing the distribution of ages
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We can also take a non-graphical, more analytical approach, such as counting
+    the events per year:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'The output will be as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Now, let’s see how many people died:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'The output of the count is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs: []
+  type: TYPE_PRE
+- en: Note that the type of `DIED` is *not* a Boolean. It’s more declarative to have
+    a Boolean representation of a Boolean characteristic, so we create `is_dead` for
+    it.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Tip
+  prefs: []
+  type: TYPE_NORMAL
+- en: Here, we are assuming that NaN is to be interpreted as `False`. In general,
+    we must be careful with the interpretation of NaN. It may mean `False` or it may
+    simply mean – as in most cases – a lack of data. If that were the case, it should
+    not be converted into `False`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now, let’s associate the individual data about deaths with the type of vaccine
+    involved:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE12]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'After we get a DataFrame containing just deaths, we must read the data that
+    contains vaccine information. First, we must do some exploratory analysis of the
+    types of vaccines and their adverse events. Here is the abridged output:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE13]'
+  prefs: []
+  type: TYPE_PRE
+- en: After that, we must choose just the COVID-related vaccines and join them with
+    individual data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Finally, let’s see the top 10 COVID vaccine lots that are overrepresented in
+    terms of deaths and how many US states were affected by each lot:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE14]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'The output is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE15]'
+  prefs: []
+  type: TYPE_PRE
+- en: That concludes this recipe!
+  prefs: []
+  type: TYPE_NORMAL
+- en: There’s more...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: The preceding data about vaccines and lots is not completely correct; we will
+    cover some data analysis pitfalls in the next recipe.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the *Introducing Matplotlib for chart generation* recipe, we will introduce
+    Matplotlib, a chart library that provides the backend for pandas plotting. It
+    is a fundamental component of Python’s data analysis ecosystem.
+  prefs: []
+  type: TYPE_NORMAL
+- en: See also
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'The following is some extra information that may be useful:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: While the first three recipes of this chapter are enough to support you throughout
+    this book, there is plenty of content available on the web to help you understand
+    pandas. You can start with the main user guide, which is available at [https://pandas.pydata.org/docs/user_guide/index.xhtml](https://pandas.pydata.org/docs/user_guide/index.xhtml).
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'If you need to plot data, do not forget to check the visualization part of
+    the guide since it is especially helpful: [https://pandas.pydata.org/docs/user_guide/visualization.xhtml](https://pandas.pydata.org/docs/user_guide/visualization.xhtml).'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Dealing with the pitfalls of joining pandas DataFrames
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: The previous recipe was a whirlwind tour that introduced pandas and exposed
+    most of the features that we will use in this book. While an exhaustive discussion
+    about pandas would require a complete book, in this recipe – and in the next one
+    – we are going to discuss topics that impact data analysis and are seldom discussed
+    in the literature but are very important.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In this recipe, we are going to discuss some pitfalls that deal with relating
+    DataFrames through joins: it turns out that many data analysis errors are introduced
+    by carelessly joining data. We will introduce techniques to reduce such problems
+    here.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Getting ready
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: We will be using the same data as in the previous recipe, but we will jumble
+    it a bit so that we can discuss typical data analysis pitfalls. Once again, we
+    will be joining the main adverse events table with the vaccination table, but
+    we will randomly sample 90% of the data from each. This mimics, for example, the
+    scenario where you only have incomplete information. This is one of the many examples
+    where joins between tables do not have intuitively obvious results.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Use the following code to prepare our files by randomly sampling 90% of the
+    data:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE16]'
+  prefs: []
+  type: TYPE_PRE
+- en: Because this code involves random sampling, the results that you will get will
+    be different from the ones reported here. If you want to get the same results,
+    I have provided the files that I used in the `Chapter02` directory. The code for
+    this recipe can be found in `Chapter02/Pandas_Join.py`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Follow these steps:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let’s start by doing an inner join of the individual and vaccine tables:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE17]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: The `len` output for this code is 589,487 for the individual data, 620,361 for
+    the vaccination data, and 558,220 for the join. This suggests that some individual
+    and vaccine data was not captured.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let’s find the data that was not captured with the following join:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE18]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: You will see that 56,524 rows of individual data aren’t joined and that there
+    are 62,141 rows of vaccinated data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'There are other ways to join data. The default way is by performing a left
+    outer join:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE19]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: A left outer join assures that all the rows on the left table are always represented.
+    If there are no rows on the right, then all the right columns will be filled with
+    `None` values.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Warning
+  prefs: []
+  type: TYPE_NORMAL
+- en: There is a caveat that you should be careful with. Remember that the left table
+    – `vdata` – had one entry per `VAERS_ID`. When you left join, you may end up with
+    a case where the left-hand side is repeated several times. For example, the `groupby`
+    operation that we did previously shows that `VAERS_ID` of 962303 has 11 entries.
+    This is correct, but it’s not uncommon to have the incorrect expectation that
+    you will still have a single row on the output per row on the left-hand side.
+    This is because the left join returns 1 or more left entries, whereas the inner
+    join above returns 0 or 1 entries, where sometimes, we would like to have precisely
+    1 entry. Be sure to always test the output for what you want in terms of the number
+    of entries.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'There is a right join as well. Let’s right join COVID vaccines – the left table
+    – with death events – the right table:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE20]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: As you may expect, a right join will ensure that all the rows on the right table
+    are represented. So, we end up with 583,817 COVID entries, 7,670 dead entries,
+    and a right join of 8,624 entries.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We also check the number of duplicated entries on the joined table and we get
+    954\. If we subtract the length of the dead table from the joined table, we also
+    get, as expected, 954\. Make sure you have checks like this when you’re making
+    joins.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Finally, we are going to revisit the problematic COVID lot calculations since
+    we now understand that we might be overcounting lots:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE21]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Note that the strategies that we’ve used here ensure that we don’t get repeats:
+    first, we limit the number of columns to the ones we will be using, then we remove
+    repeated indexes and empty `VAERS_ID`. This ensures no repetition of the `VAERS_ID`,
+    `VAX_LOT` pair, and that no lots are associated with no IDs.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: There’s more...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: There are other types of joins other than left, inner, and right. Most notably,
+    there is the outer join, which assures all entries from both tables have representation.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Make sure you have tests and assertions for your joins: a very common bug is
+    having the wrong expectations for how joins behave. You should also make sure
+    that there are no empty values on the columns where you are joining, as they can
+    produce a lot of excess tuples.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Reducing the memory usage of pandas DataFrames
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: When you are dealing with lots of information – for example, when analyzing
+    whole genome sequencing data – memory usage may become a limitation for your analysis.
+    It turns out that naïve pandas is not very efficient from a memory perspective,
+    and we can substantially reduce its consumption.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In this recipe, we are going to revisit our VAERS data and look at several
+    ways to reduce pandas memory usage. The impact of these changes can be massive:
+    in many cases, reducing memory consumption may mean the difference between being
+    able to use pandas or requiring a more alternative and complex approach, such
+    as Dask or Spark.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Getting ready
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: We will be using the data from the first recipe. If you have run it, you are
+    all set; if not, please follow the steps discussed there. You can find this code
+    in `Chapter02/Pandas_Memory.py`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it…
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Follow these steps:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'First, let’s load the data and inspect the size of the DataFrame:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE22]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Here is an abridged version of the output:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE23]'
+  prefs: []
+  type: TYPE_PRE
+- en: Here, we have information about the number of rows and the type and non-null
+    values of each row. Finally, we can see that the DataFrame requires a whopping
+    1.3 GB.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We can also inspect the size of each column:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE24]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Here is an abridged version of the output:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE25]'
+  prefs: []
+  type: TYPE_PRE
+- en: '`SYMPTOM_TEXT` occupies 442 MB, so 1/3 of our entire table.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now, let’s look at the `DIED` column. Can we find a more efficient representation?
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE26]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: The original column takes 21,181,488 bytes, whereas our compact representation
+    takes 656,986 bytes. That’s 32 times less!
+  prefs: []
+  type: TYPE_NORMAL
+- en: What about the `STATE` column? Can we do better?
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE27]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: Here, we convert the `STATE` column, which is text, into `encoded_state`, which
+    is a number. This number is the position of the state’s name in the list state.
+    We use this number to look up the list of states. The original column takes around
+    36 MB, whereas the encoded column takes 0.6 MB.
+  prefs: []
+  type: TYPE_NORMAL
+- en: As an alternative to this approach, you can look at categorical variables in
+    pandas. I prefer to use them as they have wider applications.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We can apply most of these optimizations when we *load* the data, so let’s
+    prepare for that. But now, we have a chicken-and-egg problem: to be able to know
+    the content of the state table, we have to do a first pass to get the list of
+    states, like so:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE28]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: We have a converter that simply returns the uppercase version of the state.
+    We only return the `STATE` column to save memory and processing time. Finally,
+    we get the `STATE` column from the DataFrame (which has only a single column).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The ultimate optimization is *not* to load the data. Imagine that we don’t
+    need `SYMPTOM_TEXT` – that is around 1/3 of the data. In that case, we can just
+    skip it. Here is the final version:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE29]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: We are now at 714 MB, which is a bit over half of the original. This could be
+    still substantially reduced by applying the methods we used for `STATE` and `DIED`
+    to all other columns.
+  prefs: []
+  type: TYPE_NORMAL
+- en: See also
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'The following is some extra information that may be useful:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: If you are willing to use a support library to help with Python processing,
+    check the next recipe on Apache Arrow, which will allow you to have extra memory
+    savings for more memory efficiency.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: If you end up with DataFrames that take more memory than you have available
+    on a single machine, then you must step up your game and use chunking - which
+    we will not cover in the Pandas context - or something that can deal with large
+    data automatically. Dask, which we’ll cover in [*Chapter 11*](B17942_11.xhtml#_idTextAnchor272),
+    *Parallel Processing with Dask and Zarr*, allows you to work with larger-than-memory
+    datasets with, among others, a pandas-like interface.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: "Accelerating pandas processing with \LApache Arrow"
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: When dealing with large amounts of data, such as in whole genome sequencing,
+    pandas is both slow and memory-consuming. Apache Arrow provides faster and more
+    memory-efficient implementations of several pandas operations and can interoperate
+    with it.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Apache Arrow is a project co-founded by Wes McKinney, the founder of pandas,
+    and it has several objectives, including working with tabular data in a language-agnostic
+    way, which allows for language interoperability while providing a memory- and
+    computation-efficient implementation. Here, we will only be concerned with the
+    second part: getting more efficiency for large-data processing. We will do this
+    in an integrated way with pandas.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Here, we will once again use VAERS data and show how Apache Arrow can be used
+    to accelerate pandas data loading and reduce memory consumption.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Getting ready
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Again, we will be using data from the first recipe. Be sure you download and
+    prepare it, as explained in the *Getting ready* section of the *Using pandas to
+    process vaccine-adverse events* recipe. The code is available in `Chapter02/Arrow.py`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Follow these steps:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let’s start by loading the data using both pandas and Arrow:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE30]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'pandas requires 1.3 GB, whereas Arrow requires 614 MB: less than half the memory.
+    For large files like this, this may mean the difference between being able to
+    process data in memory or needing to find another solution, such as Dask. While
+    some functions in Arrow have similar names to pandas (for example, `read_csv`),
+    that is not the most common occurrence. For example, note the way we compute the
+    total size of the DataFrame: by getting the size of each column and performing
+    a sum, which is a different approach from pandas.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let’s do a side-by-side comparison of the inferred types:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE31]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Here is an abridged version of the output:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE32]'
+  prefs: []
+  type: TYPE_PRE
+- en: As you can see, Arrow is generally more specific with type inference and is
+    one of the main reasons why memory usage is substantially lower.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now, let’s do a time performance comparison:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE33]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'On my computer, the results are as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE34]'
+  prefs: []
+  type: TYPE_PRE
+- en: Arrow’s implementation is three times faster. The results on your computer will
+    vary as this is dependent on the hardware.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let’s repeat the memory occupation comparison while not loading the `SYMPTOM_TEXT`
+    column. This is a fairer comparison as most numerical datasets do not tend to
+    have a very large text column:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE35]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'pandas requires 847 MB, whereas Arrow requires 205 MB: four times less.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Our objective is to use Arrow to load data into pandas. For that, we need to
+    convert the data structure:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE36]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'There are two very important points to be made here: the pandas representation
+    created by Arrow uses only 1 GB, whereas the pandas representation, from its native
+    `read_csv`, is 1.3 GB. This means that even if you use pandas to process data,
+    Arrow can create a more compact representation to start with.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The preceding code has one problem regarding memory consumption: when the converter
+    is running, it will require memory to hold *both* the pandas and the Arrow representations,
+    hence defeating the purpose of using less memory. Arrow can self-destruct its
+    representation while creating the pandas version, hence resolving the problem.
+    The line for this is `vdata = vdata_arrow.to_pandas(self_destruct=True)`.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: There’s more...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: If you have a very large DataFrame that cannot be processed by pandas, even
+    after it’s been loaded by Arrow, then maybe Arrow can do all the processing as
+    it has a computing engine as well. That being said, Arrow’s engine is, at the
+    time of writing, substantially less complete in terms of functionality than pandas.
+    Remember that Arrow has many other features, such as language interoperability,
+    but we will not be making use of those in this book.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Understanding NumPy as the engine behind Python data science and bioinformatics
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Most of your analysis will make use of NumPy, even if you don’t use it explicitly.
+    NumPy is an array manipulation library that is behind libraries such as pandas,
+    Matplotlib, Biopython, and scikit-learn, among many others. While much of your
+    bioinformatics work may not require explicit direct use of NumPy, you should be
+    aware of its existence as it underpins almost everything you do, even if only
+    indirectly via the other libraries.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In this recipe, we will use VAERS data to demonstrate how NumPy is behind many
+    of the core libraries that we use. This is a very light introduction to the library
+    so that you are aware that it exists and that it is behind almost everything.
+    Our example will extract the number of cases from the five US states with more
+    adverse effects, splitting them into age bins: 0 to 19 years, 20 to 39, up to
+    100 to 119.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Getting ready
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Once again, we will be using the data from the first recipe, so make sure it’s
+    available. The code for it can be found in `Chapter02/NumPy.py`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it…
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Follow these steps:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let’s start by loading the data with pandas and reducing the data so that it’s
+    related to the top five US states only:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE37]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'The top states are as follows. This rank will be used later to construct a
+    NumPy matrix:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 2.2 – US states with largest numbers of adverse effects ](img/B17942_02_002.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 2.2 – US states with largest numbers of adverse effects
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now, let’s extract the two NumPy arrays that contain age and state data:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE38]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Note that the data that underlies pandas is NumPy data (the `values` call for
+    both Series returns NumPy types). Also, you may recall that pandas has properties
+    such as `.shape` or `.dtype`: these were inspired by NumPy and behave the same.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now, let’s create a NumPy matrix from scratch (a 2D array), where each row
+    is a state and each column represents an age group:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE39]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: The array has five rows – one for each state – and six columns – one for each
+    age group. All the cells in the array must have the same type.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We initialize the array with zeros. There are many ways to initialize arrays,
+    but if you have a very large array, initializing it may take a lot of time. Sometimes,
+    depending on your task, it might be OK that the array is empty at the beginning
+    (meaning it was initialized with random trash). In that case, using `np.empty`
+    will be much faster. We use pandas iteration here: this is not the best way to
+    do things from a pandas perspective, but we want to make the NumPy part very explicit.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We can extract a single row – in our case, the data for a state – very easily.
+    The same applies to a column. Let’s take California data and then the 0-19 age
+    group:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE40]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: Note the syntax to extract a row or a column. It should be familiar to you,
+    given that pandas copied the syntax from NumPy and we encountered it in previous
+    recipes.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now, let’s compute a new matrix where we have the fraction of cases per age
+    group:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE41]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: The last line applies the `compute_frac` function to all rows. `compute_frac`
+    takes a single row and returns a new row where all the elements are divided by
+    the total sum.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now, let’s create a new matrix that acts as a percentage instead of a fraction
+    – simply because it reads better:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE42]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: The first line simply multiplies all the elements of the 2D array by 100\. Matplotlib
+    is smart enough to traverse different array structures. That line will work if
+    it’s presented with an array with any dimensions and would do exactly what is
+    expected.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Here is the result:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 2.3 – A matrix representing the distribution of vaccine-adverse effects  in
+    the five US states with the most cases ](img/B17942_02_003.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 2.3 – A matrix representing the distribution of vaccine-adverse effects
+    in the five US states with the most cases
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Finally, let’s create a graphical representation of the matrix using Matplotlib:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE43]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: Do not dwell too much on the Matplotlib code – we are going to discuss it in
+    the next recipe. The fundamental point here is that you can pass NumPy data structures
+    to Matplotlib. Matplotlib, like pandas, is based on NumPy.
+  prefs: []
+  type: TYPE_NORMAL
+- en: See also
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'The following is some extra information that may be useful:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'NumPy has many more features than the ones we’ve discussed here. There are
+    plenty of books and tutorials on them. The official documentation is a good place
+    to start: [https://numpy.org/doc/stable/](https://numpy.org/doc/stable/).'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'There are many important issues to discover with NumPy, but probably one of
+    the most important is broadcasting: NumPy’s ability to take arrays of different
+    structures and get the operations right. For details, go to [https://numpy.org/doc/stable/user/theory.broadcasting.xhtml](https://numpy.org/doc/stable/user/theory.broadcasting.xhtml).'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Introducing Matplotlib for chart generation
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Matplotlib is the most common Python library for generating charts. There are
+    more modern alternatives, such as **Bokeh**, which is web-centered, but the advantage
+    of Matplotlib is not only that it is the most widely available and widely documented
+    chart library but also, in the computational biology world, we want a chart library
+    that is both web- and paper-centric. This is because many of our charts will be
+    submitted to scientific journals, which are equally concerned with both formats.
+    Matplotlib can handle this for us.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Many of the examples in this recipe could also be done directly with pandas
+    (hence indirectly with Matplotlib), but the point here is to exercise Matplotlib.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Once again, we are going to use VAERS data to plot some information about the
+    DataFrame’s metadata and summarize the epidemiological data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Getting ready
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Again, we will be using the data from the first recipe. The code can be found
+    in `Chapter02/Matplotlib.py`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Follow these steps:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The first thing that we will do is plot the fraction of nulls per column:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE44]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '`labels` is the column names that we are analyzing, `bar_values` is the fraction
+    of null values, and `x_positions` is the location of the bars on the bar chart
+    that we are going to plot next.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Here is the code for the first version of the bar plot:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE45]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'We start by creating a figure object with a title. The figure will have a subplot
+    that will contain the bar chart. We also set several labels and only used defaults.
+    Here is the sad result:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 2.4 – Our first chart attempt, just using the defaults ](img/B17942_02_004.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 2.4 – Our first chart attempt, just using the defaults
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Surely, we can do better. Let’s format the chart substantially more:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE46]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'The first thing that we do is set up a bigger figure for Matplotlib to provide
+    a tighter layout. We rotate the *x*-axis tick labels 45 degrees so that they fit
+    better. We also put the values on the bars. Finally, we do not have a standard
+    *x*-axis label as it would be on top of the tick labels. Instead, we write the
+    text explicitly. Note that the coordinate system of the figure can be completely
+    different from the coordinate system of the subplot – for example, compare the
+    coordinates of `ax.text` and `fig.text`. Here is the result:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 2.5 – Our second chart attempt, while taking care of the layout ](img/B17942_02_005.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 2.5 – Our second chart attempt, while taking care of the layout
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now, we are going to do some summary analysis of our data based on four plots
+    on a single figure. We will chart the vaccines involved in deaths, the days between
+    administration and death, the deaths over time, and the sex of people who have
+    died for the top 10 states in terms of their quantity:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE47]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: The preceding code is strictly pandas-based and was made in preparation for
+    the plotting activity.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The following code plots all the information simultaneously. We are going to
+    have four subplots organized in 2 by 2 format:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE48]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'We start by creating a figure with 2x2 subplots. The `subplots` function returns,
+    along with the figure object, four axes objects that we can use to create our
+    charts. Note that the legend is positioned in the pie chart, we have used a twin
+    axis on the time distance plot, and we have a way to compute stacked bars on the
+    death per state chart. Here is the result:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 2.6 – Four combined charts summarizing the vaccine data ](img/B17942_02_006.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 2.6 – Four combined charts summarizing the vaccine data
+  prefs: []
+  type: TYPE_NORMAL
+- en: There’s more...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Matplotlib has two interfaces you can use – an older interface, designed to
+    be similar to MATLAB, and a more powerful `matplotlib.pyplot` module. To make
+    things confusing, the entry points for the OO interface are in that module – that
+    is, `matplotlib.pyplot.figure` and `matplotlib.pyplot.subplots`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: See also
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'The following is some extra information that may be useful:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The documentation for Matplolib is really, really good. For example, there’s
+    a gallery of visual samples with links to the code for generating each sample.
+    This can be found at [https://matplotlib.org/stable/gallery/index.xhtml](https://matplotlib.org/stable/gallery/index.xhtml).
+    The API documentation is generally very complete.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Another way to improve the looks of Matplotlib charts is to use the Seaborn
+    library. Seaborn’s main purpose is to add statistical visualization artifacts,
+    but as a side effect, when imported, it changes the defaults of Matplotlib to
+    something more palatable. We will be using Seaborn throughout this book; check
+    out the plots provided in the next chapter.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL

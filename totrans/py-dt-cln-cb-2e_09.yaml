@@ -1,0 +1,1281 @@
+- en: '9'
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Fixing Messy Data When Aggregating
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Earlier chapters of this book introduced techniques to generate summary statistics
+    on a whole DataFrame. We used methods such as `describe`, `mean`, and `quantile`
+    to do that. This chapter covers more complicated aggregation tasks: aggregating
+    by categorical variables and using aggregation to change the structure of DataFrames.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: After the initial stages of data cleaning, analysts spend a substantial amount
+    of their time doing what Hadley Wickham has called *splitting-applying-combining*—that
+    is, we subset data by groups, apply some operation to those subsets, and then
+    draw conclusions about a dataset as a whole. In slightly more specific terms,
+    this involves generating descriptive statistics by key categorical variables.
+    For the `nls97` dataset, this might be gender, marital status, and the highest
+    degree received. For the COVID-19 data, we might segment the data by country or
+    date.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Often, we need to aggregate data to prepare it for subsequent analysis. Sometimes,
+    the rows of a DataFrame are disaggregated beyond the desired unit of analysis,
+    and some aggregation has to be done before analysis can begin. For example, our
+    DataFrame might have bird sightings by species per day over the course of many
+    years. Since those values jump around, we might decide to smooth that out by working
+    only with the total sightings by species per month, or even per year. Another
+    example is household and car repair expenditures. We might need to summarize those
+    expenditures over a year.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'There are several ways to aggregate data using NumPy and pandas, each with
+    particular strengths. We explore the most useful approaches in this chapter: from
+    looping with `itertuples`, to navigating over NumPy arrays, to several techniques
+    using the DataFrame `groupby` method, and pivot tables. It is helpful to have
+    a good understanding of the full range of tools available in pandas and NumPy,
+    since almost all data analysis projects require some aggregation, aggregation
+    is among the most consequential steps we take in the data cleaning process, and
+    the best tool for the job is determined more by the attributes of the data than
+    by our personal preferences.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Specifically, the recipes in this chapter examine the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Looping through data with `itertuples` (an anti-pattern)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Calculating summaries by group with NumPy arrays
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Using `groupby` to organize data by groups
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Using more complicated aggregation functions with `groupby`
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Using user-defined functions and apply with `groupby`
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Using `groupby` to change the unit of analysis of a DataFrame
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Using the pandas `pivot_table` function to change the unit of analysis
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Technical requirements
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: You will need pandas, NumPy, and Matplotlib to complete the recipes in this
+    chapter. I used pandas 2.1.4, but the code will run on pandas 1.5.3 or later.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The code in this chapter can be downloaded from the book’s GitHub repository,
+    [https://github.com/PacktPublishing/Python-Data-Cleaning-Cookbook-Second-Edition](https://github.com/PacktPublishing/Python-Data-Cleaning-Cookbook-Second-Edition).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Looping through data with itertuples (an anti-pattern)
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In this recipe, we will iterate over the rows of a DataFrame and generate our
+    own totals for a variable. In subsequent recipes in this chapter, we will use
+    NumPy arrays, and then some pandas-specific techniques, to accomplish the same
+    tasks.
+  prefs: []
+  type: TYPE_NORMAL
+- en: It may seem odd to begin this chapter with a technique that we are often cautioned
+    against using. But I used to do the equivalent of looping every day 35 years ago
+    in SAS, and on select occasions as recently as 10 years ago in R. That is why
+    I still find myself thinking conceptually about iterating over rows of data, sometimes
+    sorted by groups, even though I rarely implement my code in this manner. I think
+    it is good to hold onto that conceptualization, even when using other pandas methods
+    that work for us more efficiently.
+  prefs: []
+  type: TYPE_NORMAL
+- en: I do not want to leave the impression that pandas-specific techniques are always
+    markedly more efficient either. pandas users probably find themselves using `apply`
+    more than they would like, an approach that is only somewhat faster than looping.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Getting ready
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: We will work with the COVID-19 case daily data in this recipe. It has one row
+    per day per country, each row having the number of new cases and new deaths for
+    that day. It reflects totals as of March 2024.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We will also be working with land temperature data from 87 weather stations
+    in Brazil in 2023\. Most weather stations had one temperature reading for each
+    month.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Data note**'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Our World in Data provides COVID-19 public use data at [https://ourworldindata.org/covid-cases](https://ourworldindata.org/covid-cases).
+    The dataset includes total cases and deaths, tests administered, hospital beds,
+    and demographic data such as median age, gross domestic product, and diabetes
+    prevalence. The dataset used in this recipe was downloaded on March 3, 2024.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The land temperature DataFrame has the average temperature reading (in ^°C)
+    in 2023 from over 12,000 stations across the world, although a majority of the
+    stations are in the United States. The raw data was retrieved from the Global
+    Historical Climatology Network integrated database. It is made available for public
+    use by the United States National Oceanic and Atmospheric Administration at [https://www.ncei.noaa.gov/products/land-based-station/global-historical-climatology-network-monthly](https://www.ncei.noaa.gov/products/land-based-station/global-historical-climatology-network-monthly).
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it…
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'We will use the `itertuples` DataFrame method to loop over the rows of the
+    COVID-19 daily data and the monthly land temperature data for Brazil. We add logic
+    to handle missing data and unexpected changes in key variable values from one
+    period to the next:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Import `pandas` and `numpy`, and load the COVID-19 and land temperature data:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Sort data by location and date:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: Iterate over rows with `itertuples`.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Use `itertuples`, which allows us to iterate over all rows as named tuples.
+    Sum new cases over all the dates for each country. With each change of country
+    (`location`), append the running total to `rowlist`, and then set the count to
+    `0` (note that `rowlist` is a list and we are appending a dictionary to `rowlist`
+    with each change of country. A list of dictionaries is a good place to temporarily
+    store data you might eventually want to convert to a DataFrame):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: Create a DataFrame from the list of summary values, `rowlist`.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Pass the list we created in the previous step to the pandas `DataFrame` method:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE7]'
+  prefs: []
+  type: TYPE_PRE
+- en: Now, let’s do the same for the land temperature data. We start by sorting it
+    by `station` and `month`.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Also, drop rows with missing values for temperature:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs: []
+  type: TYPE_PRE
+- en: Exclude rows where there is a large change from one period to the next.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Calculate the average temperature for the year, excluding values for temperature
+    more than 3°C greater than or less than the temperature for the previous month:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE10]'
+  prefs: []
+  type: TYPE_PRE
+- en: Create a DataFrame from the summary values.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Pass the list we created in the previous step to the pandas `DataFrame` method:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE12]'
+  prefs: []
+  type: TYPE_PRE
+- en: This gives us a DataFrame with average temperatures for 2023 and the number
+    of observations for each station.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How it works...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: After sorting the COVID-19 daily data by `location` and `casedate` in *step
+    2*, we loop through our data one row at a time and do a running tally of new cases
+    in *step 3*. We set that tally back to `0` when we get to a new country, and then
+    resume counting. Notice that we do not actually append our summary of new cases
+    until we get to the next country. This is because there is no way to tell that
+    we are on the last row for any country until we get to the next country. That
+    is not a problem because we append the summary to `rowlist` right before we reset
+    the value to `0`. That also means that we need to do something special to output
+    the totals for the last country, since there is no next country. We do this with
+    a final append after the loop is complete. This is a fairly standard approach
+    to looping through data and outputting totals by group.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The summary DataFrame we create in *steps 3* and *4* can be created more efficiently,
+    both in terms of the analyst’s time and our computer’s workload, with other pandas
+    techniques that we cover in this chapter. But that becomes a more difficult call
+    when we need to do more complicated calculations, particularly those that involve
+    comparing values across rows.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*Steps 6* and *7* provide an example of this. We want to calculate the average
+    temperature for each station for the year. Most stations have one reading per
+    month. However, we are concerned that there might be some outlier values for temperature,
+    defined here by a change of more than 3°C from one month to the next. We want
+    to exclude those readings from the calculation of the mean for each station. It
+    is fairly straightforward to do that while iterating over the data, by storing
+    the previous value of temperature (`prevtemp`) and comparing it to the current
+    value.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: There’s more...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: We could have used `iterrows` in *step 3* rather than `itertuples`, with almost
+    exactly the same syntax. Since we do not need the functionality of `iterrows`
+    here, we use `itertuples`. The `itertuples` method is easier on system resources
+    than `iterrows`. This is because you iterate over tuples with `itertuples`, but
+    over Series, with the associated type checking, with `iterrows`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The hardest tasks to complete when working with tabular data involve calculations
+    across rows: summing data across rows, basing a calculation on values in a different
+    row, and generating running totals. Such calculations are complicated to implement
+    and resource-intensive, regardless of language. However, it is hard to avoid having
+    to do them, particularly when working with panel data. Some values for variables
+    in a given period might be determined by values in a previous period. This is
+    often more complicated than the running totals we have done in this recipe.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: For decades, data analysts have tried to address these data-cleaning challenges
+    by looping through rows, carefully inspecting categorical and summary variables
+    for data problems, and then handling the summation accordingly. Although this
+    continues to be the approach that provides the most flexibility, pandas provides
+    a number of data aggregation tools that run more efficiently and are easier to
+    code. The challenge is to match the ability of looping solutions to adjust for
+    invalid, incomplete, or atypical data. We explore these tools later in this chapter.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Calculating summaries by group with NumPy arrays
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: We can accomplish much of what we did in the previous recipe with `itertuples`
+    using NumPy arrays. We can also use NumPy arrays to get summary values for subsets
+    of our data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Getting ready
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: We will work again with the COVID-19 daily data and the Brazil land temperature
+    data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it…
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'We copy DataFrame values to a NumPy array. We then navigate over the array,
+    calculating totals by group and checking for unexpected changes in values:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Import `pandas` and `numpy`, and load the COVID-19 and land temperature data:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE13]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Create a list of locations:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE14]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: Use a NumPy array to calculate sums by location.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Create a NumPy array of the location and new cases data. We then can iterate
+    over the location list we created in the previous step and select all new case
+    values (`casevalues[j][1]`) for each location (`casevalues[j][0]`). We then sum
+    the new case values for that location:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE15]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE16]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE17]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE18]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE19]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE20]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE21]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE22]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Sort the land temperature data and drop rows with missing values for temperature:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE23]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: Use a NumPy array to calculate the average temperature for the year.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Exclude rows where there is a large change from one period to the next:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE24]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE25]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Create a DataFrame of the land temperature averages:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE26]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE27]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: This gives us a DataFrame with the average temperature and number of observations
+    per station. Notice that we get the same results as in the final step of the previous
+    recipe.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How it works…
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: NumPy arrays can be quite useful when we are working with tabular data but need
+    to do some calculations across rows. This is because accessing items over the
+    equivalent of rows is not really that different from accessing items over the
+    equivalent of columns in an array. For example, `casevalues[5][0]` (the sixth
+    “row” and first “column” of the array) is accessed in the same way as `casevalues[20][1]`.
+    Navigating over a NumPy array is also faster than iterating over a pandas DataFrame.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We take advantage of this in *step 3*. We get all of the array rows for a given
+    location (`if casevalues[j][0]==locitem`) with a list comprehension. Since we
+    also need the `location` list in the DataFrame that we will create of summary
+    values, we use `zip` to combine the two lists.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We start working with the land temperature data in *step 4*, first sorting it
+    by `station` and `month`, and then dropping rows with missing values for temperature.
+    The logic in *step 5* is almost identical to the logic in *step 6* in the previous
+    recipe. The main difference is that we need to refer to the locations of station
+    (`tempvalues[j][0]`) and temperature (`tempvalues[j][1]`) in the array.
+  prefs: []
+  type: TYPE_NORMAL
+- en: There’s more…
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: When you need to iterate over data, NumPy arrays will generally be faster than
+    iterating over a pandas DataFrame with `itertuples` or `iterrows`. Also, if you
+    tried to run the list comprehension in *step 3* using `itertuples`, which is possible,
+    you would be waiting some time for it to finish. In general, if you want to do
+    a quick summary of values for some segment of your data, using NumPy arrays is
+    a reasonable choice.
+  prefs: []
+  type: TYPE_NORMAL
+- en: See also
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: The remaining recipes in this chapter rely on the powerful `groupby` method
+    of pandas DataFrames to generate group totals.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Using groupby to organize data by groups
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: At a certain point in most data analysis projects, we have to generate summary
+    statistics by groups. While this can be done using the approaches in the previous
+    recipe, in most cases the pandas DataFrame `groupby` method is a better choice.
+    If `groupby` can handle an aggregation task—and it usually can—it is likely the
+    most efficient way to accomplish that task. We make good use of `groupby` in the
+    next few recipes. We go over the basics in this recipe.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Getting ready
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: We will work with the COVID-19 daily data in this recipe.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it…
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'We will create a pandas `groupby` DataFrame and use it to generate summary
+    statistics by group:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Import `pandas` and `numpy`, and load the COVID-19 daily data:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE28]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Create a pandas `groupby` DataFrame:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE29]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE30]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: Create DataFrames for the first rows of each country.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'To save space, we just show the first five rows and the first five columns:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE31]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE32]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Create DataFrames for the last rows of each country:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE33]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE34]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE35]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE36]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Get all the rows for a country:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE37]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE38]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: Loop through the groups.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Only display rows for Malta and Kuwait:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE39]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE40]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Show the number of rows for each country:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE41]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE42]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Show summary statistics by country:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE43]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE44]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE45]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE46]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: These steps demonstrate how remarkably useful the `groupby` DataFrame object
+    is when we want to generate summary statistics by categorical variables.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How it works...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: In *step 2*, we create a pandas DataFrame `groupby` object using the pandas
+    DataFrame `groupby` method, passing it a column or list of columns for the grouping.
+    Once we have a `groupby` DataFrame, we can generate statistics by group with the
+    same tools that we use to generate summary statistics for the whole DataFrame.
+    `describe`, `mean`, `sum`, and similar methods work on the `groupby` DataFrame—or
+    series created from it—as expected, except the summary is run for each group.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In *steps 3 and 4*, we use `first` and `last` to create DataFrames with the
+    first and last occurrence of each group. We use `get_group` to get all the rows
+    for a particular group in *step 5*. We can also loop over the groups and use `size`
+    to count the number of rows for each group.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In *step 8*, we create a Series `groupby` object from the DataFrame `groupby`
+    object. Using the resulting object’s aggregation methods gives us summary statistics
+    for a Series by group. One thing is clear about the distribution of `new_cases`
+    from this output: it varies quite a bit by country. For example, we can see right
+    away that the interquartile range is quite different, even for the first three
+    countries.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: There’s more...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: The output from *step 8* is quite useful. It is worth saving output such as
+    that for each important continuous variable where the distribution is meaningfully
+    different by group.
+  prefs: []
+  type: TYPE_NORMAL
+- en: pandas `groupby` DataFrames are extraordinarily powerful and easy to use. *step
+    8* shows just how easy it is to create the summaries by group that we created
+    in the first two recipes in this chapter. Unless the DataFrame we are working
+    with is small, or the task involves very complicated calculations across rows,
+    the `groupby` method is a superior choice to looping.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Using more complicated aggregation functions with groupby
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In the previous recipe, we created a `groupby` DataFrame object and used it
+    to run summary statistics by groups. We use chaining in this recipe to create
+    the groups, choose the aggregation variable(s), and select the aggregation function(s),
+    all in one line. We also take advantage of the flexibility of the `groupby` object,
+    which allows us to choose the aggregation columns and functions in a variety of
+    ways.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Getting ready
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: We will work with the **National Longitudinal Survey of Youth** (**NLS**) data
+    in this recipe.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Data note**'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The **National Longitudinal Surveys**, administered by the United States Bureau
+    of Labor Statistics, are longitudinal surveys of individuals who were in high
+    school in 1997 when the surveys started. Participants were surveyed each year
+    through 2023\. The surveys are available for public use at [nlsinfo.org](https://nlsinfo.org).
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it…
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'We do more complicated aggregations with `groupby` than we did in the previous
+    recipe, taking advantage of its flexibility:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Import `pandas` and load the NLS data:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE47]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Review the structure of the data:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE48]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE49]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Review some of the categorical data:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE50]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE51]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Review some descriptive statistics:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE52]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE53]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: Look at **Scholastic Assessment Test** (**SAT**) math scores by gender.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'We pass the column name to `groupby` to group by that column:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE54]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE55]'
+  prefs: []
+  type: TYPE_PRE
+- en: Look at SAT math scores by gender and the highest degree earned.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'We can pass a list of column names to `groupby` to group by more than one column:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE56]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE57]'
+  prefs: []
+  type: TYPE_PRE
+- en: Look at SAT math and verbal scores by gender and the highest degree earned.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'We can use a list to summarize values for more than one variable, in this case
+    `satmath` and `satverbal`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE58]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE59]'
+  prefs: []
+  type: TYPE_PRE
+- en: Do multiple aggregation functions for one variable.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Use the `agg` function to return several summary statistics:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE60]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE61]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Use a dictionary for more complicated aggregations:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE62]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE63]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE64]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE65]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: We display the same summary statistics for `weeksworked06` and `childathome`,
+    but we could have specified different aggregation functions for each using the
+    same syntax that we used in *step 9*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How it works…
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: We first take a look at some summary statistics for key columns in the DataFrame.
+    We get frequencies for the categorical variables in *step 3*, and some descriptives
+    for the continuous variables in *step 4*. It is a good idea to have summary values
+    for the DataFrame as a whole in front of us before generating statistics by group.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We are then ready to create summary statistics using `groupby`. This involves
+    three steps:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Creating a `groupby` DataFrame based on one or more categorical variables.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Selecting the column(s) to be used for the summary statistics.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Choosing the aggregation function(s).
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'We use chaining in this recipe to do all three in one line. So, `nls97.groupby(''gender'')[''satmath''].mean()`
+    in *step 5* does three things: `nls97.groupby(''gender'')` creates the `groupby`
+    DataFrame object, `[''satmath'']` chooses the aggregation column, and `mean()`
+    is the aggregation function.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: We can pass a column name (as in *step 5*) or a list of column names (as in
+    *step 6*) to `groupby` to create groupings by one or more columns. We can select
+    multiple variables for aggregation with a list of those variables, as we do in
+    *step 7* with `[['satmath','satverbal']]`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We can chain a specific summary function such as `mean`, `count`, or `max`.
+    Alternatively, we could pass a list to `agg` to choose multiple aggregation functions,
+    such as with `agg(['count','mean','max','std'])` in *step 8*. We can use the familiar
+    pandas and NumPy aggregation functions or a user-defined function, which we explore
+    in the next recipe.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Another important takeaway from *step 8* is that `agg` sends the aggregation
+    columns to each function a group at a time. The calculations in each aggregation
+    function are run for each group in the `groupby` DataFrame. Another way to conceptualize
+    this is that it allows us to run the same functions we are used to running across
+    a whole DataFrame for one group at a time, accomplishing this by automating the
+    process of sending the data for each group to the aggregation functions.
+  prefs: []
+  type: TYPE_NORMAL
+- en: There’s more…
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: We first get a sense of how the categorical and continuous variables in the
+    DataFrame are distributed. Often, we group data to see how a distribution of a
+    continuous variable, such as weeks worked, differs by a categorical variable,
+    such as marital status. Before doing that, it is helpful to have a good idea of
+    how those variables are distributed across the whole dataset.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The `nls97` dataset only has SAT scores for about 1,400 of 8,984 respondents,
+    so we need to be careful when examining SAT scores by different groups. This means
+    that some of the counts by gender and highest degree, especially for PhD recipients,
+    are a little too small to be reliable. There are outliers for SAT math and verbal
+    (if we define outliers as 1.5 times the interquartile range above the third quartile
+    or below the first quartile).
+  prefs: []
+  type: TYPE_NORMAL
+- en: We have acceptable counts for weeks worked and the number of children living
+    at home for all values of the highest degree, and values of marital status except
+    for widowed. The average weeks worked for folks who received a professional degree
+    is unexpected. It is lower than for any other group. A good next step would be
+    to see how persistent this is over the years. (We are just looking at 2006 weeks
+    worked here, but there are 20 years of data on weeks worked.)
+  prefs: []
+  type: TYPE_NORMAL
+- en: See also
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: The `nls97` file is panel data masquerading as individual-level data. The panel
+    data structure can be recovered, facilitating analysis over time of areas such
+    as employment and school enrollment. We do this in the recipes in *Chapter 11*,
+    *Tidying and Reshaping Data*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Using user-defined functions and apply with groupby
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Despite the numerous aggregation functions available in pandas and NumPy, we
+    sometimes have to write our own to get the results we need. In some cases, this
+    requires the use of `apply`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Getting ready
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: We will work with the NLS data in this recipe.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it…
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'We will create our own functions to define the summary statistics we want by
+    group:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Import `pandas` and the NLS data:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE66]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Create a function to define the interquartile range:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE67]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: Run the interquartile range function.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Create a dictionary that specifies which aggregation functions to run on each
+    analysis variable:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE68]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE69]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Define a function to return selected summary statistics:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE70]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: Use `apply` to run the function.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'This will create a series with a multi-index, based on the `highestdegree`
+    values and the desired summary statistics:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE71]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE72]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Use `reset_index` to use the default index instead of the index created from
+    the `groupby` DataFrame:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE73]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE74]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: Chain with `unstack` instead to create columns based on the summary variables.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'This will create a DataFrame, with the `highestdegree` values as the index
+    and aggregation values in the columns:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE75]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE76]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE77]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE78]'
+  prefs: []
+  type: TYPE_PRE
+- en: '`unstack` is useful when we want to rotate parts of the index to the columns’
+    axis.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: How it works...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: We defined a very simple function to calculate interquartile ranges by group
+    in *step 2*. We then included calls to that function in our list of aggregation
+    functions in *step 3*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*Steps 4* and *5* are a little more complicated. We define a function that
+    calculates the first and third quartiles and median and counts the number of rows.
+    It returns a Series with these values. By combining a `groupby` DataFrame with
+    `apply` in *step 5*, we get the `gettots` function to return that Series for each
+    group.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*Step 5* gives us the numbers we want, but maybe not in the best format. If,
+    for example, we want to use the data for another operation—say, a visualization—we
+    need to chain some additional methods. One possibility is to use `reset_index`.
+    This will replace the multi-index with the default index. Another option is to
+    use `unstack`. This will create columns from the second level of the index (having
+    `qr1`, `med`, `qr3`, and `count` values).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: There’s more...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Interestingly, the interquartile ranges for weeks worked and the number of children
+    at home drop substantially as education increases. There seems to be a higher
+    variation in those variables among groups with less education. This should be
+    examined more closely and has implications for statistical testing, which assumes
+    common variances across groups.
+  prefs: []
+  type: TYPE_NORMAL
+- en: See also
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: We do much more with `stack` and `unstack` in *Chapter 11*, *Tidying and Reshaping
+    Data*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Using groupby to change the unit of analysis of a DataFrame
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: The DataFrame that we created in the last step of the previous recipe was something
+    of a fortunate by-product of our efforts to generate multiple summary statistics
+    by groups. There are times when we really do need to aggregate data to change
+    the unit of analysis—say, from monthly utility expenses per family to annual utility
+    expenses per family, or from students’ grades per course to students’ overall
+    **Grade Point Average** (**GPA**).
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`groupby` is a good tool for collapsing the unit of analysis, particularly
+    when summary operations are required. When we only need to select unduplicated
+    rows—perhaps the first or last row for each individual over a given interval—then
+    the combination of `sort_values` and `drop_duplicates` will do the trick. But
+    we often need to do some calculation across the rows for each group before collapsing.
+    That is when `groupby` comes in very handy.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Getting ready
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: We will work with the COVID-19 case daily data, which has one row per country
+    per day. We will also work with the Brazil land temperature data, which has one
+    row per month per weather station.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'We will use `groupby` to create a DataFrame of summary values by group:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Import `pandas` and load the COVID-19 and land temperature data:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE79]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Let’s view a sample of the data to remind ourselves of its structure. There
+    is one row per country (`location`) per date, with the number of new cases and
+    deaths for that day (we provide a seed to random state to generate the same values
+    each time):'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE80]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE81]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'We can now convert the COVID-19 data from one country per day to summaries
+    across all countries by day. To limit the amount of data to process, we only include
+    dates between February 2023 and January 2024:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE82]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE83]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Let’s take a look at a couple of rows of the average temperature data for Brazil:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE84]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE85]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: Create a DataFrame with average temperatures for each station in Brazil.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Remove rows with missing temperature values first:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE86]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE87]'
+  prefs: []
+  type: TYPE_PRE
+- en: Let’s take a closer look at how the aggregation functions in these examples
+    work.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How it works…
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: In *step 3*, we first select the dates that we want. We create a DataFrame `groupby`
+    object based on `casedate`, choose `new_cases` and `new_deaths` as the aggregation
+    variables, and select `sum` for the aggregation function. This produces a sum
+    for both `new_cases` and `new_deaths` for each group (`casedate`). Depending on
+    your purposes, you may not want `casedate` to be the index, which would happen
+    if we did not set `as_index` to `False`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We often need to use a different aggregation function with different aggregation
+    variables. We might want to take the first (or last) value for one variable and
+    get the mean of the values of another variable by group. This is what we do in
+    *step 5*. We do this by passing a dictionary to the `agg` function, with our aggregation
+    variables as keys and the aggregation function to use as values.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Using pivot_table to change the unit of analysis of a DataFrame
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: We could have used the pandas `pivot_table` function instead of `groupby` in
+    the previous recipe. `pivot_table` can be used to generate summary statistics
+    by the values of a categorical variable, just as we did with `groupby`. The `pivot_table`
+    function can also return a DataFrame, as we will see in this recipe.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Getting ready
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: We will work with the COVID-19 case daily data and the Brazil land temperature
+    data again. The temperature data has one row per month per weather station.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Let’s create a DataFrame from the COVID-19 data that has the total number of
+    cases and deaths for each day across all countries:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We start by loading the COVID-19 and temperature data again:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE88]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Now, we are ready to call the `pivot_table` function. We pass a list to `values`
+    to indicate the variables for the summary calculations. We use the `index` parameter
+    to indicate that we want totals by `casedate`, and we indicate that we only want
+    sums by passing that to `aggfunc`. Notice that we get the same totals as in the
+    previous recipe when we used `groupby`:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE89]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE90]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Let’s try `pivot_table` with the land temperature data and do a more complicated
+    aggregation. We want the first value for latitude (`latabs`) and elevation for
+    each station and the mean temperature. Recall that latitude and elevation values
+    do not change for a station. We pass the aggregations we want as a dictionary
+    to `aggfunc`. Again, we get the same results as in the previous recipe:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE91]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE92]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: How it works...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: As we have seen, we get the same results whether we use `groupby` or `pivot_table`.
+    Analysts should probably choose the approach that they, and members of their team,
+    find most intuitive. Since my workflow more frequently has me using `groupby`,
+    I am much more likely to use that approach when aggregating data to create a new
+    DataFrame.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Summary
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: We stepped through a wide range of strategies for aggregating data using NumPy
+    and pandas in this chapter. We also discussed advantages and disadvantages of
+    each technique, including how to select the most efficient and intuitive approach
+    given your data and the aggregation task. Since most data cleaning and manipulation
+    projects will involve some splitting-applying-combining, it is a good idea to
+    become comfortable with each of these approaches. In the next chapter, we will
+    learn how to combine DataFrames and deal with subsequent data issues.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Join our community on Discord
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Join our community’s Discord space for discussions with the author and other
+    readers:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[https://discord.gg/p8uSgEAETX](https://discord.gg/p8uSgEAETX )'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/QR_Code10336218961138498953.png)'
+  prefs: []
+  type: TYPE_IMG

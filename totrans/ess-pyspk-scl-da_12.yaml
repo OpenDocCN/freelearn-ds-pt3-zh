@@ -1,0 +1,514 @@
+- en: 'Chapter 10: Scaling Out Single-Node Machine Learning Using PySpark'
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In [*Chapter 5*](B16736_05_Final_JM_ePub.xhtml#_idTextAnchor094)*, Scalable
+    Machine Learning with PySpark*, you learned how you could use the power of **Apache**
+    **Spark**'s distributed computing framework to train and score **machine learning**
+    (**ML**) models at scale. Spark's native ML library provides good coverage of
+    standard tasks that data scientists typically perform; however, there is a wide
+    variety of functionality provided by standard single-node **Python** libraries
+    that were not designed to work in a distributed manner. This chapter deals with
+    techniques for horizontally scaling out standard Python data processing and ML
+    libraries such as **pandas**, **scikit-learn,** **XGBoost**, and more. It also
+    covers scaling out of typical data science tasks such as **exploratory data analysis**
+    (**EDA**), **model training**, **model inferencing**, and, finally, also covers
+    a scalable Python library named **Koalas** that lets you effortlessly write **PySpark**
+    code using the very familiar and easy-to-use pandas-like syntax.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In this chapter, we''re going to cover the following main topics:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Scaling out EDA
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Scaling out model inferencing
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Distributed hyperparameter tuning
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Model training using **embarrassingly parallel computing**
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Upgrading pandas to PySpark using Koalas
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Some of the skills gained in this chapter will be performing EDA at scale, performing
+    model inferencing and scoring in a scalable fashion, hyperparameter tuning, and
+    best model selection at scale for single-node models. You will also learn to horizontally
+    scale out pretty much any single-node ML model and finally Koalas that lets us
+    use pandas-like API to write scalable PySpark code.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Technical requirements
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'In this chapter, we will be using the Databricks Community Edition to run our
+    code:'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '[https://community.cloud.databricks.com](https://community.cloud.databricks.com)'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: Sign-up instructions can be found at [https://databricks.com/try-databricks](https://databricks.com/try-databricks).
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: The code and data used in this chapter can be downloaded from [https://github.com/PacktPublishing/Essential-PySpark-for-Scalable-Data-Analytics/tree/main/Chapter10](https://github.com/PacktPublishing/Essential-PySpark-for-Scalable-Data-Analytics/tree/main/Chapter10).
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Scaling out EDA
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: EDA is a data science process that involves analysis of a given dataset to understand
+    its main characteristics, sometimes graphically using visualizations and other
+    times just by aggregating and slicing data. You have already learned some visual
+    EDA techniques in [*Chapter 11*](B16736_11_Final_JM_ePub.xhtml#_idTextAnchor188)*,
+    Data Visualization with PySpark*. In this section, we will explore non-graphical
+    EDA using pandas and compare it with the same process using PySpark and Koalas.
+  prefs: []
+  type: TYPE_NORMAL
+- en: EDA using pandas
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Typical EDA in standard Python involves using pandas for data manipulation
+    and `matplotlib` for data visualization. Let''s take a sample dataset that comes
+    with scikit-learn and perform some basic EDA steps on it, as shown in the following
+    code example:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'In the previous code example, we perform the following steps:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: We import the pandas library and import the sample dataset, `load_boston`, that
+    comes with scikit-learn.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Then, we convert the scikit-learn dataset into a pandas DataFrame using the
+    `pd.DataFrame()` method.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Now that we have a pandas DataFrame, we can perform analysis on it, starting
+    with the `info()` method, which prints information about the pandas DataFrame
+    such as its column names and their data types.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: The `head()` function on the pandas DataFrame prints a few rows and columns
+    of the actual DataFrame and helps us visually examine some sample data from the
+    DataFrame.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: The `shape` attribute on the pandas DataFrame prints the number of rows and
+    columns.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: The `isnull()` method shows the number of NULL values in each column in the
+    DataFrame.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Finally, the `describe()` method prints some statistics on each column sum as
+    the mean, median, and standard deviation.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: This code snippet shows some typical EDA steps performed using the Python pandas
+    data processing library. Now, let's see how you can perform similar EDA steps
+    using PySpark.
+  prefs: []
+  type: TYPE_NORMAL
+- en: EDA using PySpark
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'PySpark also has a DataFrame construct similar to pandas DataFrames, and you
+    can perform EDA using PySpark, as shown in the following code example:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'In the previous code example, we perform the following steps:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: We first convert the pandas DataFrame created in the previous section to a Spark
+    DataFrame using the `createDataFrame()` function.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Then, we use the `show()` function to display a small sample of data from the
+    Spark DataFrame. While the `head()` function is available, `show()` shows the
+    data in a better formatted and more readable way.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Spark DataFrames do not have a built-in function to display the shape of the
+    Spark DataFrame. Instead, we use the `count()` function on the rows and the `len()`
+    method on the columns to accomplish the same functionality.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Similarly, Spark DataFrames also do not support a pandas-equivalent `isnull()`
+    function to count NULL values in all columns. Instead, a combination of `isNull()`
+    and `where()` is used to filter out NULL values from each column individually
+    and then count them.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Spark DataFrames do support a `describe()` function that can calculate basic
+    statistics on each of the DataFrames' columns in a distributed manner by running
+    a Spark job behind the scenes. This may not seem very useful for small datasets
+    but can be very useful when describing very large datasets.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: This way, by using the built-in functions and operations available with Spark
+    DataFrames, you can easily scale out your EDA. Since Spark DataFrames inherently
+    support **Spark** **SQL**, you can also perform your scalable EDA using Spark
+    SQL in addition to using DataFrame APIs.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Scaling out model inferencing
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Another important aspect of the whole ML process, apart from data cleansing
+    and model training and tuning, is the productionization of models itself. Despite
+    having access to huge amounts of data, sometimes it is useful to downsample the
+    data and train models on a smaller subset of the larger dataset. This could be
+    due to reasons such as low signal-to-noise ratio, for example. In this, it is
+    not necessary to scale up or scale out the model training process itself. However,
+    since the raw dataset size is very large, it becomes necessary to scale out the
+    actual model inferencing process to keep up with the large amount of raw data
+    that is being generated.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Apache Spark, along with **MLflow**, can be used to score models trained using
+    standard, non-distributed Python libraries like scikit-learn. An example of a
+    model trained using scikit-learn and then productionized at scale using Spark
+    is shown in the following code example:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'In the previous code example, we perform the following steps:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: We intend to train a linear regression model using scikit-learn that predicts
+    the median house value (given a set of features) on the sample Boston housing
+    dataset that comes with scikit-learn.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: First, we import all the required scikit-learn modules, and we also import MLflow,
+    as we intend to log the trained model to the **MLflow** **Tracking** **Server**.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Then, we define the feature columns as a variable, `X`, and the label column
+    as `y`.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Then, we invoke an MLflow experiment using the `with mlflow.start_run()` method.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Then, we train the actual linear regression model by using the `LinearRegression`
+    class and calling the `fit()` method on the training pandas DataFrame.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Then, we log the resultant model to the MLflow Tracking Server using the `mlflow.sklearn.log_model()`
+    method. The `sklearn` qualifier specifies that the model being logged is of a
+    scikit-learn flavor.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Once we have the trained linear regression model logged to the MLflow Tracking
+    Server, we need to convert it into a PySpark **user-defined function** (**UDF**)
+    to allow it to be used for inferencing in a distributed manner. The code required
+    to achieve this is presented in the following code example:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'In the previous code example, we perform the following steps:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: We import the `pyfunc` method used to convert the mlflow model into a PySpark
+    UDF from the mlflow library.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Then, we construct the `model_uri` from MLflow using the `run_id` experiment.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Once we have the `model_uri`, we register the model as a PySpark UDF using the
+    `mlflow.pyfunc()` method. We specify the model flavor as `spark` as we intend
+    to use this with a Spark DataFrame.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Now that the model has been registered as a PySpark UDF, we use it to make predictions
+    on a Spark DataFrame. We do this by using it to create a new column in the Spark
+    DataFrame, then pass in all the feature columns as input. The result is a new
+    DataFrame with a new column that consists of the predictions for each row.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: It should be noted that when the `show` action is called it invokes a Spark
+    job and performs the model scoring in a distributed way.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: In this way, using the `pyfunc` method of MLflow along with Spark DataFrame
+    operations, a model built using a standard, single-node Python ML library like
+    scikit-learn can also be used to derive inferences at scale in a distributed manner.
+    Furthermore, the inferencing Spark job can be made to write predictions to a persistent
+    storage method like a database, data warehouse, or data lake, and the job itself
+    can be scheduled to run periodically. This can also be easily extended to perform
+    model inferencing in near real-time by using **structured streaming** to perform
+    predictions on a streaming DataFrame.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Model training using embarrassingly parallel computing
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: As you learned previously, Apache Spark follows the **data parallel processing**
+    paradigm of **distributed computing**. In data parallel processing, the data processing
+    code is moved to where the data resides. However, in traditional computing models,
+    such as those used by standard Python and single-node ML libraries, data is processed
+    on a single machine and the data is expected to be present locally. Algorithms
+    designed for single-node computing can be designed to be multiprocessed, where
+    the process makes use of multiprocessing and multithreading techniques offered
+    by the local CPUs to achieve some level of parallel computing. However, these
+    algorithms are not inherently capable of being distributed and need to be rewritten
+    entirely to be capable of distributed computing. **Spark** **ML** **library**
+    is an example where traditional ML algorithms have been completely redesigned
+    to work in a distributed computing environment. However, redesigning every existing
+    algorithm would be very time-consuming and impractical as well. Moreover, a rich
+    set of standard-based Python libraries for ML and data processing already exist
+    and it would be useful if there was a way to leverage them in a distributed computing
+    setting. This is where the embarrassingly parallel computing paradigm comes into
+    play.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In distributed computing, the same compute process executes on different chunks
+    of data residing on different machines, and these compute processes need to communicate
+    with each other to achieve the overall compute task at hand. However, in embarrassingly
+    parallel computing, the algorithm requires no communication between the various
+    processes, and they can run completely independently. There are two ways of exploiting
+    embarrassingly parallel computing for ML training within the Apache Spark framework,
+    and they are presented in the following sections.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Distributed hyperparameter tuning
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: One of the critical steps of ML processes is model tuning, where data scientists
+    train several models by varying the model hyperparameters. This technique is commonly
+    known as hyperparameter tuning. A common technique for hyperparameter tuning is
+    called **grid search**, which is a method to find the best combination of hyper-parameters
+    that yield the best-performing model. Grid search selects the best model out of
+    all the trained models using **cross-validation**, where data is split into train
+    and test sets, and the trained model's performance is evaluated using the test
+    dataset. In grid search, since multiple models are trained on the same dataset,
+    they can all be trained independently of each other, making it a good candidate
+    for embarrassingly parallel computing.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'A typical grid search implementation using standard scikit-learn is illustrated
+    using the following code example:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'In the previous code example, we perform the following steps:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: First, we import the `GridSearchCV` module and `load_digits` sample dataset,
+    and the `RandomForestClassifier` related modules from scikit-learn.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Then, we load the `load_digits` data from the scikit-learn sample datasets,
+    and map the features to the `X` variable and the label column to the `y` variable.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Then, we define the parameter grid space to be searched by specifying various
+    values for the hyperparameters used by the `RandomForestClassifier` algorithm,
+    such as `max_depth`, `max_features`, and so on.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Then, we invoke the grid search cross validator by invoking the `GridSearchCV()`
+    method, and perform the actual grid search using the `fit()` method.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'In this way, using the built-in grid search and cross validator methods of
+    scikit-learn, you can perform model hyperparameter tuning and identify the best
+    model among the many models trained. However, this process runs on a single machine,
+    so the models are trained one after another instead of being trained in parallel.
+    Using Apache Spark and a third-party Spark package named `spark_sklearn`, you
+    can easily implement an embarrassingly parallel implementation of grid search,
+    as shown in the following code example:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: The previous code snippet for grid search using `spark_sklearn` is almost the
+    same as the code for grid search using standard scikit-learn. However, instead
+    of using scikit-learn's grid search and cross validators, we make use of the `spark_sklearn`
+    package's grid search and cross validators. This helps run the grid search in
+    a distributed manner, training a different model with a different combination
+    of hyperparameters on the same dataset but on different machines. This helps speed
+    up the model tuning process by orders of magnitude, helping you choose a model
+    from a much larger pool of trained models than was possible using just a single
+    machine. In this way, using the concept of embarrassingly parallel computing on
+    Apache Spark, you can scale out your model tuning task while still using Python's
+    standard single-node machine libraries.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the following section, we will see how you can scale out the actual model
+    training using Apache Spark's pandas UDFs, and not just the model tuning part.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Scaling out arbitrary Python code using pandas UDF
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: A UDF, in general, lets you execute arbitrary code on Spark's executors. Thus,
+    UDFs can be used to scale out any arbitrary Python code, including feature engineering
+    and model training, within data science workflows. They can also be used for scaling
+    out data engineering tasks using standard Python. However, UDFs execute code one
+    row at a time, and incur **serialization** and **deserialization** costs between
+    the JVM and the Python processes running on the Spark executors. This limitation
+    makes UDFs less lucrative in scaling out arbitrary Python code onto Spark executors.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'With `groupby` operator, apply the UDF to each group and finally combine the
+    individual DataFrames produced by each group into a new Spark DataFrame and return
+    it. Examples of scalar, as well as grouped pandas UDFs, can be found on Apache
+    Spark''s public documentation:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[https://spark.apache.org/docs/latest/api/python/reference/api/pyspark.sql.functions.pandas_udf.html](https://spark.apache.org/docs/latest/api/python/reference/api/pyspark.sql.functions.pandas_udf.html)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: So far, you have seen how to scale the EDA process, or the model tuning process,
+    or to scale out arbitrary Python functions using different techniques supported
+    by Apache Spark. In the following section, we will explore a library built on
+    top of Apache Spark that lets us use pandas-like API for writing PySpark code.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Upgrading pandas to PySpark using Koalas
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: pandas is the defacto standard for data processing in standard Python, the same
+    as Spark has become the defacto standard for distributed data processing. The
+    pandas API is Python-related and leverages a coding style that makes use of Python's
+    unique features to write code that is readable and beautiful. However, Spark is
+    based on the JVM, and even the PySpark draws heavily on the Java language, including
+    in naming conventions and function names. Thus, it is not very easy or intuitive
+    for a pandas user to switch to PySpark, and a considerable learning curve is involved.
+    Moreover, PySpark executes code in a distributed manner and the user needs to
+    understand the nuances of how distributed code works when intermixing PySpark
+    code with standard single-node Python code. This is a deterrent to an average
+    pandas user to pick up and use PySpark. To overcome this issue, the Apache Spark
+    developer community came up with another open source library on top of PySpark,
+    called Koalas.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The Koalas project is an implementation of the pandas API on top of Apache Spark.
+    Koalas helps data scientists to be immediately productive with Spark, instead
+    of needing to learn a new set of APIs altogether. Moreover, Koalas helps developers
+    maintain a single code base for both pandas and Spark without having to switch
+    between the two frameworks. Koalas comes bundled with the `pip`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let''s look at a few code examples to see how Koalas presents a pandas-like
+    API for working with Spark:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: In the previous code snippet, we perform the same basic EDA steps that we have
+    performed earlier in this chapter. The only difference here is that instead of
+    creating a pandas DataFrame from the scikit-learn dataset, we create a Koalas
+    DataFrame after importing the Koalas library. You can see that the code is exactly
+    the same as the pandas code written earlier, however, behind the scenes, Koalas
+    converts this code to PySpark code and executes it on the cluster in a distributed
+    manner. Koalas also supports visualization using the `DataFrame.plot()` method,
+    just like pandas. This way you can leverage Koalas to scale out any existing pandas-based
+    ML code, such as feature engineering, or custom ML code, without first having
+    to rewrite the code using PySpark.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Koalas is an active open source project with good community support. However,
+    Koalas is still in a nascent state and comes with its own set of limitations.
+    Currently, only about *70%* of pandas APIs are available in Koalas, which means
+    that some pandas code might not be readily implementable using Koalas. There are
+    a few implementation differences between Koalas and pandas, and it would not make
+    sense to implement certain pandas APIs in Koalas. A common workaround for dealing
+    with missing Koalas functionality is to convert Koalas DataFrames to pandas or
+    PySpark DataFrames, and then apply either pandas or PySpark code to solve the
+    problem. Koalas DataFrames can be easily converted to pandas and PySpark DataFrames
+    using `DataFrame.to_pandas()` and `DataFrame.to_spark()` functions respectively.
+    However, do keep in mind that Koalas does use Spark DataFrames behind the scenes,
+    and a Koalas DataFrame might be too large to fit into a pandas DataFrame on a
+    single machine, causing an out-of-memory error.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Summary
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In this chapter, you learned a few techniques to horizontally scale out standard
+    Python-based ML libraries such as scikit-learn, XGBoost, and more. First, techniques
+    for scaling out EDA using a PySpark DataFrame API were introduced and presented
+    along with code examples. Then, techniques for distributing ML model inferencing
+    and scoring were presented using a combination of MLflow pyfunc functionality
+    and Spark DataFrames. Techniques for scaling out ML models using embarrassingly
+    parallel computing techniques using Apache Spark were also presented. Distributed
+    model tuning of models, trained using standard Python ML libraries using a third-party
+    package called `spark_sklearn`, were presented. Then, pandas UDFs were introduced
+    to scale out arbitrary Python code in a vectorized manner for creating high-performance,
+    low-overhead Python user-defined functions right within PySpark. Finally, Koalas
+    was introduced as a way for pandas developers to use a pandas-like API without
+    having to learn the PySpark APIs first, while still leveraging Apache Spark's
+    power and efficiency for data processing at scale.
+  prefs: []
+  type: TYPE_NORMAL

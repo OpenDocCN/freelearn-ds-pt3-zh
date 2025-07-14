@@ -1,0 +1,867 @@
+- en: 'Chapter 6: Feature Engineering – Extraction, Transformation, and Selection'
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In the previous chapter, you were introduced to Apache Spark's native, scalable
+    machine learning library, called **MLlib**, and you were provided with an overview
+    of its major architectural components, including transformers, estimators, and
+    pipelines.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This chapter will take you to your first stage of the **scalable machine learning**
+    journey, which is **feature engineering**. Feature engineering deals with the
+    process of extracting machine learning features from preprocessed and clean data
+    in order to make it conducive for machine learning. You will learn about the concepts
+    of **feature extraction**, **feature transformation**, **feature scaling**, and
+    **feature selection** and implement these techniques using the algorithms that
+    exist within Spark MLlib and some code examples. Toward the end of this chapter,
+    you will have learned the necessary techniques to implement scalable feature engineering
+    pipelines that convert preprocessed data into a format that is suitable and ready
+    for the machine learning model training process.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Particularly, in this chapter, you will learn the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The machine learning process
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Feature extraction
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Feature transformation
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Feature selection
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Feature store as a central feature repository
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Delta as an offline feature store
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Technical requirements
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In this chapter, we will be using the Databricks Community Edition to run our
+    code. This can be found at [https://community.cloud.databricks.com](https://community.cloud.databricks.com).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Sign-up instructions can be found at [https://databricks.com/try-databricks](https://databricks.com/try-databricks).
+    The code used in this chapter can be downloaded from [https://github.com/PacktPublishing/Essential-PySpark-for-Data-Analytics/tree/main/Chapter06](https://github.com/PacktPublishing/Essential-PySpark-for-Data-Analytics/tree/main/Chapter06).
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The datasets used in this chapter can be found at [https://github.com/PacktPublishing/Essential-PySpark-for-Data-Analytics/tree/main/data](https://github.com/PacktPublishing/Essential-PySpark-for-Data-Analytics/tree/main/data).
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The machine learning process
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'A typical data analytics and data science process involves gathering raw data,
+    cleaning data, consolidating data, and integrating data. Following this, we apply
+    statistical and machine learning techniques to the preprocessed data in order
+    to generate a machine learning model and, finally, summarize and communicate the
+    results of the process to business stakeholders in the form of data products.
+    A high-level overview of the machine learning process is presented in the following
+    diagram:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 6.1 – The data analytics and data science process'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/B16736_06_01.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Figure 6.1 – The data analytics and data science process
+  prefs: []
+  type: TYPE_NORMAL
+- en: As you can see from the preceding diagram, the actual machine learning process
+    itself is just a small portion of the entire data analytics process. Data teams
+    spend a good amount of time curating and preprocessing data, and just a portion
+    of that time is devoted to building actual machine learning models.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The actual machine learning process involves stages that allow you to carry
+    out steps such as data exploration, feature extraction, model training, model
+    evaluation, and applying models for real-world business applications, as shown
+    in the following diagram:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 6.2 – The machine learning process'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/B16736_06_02.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Figure 6.2 – The machine learning process
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this chapter, you will learn about the **Feature Engineering** phase of the
+    machine learning process. The following sections will present a few of the prominent
+    algorithms and utilities available in the **Spark MLlib** library that deal with
+    the **Feature Extraction**, **Feature Transformation**, **Feature Scaling**, and
+    **Feature Selection** steps of the **Feature Engineering** process.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Feature extraction
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: A machine learning model is equivalent to a function in mathematics or a method
+    in computer programming. A machine learning model takes one or more parameters
+    or variables as input and yields an output, called a prediction. In machine learning
+    terminology, these input parameters or variables are called **features**. A feature
+    is a column of the input dataset within a machine learning algorithm or model.
+    A feature is a measurable data point, such as an individual's name, gender, or
+    age, or it can be time-related data, weather, or some other piece of data that
+    is useful for analysis.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Machine learning algorithms leverage linear algebra, a field of mathematics,
+    and make use of mathematical structures such as matrices and vectors to represent
+    data internally and also within the code level implementation of algorithms. Real-world
+    data, even after undergoing the data engineering process, rarely occurs in the
+    form of matrices and vectors. Therefore, the feature engineering process is applied
+    to preprocessed data in order to convert it into a format that is suitable for
+    machine learning algorithms.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The feature extraction process specifically deals with taking text, image, geospatial,
+    or time series data and converting it into a feature vector. Apache Spark MLlib
+    has a number of feature extractions available, such as `TF-IDF`, `Word2Vec`, `CountVectorizer`,
+    and `FeatureHasher`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let's consider an example of a group of words and convert them into a feature
+    vector using the `CountVectorizer` algorithm. In earlier chapters of this book,
+    we looked at sample datasets for an online retailer and applied the data engineering
+    process on those datasets to get a clean and consolidated dataset that was ready
+    for analytics.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'So, let''s begin with the preprocessed and cleaned dataset produced toward
+    the end of [*Chapter 5*](B16736_05_Final_JM_ePub.xhtml#_idTextAnchor094), *Scalable
+    Machine Learning with PySpark*, named `retail_ml.delta`. This preprocessed dataset,
+    which forms the input to the machine learning process, is also generally referred
+    to as the **training dataset**:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'As a first step, let''s load the data from the data lake in Delta format into
+    a Spark DataFrame. This is shown in the following code snippet:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: In the preceding code block, we load data stored in the data lake in Delta form
+    into a Spark DataFrame and then display the data using the `show()` command.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: The result of the display function is shown in the following diagram:![Figure
+    6.3 – Preprocessed data
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '](img/B16736_06_03.jpg)'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: Figure 6.3 – Preprocessed data
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: In the preceding diagram, we have the preprocessed data as a result of the data
+    engineering and data wrangling steps. Notice that there are `11` columns in the
+    dataset with various data types, ranging from a string to a double, to a timestamp.
+    In their current format, they are not suitable as inputs for a machine learning
+    algorithm; therefore, we need to convert them into a suitable format via the feature
+    engineering process.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'Let''s start with the `description` column, which is of the text type, and
+    apply the `CountVectorizer` feature extraction algorithm to it in order to convert
+    it into a feature vector, as shown in the following code block:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'In the previous code block, the following occurs:'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: We import `CountVectorizer` from the `pyspark.ml.feature` library.
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '`CountVectorizer` takes an `Array` object as input, so we use the `split()`
+    function to split the description column into an `Array` object of words.'
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Then, we initialize a new `CountVectorizer` `fit()` method using the previously
+    defined estimator on the input dataset. The result is a trained model `transform()`
+    method on the input DataFrame, resulting in a new DataFrame with a new feature
+    vector column for the description column.
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: In this way, by using the `CountVectorizer` feature extractor from Spark MLlib,
+    we are able to extract a feature vector from a text type column.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'Another feature extractor available within Spark MLlib, such as `Word2Vec`,
+    can also be used, as shown in the following code snippet:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: In the preceding code block, the `Word2Vec` estimator is used in a similar fashion
+    to the previously mentioned `CountVectorizer`. Here, we use it to extract a feature
+    vector from a text-based data column. While both `CountVectorizer` and `Word2Vec`
+    help to convert a corpus of words into a feature vector, there are differences
+    in the internal implementations of each algorithm. They each have different uses
+    depending on the problem scenario and input dataset and might produce different
+    results under different circumstances.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: Please note that discussing the nuances of these algorithms or making recommendations
+    on when to use a specific feature extraction algorithm is beyond the scope of
+    this book.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now that you have learned a few techniques of feature extraction, in the next
+    section, let's explore a few of Spark MLlib's algorithms for **feature transformation**.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Feature transformation
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Feature transformation is the process of carefully reviewing the various variable
+    types, such as categorical variables and continuous variables, present in the
+    training data and determining the best type of transformation to achieve optimal
+    model performance. This section will describe, with code examples, how to transform
+    a few common types of variables found in machine learning datasets, such as text
+    and numerical variables.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Transforming categorical variables
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Categorical variables are pieces of data that have discrete values with a limited
+    and finite range. They are usually text-based in nature, but they can also be
+    numerical. Examples include country codes and the month of the year. We mentioned
+    a few techniques regarding how to extract features from text variables in the
+    previous section. In this section, we will explore a few other algorithms to transform
+    categorical variables.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The tokenization of text into individual terms
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'The `Tokenizer` class can be used to break down text into its constituent terms,
+    as shown in the following code example:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'In the preceding code block, we initialize the `Tokenizer` class by passing
+    in the `inputCol` and `outputCol` parameters, which results in a transformer.
+    Then, we transform the training dataset, resulting in a Spark DataFrame with a
+    new column with an array of individual words from each sentence that have been
+    converted into lowercase. This is shown in the following table:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 6.4 – Tokenizing the text using Tokenizer'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/B16736_06_04.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Figure 6.4 – Tokenizing the text using Tokenizer
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the preceding table, you can see from the tokenized words that there are
+    a few unwanted words, which we need to get rid of as they do not add any value.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Removing common words using StopWordsRemover
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'Every language contains common and frequently occurring words such as prepositions,
+    articles, conjunctions, and interjections. These words do not carry any meaning
+    in terms of the machine learning process and are better removed before training
+    a machine learning algorithm. In Spark, this process can be achieved using the
+    `StopWordsRemover` class, as shown in the following code snippet:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: In the preceding code block, we initialize the `StopWordsRemover` class by passing
+    in the `inputCol` and `outputCol` parameters, which results in a transformer.
+    Then, we transform the training dataset, resulting in a Spark DataFrame with a
+    new column that has an array of individual words with the stop words removed.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Once we have an array of strings with the stop words removed, a feature extraction
+    technique such as `Word2Vec` or `CountVectorizer` is used to build a feature vector.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Encoding discrete, categorical variables
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: Now we have other types of string-type columns such as country codes that need
+    to be converted into a numerical form for consumption by a machine learning algorithm.
+    You cannot simply assign arbitrary numerical values to such discrete, categorical
+    variables, as this could introduce a pattern that might not necessarily exist
+    within the data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let's consider an example where we monotonically assign increasing values to
+    categorical variables in alphabetical order. However, this might introduce ranking
+    to those variables where one didn't exist in the first place. This would skew
+    our machine learning model and is not desirable. To overcome this problem, we
+    can use a number of Spark MLlib algorithms in which to encode these categorical
+    variables.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Encoding string variables using StringIndexer
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'In our training dataset, we have string types, or categorical variables, with
+    discrete values such as `country_code`. These variables can be assigned label
+    indices using `StringIndexer`, as shown in the following code example:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: In the preceding code snippet, we initialize the `StringIndexer` class with
+    input and output column names. Then, we set `handleInvalid` to `skip` in order
+    to skip `NULLs` and invalid values. This results in an estimator that can be applied
+    to the training DataFrame, which, in turn, results in a transformer. The transformer
+    can be applied to the training dataset. This results in a DataFrame with a new
+    Spark DataFrame along with a new column that contains label indices for the input
+    categorical variable.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Transforming a categorical variable into a vector using OneHotEncoder
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'Once we have our categorical variables encoded into label indices, they can
+    finally be converted into a binary vector, using the `OneHotEncoder` class, as
+    shown in the following code snippet:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: In the preceding code snippet, we initialize the `OneHotEncoder` class with
+    input and output column names. This results in an estimator that can be applied
+    to the training DataFrame, which, in turn, results in a transformer. The transformer
+    can be applied to the training dataset. This results in a DataFrame with a new
+    Spark DataFrame along with a new column that contains a feature vector representing
+    the original categorical variable.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Transforming continuous variables
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Continuous variables represent data in the form of measurements or observations.
+    Typically, they are numerical in nature and can virtually have an infinite range.
+    Here, the data is continuous and not discrete, and a few examples include age,
+    quantity, and unit price. They seem straightforward enough and can be directly
+    fed into a machine learning algorithm. However, they still need to be engineered
+    into features, as continuous variables might have just far too many values to
+    be handled by the machine learning algorithm. There are multiple ways in which
+    to handle continuous variables, such as binning, normalization, applying custom
+    business logic, and more, and an appropriate method should be chosen depending
+    on the problem being solved and the business domain.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'One such technique to feature engineer continuous variables is binarization,
+    where the continuous numerical values are converted into binary values based on
+    a user-defined threshold, as shown in the following code example:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs: []
+  type: TYPE_PRE
+- en: In the preceding code block, we initialize the `Binarizer` class with the input
+    and output column parameters, which results in a transformer. The transformer
+    can then be applied to the training DataFrame, which, in turn, results in a new
+    DataFrame along with a new column representing the binary values for the continuous
+    variable.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Transforming the date and time variables
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: A date or timestamp type of column in itself doesn't add much value to a machine
+    learning model training process. However, there might be patterns within the components
+    of a date such as month, year, or day of the week. Therefore, it would be useful
+    to choose a part of the datetime column and transform it into an appropriate feature.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In the following code example, we extract the month value from a datetime column
+    and transform it into a feature, treating it like a categorical variable:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs: []
+  type: TYPE_PRE
+- en: In the preceding code block, first, we extract the month from the timestamp
+    column using the `month()` function and append it to the DataFrame. Then, we run
+    the new column through the `StringIndexer` estimator and transform the month numeric
+    column into a label index.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Assembling individual features into a feature vector
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Most machine learning algorithms accept a single feature vector as input. Therefore,
+    it would be useful to combine the individual features that you have extracted
+    and transformed into a single feature vector. This can be accomplished using Spark
+    MLlib''s `VectorAssembler` transformer, as shown in the following code example:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs: []
+  type: TYPE_PRE
+- en: In the preceding block of code, we initialize the `VectorAssembler` class with
+    input and output parameters, which results in a transformer object. We make use
+    of the transformer to combine the individual features into a single feature vector.
+    This results in a new column of the vector type being appended to the training
+    DataFrame.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Feature scaling
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: It is common for training datasets to have columns with different units of measurements.
+    For instance, while one column uses the metric system of measurement, another
+    column might be using the imperial system. It is also possible for certain columns
+    to have a high range, such as a column representing dollar amounts than another
+    column representing quantities, for instance. These differences might cause a
+    machine learning model to unduly assign more weightage to a certain value compared
+    to others, which is undesirable and might introduce bias or skew into the model.
+    To overcome this issue, a technique called feature scaling can be utilized. Spark
+    MLlib comes with a few feature scaler algorithms, such as `Normalizer`, `StandardScaler`,
+    `RobustScaler`, `MinMaxScaler`, and `MaxAbsScaler`, built in.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In the following code example, we will make use of `StandardScaler` to demonstrate
+    how feature scaling can be applied in Apache Spark. `StandardScaler` transforms
+    a feature vector and normalizes each vector to have a unit of standard deviation:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs: []
+  type: TYPE_PRE
+- en: In the preceding block of code, the `StandardScaler` class is initialized with
+    the input and output column parameters. Then, the `StandardScaler` estimator is
+    applied to the training dataset, resulting in a `StandardScaler` model transformer
+    object. This, in turn, can be applied to the training DataFrame to yield a new
+    DataFrame a new column that contains the normalized features.
+  prefs: []
+  type: TYPE_NORMAL
+- en: So far, in this section, you have learned how to extract machine learning features
+    from dataset columns. Additionally, you have learned a feature extraction technique
+    to convert text-based columns into feature vectors. Feature transformation techniques
+    for converting categorical, continuous, and date- and time-based variables were
+    also explored. Techniques for combing multiple individual features into a single
+    feature vector were introduced, and, finally, you were also introduced to a feature
+    scaling technique to normalize features.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the following section, you will learn techniques in which to reduce the number
+    of features; this is referred to as **feature selection**.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Feature selection
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Feature selection is a technique that involves reducing the number of features
+    in the machine learning process while leveraging lesser data and also improving
+    the accuracy of the trained model. Feature selection is the process of either
+    automatically or manually selecting only those features that contribute the most
+    to the prediction variable that you are interested in. Feature selection is an
+    important aspect of machine learning, as irrelevant or semi-relevant features
+    can gravely impact model accuracy.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Apache Spark MLlib comes packaged with a few feature selectors, including `VectorSlicer`,
+    `ChiSqSelector`, `UnivariateFeatureSelector`, and `VarianceThresholdSelector`.
+    Let''s explore how to implement feature selection within Apache Spark using the
+    following code example that utilizes `ChiSqSelector` to select the optimal features
+    given the label column that we are trying to predict:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs: []
+  type: TYPE_PRE
+- en: In the preceding code block, we initialize `ChiSqSelector` using the input and
+    the output columns. We also specify the label column, as `ChiSqSelector` chooses
+    the optimal features best suited for predicting the label columns. Then, the `ChiSqSelector`
+    estimator is applied to the training dataset, resulting in a `ChiSqSelector` model
+    transformer object. This, in turn, can be applied to the training DataFrame to
+    yield a new DataFrame column that contains the newly selected features.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Similarly, we can also leverage `VectorSlicer` to select a subset of features
+    from a given feature vector, as shown in the following code snippet:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE12]'
+  prefs: []
+  type: TYPE_PRE
+- en: The preceding code block also performs feature selection. However, unlike `ChiSqSelector`,
+    `VectorSlicer` doesn't optimize feature selection for a given variable. Instead,
+    `VectorSlicer` takes a vector column with specified indices. This results in a
+    new vector column whose values are selected through the specified indices. Each
+    feature selector has its own way of making feature selections, and the appropriate
+    feature selector should be used for the given scenario and the problem being solved.
+  prefs: []
+  type: TYPE_NORMAL
+- en: So far, you have learned how to perform feature extraction from text-based variables
+    and how to perform feature transformation on categorical and continuous types
+    of variables. Additionally, you have explored the techniques for feature slicing
+    along with feature selection. You have acquired techniques to transform preprocessed
+    raw data into feature vectors that are ready to be fed into a machine learning
+    algorithm in order to build machine learning models.
+  prefs: []
+  type: TYPE_NORMAL
+- en: However, it seems redundant and time-consuming to perform feature engineering
+    for each and every machine learning problem. So, can you not just use some previously
+    built features for a new model? The answer is yes, and you should reuse some of
+    your previously built features for new machine learning problems. You should also
+    be able to make use of the features of some of your other team members. This can
+    be accomplished via a centralized feature store. We will explore this topic further
+    in the following section.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Feature store as a central feature repository
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: A large percentage of the time spent on any machine learning problem is on data
+    cleansing and data wrangling to ensure we build our models on clean and meaningful
+    data. Feature engineering is another critical process of the machine learning
+    process where data scientists spend a huge chunk of their time curating machine
+    learning features, which happens to be a complex and time-consuming process. It
+    appears counter-intuitive to have to create features again and again for each
+    new machine learning problem.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Typically, feature engineering takes place on already existing historic data,
+    and new features are perfectly reusable in different machine learning problems.
+    In fact, data scientists spend a good amount of time searching for the right features
+    for the problem at hand. So, it would be tremendously beneficial to have a centralized
+    repository of features that is also searchable and has metadata to identify features.
+    This central repository of searchable features is generally termed a **feature
+    store**. A typical feature store architecture is depicted in the following diagram:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 6.5 – The feature store architecture'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/B16736_06_05.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Figure 6.5 – The feature store architecture
+  prefs: []
+  type: TYPE_NORMAL
+- en: Features are useful not only during the model training phase of the machine
+    learning process, but they are also required during model inferencing. **Inferencing**,
+    which is also referred to as **model scoring**, is the process of feeding an already
+    built model with new and unseen features in order to generate predictions on the
+    new data. Depending on whether the inferencing process takes place in batch mode
+    or a streaming, real-time fashion, features can be very broadly classified into
+    offline features and online features.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Batch inferencing using the offline feature store
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Offline features, as the name suggests, are generated offline using a batch
+    job. Their consumption also happens offline using either the model training process
+    or model inferencing in a batch fashion, that is, using scheduled batch machine
+    learning pipelines. These features can be time-consuming to create and are typically
+    created using big data frameworks, such as Apache Spark, or by running scheduled
+    queries off of a database or a data warehouse.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The storage mechanism used to generate offline features is referred to as an
+    offline feature store. Historical datastores, RDBMS databases, data warehouse
+    systems, and data lakes all make good candidates for offline feature stores. It
+    is desirable for an offline feature store to be strongly typed, have a schema
+    enforcement mechanism, and have the ability to store metadata along with the actual
+    features. Any database or a data warehouse is adequate for an offline feature
+    store; however, in the next section, we will explore Delta Lake as an offline
+    feature store.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Delta Lake as an offline feature store
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In [*Chapter 3*](B16736_03_Final_JM_ePub.xhtml#_idTextAnchor056), *Data Cleansing
+    and Integration*, we established data lakes as the scalable and relatively inexpensive
+    choice for the long-term storage of historical data. Some challenges with reliability
+    and cloud-based data lakes were presented, and you learned how Delta Lake has
+    been designed to overcome these challenges. The benefits of Delta Lake as an abstraction
+    layer on top of cloud-based data lakes extend beyond just data engineering workloads
+    to data science workloads as well, and we will explore those benefits in this
+    section.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Delta Lake makes for an ideal candidate for an offline feature store on cloud-based
+    data lakes because of the data reliability features and the novel time travel
+    features that Delta Lake has to offer. We will discuss these in the following
+    sections.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Structure and metadata with Delta tables
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Delta Lake supports structured data with well-defined data types for columns.
+    This makes Delta tables strongly typed, ensuring that all kinds of features of
+    various data types can be stored in Delta tables. In comparison, the actual storage
+    happens on relatively inexpensive and infinitely scalable cloud-based data lakes.
+    This makes Delta Lake an ideal candidate offline feature store in the cloud.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Schema enforcement and evolution with Delta Lake
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Delta Lake fully supports schema enforcement, which means that the data integrity
+    of features inserted into a Delta Lake feature store is well maintained. This
+    will help to ensure that only the correct data with proper data types will be
+    used for the machine learning model building process, ensuring model performance.
+    Delta Lake's support for schema evolution also means that new features could be
+    easily added to a Delta Lake-based feature store.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Support for simultaneous batch and streaming workloads
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Since Delta Lake fully supports unified batch and streaming workloads, data
+    scientists can build near real-time, streaming feature engineering pipelines in
+    addition to batch pipelines. This will help to train machine learning models with
+    the freshest features and also generate predictions in a near real-time fashion.
+    This will help to eliminate any operational overhead for use cases with relatively
+    higher latency inferencing requirements by just leveraging Apache Spark's unified
+    analytics engine.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Delta Lake time travel
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Often, data scientists experiment with slight variations of data to improve
+    model accuracy, and they often maintain several versions of the same physical
+    data for this purpose. With Delta Lake's time travel functionality, a single Delta
+    table can easily support multiple versions of data, thus eliminating the overhead
+    for data scientists in maintaining several physical versions of data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Integration with machine learning operations tools
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Delta Lake also supports integration with the popular machine learning operations
+    and workflow management tool called **MLflow**. We will explore MLOps and MLflow
+    in [*Chapter 9*](B16736_09_Final_JM_ePub.xhtml#_idTextAnchor164)*, Machine Learning
+    Life Cycle Management*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'A code example of leveraging Delta Lake as an offline feature store is presented
+    here:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE13]'
+  prefs: []
+  type: TYPE_PRE
+- en: First, we create a database named `feature_store`. Then, we save the DataFrame
+    as a result of the *Feature selection* step in the previous section as a Delta
+    table.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this way, features can be searched for using simple SQL commands and can
+    also be shared and used for other machine learning use cases via the shared Hive
+    metastore. Delta Lake also supports common metadata such as column names and data
+    types, and other metadata such as user notes and comments can be also included
+    to add more context to the features in the feature store.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Tip
+  prefs: []
+  type: TYPE_NORMAL
+- en: Most big data platforms, including Databricks, support the built-in Hive metastore
+    for storing table metadata. Additionally, these platforms come with security mechanisms
+    such as databases, tables, and, sometimes, even row- and column-level access control
+    mechanisms. In this way, the feature store can be secured, and features can be
+    selectively shared among data teams.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this way, using Delta Lake can serve as an offline feature store on top of
+    cloud-based data lakes. Once features are stored in Delta tables, they are accessible
+    from all of Spark's APIs, including DataFrames and SQL APIs.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs: []
+  type: TYPE_NORMAL
+- en: All of the functions and methods present inside Spark MLlib have been designed
+    to be natively scalable. Therefore, any machine learning operation performed using
+    Spark MLlib is inherently scalable and can run Spark jobs with parallel and distributed
+    tasks underneath.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Online feature store for real-time inferencing
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Features that are used in online machine learning inferencing are called online
+    features. Usually, these features have an ultra-low latency requirement, ranging
+    from milliseconds to mere seconds. Some use cases of online features include real-time
+    predictions in end user applications.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let's consider the example of a customer browsing an e-tailer's web app. The
+    customer adds a product to their cart, and based on the customer's zip code, the
+    web app needs to provide an estimated delivery time within seconds. The machine
+    learning model involved here requires a few features to estimate the delivery
+    lead time, such as warehouse location, product availability, historical delivery
+    times from this warehouse, and maybe even the weather and seasonal conditions,
+    but most importantly, it needs the customer zip code. Most of the features could
+    already be precalculated and available in an offline feature store. However, given
+    the low latency requirement for this use case, the feature store must be able
+    to deliver the features with the lowest latency possible. A data lake, or a database
+    or data warehouse, is not an ideal candidate for this use case and requires an
+    ultra-low latency, online feature store.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'From the preceding example, we can conclude that online inferencing in real
+    time requires a few critical components:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: An ultra-low latency, preferably, in-memory feature store.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: An event processing, low latency streaming engine
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: RESTful APIs for integration with the end user web and mobile applications
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'An example of a real-time inferencing pipeline is presented in the following
+    diagram:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 6.6 – A real-time machine learning inferencing pipeline'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/B16736_06_06.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Figure 6.6 – A real-time machine learning inferencing pipeline
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the preceding diagram, data arrives from the web or mobile apps onto a message
+    queue such as Apache Kafka in real time. A low-latency event processing engine
+    such as Apache Flink processes incoming features and stores them onto a NoSQL
+    database such as Apache Cassandra or in-memory databases such as Redis for online
+    feature stores. A machine learning inference engine fetches the features from
+    the online feature store, generates predictions, and pushes them back to the web
+    or mobile apps via REST APIs.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs: []
+  type: TYPE_NORMAL
+- en: Neither Apache Spark nor Delta Lake on cloud-based data lakes makes a good candidate
+    for an online feature store. Spark's Structured Streaming has been designed to
+    handle high throughput in favor of low latency or processing. Structured Streaming's
+    micro-batch is not suitable to process an event as it arrives at the source. In
+    general, cloud-based data lakes are designed for scalability and have latency
+    specifications, and, therefore, Delta Lake cannot support the ultra-low latency
+    requirements of online feature stores.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Summary
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In this chapter, you learned about the concept of feature engineering and why
+    it is an important part of the whole machine learning process. Additionally, you
+    learned why it is required to create features and train machine learning models.
+  prefs: []
+  type: TYPE_NORMAL
+- en: You explored various feature engineering techniques such as feature extraction
+    and how they can be used to convert text-based data into features. Feature transformation
+    techniques useful in dealing with categorical and continuous variables were introduced,
+    and examples of how to convert them into features were presented. You also explored
+    feature scaling techniques that are useful for normalizing features to help prevent
+    some features from unduly biasing the trained model.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Finally, you were introduced to techniques for selecting the right features
+    to optimize the model performance for the label being predicted via feature selection
+    techniques. The skills learned in this chapter will help you to implement scalable
+    and performant feature engineering pipelines using Apache Spark and leveraging
+    Delta Lake as a central, sharable repository of features.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the following chapter, you will learn about the various machine learning
+    training algorithms that fall under the supervised learning category. Additionally,
+    you will implement code examples that make use of the features generated in this
+    chapter in order to train actual machine learning models using Apache Spark MLlib.
+  prefs: []
+  type: TYPE_NORMAL

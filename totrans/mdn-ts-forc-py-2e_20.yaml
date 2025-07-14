@@ -1,0 +1,3297 @@
+- en: '17'
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Probabilistic Forecasting and More
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Throughout the book, we have learned different techniques to generate a forecast,
+    including some classical methods, using machine learning, and some deep learning
+    architectures as well. But we have been focusing on one typical type of forecasting
+    problem—generating a point forecast for continuous time series with no hierarchy
+    and a good amount of history. We have been doing that because this is the most
+    popular kind of problem you will face. But in this chapter, we will take some
+    time to look at a few niche topics that, although less popular, are no less important.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In this chapter, we will focus on these topics:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Probabilistic forecasting
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Probability Density Functions
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Quantile functions
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Monte Carlo Dropout
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Conformal Prediction
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Intermittent/sparse time series forecasting
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Interpretability
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Cold-start forecasting
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Pre-trained models like TimeGPT
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Similarity-based forecasting
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Hierarchical forecasting
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Probabilistic forecasting
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: So far, we have been talking about the forecast as a single number. We have
+    been projecting our DL models to a single dimension or training our machine learning
+    models to output a single number. Subsequently, we were training the model using
+    a loss, such as mean squared loss. This paradigm is what we call a *point forecast*.
+    But we are not considering one important aspect. We are using the history to train
+    our model to make the best guess. But how sure is the model about its prediction?
+    Those of you who are aware of machine learning and classification problems would
+    recognize that for classification problems, besides getting a prediction of which
+    class the sample belongs to, we also get a notion of the uncertainty of the model.
+    But our forecasting is a regression problem and we don’t get the uncertainty for
+    free.
+  prefs: []
+  type: TYPE_NORMAL
+- en: But why is quantifying uncertainty important in forecasting? Any forecast is
+    created for some purpose, some downstream task for which the forecasted information
+    is being used. In other words, there is some decision that has to be taken using
+    the forecast we generate. And when making a decision, we usually would like to
+    have the maximum amount of information available to us.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let’s look at an example to really drive home the point. You have recorded your
+    monthly grocery consumption for the last 5 years and, using the techniques in
+    the book, created a super accurate forecast and an app that tells you how much
+    to shop for in any month. You open up the app and it tells you that you need to
+    buy two bread loaves this month. You head out to the supermarket, bag two loaves
+    of bread, and return home. And a week before the end of the month, the bread loaves
+    ran out, and you starved the rest of the time. At that peak of starvation, you
+    started questioning your decisions and the forecast. You analyzed the data to
+    figure out where you went wrong and realized that your consumption of bread per
+    month varied a lot. In some months you consumed 4 loaves and, in some other months,
+    it was just 1\. So, there is a good chance that this forecast will leave you with
+    no bread for a few months and with excess bread for a few other months.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Then, you read this chapter and convert your forecast to a probabilistic forecast
+    and now it tells you that 50% of the time your next month’s consumption of bread
+    is 2 loaves. But now, there is an additional feature in the app, which asks you
+    whether you prefer to starve or have excess bread at the end of the day. So, depending
+    on your appetite to starve or save money, you decide on an option. Let’s say you
+    don’t want to starve, but are okay if bread runs out like 10% of the time. Once
+    you enter this preference into the app, it revises its forecast and tells you
+    that you should get 3 loaves of bread, and you never starve again (also because
+    you smartened up and bought other stuff from the supermarket).
+  prefs: []
+  type: TYPE_NORMAL
+- en: The ability to use the uncertainty in the forecast and revise it according to
+    our appetite for risk is one of the main utilities for probabilistic forecasting.
+    It also helps our forecast to be more transparent and trustworthy to the users.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now, let’s quickly look at the types of uncertainty one would have in a prediction
+    problem using learned models.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Types of Predictive Uncertainty
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: We saw in *Chapter 5* that supervised machine learning is nothing but learning
+    a function, ![](img/B22389_17_001.png), where *h*, along with ![](img/B22389_07_003.png),
+    is the model that we learn and is the input data. So, if we think about the sources
+    of uncertainty, it can be from two of these components.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The model, *h*, we learned is an approximation using a dataset, *X*, which
+    may or may not cover all the cases completely and some uncertainty can be introduced
+    to the system from this. We call this **Epistemic Uncertainty**. In the context
+    of machine learning, epistemic uncertainty can occur when the model has not been
+    exposed to enough data, the model itself is insufficient to learn the complexity
+    of the problem, or the data it has been trained on does not represent all possible
+    scenarios. This is also known as systemic or reducible uncertainty because this
+    is the portion of the total predictive uncertainty that can be actively reduced
+    by having better models, better data, and so on; in other words, by gaining more
+    knowledge about the system. Let’s see a few examples to make the concept clearer:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: If a weather forecast model has less data from a particular region (maybe because
+    of a faulty sensor), there is going to be less knowledge about that region, and
+    this increases uncertainty.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: If a linear model was used for a non-linear problem, we would be introducing
+    some uncertainty because of the simpler model having less knowledge about the
+    system.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: If an economic forecasting model is not trained using a few key influencing
+    factors like change in economic policies, climate change influencing the decisions,
+    and so on, this also creates some uncertainty.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The good thing about this kind of uncertainty is that this is something that
+    we can actively reduce by collecting better data, training better models, and
+    so on.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now there is another kind of uncertainty in the total predictive uncertainty—**Aleatoric
+    Uncertainty**. This refers to the inherent randomness in the data which cannot
+    be explained away. This is also known as statistical or irreducible uncertainty.
+    Although our universe appears deterministic to us, there is an ever-prevalent
+    layer of uncertainty just beneath the surface.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'For example, the motion of the celestial objects can be calculated accurately
+    (thanks to General Relativity and Einstein), but still, a random asteroid can
+    hit any of the bodies and cause alterations to the calculated trajectory. This
+    kind of irreducible and unavoidable uncertainty is referred to as aleatoric uncertainty.
+    Let’s see a few examples:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Weather predictions, no matter how accurate the measurements and the models
+    are, are still variable. There is an inherent randomness in weather that we might
+    never be able to completely explain.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The performance of an athlete, no matter how much they have trained and followed
+    the rules, is still not completely deterministic. There are a lot of factors,
+    like weather, health, and other random events during or before the game, which
+    will affect the performance of the athlete.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Now that we understand the different types of uncertainty, and why we need uncertainty
+    quantification, let’s see what it means in the context of forecasting.
+  prefs: []
+  type: TYPE_NORMAL
+- en: What are probabilistic forecasts and Prediction Intervals?
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: A probabilistic forecast is when the forecast, instead of having a single-point
+    prediction, captures the uncertainty of that forecast as well. Probabilistic forecasting
+    is a method of predicting future events or outcomes by providing a range of possible
+    values along with associated probabilities or confidence levels. This approach
+    captures the uncertainty in the prediction process.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the econometrics and classical time series world, the prediction intervals
+    were already baked into the formulation. The statistical grounding and strong
+    assumptions of those methods made sure that the output of those models was readily
+    interpreted in a probabilistic way as well (so long as you could satisfy the assumptions
+    that were stipulated by those models). But in the modern machine learning/deep
+    learning world, probabilistic forecasting is not an afterthought. A combination
+    of factors, such as fewer rigid assumptions and the way we train the models, leads
+    to this predicament.
+  prefs: []
+  type: TYPE_NORMAL
+- en: There are different methods with which we can add the probabilistic dimension
+    to our forecast, and we will go through a few of them in this chapter. But before
+    that, let’s also understand one of the most useful manifestations of probabilistic
+    forecasts—**Prediction Intervals**.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'A Prediction Interval is a range within which a future observation is expected
+    to fall with a specified probability. For instance, if we have a 95% prediction
+    interval for a time step of `[5,8]`, we say that 95% of the time, the actual value
+    will lie between 5 and 8\. Let’s take an example of a normal distribution with
+    mean, ![](img/B22389_17_003.png), and variance, ![](img/B22389_17_004.png) as
+    the forecast at timestep, *t* (one of the techniques we will talk about gives
+    us just that). So, the prediction interval at time, *t*, with a significance level
+    (the probability with which the forecast can fall outside the interval), ![](img/B22389_04_009.png),
+    can be written as:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_17_006.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: where *z* is the z-score of the normal distribution.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Prediction Interval** (**PI**) vs **Confidence Interval** (**CI**)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: One of the most confusing topics is prediction intervals and confidence intervals.
+    Let’s demystify them here. These are both ways we quantify uncertainty, but they
+    serve different purposes and are interpreted differently in the context of forecasting.
+    A confidence interval also provides a range, but for a population parameter (like
+    the mean) of the sample data, whereas a prediction interval focuses on providing
+    a range for a future observation. One of the key differences between the two is
+    that CIs are, typically, narrower than PIs because PIs also account for the uncertainty
+    of the new point. On the other hand, CIs only account for the uncertainty accounted
+    to the model parameters. So, we use PIs when we need to give a range for when
+    a future observation is likely to fall, like the next month’s sales. CIs are used
+    when we need to provide a range for an estimated parameter, like the estimated
+    average demand over a year.
+  prefs: []
+  type: TYPE_NORMAL
+- en: There are a few terms and concepts we need to clarify before we begin the discussion
+    in detail.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Confidence levels, error rates, and quantiles
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: When working with prediction intervals, it’s crucial to understand the relationship
+    between confidence levels, error rates, and quantiles. These concepts help in
+    determining the range within which future observations are expected to fall with
+    a certain probability.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*Error Rate* (![](img/B22389_04_009.png)) is the allowable probability that
+    the prediction interval will not contain the future observation. It is typically
+    expressed in percentages or as a decimal between 0 and 1\. If we say ![](img/B22389_17_008.png)
+    or ![](img/B22389_17_009.png), it means that there is a 10% chance that the future
+    observation will not be in the prediction interval.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*Confidence Level* (![](img/B22389_17_010.png)) is the complement of error
+    rate and is the probability that the prediction interval contains the future observation.
+    ![](img/B22389_17_011.png). If we say that the error rate is 10%, the confidence
+    level would be 90%.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*Quantiles* are points that divide the data into intervals with equal probabilities.
+    In simpler terms, a quantile shows the value below which a certain percentage
+    of data falls. For instance, the 5th percentile or 0.05th quantile marks the point
+    where 5% of data lies below it. Therefore, we can use quantiles as well to define
+    the prediction intervals where we don’t have an analytical way to get the prediction
+    intervals based on distributional assumption.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: In *Figure 17.1*, we show the prediction intervals for a standard normal distribution.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_17_01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 17.1: Prediction intervals for a standard normal distribution'
+  prefs: []
+  type: TYPE_NORMAL
+- en: There is a strong link between error rates, confidence levels, and quantiles.
+    Error rates and confidence levels are direct complements to each other and can
+    be used interchangeably to define the confidence that we want our prediction intervals
+    to have or the error rate we are okay with from the prediction intervals. Another
+    way to look at it is by the area under the curve. In *Figure 17.1*, the area of
+    the green-shaded region denotes the confidence level, and the area of the red
+    area denotes the error rate.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'For a standard normal distribution, we can directly get the prediction intervals
+    by using the analytical formula:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_17_012.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: where ![](img/B22389_03_003.png) is the mean of the distribution, ![](img/B22389_03_004.png)
+    is the standard deviation of the distribution, and ![](img/B22389_17_015.png)
+    is the critical value from the standard normal distribution corresponding to the
+    desired confidence level, ![](img/B22389_17_016.png). ![](img/B22389_17_017.png)
+    is taken because we are allowing for the error rate to be spread on both sides
+    (red shaded area on both sides of the curve in *Figure 17.1*).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now let’s look at how error rates and confidence levels are linked with quantiles
+    because if we don’t know what the distribution is (and we don’t want to assume
+    any distribution), we can’t go by the analytical formula to get prediction intervals.
+    In such cases, we can use quantiles to get the same. Just like we did with the
+    analytical formula, the error rate, ![](img/B22389_04_009.png), should be equally
+    divided across both sides. And therefore, the prediction interval would be:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_17_019.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: where ![](img/B22389_17_020.png) is the *t*^(th) quantile. So, from the definition
+    of quantile, we know ![](img/B22389_17_021.png) would have ![](img/B22389_17_017.png)
+    % of data below it and ![](img/B22389_17_023.png) would have ![](img/B22389_17_017.png)
+    % of data above it, thus making the area outside the intervals to be ![](img/B22389_04_009.png).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Using this relation, we can go from error rates to quantiles or confidence
+    levels to quantiles. If the error rate is ![](img/B22389_04_009.png) we have already
+    seen what the corresponding quantiles denoting the prediction interval are. Let’s
+    also see one more quick formula to go from confidence levels (declared as percentages)
+    to quantiles:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_17_027.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'In Python code, this is simply:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: Now, let’s look at how to measure the goodness of prediction intervals.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Measuring the goodness of prediction intervals
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: We know what a probabilistic forecast is and what prediction intervals are.
+    But before we look at techniques to generate prediction intervals, we need a way
+    to measure the goodness of such an interval. Standard metrics like Mean Absolute
+    Error or Mean Squared Error hold no more because they are point forecast measuring
+    metrics.
+  prefs: []
+  type: TYPE_NORMAL
+- en: What do we want from a prediction interval? If we have a prediction interval
+    with 90% confidence, we would expect the data points to lie between the interval
+    at least 90% of the time. This can easily be obtained by having very wide prediction
+    intervals, but that again becomes a useless prediction interval. So, we want our
+    prediction interval to be as narrow as possible and still have the 90% confidence
+    criteria respected. To measure these two distinct aspects, we can use two metrics—**Coverage**
+    and **Average Length of Prediction Intervals**.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Coverage** is the proportion of true values that fall within the prediction
+    intervals. Mathematically, if we denote the Prediction Interval by ![](img/B22389_17_028.png)
+    for each observation *i*, and true value by ![](img/B22389_17_029.png), coverage
+    can be defined as:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_17_030.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: where ![](img/B22389_17_031.png) is an indicator function that equals 1 if the
+    condition inside is true and 0 otherwise, and *N* is the total number of observations.
+    A coverage metric close to the desired confidence level (e.g., 95% for a 95% prediction
+    interval) indicates that the model’s uncertainty estimates are well-calibrated.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Average Length of Prediction Intervals** is calculated by averaging the lengths
+    of the prediction intervals across all observations. Using the same notations
+    as above, it can be mathematically written as:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_17_032.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'This metric helps in understanding the trade-off between the coverage of the
+    intervals and their precision. Let’s also look at Python functions for both of
+    these metrics:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Coverage**:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: '**Average Length**:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: Both of these Python functions can be found in `src/utils/ts_utils.py` and we
+    will be using them to measure the quality of prediction intervals generated in
+    the chapter.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now, let’s look at different techniques we can use to get probabilistic forecasts
+    and how we can use them practically.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Probability Density Function (PDF)
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: This is one of the most common techniques for probabilistic forecasting, especially
+    in the deep learning space, because of the ease of implementation. The forecast
+    at time *t*, ![](img/B22389_17_033.png), can be seen as the realization of a probability
+    distribution, ![](img/B22389_17_034.png). And instead of estimating ![](img/B22389_17_033.png),
+    we can estimate ![](img/B22389_17_034.png). If we assume ![](img/B22389_17_034.png)
+    is one of the parametrized distributions, ![](img/B22389_17_038.png), with parameters
+    ![](img/B22389_17_039.png), then we can estimate the parameters ![](img/B22389_17_039.png),
+    instead of ![](img/B22389_17_033.png), directly.
+  prefs: []
+  type: TYPE_NORMAL
+- en: For instance, if we assume the forecast is drawn from normal distribution, we
+    can model
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_17_042.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'So, instead of getting our model to output ![](img/B22389_17_033.png), we can
+    get it to output ![](img/B22389_17_003.png) and ![](img/B22389_17_045.png). And
+    with ![](img/B22389_17_003.png) and ![](img/B22389_17_045.png), we can easily
+    calculate the prediction intervals at the given ![](img/B22389_04_009.png):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_17_049.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: '![](img/B22389_17_050.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: where *Z* is the critical value from the standard normal distribution corresponding
+    to the desired confidence level. For a 90% confidence level, ![](img/B22389_17_051.png).
+    Simple enough, right? Not so fast!
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now that we are modeling the parameters of a distribution, how do we train the
+    model? We still have the actual point forecast as the target. In the normal distribution
+    case, the targets are still actual ![](img/B22389_17_052.png) and not the means
+    and standard deviations. We get over this problem by using a loss function like
+    **log likelihood**, instead of losses like Squared Error.
+  prefs: []
+  type: TYPE_NORMAL
+- en: For instance, let’s say we have a set of *i.i.d* observations (in our case,
+    the target), ![](img/B22389_17_053.png). With the predicted parameters of the
+    assumed distribution (![](img/B22389_17_054.png)), we will be able to calculate
+    the probability of each of the target, ![](img/B22389_17_055.png). The *i.i.d*
+    assumption means each sample is independent of each other. And high-school mathematics
+    tells us that when two independent events happen, we can calculate their joint
+    probability by multiplying the two independent probabilities together. Using the
+    same logic, we can calculate the joint probability or likelihood of all *n* *i.i.d*
+    observations (probability that all these events occur) by just multiplying all
+    the individual probabilities together.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_17_056.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Maximizing the likelihood helps the model learn the right parameters for each
+    sample such that the probability under the assumed distribution maximizes. We
+    can intuitively think about this as follows. For an assumed distribution like
+    normal distribution, maximizing the likelihood makes sure that the target falls
+    in the center of the distribution defined by the predicted parameters for each
+    sample.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'However, this operation is not numerically stable. Since probabilities are
+    ![](img/B22389_17_057.png), multiplying them together makes the result progressively
+    smaller and can soon lead to numerical underflow issues. Therefore, we use the
+    log likelihood, which is nothing but the likelihood but log transformed. We do
+    it because:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Being a strictly monotonic transformation, optimizing a function is equivalent
+    to optimizing the log transform of the function. Therefore, optimizing likelihood
+    and log likelihood is the same thing.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Log transformation converts the multiplication into an addition, which is a
+    much more numerically stable operation.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '![](img/B22389_17_058.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: The major disadvantage of this approach is that this relies on parametrized
+    probability distributions whose log likelihood computation is tractable. Therefore,
+    we are forced to make assumptions about the output and pick a distribution that
+    might fit ahead of time.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This is a double-edged sword. On one hand, we can inject some domain knowledge
+    into the problem and regularize the model training, but on the other hand, if
+    we aren’t clear on whether choosing a normal distribution is the right choice,
+    it can lead to an unnecessarily constrained model.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Many popular distributions, such as Normal, Poisson, Negative Binomial, Exponential,
+    LogNormal, Tweedie, and so on, can be used for generating probabilistic forecasts
+    with this technique.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now, we have all the components for training and learning a model and can make
+    it predict a full probabilistic distribution instead of a point forecast. With
+    all that theory set, let’s switch gears and see how we can use this technique.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Forecasting with PDF—machine learning models
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: We have seen how to use standard machine learning models for forecasting in
+    *Part 2*, *Machine Learning for Time Series*. But all of that was for point forecast.
+    Can we easily convert all of that into probabilistic forecasts using the PDF approach?
+    In theory, yes. But practically, it’s not that easy. All the popular implementations
+    of machine learning models like `sci-kit learn`, `xgboost`, `lightgbm`, and so
+    on take a point prediction paradigm. And as users of such open-source libraries,
+    it isn’t easy for us to tweak and re-write the code to make it optimize the log
+    likelihood as a regression loss. But fear not, it is not impossible. `NGBoost`
+    is a distant cousin of the very popular gradient boosting models, like `xgboost`
+    and `lightgbm`, and it is implemented such that it predicts the PDF, instead of
+    the point prediction.
+  prefs: []
+  type: TYPE_NORMAL
+- en: There are other techniques like Quantile Forecast or Conformal Prediction, which
+    are more widely applicable (and recommended) to the machine learning models we
+    discussed in the book if the end goal is to have a prediction interval. NGBoost
+    is discussed for completeness and for the cases where a full probability distribution
+    is needed as an output.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We aren’t going too deep into what NGBoost is and how it differs from the regular
+    gradient boosting models here, but just know that it is a model that predicts
+    probability distributions instead of point predictions.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Reference check**:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The research paper by Duan et.al., which proposed `NGBoost`, is cited in *References*
+    under reference *1*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*Further* *reading* has a link to a blog about NGBoost, which goes into a bit
+    more depth on what the model is.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Notebook alert**:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: To follow along with the complete code, use the notebook named `01-NGBoost_prediction_intervals.ipynb`
+    in the `Chapter17` folder.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let’s use a sample of eight time series from the M4 competition (which has 100,000
+    time series, references *5*) for the probabilistic forecasts. The data is easily
+    available online and the download script is included in the notebook. We are using
+    this simpler dataset than the one we have been working on because I want to avoid
+    complicating the narrative with exogenous variables and such. Here is the plot
+    of the last 100 time steps of the eight sampled time series.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_17_02_01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: '![](img/B22389_17_02_02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 17.2: Last 100 timesteps of 8 sampled time series from the M4 Competition.
+    Test period is drawn in a dotted purple line.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let’s use mlforecast to create some features quickly in order to convert this
+    into a regression problem. We had a bonus notebook back in *Chapter 6*, which
+    showed how to use `mlforecast` as an alternative for the feature engineering that
+    is included in the book’s repository. For the detailed code, refer to the full
+    notebook, but for now, let’s assume that we have a dataframe called `data`, which
+    has all the features necessary to run a machine learning model. We have split
+    it into `train` and `val` and then subsequently to `X_train`, `y_train`, `X_val`,
+    and `y_val`. Now, let’s see how we can train a model, assuming the output is a
+    Normal distribution.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: NGBoost doesn’t have a lot of parameters to tune and therefore isn’t as flexible
+    as other **gradient-boosting decision trees** (**GBDT**). And it’s also not as
+    fast as the other GBDTs. This is a model that you use only for special use cases
+    when you need probabilistic outputs.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'These are a few parameters that NGBoost has:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`Dist`: This is the assumed distributional form of the output. The package
+    currently supports `Normal`, `LogNormal`, and `Exponential`—all of which can be
+    imported from `ngboost.distns`'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`Score`: This is any valid scoring function that is used to compare the predicted
+    distributions to observations. The log likelihood score that we discussed earlier
+    is called `LogScore` in the package and is the default value. All scoring functions
+    can be imported from `ngboost.scores`.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`n_estimators`: This is the number of estimators that are used in the boosted
+    trees.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`learning_rate`: This is the learning rate used for combining the boosted trees.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`mini_batch_frac`: The percent of rows which is sub-sampled for each iteration.
+    This is set to `1.0` as the default value.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Now that we have a trained NGBoost model, let’s see how we can use it to generate
+    predictions and prediction intervals.
+  prefs: []
+  type: TYPE_NORMAL
+- en: To get point predictions, the syntax is exactly the same as the sci-kit learn
+    API.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: This is nothing but a wrapper method that calculates the location parameter
+    of the assumed distribution. For instance, for the Normal distribution, the mean
+    of the predicted distribution is the point prediction.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now to get the underlying probabilistic prediction and subsequently the prediction
+    intervals, we need to use a different method:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Each point in `y_pred_dists` is a complete distribution. If we want to instead
+    the first five predicted points, we can do the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: Now, to get the prediction interval, we can use `y_pred_dist` and call a method,
+    giving the level of confidence we expect. This, in turn, calls the `scipy` distribution
+    (like `scipy.stats.norm`), which has a method, `interval`, to get the intervals
+    given the confidence level.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs: []
+  type: TYPE_PRE
+- en: Now, we have a window around `y_pred` wide enough to envelope the uncertainty
+    expected at each data point—the prediction interval. Let’s look at the forecast
+    and the metrics.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_17_03_01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: '![](img/B22389_17_03_02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 17.3: Forecast with prediction intervals from NGBoost'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'And below are the metrics we calculated for these eight time series (Mean Absolute
+    Error, Coverage, and Average Length):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_17_04.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 17.4: Metrics for NGBoost'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Although for some time series, the intervals seem to be good, some others (like
+    time series H103) seem to have way too narrow a prediction interval, which is
+    also evident in the low coverage as well.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Forecasting with PDF—deep learning models
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'Unlike machine learning models, it’s very easy to convert all the deep learning
+    models we have learned about in the book to their PDF version. Remember the discussion
+    we had before we started the practical application? The major changes we needed
+    to do were these:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Instead of predicting point forecast (single number), we predict the parameters
+    of a probability distribution (one or more numbers).
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Instead of using a point loss like Mean Squared Error, use a probabilistic scoring
+    function like log likelihood.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: In the deep learning paradigm, these are very simple changes to make, aren’t
+    they? In almost all the deep learning models we have learned to use in the book,
+    there is a linear projection at the end, which projects the output into the required
+    dimensions. Conceptually, it’s simple enough to make these output multiple numbers
+    (parameters of the assumed distribution) by changing the linear projection. Similarly,
+    it’s simple enough to change the loss function as well. Notably, *DeepAR* (Reference
+    *3*) is a well-known deep learning model that uses this technique for probabilistic
+    forecasting.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Notebook alert**:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: To follow along with the complete code, use the notebook named `02-NeuralForecast_prediction_intervals_PDF.ipynb`
+    in the `Chapter17` folder.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let’s see how we can do this in `neuralforecast` (the library we were using
+    *Chapter 16*). In our example here, we will take a simple model like an LSTM,
+    but we can do the same with any model because all we are doing is switching the
+    loss function to `DistributionLoss`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: And, for this example, we are going to use the M4 competition dataset, which
+    is freely available (the code to download the dataset is included in the notebook).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let’s start from the point where we have the data formatted the way `neuralforecast`
+    expects in `Y_train_df` and `Y_test_df`. The first thing we need to do is import
+    the necessary classes.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The only class that we haven’t looked at before in the book is `DistributionLoss`.
+    This is a class that wraps `torch.distribution` classes and implements the negative
+    log likelihood loss we discussed earlier. At the time of writing this book, the
+    `DistributionLoss` class supports these underlying distributions:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Poisson
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Normal
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: StudentT
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: NegativeBinomial
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Tweedie
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Bernoulli (Temporal Classifiers)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: ISQF (Incremental Spline Quantile Function)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'The choice between these different distributions is totally up to the modeler
+    and is a key assumption in the model. If the output we are modeling is expected
+    to be in a normal distribution, then we can choose `Normal`. These are the major
+    parameters of `DistributionLoss`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`distribution`: This is a string that identifies which distribution we are
+    assuming. It can be any one from the list we saw before.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`level`: This is a list of floats that defines the different confidence levels
+    we are interested in modeling. For instance, if we want to model 80% and 90% confidence,
+    we should give the values as `[80,90]`.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`quantiles`: This is an alternate way of defining the level. Instead of 95%
+    confidence, you can define them in quantiles → `[0.1, 0.9]`.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Practitioner’s tip**:'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: Making a distributional assumption requires a deep study of the domain and data.
+    But if you are not completely familiar with these distributions, `Normal` or `StudentT`
+    is a good starting point as a lot of data resembles normal distribution. But before
+    you jump into using `Normal` distributions everywhere, you should do a bit of
+    literature study in the domain of the problem and choose the distribution accordingly.
+    For instance, intermittent demand or sparse demand, which is very common in retail,
+    is better modeled using a `Poisson` distribution. If the forecast is a count data
+    (positive integers), `Negative Binomial` is a good option.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: Now let’s set a horizon, the levels we need, and a few hyperparameters for LSTM
+    (we’ve chosen some small and simple hyperparameters to make the training faster.
+    In real-world problems, it is advisable to do a hyperparameter search to find
+    the best parameters).
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs: []
+  type: TYPE_PRE
+- en: Now we need to define the models we are going to use and the `NeuralForecast`
+    class. Let’s define two models—one using `Normal` and another using `StudentT`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs: []
+  type: TYPE_PRE
+- en: Notice how the syntax is exactly the same as for point forecast, except for
+    the Distribution Loss we chose. Now all that’s left is to train the models.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs: []
+  type: TYPE_PRE
+- en: Once the model is trained, we can predict using the predict method. This output
+    will have the point forecast under the alias we have defined and the high and
+    low intervals for all the levels we have defined.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE12]'
+  prefs: []
+  type: TYPE_PRE
+- en: Now that we have the probabilistic forecasts, let’s take a look at them and
+    also calculate the metrics.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_17_05_01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: '![](img/B22389_17_05_02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 17.5: Forecast with prediction intervals from LSTM with StudentT distribution
+    as output'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_17_06.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 17.6: Metrics for the LSTM with Normal and StudentT distribution outputs'
+  prefs: []
+  type: TYPE_NORMAL
+- en: If we compare the coverages with the ones with NGBoost, we can see that the
+    deep learning approach increased the coverage, but also has wider than necessary
+    intervals in most cases (as evidenced by larger average widths).
+  prefs: []
+  type: TYPE_NORMAL
+- en: The biggest disadvantage of this method is that we restrict the output to one
+    of the parametrized distributions. In many real-world cases, the data might not
+    conform to any parametric distributions.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now, let’s see a method that doesn’t require the assumption of any parametric
+    distribution, but still gets the prediction intervals.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Quantile function
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: If our only aim is to get prediction intervals, we can also do the same using
+    quantiles. Let’s look at the PDF method in a slightly different light. In the
+    PDF method, we have a full probability distribution as the output at each timestep
+    and we use that distribution to get the quantiles, which are the prediction intervals.
+    Although for most parametric distributions, there are analytical formulae to get
+    the quantiles, we can also find the quantiles numerically. We just draw N samples,
+    where N is sufficiently large, and then calculate the quantiles of the drawn samples.
+    The point is that even though we have a full probability distribution, for prediction
+    intervals, all we need are the quantiles. And calculating quantiles given N samples
+    is not dependent on the kind of distribution.
+  prefs: []
+  type: TYPE_NORMAL
+- en: So, what if we can train our models to predict the specified quantiles directly,
+    having no assumption on the underlying probability distribution? This is exactly
+    what we do with quantile functions.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Before talking about quantile functions, let’s spend a minute on the **Cumulative
+    Distribution Function** (**CDF**). This, again, is high school probability. In
+    simple words, a CDF returns the probability of some random variable, *X* being
+    less than or equal to some value, *x*:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_17_059.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: where *F* is the CDF. This function takes in an input, *x*, and returns a value
+    between 0 and 1\. Let’s call this value ![](img/B22389_16_143.png).
+  prefs: []
+  type: TYPE_NORMAL
+- en: A *quantile function* is an inverse of CDF. This function tells you what value
+    of *x* would make ![](img/B22389_17_061.png) return a particular value, ![](img/B22389_16_143.png).
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_17_063.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: This function, ![](img/B22389_17_064.png), is the *quantile function*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: From the implementation perspective, for models which are capable of multi-output
+    prediction (like the deep learning models), we can use a single model and predict
+    all the quantiles we want to by changing the output layer. And for models that
+    are restricted to a single output (like machine learning models), we can learn
+    separate quantile models for each quantile.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now, just like before, we can’t use point losses like the mean squared error.
+    We got over this problem in PDFs by using the log likelihood function. And here,
+    we can use quantile loss or pinball loss.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Reference check**:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The paper that proposed quantile loss and regression is cited in the *References*
+    under reference *4*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The quantile loss can be defined as below:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_17_065.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'where ![](img/B22389_17_052.png) is the target value at time *t*, ![](img/B22389_17_067.png)
+    is the quantile forecast, and *q* is the quantile we are forecasting. The formula
+    looks daunting, but bear with me for a second; it’s quite simple. Let’s try and
+    get some intuitions about the loss. We know the median is the 0.5 quantile, and
+    that is a measure of central tendency. But if we want our predictions to approximate
+    the 75^(th) percentile or 0.75 quantile, then we would have to urge the model
+    to overestimate, right? And if we want the model to overestimate, we need to penalize
+    the model more if it’s underestimating. And vice versa, if we want to predict
+    the 0.25 quantile, we need to underestimate. Quantile loss does exactly that:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: For ![](img/B22389_17_068.png) (under estimation), the loss is ![](img/B22389_17_069.png)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: For ![](img/B22389_17_070.png) (over estimation), the loss is ![](img/B22389_17_071.png)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The asymmetry is derived from the term *q* or 1 - *q*. The other term is just
+    the difference between the actual and predicted values.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let’s try to understand this with an example. Suppose we have the true value
+    ![](img/B22389_17_072.png), and we want to estimate 0.75 quantile (![](img/B22389_17_073.png)).
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Case 1: Overestimation**: ![](img/B22389_17_074.png). Since ![](img/B22389_17_070.png),
+    our quantile loss would be:'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '![](img/B22389_17_076.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: '**Case 2: Underestimation**: ![](img/B22389_17_077.png). Since ![](img/B22389_17_078.png),
+    our quantile loss would be:'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '![](img/B22389_17_079.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: '**Notebook alert**:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: To follow along with the complete code, use the notebook named `03-Understanding_Quantile_Loss.ipynb`
+    in the `Chapter17` folder.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Therefore, by varying the value of *q*, we can make the loss more or less asymmetric
+    and toward either side. *Figure 17.7* below shows the loss curves for *q* = 0.5
+    and *q* = 0.75 with these example predictions marked on it.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_17_07.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 17.7: Quantile loss curves for q=0.5 and q=0.75'
+  prefs: []
+  type: TYPE_NORMAL
+- en: We can see that the quantile loss for *q* = 0.5 is symmetric as it represents
+    the median, whereas the loss curve for *q* = 0.75 is asymmetric, penalizing underestimation
+    a lot more than overestimation.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Although the formula has a branching structure, a maximum operation can be
+    easily avoided when implementing it in code. The quantile loss in Python looks
+    like this:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE13]'
+  prefs: []
+  type: TYPE_PRE
+- en: Now, let’s get into the practical side of things and learn how to use quantile
+    loss with the different techniques (both machine learning and deep learning) we
+    have covered in this book.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Forecasting with quantile loss (machine learning)
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: Regular machine learning models are typically capable of modeling one output.
+    Therefore, we will need to train a different model for each of the quantiles we
+    are interested in using quantile loss. So, if we want to predict the 0.5, 0.05,
+    and 0.95 quantiles for a problem, we will have to train three separate models,
+    one for each quantile.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Notebook alert**:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: To follow along with the complete code, use the notebook named `04-LightGBM_Prediction_Interval_Quantile_Loss.ipynb`
+    in the `Chapter17` folder.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let’s see how we can do that. Just like in the PDF section, we are using `mlforecast`
+    to quickly whip up a synthetic problem and create some features. For the detailed
+    code, refer to the full notebook, but for now, let’s assume that we have a dataframe
+    `data`, which has all the features necessary to run a machine learning model.
+    We have split it into `train` and `val` and then subsequently into `X_train`,
+    `y_train`, `X_val`, and `y_val`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The first step is to import the **LGBMRegressor** and set some parameters and
+    quantiles we want to train.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE14]'
+  prefs: []
+  type: TYPE_PRE
+- en: The key parameter to note here is that the `objective` is set as `quantile`
+    and the `metric` is also set as `quantile`. The rest of the LightGBM parameters
+    can be tuned and tweaked for each use case. Now, let’s train all the quantile
+    models.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE15]'
+  prefs: []
+  type: TYPE_PRE
+- en: Now that the model is trained, we can get the point prediction and prediction
+    intervals from the quantile models.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE16]'
+  prefs: []
+  type: TYPE_PRE
+- en: Now, let’s see what the forecast and metrics look like.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_17_08_01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: '![](img/B22389_17_08_02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 17.8: Forecast with prediction intervals using Quantile Regression with
+    LightGBM'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_17_09.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 17.9: Metrics for Quantile Regression with LightGBM'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The disadvantage of this is that we are training a model for each quantile.
+    This can become unwieldy quickly. Instead of training one model, training three
+    models would make the total training time increase. Another issue is that since
+    all three models are trained differently, they might have different properties,
+    and the way they have learned to solve the problem can also be very different.
+    And because of this inconsistency, the prediction intervals can also suffer from
+    some issues. We can see it clearly in the jagged prediction intervals in many
+    of the time series in *Figure 17.7*; they seem disconnected from the median prediction.
+    This is a problem that we don’t have in the deep learning world.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Forecasting with quantile loss (deep learning)
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'In the deep learning models, we use a common learning structure and just use
+    different linear projections on the shared projection for the different quantiles.
+    This ensures that the underlying representation and learning are common across
+    all the quantiles and can cause a more coherent set of quantile predictions. So,
+    for all the deep learning models we have learned about in the book, we can make
+    them into a Quantile Forecast model by doing two things:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Instead of predicting point forecast (single number), we predict parameters
+    of a probability distribution (one or more numbers).
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Instead of using a point loss like Mean Squared Error, use a probabilistic scoring
+    function like log likelihood.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: And just like we did in the PDF section, all we need to do is to switch out
+    the loss function in `neuralforecast`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Notebook alert**:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: To follow along with the complete code, use the notebook named `05-NeuralForecast_prediction_intervals_Quantile_Loss.ipynb`
+    in the `Chapter17` folder.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let’s see how we can do this in `neuralforecast` (the library we were using
+    *Chapter 16*). Just like before, we will take a simple model like an LSTM and
+    the M4 competition dataset, but we can do the same with any model or any dataset
+    because all we are doing is switching the loss function to `MQLoss` (multi-quantile
+    loss).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let’s start from the point where we have the data formatted the way `neuralforecast`
+    expects in a `Y_train_df` and `Y_test_df`. The first thing we need to do is import
+    the necessary classes.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE17]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The only class that we haven’t looked at before is `MQLoss`. This class just
+    calculates the quantile loss we discussed just now for multiple quantiles (which
+    is how you would want to typically train the model). These are the major parameters
+    of `MQLoss`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`level`: This is a list of floats that defines the different confidence levels
+    we are interested in modeling. For instance, if we want to model 80% and 90% confidence,
+    we should give the values as `[80,90]`.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`quantiles`: This is an alternate way of defining the level. Instead of 95%
+    confidence, you can define them in quantiles → `[0.1, 0.9]`.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Now, let’s set a horizon, the levels we need, and a few hyperparameters for
+    LSTM.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE18]'
+  prefs: []
+  type: TYPE_PRE
+- en: Now, we need to define the models we are going to use and the `NeuralForecast`
+    class. Let’s define just one model.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE19]'
+  prefs: []
+  type: TYPE_PRE
+- en: Notice how the syntax is exactly the same as the point forecast, except for
+    the multi-quantile loss we chose. Now, all that’s left is to train the models.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE20]'
+  prefs: []
+  type: TYPE_PRE
+- en: Once the model is trained, we can predict using the `predict` method. This output
+    will have the point forecast under the alias we have defined and the high and
+    low intervals for all the levels we have defined.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE21]'
+  prefs: []
+  type: TYPE_PRE
+- en: Now, we have a way of getting prediction intervals without making an assumption
+    about the output distribution and that is valuable in real-world cases where we
+    are not sure what the underlying output distribution would be. Let’s look at the
+    generated probabilistic forecasts and its metrics.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_17_10_01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: '![](img/B22389_17_10_02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 17.10: Forecast with prediction intervals using Quantile Regression
+    (deep learning)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_17_11.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 17.11: Metrics for the Quantile Regression (deep learning)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: We can see that the prediction intervals are quite in sync with each other and
+    the median prediction and not disconnected like separate models with LightGBM.
+    This is because the same learning is happening for all the quantiles, just the
+    final projection heads are different. The coverage, in general, is also better.
+  prefs: []
+  type: TYPE_NORMAL
+- en: There is another way to get prediction intervals that are dead simple, but not
+    that easy to implement because of the way PyTorch is typically used. That’s what
+    we are going to see next.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Monte Carlo Dropout
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Dropout is a hugely popular regularization layer in deep learning. Without going
+    into details, dropout regularization is when we randomly make some part of the
+    weights of the network while training (dropout is turned off during inference).
+    Intuitively, this forces the model to not rely on a few weights but rather to
+    distribute the relevance of the weights across the network. From another perspective,
+    we are applying a sort of regularization (very similar to Ridge regularization),
+    which makes sure none of the weights are single-handedly too high to influence
+    the output drastically.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Technically, besides making a random part of the weights zero, we also debias
+    each layer by normalizing by the fraction of nodes/weights that were retained
+    (not zeroed out). Let’s formalize this layer now. If the probability of dropout
+    is ![](img/B22389_16_143.png), and is applied on an intermediate activation, *h*
+    then the activation after dropout, ![](img/B22389_17_081.png) will be:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_17_082.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Why do we need to scale/normalize the output when dropout is applied? The intuitive
+    answer is to make sure the output has the same scale during training (when dropout
+    is active) and during inference (when dropout is turned off). The long answer
+    is as follows.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let’s say without dropout, the output of a node is *h*. Now, with dropout,
+    with a probability of ![](img/B22389_17_083.png), this output becomes 0 and with
+    a probability of ![](img/B22389_17_084.png), it is *h*. Therefore, the expected
+    value of the node would be: ![](img/B22389_17_085.png). This means the average
+    value of the output is reduced by a factor of ![](img/B22389_17_084.png), which
+    is not desirable as this would change the scale of the values during training
+    and inference. Therefore, the solution is to scale the output of the nodes that
+    are retained by dropout by ![](img/B22389_17_084.png).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now, we know what dropout is. But remember that we were using dropout only during
+    training as a regularization. In 2015, Yarin Gal et al. proposed that the good
+    old dropout also doubles as a *Bayesian Approximation of Gaussian Processes*.
+    That’s a lot of terms that we haven’t come across in a single phrase. Let’s take
+    a short detour to understand these terms at a high level, and I’ll include other
+    links in *Further reading*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Reference check**:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The paper by Yarin Gal et al. about Monte Carlo Dropout is cited in *References*
+    under reference *2*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*Bayesian inference* is a statistical method that updates the probability of
+    a hypothesis as more evidence or information becomes available. It is based on
+    Bayes’ theorem, which mathematically expresses the relationship between the prior
+    probability, the likelihood, and the posterior probability. Formally, Bayes’ theorem
+    is given by:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_17_088.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: where ![](img/B22389_17_089.png) is the *posterior probability* of hypothesis
+    ![](img/B22389_04_016.png) given the data *D*, ![](img/B22389_17_091.png) is the
+    *likelihood* (probability of observing the data *D* given hypothesis ![](img/B22389_04_016.png)),
+    ![](img/B22389_17_093.png) is the *prior probability* of the hypothesis ![](img/B22389_04_016.png)
+    before observing the data, and ![](img/B22389_17_095.png) is the marginal likelihood
+    or *evidence* (the total probability of observing the data under all possible
+    hypotheses).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Although it has some specific terminology, this is very intuitive and provides
+    a structured way to update our prior beliefs in the face of evidence or data.
+    We start with a prior distribution ![](img/B22389_17_096.png) that represents
+    our initial beliefs about the parameters. As we observe data *D*, we update our
+    beliefs getting the posterior distribution ![](img/B22389_17_089.png). This posterior
+    distribution combines the prior information and the likelihood of the observed
+    data, providing a new, updated belief about the parameters. *Further reading*
+    has a more detailed explanation for those who are interested. It also has a page
+    from *Seeing Theory* that helps you visualize these in an intuitive way.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now, let’s move on to the **Gaussian Process** (**GP**). As we have seen in
+    *Chapter 5*, supervised learning is learning a function ![](img/B22389_17_098.png)
+    where ![](img/B22389_05_001.png) is the quantity we are interested in predicting,
+    *h*, is the function we learn, *X* is the input data, and ![](img/B22389_07_003.png)
+    represents the model parameters. So, GPs assume this function as a probability
+    distribution and use Bayesian inference to update the posterior of the function
+    using the data we have available for training. It’s a drastically different way
+    of learning from data and is inherently probabilistic.
+  prefs: []
+  type: TYPE_NORMAL
+- en: There is one more term left, which is approximation. In many cases, the complex
+    posterior distributions in Bayesian models make them intractable. So, we have
+    a technique called *Variational Inference* in which we use a known parametric
+    distribution family, *q*, and find a member that is closest to the true posterior.
+    Getting into details of Variational Inference and GPs is out of the scope of the
+    book, but I have added a few links in *Further reading* for those of you who are
+    interested.
+  prefs: []
+  type: TYPE_NORMAL
+- en: So, coming back to dropouts, Yarin Gal et al. showed that a neural network defined
+    with dropout layers before each of the weight layers is in fact a Bayesian approximation
+    of a GP. So, if the model with dropout is a GP and GP is a posterior over functions,
+    this should give us a probabilistic output, right? But here, we don’t have a well-defined
+    parametric probability distribution like the Normal distribution for us to analytically
+    calculate the properties (like the mean, standard deviation, or quantiles) of
+    the distribution. How do we do that?
+  prefs: []
+  type: TYPE_NORMAL
+- en: Remember the discussion at the start of the Quantile Function section where
+    we said that if we have *N* samples drawn from a distribution and if that *N*
+    is sufficiently large, we can approximate the properties of the distribution?
+    We have a name for that, and it’s called *Monte Carlo sampling*. *Monte Carlo
+    sampling* is a computational technique used to estimate the statistical properties
+    of a distribution by generating many random samples from that distribution. Bringing
+    this idea to the dropout-enabled neural network, we can assess the properties
+    of the posterior probability distribution of the function using Monte Carlo sampling,
+    which means we need to keep dropout turned on during inference and sample from
+    the posterior by executing the forward pass *N* times.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Theoretical justification allows us to apply dropout to any neural network,
+    getting uncertainty estimates through a simple operation. Isn’t the simplicity
+    of that beautiful?
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'So, all of that boils down to these simple steps to get prediction intervals
+    for our forecasts:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Pick any deep learning architecture.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Insert Dropout Layers before every major operation and set them to a value ![](img/B22389_16_143.png),
+    where ![](img/B22389_17_102.png).
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: After training the model, with dropout enabled, do *N* forward passes.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Using the *N* samples, estimate the median (for the point prediction), and the
+    quantiles corresponding to the defined confidence levels for prediction intervals.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: This sounds simple enough, but it’s complicated for just one reason. Both `PyTorch`
+    and `Tensorflow` are designed in a way that dropouts are turned off during inference.
+    In `PyTorch`, we can indicate if the model is in the training phase or inference
+    phase by doing `model.train()` or `model.eval()`, respectively. And most popular
+    implementations that wrap `PyTorch` to make training easy and automated (like
+    `PyTorch Lightning`) do this `model.eval()` step in the backend before predicting.
+    So, when using libraries like `neuralforecast` (which uses `PyTorch Lightning`
+    in the background), turning on dropout during prediction isn’t easy.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Before we learn how to implement MC Dropout for neuralforecast models, let’s
+    take a slight detour and learn how to define custom models in neuralforecast.
+    It is useful when you want to tweak any model for your use case. And we are doing
+    it here because of two reasons:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: I wanted to show you how to define a new model in neuralforecast.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: I wanted a model that is ideal for the MC Dropout technique, i.e., the model
+    needs to have dropouts before every weight/layer.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Creating a custom model in neuralforecast
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'Now it’s time to have some fun and define a custom `PyTorch` model that works
+    with `neuralforecast`. To keep things simple, let’s use a model that is a small
+    tweak on **D-Linear** we learned about in *Chapter 16*. Besides the linear trend
+    and seasonality, we also add a component for non-linear trend. Let’s give it a
+    wacky name as well—**D-NonLinear**. The architecture would be something like this:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_17_12.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 17.12: D-NonLinear model architecture'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now, let’s understand how to write a model that would work with `neuralforecast`.
+    All models in `neuralforecast` are inherited from one of three classes—`BaseWindows`,
+    `BaseRecurrent`, or `BaseMultivariate`. The documentation clearly explains the
+    purpose of `BaseWindows`, which is exactly what we require for our use case. We
+    need to sample windows from a time series while training.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'One more thing we need to keep in mind is that `neuralforecast` uses `PyTorch
+    Lightning` under the hood for training. This link has more details on how to define
+    a new model for `neuralforecast`: [https://nixtlaverse.nixtla.io/neuralforecast/docs/tutorials/adding_models.html](https://nixtlaverse.nixtla.io/neuralforecast/docs/tutorials/adding_models.html).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'If you aren’t aware of **Object-Oriented Programming** (**OOP**) and **inheritance**,
+    then it might be difficult for you to understand what we are doing here. Inheritance
+    allows a child class to inherit all the attributes and methods defined in a parent
+    class. This allows developers to define common functionalities in a base class
+    and then inherit that class to get all the functionality and then add on top of
+    that any specific functionality you want to add to a class. It is highly recommended
+    that you understand inheritance, not only for this example but also to become
+    a better developer in general. There are hundreds of tutorials on the internet,
+    and I’m linking one here: [https://ioflood.com/blog/python-inheritance](https://ioflood.com/blog/python-inheritance).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The full code for the model can be found in `src/dl/nf_models.py`, but we will
+    look at key portions of the model definition right here.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let’s start by defining the `__init__` function (only including relevant portions
+    here; refer to the Python file for the full class definition).
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE22]'
+  prefs: []
+  type: TYPE_PRE
+- en: We have now defined part of the `__init__` function. Now, let’s initialize the
+    different layers needed in the rest of the method. We have a series decomposition
+    layer that uses a moving average to split the input into a trend and seasonal
+    component, a linear trend predictor and seasonality predictor that takes the linear
+    trend and seasonality and projects it into the future, and a non-linear predictor
+    that takes in the original input and projects into the future.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE23]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Now, let’s define the `forward` method. The `forward` method should have just
+    one argument that is a dictionary of different inputs:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`insample_y`: The context window of the target time series we have to predict'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`futr_exog`: The exogenous variables for the future'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`hist_exog`: The exogenous variables for the context window'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`stat_exog`: The static variables'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'For this use case, we only need the `insample_y` since our model doesn’t use
+    any other information. So, this is the `forward` method implementation:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE24]'
+  prefs: []
+  type: TYPE_PRE
+- en: The code is pretty straightforward. The only thing we need to ensure to align
+    to `neuralforecast` models is to take the data we need from the input dictionary
+    and call `self.loss.domain_map` at the end so that it is mapped to the right output
+    size depending on the loss. Now, this model will function just like any other
+    model in the neuralforecast library.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now, let’s get back to MC Dropout and its implementation.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Forecasting with MC Dropout (neuralforecast)
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: We said it wasn’t easy to implement MC Dropout in frameworks like `neuralforecast`
+    and `PyTorch Lightning`, but just because something isn’t easy shouldn’t stop
+    us from doing it. All we need to do is to make sure the dropouts are enabled during
+    prediction and take multiple samples. If you are writing your own `PyTorch` training
+    code, then it’s as simple as not calling `model.eval()` before predicting. But
+    the best practice is to just make the dropouts into train mode and not the whole
+    model. There may be layers like batch normalization, which also behave differently
+    during inference, which might be affected. Let’s see a handy method that makes
+    all dropout layers into train mode.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE25]'
+  prefs: []
+  type: TYPE_PRE
+- en: For `neuralforecast`, we have put together a recipe with which we can use MC
+    Dropout for any of their models (provided they have enough dropouts). Now, we
+    are going to use the custom `DNonLinear` model we just defined. Note that each
+    component in the definition starts with a dropout layer so that we can apply MC
+    Dropout with no qualms.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Notebook alert**:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: To follow along with the complete code, use the notebook named `06-Prediction_Intervals_MCDropout.ipynb`
+    in the `Chapter17` folder.
+  prefs: []
+  type: TYPE_NORMAL
+- en: If you remember, we used `PyTorch Lightning` back in *Chapter 13* and explained
+    that it’s pretty much standard `PyTorch` code, but organized in a specified form—`training_step`,
+    `validation_step`, `predict_step`, `configure_optimizers`, etc. For a refresher,
+    head back to *Chapter 13* and *Further reading* in the chapter to learn more about
+    how to migrate from `PyTorch` to `PyTorch Lightning`. Since neuralforecast is
+    already using `PyTorch Lightning` in the backend, the `BaseWindows` that we are
+    inheriting is already a `PyTorch Lightning` model. This information is essential
+    because we need to essentially modify the `predict_step` method to implement our
+    MC Dropout.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Using the same inheritance we used to inherit `BaseWindows`, we can inherit
+    the `DNonLinear` class we defined earlier and make a few changes so that it becomes
+    an MC Dropout model. And for that, all we need to re-define is the `predict_step`
+    method. The `predict_step` method is the method `PyTorch Lightning` calls every
+    time it has to get a prediction for a batch. So, instead of taking the predictions
+    as is, we need to keep the dropout enabled, take *N* samples from *N* forward
+    passes, calculate the prediction intervals and median (point forecast), and return
+    it.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE26]'
+  prefs: []
+  type: TYPE_PRE
+- en: Are we done yet? Not quite. There is just one little thing to be done. In *Chapter
+    16*, we used a class called `NeuralForecast` for all the fitting and predicting
+    of `neuralforecast` models. This is like a wrapper class that does the heavy lifting
+    of preparing the inputs and outputs in the right way before calling the underlying
+    models. This class has to be aware that we have tweaked the `predict_step` and
+    therefore, we need to make a small change there. The solution is more of a hack
+    than a principled way of editing, but a hack is just as good if it achieves the
+    purpose. I have done the snooping around the implementation to figure out the
+    best way to hack `NeuralForecast` to enable our MCDropout inference. There is
+    no short way of explaining the hack, but just understand that I have misused the
+    way `neuralforecast` flexibly produces point forecasts and prediction intervals
+    based on different losses. So, here is the re-defined `NeuralForecast` class with
+    a hack in the `predict` method.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE27]'
+  prefs: []
+  type: TYPE_PRE
+- en: That’s it. We have successfully “hacked” the library to do our bidding. In addition
+    to this being an MC Dropout tutorial, it’s also a tutorial on how to hack a library
+    to do what you want it to do. It is important to note that this doesn’t make you
+    a “hacker,” so stop before you update your LinkedIn title.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now, on to training the model. This is pretty much the same as you train other
+    models in `neuralforecast`, but instead of the `NeuralForecast` class, you need
+    to use the new `MCNeuralForecast` class we defined.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE28]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Once the training is finished, we can generate the predictions like this:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE29]'
+  prefs: []
+  type: TYPE_PRE
+- en: The output is exactly like any other model from `neuralforecast` with the prediction
+    intervals formatted as `<ModelName>-lo-<level>` and `<ModelName>-hi-<level>`.
+    The point forecast can be found under `<ModelName>-median`. In this case, `<ModelName>`
+    would be `MCDropoutDNonLinear`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let’s look at the plot of the forecasts and the metrics.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_17_13_01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: '![](img/B22389_17_13_02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 17.13: Forecast with prediction intervals using MC Dropout'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_17_14.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 17.14: Metrics for MC Dropout'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Our forecasting model does decent enough on the data; it’s nothing to write
+    home about, but decent. If we do an ablation study, we might even realize that
+    the non-linear component we added does absolutely nothing. But, as long as we
+    had fun doing it and learned something from it, I’m happy. Now, look at the prediction
+    intervals. They aren’t really smooth and have quite a bit of “noise” when you
+    look at them, right? This is because of the inherent randomness in the methodology
+    and may be because of insufficient learning. When we do MC Dropout, we are essentially
+    relying on *N* sub-models or sub-networks and calculating the quantiles based
+    on these *N* forecasts. Maybe a few of these sub-networks haven’t learned very
+    well, and those outputs can skew the quantiles and thereby the prediction intervals.
+  prefs: []
+  type: TYPE_NORMAL
+- en: There are many criticisms of the MC Dropout method. Many in the Bayesian community
+    don’t consider MC Dropout as Bayesian and consider the Variational Approximation
+    that was proposed such a poor approximation that we can’t refer to what it measures
+    as Bayesian uncertainty. There is an unpublished Arxiv paper by Loic Le Folgoc
+    et al. called “Is MC Dropout Bayesian?” (Reference *6*), which claims that it
+    isn’t. But it still doesn’t take away the fact that MC Dropout is a cheap way
+    of getting uncertainty quantified. But when used in fields like medical studies,
+    where uncertainty quantification is of paramount importance, we may want to take
+    on something more principled.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We can also notice that the coverage is quite bad across all time series. And
+    this is, again, something that is exhibited across different studies. In 2023,
+    Nicolas Dewolf et al. published a study comparing different ways of uncertainty
+    quantification for regression problems (Reference *7*). They found that MC Dropout
+    has one of the worst performances in both coverage and average length, underlying
+    the claim that MC Dropout is a very dirty approximation of the uncertainty.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now, let’s look at another technique for probabilistic forecasting that promises
+    theoretical guarantees for perfect coverage and has become quite the rage in the
+    last few years.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Conformal Prediction
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: What if I tell you that there is a technique for generating prediction intervals
+    that statistically guarantees perfect coverage, can work on any model, and doesn’t
+    require us to make any assumptions about the output distribution? Conformal Prediction
+    is just that. Conformal Prediction is a method that helps machine learning models
+    make reliable predictions by estimating how uncertain the model is. Conformal
+    Prediction provides robust, statistically valid measures of uncertainty for any
+    machine learning model, ensuring reliable and trustworthy predictions in critical
+    applications.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Although it was proposed as early as 2005 by Vladmir Vovk *(*Reference *8*),
+    it picked up interest in the last couple of years. Let’s first understand the
+    basic principles of Conformal Prediction using a classification example and then
+    see how we can do it for regression and time series examples.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Conformal Prediction for classification
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'Let’s start with a trained model, ![](img/B22389_17_103.png), which outputs
+    estimated probabilities (*softmax* scores) for *K* output classes (![](img/B22389_17_104.png)).
+    It doesn’t matter what this model is; it can be a machine learning model, a deep
+    learning model, or even a rule-based model. We have training data, ![](img/B22389_17_105.png),
+    and test data, ![](img/B22389_17_106.png). Now, we need a small amount of additional
+    data (other than training and test) called *calibration data*, ![](img/B22389_17_107.png).
+    Now, what do we want from this? Using ![](img/B22389_17_103.png) and ![](img/B22389_17_109.png),
+    we want to create a prediction set of possible labels, ![](img/B22389_17_110.png)
+    that makes sure that the probability that a test data point is part of that set
+    is almost exactly the user-defined error rate, ![](img/B22389_04_009.png) (we
+    will be talking about error rates throughout this discussion. A 10% error rate
+    is a 90% confidence level). This is exactly what Conformal Prediction guarantees.
+    It’s called the *marginal coverage* guarantee and it can be written more formally
+    as:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_17_112.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Naturally, you may have this question in your mind. What is this ![](img/B22389_17_113.png)?
+    This term signifies that the coverage guarantee is derived from a finite sample
+    of size *n*. Since *n* is in the denominator, we know as and when *n* increases,
+    this term becomes smaller and smaller. Extending this to the limit, we know that
+    if ![](img/B22389_17_114.png), this term would be zero and the coverage would
+    be exactly ![](img/B22389_17_016.png).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We know what we want, but how do we get it? The core idea in conformal prediction
+    is very simple and can be laid out in four steps:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Identify a heuristic notion of uncertainty using the trained model. In our classification
+    example, this can be the softmax scores.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Define a score function, ![](img/B22389_17_116.png), which is also called *Non-Conformity
+    Scores*. This can be a score that takes in the prediction, ![](img/B22389_05_001.png),
+    and actual value, ![](img/B22389_17_118.png), and gives a score that encodes the
+    disagreement between them. The higher the score is, the larger the disagreement
+    is. In the classification example, this would be something as simple as ![](img/B22389_17_119.png).
+    In simple English, this means taking the softmax score of the correct class and
+    doing ![](img/B22389_17_120.png).
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Compute ![](img/B22389_17_121.png) as the ![](img/B22389_17_122.png) quantile
+    of the calibration scores. We use the calibration data and score function to calculate
+    calibration scores and calculate the quantile on that data. The ![](img/B22389_17_123.png)
+    is the quantile calculation is again derived from the finite sample correction.
+    As ![](img/B22389_17_124.png) tends to infinity, the term tends to zero.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Use this quantile to form prediction sets for new examples: ![](img/B22389_17_125.png).
+    This means selecting all the items from the output set that has a score (according
+    to the score function) greater than the threshold, ![](img/B22389_17_121.png).'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: This simple technique will give us prediction sets that guarantee to satisfy
+    the marginal coverage, no matter what model is used or what the distribution of
+    the data is. Let’s see how simple this is using `Python` code and assuming that
+    the model we are talking about is a `scikit-learn` classifier.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We have a trained model, `model`, calibration data, `X_calib`, and test data,
+    `X_test`. For full code and some visualizations, check the notebook.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Notebook alert**:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: To follow along with the complete code, use the notebook named `07-Understanding_Conformal_Prediction.ipynb`
+    in the `Chapter17` folder.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE30]'
+  prefs: []
+  type: TYPE_PRE
+- en: Now, let’s think about the prediction set, ![](img/B22389_17_127.png). We have
+    been defining it as set-valued with discrete classes for the classification scenario.
+    This set becomes larger or smaller based on how confident the initial heuristic
+    estimate of uncertainty is.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Conformal Prediction for regression
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'Let’s extend this notion of prediction sets to regression. In regression, the
+    output space is continuous rather than discrete, and we aim to construct continuous
+    prediction sets, which are typically a continuous interval in ![](img/B22389_17_128.png).
+    The idea is to maintain the same principle of coverage: the prediction interval
+    should contain the true value with high probability. So, now the prediction set,
+    ![](img/B22389_17_127.png), that we saw earlier is also the prediction interval
+    in the regression context. But along with the change in the interpretation of
+    prediction sets, we will also need to change the score function, which calculates
+    non-conformity scores. A common score function that is used is the distance to
+    the conditional mean, ![](img/B22389_17_130.png) (Reference *10*). When we have
+    a trained model, ![](img/B22389_17_103.png), we can consider the output of the
+    model as the conditional mean, which will make this the absolute residual value
+    for each point.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_17_132.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Note that this score satisfies the condition. The larger the deviation, the
+    larger the “heuristic” measure of uncertainty is. The rest of the procedure remains
+    almost the same—calculating the quantile, ![](img/B22389_17_121.png), and forming
+    the prediction intervals, ![](img/B22389_17_134.png)
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let’s check how the Python code changes (full code is in the notebook).
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE31]'
+  prefs: []
+  type: TYPE_PRE
+- en: It’s as simple as that. We can check coverage and see that it will be greater
+    than 90%, which is the error rate we defined with ![](img/B22389_17_009.png).
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Practitioner’s Note**'
+  prefs: []
+  type: TYPE_NORMAL
+- en: In many use cases, we will be training a single model for multiple entities
+    or groups we care about. For instance, for the global forecasting models we talked
+    about in *Chapter 10*, we use a single regression model for multiple time series.
+    In such cases, we can also run Conformal Prediction on each time series or groups
+    of time series separately to be more adaptive to the errors in that subset. This
+    would allow for coverage guarantees at the group/time series level.
+  prefs: []
+  type: TYPE_NORMAL
+- en: But you might have noticed something. In this method, we have the same width
+    of the interval all throughout. But we would expect the intervals to be tighter
+    when the model is more confident and wider when it isn’t (let’s call it *adaptive
+    prediction intervals* from now on). Let’s look at another technique that has this
+    property.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Conformalized Quantile Regression
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: We learned about Quantile Regression as one of the methods for probabilistic
+    forecast (or regression in a general case). Quantile Regression is powerful in
+    the sense that it does not require us to have any prior assumption about the underlying
+    output distribution. But it does not enjoy the coverage guarantees that Conformal
+    Prediction offers. In 2019, Yaniv Roano et al. (Reference *11*) brought the best
+    of both worlds into **Conformalized Quantile Regression** (**CQR**). They proposed
+    a way to take the quantile forecasts and conformalize them such that they have
+    the coverage guarantees that conformal prediction assures.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this case, the model to be used has a restriction. It should be a model that
+    outputs quantile predictions. And, from our earlier discussion, we know that if
+    the error rate is ![](img/B22389_04_009.png), then the quantiles we need for the
+    prediction intervals are ![](img/B22389_17_137.png) and ![](img/B22389_17_138.png).
+  prefs: []
+  type: TYPE_NORMAL
+- en: So, the quantile model predicts ![](img/B22389_17_139.png) and ![](img/B22389_17_138.png).
+    By definition, if ![](img/B22389_17_139.png) and ![](img/B22389_17_138.png) are
+    true estimations of the real quantiles, a quantile regression alone will have
+    perfect coverage. But the model fit may not be perfect and that would result in
+    sub-par coverage. We will use conformal prediction to correct the quantiles based
+    on calibration data such that we get the perfect coverage promised by conformal
+    prediction.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Yaniv Roano et al. proposed to use a new non-conformity score function for Quantile
+    Regression.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_17_143.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Let’s take a beat and explore the score function using the diagram in *Figure
+    17.15*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_17_15.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 17.15: Illustration of score function for Conformalized Quantile Regression'
+  prefs: []
+  type: TYPE_NORMAL
+- en: There are two terms in the max operator. If the true value, ![](img/B22389_17_118.png),
+    is between the two quantiles, ![](img/B22389_17_137.png) and ![](img/B22389_17_138.png),
+    both the terms inside will be negative and will be the distance to the nearest
+    prediction interval (see points B and C in *Figure 17.15*).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now, let’s look at point A (3), which is above the higher quantile. The quantiles
+    are [1, 2]. The two terms in the max operator would be:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_17_147.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: '![](img/B22389_17_148.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: This makes the score function 3 because of the max operator. And now, we see
+    point D (1.6), which is below the lower quantile (quantiles are [3.5, 2]). This
+    makes the score function max{0.4, -1.9}, which would be 0.4\. So, the max operator
+    ensures that the score is positive if it falls outside the quantiles.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Therefore, what we have is a score function that assigns positive values to
+    points where the actual value falls outside the intervals and negative to points
+    within. And for the points that fall outside the intervals, the way the score
+    function is constructed will choose the worse error. This satisfies our requirements
+    from the score function. A larger score shows larger uncertainty, and it also
+    encodes a heuristic notion of uncertainty.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now that we have the scores, the rest of the steps are almost identical:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Compute ![](img/B22389_17_121.png) as the ![](img/B22389_17_122.png) quantile
+    of the calibration scores.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Use this quantile to form prediction sets for new examples: ![](img/B22389_17_151.png),
+    i.e., we widen the exiting quantiles by ![](img/B22389_17_121.png) and get coverage
+    guarantees.'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Quantile regression is one of the better ways of getting *adaptive prediction
+    intervals*. Let’s look at one such technique now.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Conformalizing uncertainty estimates
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: If we think about Conformalized Quantile Regression (from the last section)
+    a bit deeply, we can realize that what the underlying quantile regression is doing
+    is capturing the *uncertainty estimate* at each point in our prediction. And we
+    conformalize those estimates for better coverage. If we can capture this *uncertainty
+    estimate*, ![](img/B22389_17_153.png), we have some hope of conformalizing this
+    to get better *adaptive prediction intervals*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let’s say that we have a trained model, ![](img/B22389_17_103.png), and some
+    uncertainty scalar, ![](img/B22389_17_153.png), that has high values when uncertainty
+    is high, and vice versa. We can define our non-conformity score as:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_17_156.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: The natural interpretation of this score is that we are multiplying a correction
+    factor to the standard ![](img/B22389_17_157.png). Once we have this new score,
+    the rest of the process is exactly the same—taking ![](img/B22389_17_121.png)
+    from the scores and forming the prediction intervals as ![](img/B22389_17_159.png).
+  prefs: []
+  type: TYPE_NORMAL
+- en: So, what are some ways to capture this uncertainty? (Note that this uncertainty
+    measure should be capturing it at a data point level.)
+  prefs: []
+  type: TYPE_NORMAL
+- en: Assume a probability distribution and modeling their parameters (**Probability
+    Density Function**). In the case of Gaussian Distribution, we would have an estimate
+    of uncertainty as the standard deviation, ![](img/B22389_17_160.png), and we consider
+    that as ![](img/B22389_17_153.png). ![](img/B22389_17_162.png).
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Use the MC Dropout technique to generate samples and calculate the standard
+    deviation of ![](img/B22389_17_163.png) from the samples: ![](img/B22389_17_164.png).'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Along with the main model prediction ![](img/B22389_17_165.png), train another
+    model to predict the residuals, ![](img/B22389_17_166.png), and set ![](img/B22389_17_167.png).
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Use an ensemble of models to generate multiple predictions for each data point
+    and take the standard deviation of different predictions at each data point: ![](img/B22389_17_168.png).'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Although the list above is not exhaustive, it does show that we can apply conformal
+    prediction to almost any uncertainty estimates (including the ones we have already
+    seen in the chapter). This makes the conformal prediction paradigm a very flexible
+    toolkit to get coverage guarantees with a wide variety of problems. Even with
+    this flexible nature, there are cases that mess with the coverage guarantees that
+    the framework promises. And for our time series context, this is important to
+    understand.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Exchangeability in Conformal Prediction and time series forecasting
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: '*Exchangeability* is a fundamental assumption in Conformal Prediction. Exchangeability
+    means that the data points are identically distributed and their joint probability
+    distribution does not change when the order of the data points is changed. This
+    concept ensures that past data points can reliably predict future data points.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Imagine a chocolate factory producing chocolates with consistent weights. If
+    the production process is highly controlled, with the same conditions and ingredients,
+    the weights of the chocolates are exchangeable because their order of production
+    does not affect their weight. You can sample 100 chocolates, measure their weights,
+    and calculate nonconformity scores based on deviations from the predicted weight.
+    Using these scores, you can form prediction intervals for future chocolates. Because
+    the chocolates are exchangeable, the sample distribution represents the future
+    distribution, making prediction intervals reliable.
+  prefs: []
+  type: TYPE_NORMAL
+- en: However, if the production process changes over time—due to machinery wear or
+    different ingredient batches—the weights become non-exchangeable. The order of
+    production affects the weights, making the sample distribution unrepresentative
+    of future weights, leading to unreliable prediction intervals.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In time series data, observations are typically dependent on previous observations,
+    violating the exchangeability assumption. For example, in a sales forecast, today’s
+    sales may influence tomorrow’s sales due to trends, or the sales a year ago may
+    influence tomorrow’s sales due to seasonal effects. This dependency means that
+    the distribution of past data does not represent the distribution of future data
+    accurately.
+  prefs: []
+  type: TYPE_NORMAL
+- en: But what does this mean for us? The most obvious answer is that our coverage
+    guarantees will suffer. But can we still apply these techniques for time series?
+    Of course we can. Empirically, the community has seen that this framework works
+    for time series data as well, but with some loss in coverage guarantees. For most
+    practical purposes, there shouldn’t be an issue in using regular conformal prediction
+    for time series data. In 2023, Barber et al. (Reference *12*) studied this issue
+    and derived theoretical coverage guarantees for non-exchangeable data (like time
+    series). They defined the Coverage Gap as the difference between expected coverage
+    (![](img/B22389_17_016.png)) and actual coverage and derived an upper bound on
+    this gap to show how much the exchangeability assumption on the scores is violated.
+    For this bound, they considered the scores of the calibration data with our original
+    model, ![](img/B22389_17_170.png), and an alternate model, which was trained on
+    the same data but after swapping one randomly selected datapoint in the training
+    data with the test datapoint, ![](img/B22389_17_171.png).
+  prefs: []
+  type: TYPE_NORMAL
+- en: The bound was shown to be directly proportional to ![](img/B22389_17_172.png),
+    which is the distributional distance between these two scores. In most algorithms
+    we use, swapping one data point may not change the model drastically and therefore,
+    we can still use conformal prediction for time series data with minimal loss in
+    coverage.
+  prefs: []
+  type: TYPE_NORMAL
+- en: But on the other hand, if we want to be really accurate with the prediction
+    intervals, or if we are using a model that is particularly impacted by the swapping
+    of a datapoint, then we would need some techniques to overcome this degradation
+    due to a shift in distributions. There are many ways to deal with this, and it
+    is an active area of research at the time of writing the book. There are two very
+    simple methods that are worth mentioning here.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Weighted conformal prediction
+  prefs:
+  - PREF_H4
+  type: TYPE_NORMAL
+- en: Suppose we have slowly varying changes in the data distribution in a time series,
+    ![](img/B22389_17_173.png), and we are using a calibration set, ![](img/B22389_17_174.png),
+    taking the last *k* timesteps. And we are interested in predicting the test set,
+    ![](img/B22389_17_175.png), where *H* is the horizon of forecast.
+  prefs: []
+  type: TYPE_NORMAL
+- en: So, it stands to reason that the most recent timestep in ![](img/B22389_17_176.png)
+    would be closest to the distribution of values we would observe in the test time
+    period. So, what if we assign weights to the non-conformity scores in the calibration
+    data such that the most recent time step gets higher weights, and calculates a
+    weighted quantile instead of a regular quantile? Apparently, that’s a very good
+    idea, with some solid theoretical backing as well.
+  prefs: []
+  type: TYPE_NORMAL
+- en: And weighing the calibration data using recency is just one of the ways we can
+    use the weights to tackle the distribution shift. More generally, any weight schedule,
+    ![](img/B22389_17_177.png) can be used here. Maybe for a strongly seasonal time
+    series, it makes sense to use seasonal periods to define the weights, or there
+    may be some other known criteria that makes different instances of the calibration
+    data more or less relevant to future prediction.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Before we get into the actual mechanics of this, we need to understand what
+    weighed quantiles are. If you are already comfortable with the concept, feel free
+    to go ahead. If you need some intuition about what it is, I strongly advise you
+    to check out the notebook in the chapter folder named `08-Quantiles_and_Weighted_Quantiles.ipynb`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now, let’s come back to our Weighted Conformal Prediction method.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'So, as we discussed earlier, for any normalized weight schedule, ![](img/B22389_17_178.png),
+    and calibration scores, *s*[i] the weighted quantile can be formally defined as:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_17_179.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: where *inf* is the infimum and ![](img/B22389_17_031.png) is an indicator function,
+    which is 1 when the condition is true and 0 otherwise. In this context, the *infimum*
+    is the smallest value of *q* such that the inequality holds true. This is just
+    a more rigorous way of defining the weighted quantile that we saw in the aforementioned
+    notebook. The rest of the process is exactly the same as before.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Practically, there are a few different ways we can use this for time series
+    problems. For instance:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: We can consider a moving window of length *K* and have a fixed weight vector
+    of length *K*. Under this scheme, we will apply the weights for each point in
+    the time series to the last *K* points and calculate the prediction interval for
+    that point. These weights can be equal weights or even decayed weights, capturing
+    the temporal element.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: When we model multiple time series together, we can make sure the weights reflect
+    how close another time series is to the time series we are generating the intervals
+    for, along with the temporal context.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: The bottom line is that we can be as creative as we can when coming up with
+    the weights. The guideline is that the weight should reflect how different the
+    calibration datapoints are from the datapoint you are generating the prediction
+    interval for. Remember, we talked about the upper bound earlier, ![](img/B22389_17_172.png).
+    The weight we choose would counteract this term. When we have smaller weights
+    for datapoints that are “farther” away from the datapoint we care about, this
+    brings down the upper bound of the coverage gap and makes it tighter.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now, let’s learn about another very simple modification to account for distribution
+    shift.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Adaptive Conformal Inference (ACI)
+  prefs:
+  - PREF_H4
+  type: TYPE_NORMAL
+- en: In 2021, Gibbs et al. (Reference *13*) proposed another way to deal with distribution
+    shift (especially in time series) in an online setting. Time series data usually
+    comes in one datapoint at a time, and this way to deal with distribution shift
+    relies on this online aspect as it proposes to keep adjusting the prediction intervals
+    based on the data that keeps trickling in, thus making the prediction intervals
+    adapt to changing distributions. This method, called **Adaptive Conformal Inference**
+    (**ACI**), can be integrated with any prediction algorithm to provide robust prediction
+    sets under non-stationary conditions.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In traditional Conformal Prediction, we have a score function, ![](img/B22389_17_182.png),
+    and a quantile function, ![](img/B22389_17_121.png), which gives us the prediction
+    intervals, ![](img/B22389_17_184.png). Note that the underlying uncertainty model,
+    which was conformalized as ![](img/B22389_17_121.png), can be any way of estimating
+    uncertainties, like quantile regression, PDF, MC Dropouts, and so on. When the
+    data is exchangeable, the ![](img/B22389_17_121.png) we calculated on calibration
+    data will hold good on future test datapoints. But when the distribution shifts,
+    this ![](img/B22389_17_121.png) will also start to become less and less relevant.
+    To address this, the authors propose regularly re-estimating these functions to
+    align with the most recent data observations. Specifically, at each time point,
+    *t*, a new score function, ![](img/B22389_17_188.png), and a new quantile function,
+    ![](img/B22389_17_189.png)(.), are fitted based on the most recent data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: For this, they defined the *miscoverage rate*, ![](img/B22389_17_190.png), as
+    the probability that the true label, ![](img/B22389_17_191.png), lies outside
+    the prediction intervals, ![](img/B22389_17_184.png), where probability is calculated
+    over the calibration data and the test datapoint. We want the *Miscoverage rate*,
+    ![](img/B22389_17_190.png), to be equal to ![](img/B22389_04_009.png) (expected
+    error rate). But since the data distribution is shifting, ![](img/B22389_17_190.png)
+    is not expected to remain constant over time, and it may not equal the target
+    level, ![](img/B22389_04_009.png). The authors hypothesize that for each time,
+    ![](img/B22389_16_126.png), there may exist an optimal coverage level, ![](img/B22389_17_198.png)
+    such that the miscoverage rate, ![](img/B22389_17_199.png), is approximately ![](img/B22389_04_009.png).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'To estimate this ![](img/B22389_17_198.png), the authors propose a simple online
+    update equation. This update takes into consideration the empirical miscoverage
+    rate of the previous observations and then decreases or increases our estimate
+    of ![](img/B22389_17_202.png). Concretely, if we set ![](img/B22389_17_203.png),
+    we can define error as:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_17_204.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Now, we can define the update step recursively as:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_17_205.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Here, ![](img/B22389_17_206.png), serves as an estimate of the historical miscoverage
+    rate and ![](img/B22389_17_207.png) is the step-size (a hyperparameter; more on
+    this later). So, when ![](img/B22389_17_208.png) (prediction was within the interval),
+    ![](img/B22389_17_209.png) will be positive and thus updating ![](img/B22389_17_210.png)
+    to be higher than ![](img/B22389_17_211.png). This, in turn, makes the prediction
+    interval narrower (according to the ![](img/B22389_04_011.png) we have defined).
+    With the same logic, when ![](img/B22389_17_213.png) (prediction was outside the
+    interval), the prediction interval becomes wider.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'A natural alternative to this update, which also takes into account the history
+    a bit more, is using a weighted average of past timesteps:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_17_214.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'where ![](img/B22389_17_215.png) is a sequence of increasing weights with ![](img/B22389_17_216.png).
+    Instead of looking at just the last time step for the estimate of miscoverage,
+    this update looks at the recent history. This makes it slightly more robust, at
+    least in theory. The paper reported no significant difference between the two
+    strategies. One of the strategies they have used to decide the weights is:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_17_217.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: They reported that the trajectories of prediction intervals that they obtained
+    from the simple update and weighted update were almost the same, but the weighted
+    one was considerably smoother with less local variation in ![](img/B22389_17_211.png).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now, let’s also spend some time understanding the effect of the step-size parameter,
+    ![](img/B22389_04_011.png). The intuition is very similar to the learning rate
+    in deep learning models. ![](img/B22389_04_011.png) decides the magnitude with
+    which we update the ![](img/B22389_04_009.png). The larger the value, the quicker
+    the update, and vice versa. The paper also gives us an intuition that the greater
+    the distributional shift greater the value of ![](img/B22389_04_011.png). For
+    all their experiments, they used ![](img/B22389_17_223.png) with a justification
+    that they found this value to make the trajectories relatively smooth while still
+    being large enough to allow ![](img/B22389_17_211.png) to adapt to distributional
+    shifts. We can see this as a parameter controlling the strength of “adapting”
+    and letting us move in the spectrum between non-adaptive intervals and strongly
+    adaptive intervals.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now, let’s see how to apply these in practice.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Forecasting with Conformal Prediction
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'We didn’t find any ready-to-use implementations of all the techniques we wanted
+    to show here, especially one that has these properties:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Complete separation of model layer and conformal prediction layer (being model-agnostic
+    is one of the most exciting features of Conformal Prediction)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Out-of-the box compatibility with `neuralforecast` predictions
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Time series focus
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Pedagogical ease
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Therefore, we have included a file (`src/conformal/conformal_predictions.py`)
+    with the necessary implementations that would work with `neuralforecast` forecasts
+    and have a unified API. It is also simple enough to understand. We will go through
+    major parts of the code, but to see how it all fits together, you should just
+    take a look at the file.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'All the methods we discussed, like Conformal Prediction for Regression, Conformalized
+    Quantile Regression, and Conformalizing uncertainty estimates, have been coded
+    out in the same API. Let’s look at the most basic Conformal Prediction for Regression
+    to understand the API. It can be found in the `ConformalPrediction` class in the
+    file. The rest of the techniques inherit this class and make slight tweaks. And
+    all these classes are coded in such a way that they take in the prediction dataframe
+    from `neuralforecast` (or `statsforecast`) and use the same naming conventions
+    to conformalize those predictions. In theory, any forecast that can be made into
+    the expected format can be used with these classes. The expected columns in the
+    format are:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`ds`: This column should contain dates or the numerical equivalent of time.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`y`: For train and calibration datasets, this column is necessary and it represents
+    the actual value of that time series.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`unique_id`: This column is the unique identifier for different time series.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: In addition to these columns, we would also have a column (or multiple columns)
+    of forecast, named accordingly.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Before we start generating conformal predictions, we also need some data and
+    forecasts. We are using the same data that we have been using in this chapter
+    (M4), with one additional split (calibration) created. And using the new train
+    data, we have created these three forecasts with `level = 90`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: LSTM point forecast (`LSTM`)
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: LSTM with Quantile Regression (`LSTM_QR`)
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: LSTM with PDF (normal distribution) (`LSTM_PDF`)
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '**Notebook alert**'
+  prefs: []
+  type: TYPE_NORMAL
+- en: To follow along with the complete code, use the notebook named `09-Conformal_Techniques.ipynb`
+    in the `Chapter17` folder.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The notebook has the entire code, but we can start from the point where we have
+    already split the data into `Y_train_df`, `Y_calib_df`, and `Y_test_df`, and generated
+    and stored forecasts in a dictionary, `prediction_dict`. Let’s take a look at
+    the top five rows of the prepared data frame to see what kind of data we are working
+    with.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_17_16.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 17.16: Top five rows of the Y_calib_df we are working with. This is
+    the format that the conformal prediction classes we have coded expect'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now, let’s get down to business and start creating prediction intervals.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Conformal prediction for regression
+  prefs:
+  - PREF_H4
+  type: TYPE_NORMAL
+- en: 'The `ConformalPrediction` class provides a structured way to calculate prediction
+    intervals based on a chosen model’s predictions from a calibration dataset. It
+    includes the following input parameters:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`model` (str): The name of the column with the forecast you want to conformalize.
+    This is a required parameter.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`level` (float): The confidence level for the prediction intervals, expressed
+    as a percentage (e.g., 95 for a 95% confidence interval). The level must be between
+    1 and 100\. This is a required parameter.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`alias` (str, optional): An optional string to provide an alias for the model.
+    This can be useful when working with multiple models or versions and you want
+    to call the output something else other than the model. If not provided, `model`
+    is used.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'The major functions for using the class are:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`fit(Y_calib_df)`: This method orchestrates the entire calibration process.
+    It first calculates the calibration scores using `calculate_scores` and then determines
+    the quantiles for each `unique_id` using `get_quantile`. The resulting quantiles
+    (`q_hat`) are stored as an attribute of the class, making them available for subsequent
+    prediction intervals.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`predict(Y_test_df)`: This method applies the prediction intervals to the test
+    data. It uses the `calc_prediction_interval` method to compute the intervals and
+    then adds them to the DataFrame as new columns. The new columns are created in
+    this format: `f"{self.alias or self.model}-{self._mthd}-lo-{self.level}"`. For
+    example, the higher interval for Conformal Prediction using LSTM would have `LSTM-CP-hi-90`
+    as the column name in the dataframe.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: These classes are the external API. Internally, there are some methods that
+    actually define how it’s done. Let’s look at the major methods in the context
+    of regular Conformal Prediction.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The `calculate_scores` method is defined below, where we just calculate the
+    absolute residuals using the calibration dataset as the scores:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE32]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The `get_quantile` method calculates the quantile using the defined ![](img/B22389_04_009.png)
+    for each `unique_id`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE33]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The `calc_prediction_interval` method uses the calculated `q_hat` and mean
+    prediction to generate the prediction intervals. For regular Conformal Prediction,
+    it goes like this:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE34]'
+  prefs: []
+  type: TYPE_PRE
+- en: Now, let’s use it for forecasting.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE35]'
+  prefs: []
+  type: TYPE_PRE
+- en: The generated dataframe (*Figure 17.15*) with prediction intervals will have
+    two columns—`LSTM-CP-lo-90` and `LSTM-CP-hi-90` for the lower and upper prediction
+    interval, respectively. `CP` is the method tag we have assigned the conformal
+    prediction class.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We can check the method name of any object as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE36]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Let’s see what the forecast dataframe looks like (CP is the method tag we have
+    assigned the conformal prediction class. We can check the method name of any object
+    by doing `cp.method_name`):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_17_17.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 17.17: The generated dataframe with prediction intervals'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now, we also have to calculate the coverage and average length of the intervals
+    to assess how these prediction intervals are. We use the same methods we used
+    earlier to do that. Instead of looking at the performance of each method, let’s
+    save the discussion for the end and look at creating the prediction intervals
+    for now.
+  prefs: []
+  type: TYPE_NORMAL
+- en: So, let’s move on to the next technique.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Conformalized Quantile Regression
+  prefs:
+  - PREF_H4
+  type: TYPE_NORMAL
+- en: The first condition of applying this method of conformal prediction is that
+    there should already be a set of prediction intervals from the underlying Quantile
+    Regression. Therefore, we use the `LSTM_QR` model we trained here.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The main difference between vanilla Conformal Prediction and CQR is the way
+    the scores are calculated and the prediction intervals. So, we can inherit `ConformalPrediction`
+    and just redefine these two methods.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let’s look at the `calculate_scores` method.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE37]'
+  prefs: []
+  type: TYPE_PRE
+- en: We have just implemented the formula we saw earlier. `self.lower_quantile_model`
+    and `self.upper_quantile_model` are the column names of the already-generated
+    intervals from CQR.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now, we also need to define the `calc_prediction_interval` method.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE38]'
+  prefs: []
+  type: TYPE_PRE
+- en: '`q_hat` is a dictionary with the quantiles calculated for each `unique_id`.
+    So, all we do here is take the existing prediction interval from CQR and adjust
+    it by mapping the quantile using the `unique_id` in the input dataframe.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now, let’s use this for forecasting. The API is exactly the same as before.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE39]'
+  prefs: []
+  type: TYPE_PRE
+- en: Now, let’s look at the third technique we discussed.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Conformalizing uncertainty estimates
+  prefs:
+  - PREF_H4
+  type: TYPE_NORMAL
+- en: If you remember the discussion we had earlier, to use this technique, we need
+    an estimate of uncertainty that can be further conformalized. This is why we picked
+    one of the other techniques we used earlier, PDF. But we can also do this with
+    the MC Dropout just as easily. All we need is the standard deviation or something
+    similar that captures the uncertainty at each data point.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We are using the `LSTM_PDF` forecast that we generated earlier for this purpose.
+    Although the model predicts the mean and standard deviation of the normal distribution,
+    it is used internally to generate the prediction intervals. So, the output from
+    the PDF model we defined earlier would be the prediction intervals, but we want
+    the standard deviation. Fear not. We know the prediction intervals were created
+    with the normal distribution. So, it’s not hard to re-engineer the standard deviation
+    from the prediction intervals.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_17_049.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: '![](img/B22389_17_050.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Using basic math, we can derive:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_17_228.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: And *Z* is very straightforward to get. We can use `scipy.stats.norm` for this.
+    Below is a method that will get you the standard deviation from the prediction
+    intervals (do keep in mind that this is only for PDFs created using a normal distribution).
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE40]'
+  prefs: []
+  type: TYPE_PRE
+- en: Now, we add this to our `Y_calib_df` and `Y_test_df`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE41]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Now, let’s look at how we can define the class. We need additional information
+    in here that we didn’t need earlier—the column name of the uncertainty estimate.
+    So, we define our new class (still inheriting `ConformalPrediction`) as below:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE42]'
+  prefs: []
+  type: TYPE_PRE
+- en: We define an additional parameter, `uncertainty_model`, and pass on the other
+    parameters to the parent class.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now, it’s pretty straightforward. We need to define how the scores are calculated:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE43]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'And the `calc_prediction_interval` method:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE44]'
+  prefs: []
+  type: TYPE_PRE
+- en: That’s it. Now, we have a new class that conformalizes uncertainty estimates.
+    Let’s use it to get the forecast for the dataset we have been working with.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE45]'
+  prefs: []
+  type: TYPE_PRE
+- en: Now, let’s also look at the two techniques we saw, which were more suited for
+    time series problems where there is a distribution shift.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Weighted conformal prediction
+  prefs:
+  - PREF_H4
+  type: TYPE_NORMAL
+- en: We saw earlier that weighted conformal prediction was just about applying the
+    right kind of weights to the calibration data such that the points similar to
+    the test point get more weight than the dissimilar ones. And the key difference
+    occurs only in the way the quantiles are calculated.
+  prefs: []
+  type: TYPE_NORMAL
+- en: What this means is that we can use any conformal prediction technique underneath,
+    but instead of calculating a simple quantile, we need to calculate a weighted
+    one. So, from an implementation perspective, we can look at this class as a wrapper
+    class around other techniques we have defined and convert them into weighted conformal
+    predictions.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Although the weighted conformal prediction can be implemented in many ways,
+    taking in different kinds of weights (across time, across `unique_id`, and so
+    on), we are going to implement a simpler look-back window-based weighted conformal
+    prediction. We choose the last *K* timesteps and calculate the weighted quantile
+    on these *K* scores using the weights given. The weights can either be simple
+    uniform weights across all *K* steps, or have decayed weights giving the highest
+    weightage to the most recent score. They can even have a completely custom weight.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'So, let’s define the `__init__` of the class as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE46]'
+  prefs: []
+  type: TYPE_PRE
+- en: Here, `K` is the window, and `conformal_predictor` is the underlying conformal
+    prediction class we should be using (this should be one of the three classes we
+    have defined). We can define the weight strategy to be either `uniform`, `decay`,
+    or `custom` for uniform weights, decayed weights, or custom weights, respectively.
+    `decay_factor` decides how fast the decay is applied to the weights for the decayed
+    weighting strategy, and `custom_weights` lets you specify exactly the weight on
+    these `K` timesteps.
+  prefs: []
+  type: TYPE_NORMAL
+- en: While we won’t look at the entire code in the text here, we will go through
+    the usual suspects so that you can understand what’s happening. But I would definitely
+    urge you to take some time to digest the code in the file.
+  prefs: []
+  type: TYPE_NORMAL
+- en: First up, we have our `fit` method. In this method, we just use the score calculation
+    of the underlying conformal predictor and store the calibration dataframe.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE47]'
+  prefs: []
+  type: TYPE_PRE
+- en: Now, let’s look at the main parts of the `predict` method.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE48]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Let’s now take one of the methods we saw earlier and apply the weighted conformal
+    predictor wrapper on it. For our example, let’s choose the simple `ConformalPrediction`.
+    Let’s see how we can use this class:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE49]'
+  prefs: []
+  type: TYPE_PRE
+- en: This would create the prediction intervals with the tag `CP_Wtd`. We can always
+    check the tag by doing `weighted_cp.method_name`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now, there is one small shortcoming with the implementation. Although we are
+    considering the temporal order in the scores, we still have a fixed calibration
+    set. So, until we “re-fit” or calibrate with the latest data points, we will still
+    be working on the same calibrated dataset. So, if you think about it, this should
+    ideally be applied in an online way where each time we predict the new timestep,
+    the previous timestep (with actual value) should be added to the calibration data.
+    We have also provided an alternative implementation that is able to do this in
+    an online fashion. We won’t go into details of the implementation because the
+    core logic is the same, but the API is different, making it possible to update
+    the calibration data. The full implementation can be found in the `OnlineWeightedConformalPredictor`
+    class in the file.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let’s see how it can be used. First, we define the setup, initialize the class,
+    and fit the calibration.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE50]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Now, during inference, we can do something like this for each timestep:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE51]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'For our special case where we are evaluating on test data where we know the
+    actuals, there is another method that does similar online prediction for the data:
+    `offline_predict`.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE52]'
+  prefs: []
+  type: TYPE_PRE
+- en: Now, let’s look at one last method.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Adaptive Conformal Inference
+  prefs:
+  - PREF_H4
+  type: TYPE_NORMAL
+- en: Lastly, we look at the Adaptive Conformal Inference. This can also be implemented
+    as a wrapper over other conformal prediction methods because this technique involves
+    updating ![](img/B22389_04_009.png) such that coverage is maintained in spite
+    of the shift in distribution. And because of the nature of the technique, we can
+    only apply this in an online manner, i.e., updating alpha at every time step with
+    the available data. So, this will have the same API as the `OnlineWeightedConformalPredictor`
+    we saw earlier.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The full class is available in `src/conformal/conformal_predictions.py`, but
+    here, we will look at some main parts so that you understand it. Let’s take a
+    look at the `__init__` function first:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE53]'
+  prefs: []
+  type: TYPE_PRE
+- en: Similar to `WeightedConformalPredictor`, we take in an underlying conformal
+    predictor (`conformal_predictor`). In addition, we have `gamma`, which is the
+    step size (![](img/B22389_04_011.png)), `update_method`, which can either be `simple`
+    (taking only the last timestep for update) or `momentum` (taking the running average
+    of the trajectory of errors). Finally, we can also define `momentum_bw`, which
+    is the momentum backweight that is used to calculate the weighted average of past
+    errors. A higher momentum (e.g., `0.95`) makes the trajectory smoother, having
+    the effect of past miscoverage rates decay slower. Going to the other extreme
+    (`0.05`) makes the weighted average more reactive and closer to the “simple” method.
+    Lastly, we also have a parameter to do the error calculation for each `unique_id`
+    separately or pool all errors together.
+  prefs: []
+  type: TYPE_NORMAL
+- en: As usual, we have a `fit` method that uses a calibration dataset to calculate
+    the scores and keep them ready. We can also see this as a warm-up period in an
+    online implementation. The ![](img/B22389_04_009.png) update will use the calibration
+    data as an initial history to start off.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE54]'
+  prefs: []
+  type: TYPE_PRE
+- en: Now, let’s see the `predict_one` method, which predicts one timestep.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE55]'
+  prefs: []
+  type: TYPE_PRE
+- en: The code is well-commented and you should be able to understand it. For each
+    `unique_id`, we get the scores, get the appropriate ![](img/B22389_04_009.png),
+    calculate the quantile, use this information to calculate the prediction interval
+    using the underlying conformal predictor, and store the prediction for later use.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now, we look at the `update` method, which we can use once the actual value
+    for the timestep becomes available.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE56]'
+  prefs: []
+  type: TYPE_PRE
+- en: Let’s see how it can be used. First, we define the setup, initialize the class,
+    and fit the calibration.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE57]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Now, during inference, we can do something like below for each timestep:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE58]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'For our special case where we are evaluating on test data where we know the
+    actuals, there is another method that does similar online prediction for the data:
+    `offline_predict`.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE59]'
+  prefs: []
+  type: TYPE_PRE
+- en: Now that we have seen all the techniques in action, let’s take a look at how
+    they have been performing.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Evaluating the results
+  prefs:
+  - PREF_H4
+  type: TYPE_NORMAL
+- en: If you have been following the notebooks, you would know that we have been calculating
+    coverage and average length for each of these techniques. To recap, coverage measures
+    the percentage of time the actual value fell between the intervals we predicted
+    and average length measures the average width of the intervals we predicted. For
+    `level=90`, we expect the coverage to be around 90% or 0.9 and the average length
+    to be as small as possible, without compromising on coverage.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let’s take a look at the following figures summarizing the coverage and average
+    length:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_17_18.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 17.18: Coverage for all the conformal techniques (for each unique_id),
+    colored according to how close they are to 0.9 (we had set level=90)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B22389_17_19.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 17.19: Average length for all the conformal techniques (for each unique_id),
+    colored according to how small they are'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Here’s a quick recap of the legend to understand the different columns, which
+    are just a combination of these tags based on the application:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`LSTM`: Underlying model that we trained to get point prediction'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`LSTM_QR`: Underlying Quantile Regression model we trained'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`LSTM_Normal`: Underlying PDF model we trained using Normal distribution assumption'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`CP`: Regular Conformal Prediction'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`CQR`: Conformalized Quantile Regression'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`CUE`: Conformalizing uncertainty Estimates'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`CP_Wtd`: Weighted corrections over Conformal Prediction'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`CP_Wtd_O`: Online Weighted corrections over Conformal Prediction'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`ACI`: Adaptive Conformal Inference'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Right off the bat, we can see that the techniques that corrected for distribution
+    shift are performing the best. There are more “greens” on the right side of both
+    tables (closer to 0.9 coverage and lower average lengths). Remember that we started
+    with regular conformal predictions and then corrected them for distributional
+    shifts. We can note that for most `unique_id`, regular **Conformal Prediction**
+    has wider than necessary intervals for `level = 90`. The coverages are greater
+    than 0.9, in most cases 1.0\. But both **Weighted Correction** (**CP_Wtd**) and
+    **Adaptive Conformal Inference** (**ACI**) made the prediction intervals narrower
+    and got closer to our expected level. There is no clear winner between the two
+    and that has to be evaluated on your dataset.
+  prefs: []
+  type: TYPE_NORMAL
+- en: And this concludes our discussion about Probabilistic Forecasts. We hope that
+    with this, you can steer into this lesser-known territory with confidence and
+    deliver more value to whoever you are forecasting for.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now, let’s take a very high-level look at some niche topics in time series forecasting
+    that get very little attention, but are quite relevant in many domains.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Road less traveled in time series forecasting
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In the spirit of Robert Frost’s *The Road Not Taken*, this section explores
+    the lesser-known, yet highly impactful, techniques in time series forecasting.
+    Just as Frost chooses a path that is less traveled, we delve into niche methods
+    that, while not mainstream, offer unique insights and potential breakthroughs
+    in various domains.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Intermittent or sparse demand forecasting
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Intermittent time series forecasting handles data with sporadic, irregular events,
+    often seen in retail, where products may have infrequent sales. It’s crucial for
+    managing inventory and avoiding stockouts or overstocking, especially for slow-moving
+    items. Traditional methods struggle with these patterns because of the fact that
+    for most of these items, the expectation of demand falls to zero, but specialized
+    techniques are needed to improve accuracy, making them essential for retail forecasting.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Here, we will quickly name-drop a few alternative algorithms that were designed
+    for intermittent forecasting and where you can find the implementations for it.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Croston and its friends**: The Croston model, developed in 1972, is used
+    to forecast intermittent demand by separately estimating two components: the demand
+    rate (when sales occur) and the time interval between sales, ignoring periods
+    with zero sales. These estimates are combined to forecast future demand, making
+    it useful for industries with infrequent sales. However, the model doesn’t account
+    for external factors or changes in demand patterns, which can affect its accuracy
+    in more complex situations. Although this was a method developed all the way back
+    in 1972, it has stayed with us in many forms and led to many modifications and
+    extensions. In *Nixtla*’s `statsforecast`, we can find `CrostonClassic`, `CrostonOptimized`,
+    `CrostonSBA`, and `TSB` as four models that can be used just like the other models
+    we saw in *Chapter 4*, *Setting a Strong Baseline Forecast*.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**ADIDA**: The **Aggregate-Disaggregate Intermittent Demand Approach** (**ADIDA**)
+    uses **Simple Exponential Smoothing** (**SES**) combined with temporal aggregation
+    to forecast intermittent demand. The method starts by aggregating demand data
+    into non-overlapping time buckets of a size equal to the **mean inter-demand**
+    interval (**MI**). SES is then applied to these aggregated values to generate
+    forecasts, which are subsequently disaggregated back to the original time scale,
+    providing demand predictions for each time period. This model is available in
+    `statsforecast` as `ADIDA`.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**IMAPA**: The **Intermittent Multiple Aggregation Prediction Algorithm** (**IMAPA**)
+    forecasts intermittent time series by aggregating values at regular intervals
+    and applying optimized **Simple exponential smoothing** (**SES**) to predict future
+    values. IMAPA is efficient, robust to missing data, and effective across various
+    intermittent time series, making it a practical and easy-to-implement choice.
+    This model is available in `statsforecast` as `IMAPA`.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Interpretability
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'We directed you toward a few interpretability techniques for machine learning
+    models back in *Chapter 10*, *Global Forecasting Models*. While some of them,
+    such as SHAP and LIME, can still be applied to deep learning models, none of them
+    consider the temporal aspect by design. This is because all those techniques were
+    developed for more general purposes, such as classification and regression. That
+    being said, there has been some work in the interpretability of DL models and
+    time series models. Here, I’ll list a few promising papers that tackle the temporal
+    aspect head-on:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**TimeSHAP**: This is a model-agnostic recurrent explainer that builds upon
+    **KernelSHAP** and extends it to the time series domain. Research paper: [https://dl.acm.org/doi/10.1145/3447548.3467166](https://dl.acm.org/doi/10.1145/3447548.3467166).
+    GitHub: [https://github.com/feedzai/timeshap](https://github.com/feedzai/timeshap).'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**SHAPTime**: This technique uses the Shapley Value to provide stable explanations
+    in the temporal dimension, improving forecasting performance. ShapTime’s model-agnostic
+    nature allows it to be deployed on any forecasting model at a lower cost, demonstrating
+    significant performance improvements across various datasets. Research paper:
+    [https://link.springer.com/chapter/10.1007/978-3-031-47721-8_45](https://link.springer.com/chapter/10.1007/978-3-031-47721-8_45).
+    GitHub: [https://github.com/Zhangyuyi-0825/ShapTime](https://github.com/Zhangyuyi-0825/ShapTime).'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Instance-wise Feature Importance in Time** (**FIT**): This is an interpretability
+    technique that relies on the distribution shift between the predictive distribution
+    and a counterfactual, where all but the feature under inspection is unobserved.
+    Research paper: [https://proceedings.neurips.cc/paper/2020/file/08fa43588c2571ade19bc0fa5936e028-Paper.pdf](https://proceedings.neurips.cc/paper/2020/file/08fa43588c2571ade19bc0fa5936e028-Paper.pdf).
+    GitHub: [https://github.com/sanatonek/time_series_explainability](https://github.com/sanatonek/time_series_explainability).'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Time Interpret**: `time_interpret` is a library extending `Captum`, focused
+    on temporal data, providing feature attribution methods to explain predictions
+    from any PyTorch model. It includes synthetic and real-world time series datasets,
+    various PyTorch models, and evaluation methods, with some components also applicable
+    to language model predictions. Research paper: [https://arxiv.org/abs/2306.02968](https://arxiv.org/abs/2306.02968).
+    GitHub: [https://github.com/josephenguehard/time_interpret](https://github.com/josephenguehard/time_interpret).'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: While this is not an exhaustive list, these are a few works that we feel are
+    important and promising. This is an area of active research, and new techniques
+    will come up as time goes on.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Cold-start forecasting
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Cold-start forecasting addresses the challenge of predicting demand for products
+    with no historical data, a common issue in industries like retail, manufacturing,
+    and consumer goods. It arises when launching new products, onboarding brands,
+    or expanding into new regions. Traditional statistical forecasting models like
+    ARIMA or exponential smoothing will not be able to tackle this as they require
+    historical data, a good amount of it as well.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'But all hope is not lost. We do have some ways to handle such cases:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Manual Substitution Mapping**: If we know that a new product is substituting
+    another product, we can do manual alignment, which moves the history of the other
+    product to the new product and uses regular techniques to forecast.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Global Machine Learning Models**: We saw how we can model multiple time series
+    using global models in *Chapter 10*. There, we used some constructed features
+    like lags, rolling aggregations, and so on. But if we train such a model without
+    such features that rely on history and with features characterizing the item (item
+    features that will enable us to cross-learn with other longer time series), we
+    can utilize cross-learning to learn the forecast from similar items. But this
+    works best for new launches that substitute another product.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Launch Profile Models**: If the new product is brand-new, we can use a very
+    similar setup to Global Machine Learning Models but with a small tweak. We can
+    convert our time series into a date/time agnostic manner and consider each time
+    series to start from the date of launch. For instance, the first timestep after
+    the launch of every product can be 1, the next can be 2, and so on. Once we convert
+    all our time series in this manner, we have a dataset that considers how a new
+    item is launched and ramps up. And this can be used to train models that consider
+    the initial ramp-up during launch.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Foundational Time Series Models**: Foundation models for time series leverage
+    large-scale pre-trained models to capture generalized patterns across various
+    time series tasks. These models are highly effective in applications like cold
+    start forecasting, where little or no historical data is available. By using foundational
+    models, practitioners can apply pre-trained knowledge to new scenarios, improving
+    accuracy in forecasting tasks across industries such as retail, healthcare, and
+    finance. The models offer flexibility, allowing fine-tuning or zero-shot applications,
+    making them particularly useful for complex, sparse, or intermittent data. Many
+    foundational models for time series are already available for use—some are commercial
+    and some others are open source. This is a nice survey of the foundational models
+    at the time of writing the book: Foundation Models for Time Series Analysis: A
+    Tutorial and Survey: [https://arxiv.org/abs/2403.14735](https://arxiv.org/abs/2403.14735).
+    The performance of such models is average at best, but in the absence of any data
+    (cold-start), this presents as a good option to try out. A few popular ways of
+    doing this practically are:'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*TimeGPT* (Commercial) from Nixtla: [https://nixtlaverse.nixtla.io/nixtla/docs/getting-started/introduction.html](https://nixtlaverse.nixtla.io/nixtla/docs/getting-started/introduction.html)'
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*Chronos* from Amazon: [https://auto.gluon.ai/stable/tutorials/timeseries/forecasting-chronos.html](https://auto.gluon.ai/stable/tutorials/timeseries/forecasting-chronos.html)'
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*Moirai* from Salesforce: [https://huggingface.co/Salesforce/moirai-1.0-R-large](https://huggingface.co/Salesforce/moirai-1.0-R-large)'
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*TimesFM* from Google: [https://github.com/google-research/timesfm](https://github.com/google-research/timesfm)'
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Hierarchical forecasting
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Hierarchical forecasting deals with time series that can be disaggregated into
+    nested levels, such as product categories or geographic regions. These structures
+    require forecasts that maintain coherence, meaning predictions at lower levels
+    should sum up to higher levels, reflecting the aggregation. Grouped time series,
+    which combine different hierarchies (e.g., product type and geography), add complexity.
+    The goal is to produce consistent, accurate forecasts that align with the data’s
+    natural aggregation, making hierarchical forecasting essential for businesses
+    managing large collections of time series across multiple dimensions.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'There are some techniques of disaggregating, aggregating, or reconciling all
+    forecasts so that they add up in a logical manner. *Chapter 10* from Rob Hyndman’s
+    free Bible of time series forecasting (*Forecasting: Principles and Practice*)
+    talks about this at length and is a very good resource to get up to speed (fair
+    warning: it’s quite math-intensive). You can find the chapter here: [https://otexts.com/fpp2/hierarchical.html](https://otexts.com/fpp2/hierarchical.html).
+    For a more practical approach, you can check out Nixtla’s `hierarchicalforecast`
+    library here: [https://nixtlaverse.nixtla.io/hierarchicalforecast/index.html](https://nixtlaverse.nixtla.io/hierarchicalforecast/index.html).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: And with that, one of the longest chapters of the book comes to an end. Congrats
+    on making it and digesting all the information. Do feel free to use the notebooks
+    and play around with the code, different options, and so on to get a better grasp
+    of what’s happening.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Summary
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In this chapter, we explored different techniques for generating probabilistic
+    forecasts like Probability Density Functions, Quantile functions, Monte Carlo
+    Dropout, and Conformal Prediction. We deep-dived into each of them and learned
+    how to apply them to real data. For Conformal Predictions, an actively researched
+    field, we learned different ways to conformalize prediction intervals with different
+    underlying mechanisms, like Conformalized Quantile Regression, conformalizing
+    uncertainty estimates, and so on. And finally, we saw a few tweaks to make conformal
+    prediction work even better for time series problems.
+  prefs: []
+  type: TYPE_NORMAL
+- en: To wrap it up, we also looked at a few topics that are on the road less traveled,
+    like intermittent demand forecasting, interpretability, cold-start forecasting,
+    and hierarchical forecasting.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the next part of this book, we will look at a few mechanics of forecasting,
+    such as multi-step forecasting, cross-validation, and evaluation.
+  prefs: []
+  type: TYPE_NORMAL
+- en: References
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'The following are the references for this chapter:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Tony Duan, A. Avati, D. Ding, S. Basu, A. Ng, and Alejandro Schuler. (2019).
+    *NGBoost: Natural Gradient Boosting for Probabilistic Prediction*. International
+    Conference on Machine Learning. [https://proceedings.mlr.press/v119/duan20a/duan20a.pdf](https://proceedings.mlr.press/v119/duan20a/duan20a.pdf).'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Y. Gal and Zoubin Ghahramani. (2015). *Dropout as a Bayesian Approximation:
+    Representing Model Uncertainty in Deep Learning*. International Conference on
+    Machine Learning. [https://proceedings.mlr.press/v48/gal16.html](https://proceedings.mlr.press/v48/gal16.html).'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Valentin Flunkert, David Salinas, and Jan Gasthaus. (2017). *DeepAR: Probabilistic
+    Forecasting with Autoregressive Recurrent Networks*. International Journal of
+    Forecasting. [https://www.sciencedirect.com/science/article/pii/S0169207019301888](https://www.sciencedirect.com/science/article/pii/S0169207019301888).'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Koenker, Roger. (2005). *Quantile Regression*. Cambridge University Press. pp.
+    146–7\. ISBN 978-0-521-60827-5\. [http://www.econ.uiuc.edu/~roger/research/rq/QRJEP.pdf](http://www.econ.uiuc.edu/~roger/research/rq/QRJEP.pdf).
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Spyros Makridakis, Evangelos Spiliotis, Vassilios Assimakopoulos. (2020). *The
+    M4 Competition: 100,000 time series and 61 forecasting methods*. International
+    Journal of Forecasting. [https://www.sciencedirect.com/science/article/pii/S0169207019301128](https://www.sciencedirect.com/science/article/pii/S0169207019301128).'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Loic Le Folgoc and Vasileios Baltatzis and Sujal Desai and Anand Devaraj and
+    Sam Ellis and Octavio E. Martinez Manzanera and Arjun Nair and Huaqi Qiu and Julia
+    Schnabel and Ben Glocker. (2021). *Is MC Dropout Bayesian?*. arXiv preprint arXiv:
+    Arxiv-2110.04286\. [https://arxiv.org/abs/2110.04286](https://arxiv.org/abs/2110.04286).'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Nicolas Dewolf and Bernard De Baets and Willem Waegeman. (2023). *Valid prediction
+    intervals for regression problems*. Artif. Intell. Rev. [https://doi.org/10.1007/s10462-022-10178-5](https://doi.org/10.1007/s10462-022-10178-5).
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: V. Vovk, A. Gammerman, and G. Shafer. (2005). *Algorithmic learning in a random
+    world*. Springer. [https://link.springer.com/book/10.1007/b106715](https://link.springer.com/book/10.1007/b106715).
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Anastasios N. Angelopoulos and Stephen Bates. (2021). *A Gentle Introduction
+    to Conformal Prediction and Distribution-Free Uncertainty Quantification*. arXiv
+    preprint arXiv: Arxiv-2107.07511\. [https://arxiv.org/abs/2107.07511](https://arxiv.org/abs/2107.07511).'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Harris Papadopoulos, Kostas Proedrou, Volodya Vovk, and Alex Gammerman. (2002).
+    *Inductive confidence machines for regression*. Machine Learning: ECML 2002\.
+    ECML 2002\. Lecture Notes in Computer Science(), vol 2430\. Springer, Berlin,
+    Heidelberg. [https://doi.org/10.1007/3-540-36755-1_29](https://doi.org/10.1007/3-540-36755-1_29).'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Romano, Yaniv and Patterson, Evan and Candes, Emmanuel. (2019). *Conformalized
+    Quantile Regression*. Advances in Neural Information Processing Systems. [https://proceedings.neurips.cc/paper_files/paper/2019/file/5103c3584b063c431bd1268e9b5e76fb-Paper.pdf](https://proceedings.neurips.cc/paper_files/paper/2019/file/5103c3584b063c431bd1268e9b5e76fb-Paper.pdf).
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: R. Barber, E. Candès, Aaditya Ramdas, and R. Tibshirani. (2022). *Conformal
+    prediction beyond exchangeability*. Annals of Statistics. [https://projecteuclid.org/journals/annals-of-statistics/volume-51/issue-2/Conformal-prediction-beyond-exchangeability/10.1214/23-AOS2276.full](https://projecteuclid.org/journals/annals-of-statistics/volume-51/issue-2/Conformal-prediction-beyond-exchangeability/10.1214/23-AOS2276.full).
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Gibbs, Isaac and Candes, Emmanuel. (2021). *Adaptive Conformal Inference Under
+    Distribution Shift*. Advances in Neural Information Processing Systems. [https://proceedings.neurips.cc/paper_files/paper/2021/file/0d441de75945e5acbc865406fc9a2559-Paper.pdf](https://proceedings.neurips.cc/paper_files/paper/2021/file/0d441de75945e5acbc865406fc9a2559-Paper.pdf).
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Further reading
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: To learn more about the topics that were covered in this chapter, take a look
+    at the following resources.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*The Gradient Boosters VI(B): NGBoost*: [https://deep-and-shallow.com/2020/06/27/the-gradient-boosters-vib-ngboost/](https://deep-and-shallow.com/2020/06/27/the-gradient-boosters-vib-ngboost/)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*Dive into Deep Learning, Chapter 5.6:* [https://d2l.ai/chapter_multilayer-perceptrons/dropout.html](https://d2l.ai/chapter_multilayer-perceptrons/dropout.html)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*Bayesian Inference by Marco Taboga*: [https://www.statlect.com/fundamentals-of-statistics/Bayesian-inference](https://www.statlect.com/fundamentals-of-statistics/Bayesian-inference)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*Seeing Theory: Bayesian Inference*: [https://seeing-theory.brown.edu/bayesian-inference/index.html](https://seeing-theory.brown.edu/bayesian-inference/index.html)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*A Tutorial on Sparse Gaussian Processes and Variational Inference by Felix
+    Leibfried et al.*: [https://arxiv.org/pdf/2012.13962](https://arxiv.org/pdf/2012.13962)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*A Gentle Introduction to Conformal Prediction and Distribution-Free Uncertainty
+    Quantification* *by Anastasios N. Angelopoulos and Stephen Bates. (2021):* [https://arxiv.org/abs/2107.07511](https://arxiv.org/abs/2107.07511  )'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Join our community on Discord
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Join our community’s Discord space for discussions with authors and other readers:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[https://packt.link/mts](https://packt.link/mts)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/QR_Code15080603222089750.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Leave a Review!
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Thank you for purchasing this book from Packt Publishing—we hope you enjoy it!
+    Your feedback is invaluable and helps us improve and grow. Once you’ve completed
+    reading it, please take a moment to leave an Amazon review; it will only take
+    a minute, but it makes a big difference for readers like you.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Scan the QR or visit the link to receive a free ebook of your choice.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[https://packt.link/NzOWQ](Chapter_17.xhtml)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![A qr code with black squares  Description automatically generated](img/review1.jpg)'
+  prefs: []
+  type: TYPE_IMG

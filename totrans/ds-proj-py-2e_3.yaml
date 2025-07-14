@@ -1,0 +1,2260 @@
+- en: 3\. Details of Logistic Regression and Feature Exploration
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Overview
+  prefs: []
+  type: TYPE_NORMAL
+- en: This chapter teaches you how to evaluate features quickly and efficiently, in
+    order to know which ones will probably be most important for a machine learning
+    model. Once we get a taste for this, we'll explore the inner workings of logistic
+    regression so you can continue your journey to mastery of this fundamental technique.
+    After reading this chapter, you will be able to make a correlation plot of many
+    features and a response variable and interpret logistic regression as a linear
+    model.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Introduction
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In the previous chapter, we developed a few example machine learning models
+    using scikit-learn, to get familiar with how it works. However, the features we
+    used, `EDUCATION` and `LIMIT_BAL`, were not chosen in a systematic way.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this chapter, we will start to develop techniques that can be used to assess
+    features for their usefulness in modeling. This will enable you to make a quick
+    pass over all candidate features, to have an idea of which will be the most important.
+    For the most promising features, we will see how to create visual summaries that
+    serve as useful communication tools.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Next, we will begin our detailed examination of logistic regression. We'll learn
+    why logistic regression is considered to be a linear model, even if the formulation
+    involves some non-linear functions. We'll learn what a decision boundary is and
+    see that as a key consequence of its linearity, the decision boundary of logistic
+    regression could make it difficult to accurately classify the response variable.
+    Along the way, we'll get more familiar with Python, by using list comprehensions
+    and writing functions.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Examining the Relationships Between Features and the Response Variable
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In order to make accurate predictions of the response variable, good features
+    are necessary. We need features that are clearly linked to the response variable
+    in some way. Thus far, we've examined the relationship between a couple of features
+    and the response variable, either by calculating the `groupby`/`mean` of a feature
+    and the response variable, or using individual features in a model and examining
+    performance. However, we have not yet done a systematic exploration of how all
+    the features relate to the response variable. We will do that now and begin to
+    capitalize on all the hard work we put in when we were exploring the features
+    and making sure the data quality was good.
+  prefs: []
+  type: TYPE_NORMAL
+- en: A popular way of getting a quick look at how all the features relate to the
+    response variable, as well as how the features are related to each other, is by
+    using a **correlation plot**. We will first create a correlation plot for the
+    case study data, then discuss how to interpret it, along with some mathematical
+    details.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In order to create a correlation plot, the necessary inputs include all features
+    that we plan to explore, as well as the response variable. Since we are going
+    to use most of the column names from the DataFrame for this, a quick way to get
+    the appropriate list in Python is to start with all the column names and remove
+    those that we don''t want. As a preliminary step, we start a new notebook for
+    this chapter and load packages and the cleaned data from *Chapter 1*, *Data Exploration
+    and Cleaning*, with this code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: Note
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The path to your cleaned data file may be different, depending on where you
+    saved it in *Chapter 1*, *Data Exploration and Cleaning*. The code and the outputs
+    presented in this section are also present in the reference notebook: [https://packt.link/pMvWa](https://packt.link/pMvWa).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Notice that this notebook starts out in a very similar way to the previous
+    chapter''s notebook, except we also import the **Seaborn** package, which has
+    many convenient plotting features that build on **Matplotlib**. Now let''s make
+    a list of all the columns of the DataFrame and look at the first and last five:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 3.1: Get a list of column names'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/B16925_03_01.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Figure 3.1: Get a list of column names'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Recall that we are not to use the `gender` variable due to ethical concerns,
+    and we learned that `PAY_2`, `PAY_3`,…, `PAY_6` are incorrect and should be ignored.
+    Also, we are not going to examine the one-hot encoding we created from the `EDUCATION`
+    variable, since the information from those columns is already included in the
+    original feature, at least in some form. We will just use the `EDUCATION` feature
+    directly. Finally, it makes no sense to use `ID` as a feature, since this is simply
+    a unique account identifier and has nothing to do with the response variable.
+    Let''s make another list of column names that are neither features nor the response.
+    We want to exclude these from our analysis:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: To have a list of column names that consists only of the features and response
+    we will use, we want to remove the names in `items_to_remove` from the current
+    list contained in `features_response`. There are several ways to do this in Python.
+    We will use this opportunity to learn about a particular way of building a list
+    in Python, called a **list comprehension**. When people talk about certain constructions
+    as being **Pythonic**, or idiomatic to the Python language, list comprehensions
+    are often one of the things that are mentioned.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'What is a list comprehension? Conceptually, it is basically the same as a `for`
+    loop. However, list comprehensions enable the creation of lists, which may be
+    spread across several lines in an actual `for` loop, to be written in one line.
+    They are also slightly faster than `for` loops, due to optimizations within Python.
+    While this likely won''t save us much time here, this is a good chance to become
+    familiar with them. Here is an example list comprehension:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 3.2: Example of a list comprehension'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/B16925_03_02.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Figure 3.2: Example of a list comprehension'
+  prefs: []
+  type: TYPE_NORMAL
+- en: That's all there is to it.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We can also use additional clauses to make the list comprehensions flexible.
+    For example, we can use them to reassign the `features_response` variable with
+    a list containing everything that''s not in the list of strings we wish to remove:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 3.3: Using a list comprehension to prune down the column names'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/B16925_03_03.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Figure 3.3: Using a list comprehension to prune down the column names'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The use of `if` and `not in` within the list comprehension is fairly self-explanatory.
+    Easy readability in structures such as list comprehensions is one of the reasons
+    for the popularity of Python.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The Python documentation ([https://docs.python.org/3/tutorial/datastructures.html](https://docs.python.org/3/tutorial/datastructures.html))
+    defines list comprehensions as the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*"A list comprehension consists of brackets containing an expression followed
+    by a for clause, then zero or more for or if clauses."*'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Thus, list comprehensions can enable you to do things with less code, in a way
+    that is usually pretty readable and understandable.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Pearson Correlation
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Now we are ready to create our correlation plot. Underlying a correlation plot
+    is a `.corr()` method on these columns. As we calculate this, note that the type
+    of correlation available to us in pandas is **linear correlation**, also known
+    as **Pearson correlation**. Pearson correlation is used to measure the strength
+    and direction (that is, positive or negative) of the linear relationship between
+    two variables:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 3.4: First five rows and columns of the correlation matrix'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/B16925_03_04.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Figure 3.4: First five rows and columns of the correlation matrix'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'After creating the correlation matrix, notice that the row and column names
+    are the same. Then, for each possible comparison between all pairs of features,
+    as well as all features and the response, which we can''t yet see here in the
+    first five rows and columns, there is a number. This number is called the **correlation**
+    between these two columns. All the correlations are between -1 and 1; a column
+    has a correlation of 1 with itself (the diagonal of the correlation matrix), and
+    there is repetition: each comparison appears twice since each column name from
+    the original DataFrame appears as both a row and column in the correlation matrix.
+    Before saying more about correlation, we''ll use Seaborn to make a nice plot of
+    it. Here is the plotting code, followed by the output (please see the notebook
+    on GitHub for a color figure if you''re reading in black and white; it''s necessary
+    here - [https://packt.link/pMvWa](https://packt.link/pMvWa)):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'You should see the following output:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 3.5: Heatmap of the correlation plot in Seaborn'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/B16925_03_05.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Figure 3.5: Heatmap of the correlation plot in Seaborn'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The Seaborn `heatmap` feature makes an obvious visualization of the correlation
+    matrix, according to the color scale on the right of *Figure 3.5*, which is called
+    a `sns.heatmap`, in addition to the matrix, we supplied the **tick labels** for
+    the *x* and *y* axes, which are the features and response names, and indicated
+    that the center of the colorbar should be 0, so that positive and negative correlation
+    are distinguishable as red and blue, respectively.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'If you''re reading the print version of this book, you can download and browse
+    the color versions of some of the images in this chapter by visiting the following
+    link: [https://packt.link/veMmT](https://packt.link/veMmT).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: What does this plot tell us? At a high level, if two features, or a feature
+    and the response, are **highly correlated** with each other, you can say there
+    is a strong association between them. Features that are highly correlated to the
+    response will be good features to use for prediction. This high correlation could
+    be positive or negative; we'll explain the difference shortly.
+  prefs: []
+  type: TYPE_NORMAL
+- en: To see the correlation with the response variable, we look along the bottom
+    row, or equivalently, the last column. Here we see that the `PAY_1` feature is
+    probably the most strongly correlated feature to the response variable. We can
+    also see that a number of features are highly correlated to each other, in particular
+    the `BILL_AMT` features. We will talk in the next chapter about the importance
+    of features that are correlated with each other; this is important to know about
+    for certain models, such as logistic regression, that make assumptions about the
+    correlations between features. For now, we make the observation that `PAY_1` is
+    likely going to be one of the best, most predictive features for our model. The
+    other feature that looks like it may be important is `LIMIT_BAL`, which is negatively
+    correlated. Depending on how astute your vision is, only these two really appear
+    to be any color other than black (meaning 0 correlation) in the bottom row of
+    *Figure 3.5*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Mathematics of Linear Correlation
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'What is linear correlation, mathematically speaking? If you''ve taken basic
+    statistics, you are likely familiar with linear correlation already. Linear correlation
+    works very similarly to linear regression. For two columns, *X* and *Y*, linear
+    correlation *ρ* (the lowercase Greek letter "rho") is defined as the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 3.6: Linear correlation equation'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/B16925_03_06.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Figure 3.6: Linear correlation equation'
+  prefs: []
+  type: TYPE_NORMAL
+- en: This equation describes the `[-1, 1]`. Because Pearson correlation is adjusted
+    for the mean and standard deviation of the data, the actual values of the data
+    are not as important as the relationship between *X* and *Y*. *Stronger linear
+    correlations are closer to 1 or -1\. If there is no linear relation between X
+    and Y, the correlation will be close to 0.*
+  prefs: []
+  type: TYPE_NORMAL
+- en: It's worth noting that, while it is regularly used in this context by data science
+    practitioners, Pearson correlation is not strictly appropriate for a binary response
+    variable, as we have in the case study problem. Technically speaking, among other
+    restrictions, Pearson correlation is only valid for **continuous data**, such
+    as the data we used for our linear regression exercise in *Chapter 2*, *Introduction
+    to Scikit-Learn and Model Evaluation*. However, Pearson correlation can still
+    accomplish the purpose of giving a quick idea of the potential usefulness of features.
+    It is also conveniently available in software libraries such as pandas.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In data science in general, you will find that certain widely used techniques
+    may be applied to data that violate their formal statistical assumptions. It is
+    important to be aware of the formal assumptions underlying analytical methods.
+    In fact, knowledge of these assumptions may be tested during interviews for data
+    science jobs. However, in practice, as long as a technique can help us on our
+    way to understanding the problem and finding an effective solution, it can still
+    be a valuable tool.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'That being said, linear correlation will not be an effective measure of the
+    predictive power of all features. In particular, it only picks up on linear relationships.
+    Shifting our focus momentarily to a hypothetical regression problem, have a look
+    at the following examples and discuss what you expect the linear correlations
+    to be. Notice that the values of the data on the *x* and *y* axes are not labeled;
+    this is because the location (mean) and standard deviation (scale) of data does
+    not affect the Pearson correlation, only the relationship between the variables,
+    which can be discerned by plotting them together:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 3.7: Scatter plots of the relationship between example variables'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/B16925_03_07.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Figure 3.7: Scatter plots of the relationship between example variables'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'For *examples A* and *B*, the actual Pearson correlations of these datasets
+    are 0.96 and -0.97, respectively, according to the formula given previously. From
+    looking at the plots, it''s pretty clear that a correlation close to 1 or -1 has
+    provided useful insight into the relationship between these variables. For *example
+    C*, the correlation is 0.06\. A correlation closer to 0 looks like an effective
+    indication of the lack of an association here: the value of *Y* doesn''t really
+    seem to have much to do with the value of *X*. However, in *example D*, there
+    is clearly some relationship between the variables. But the linear correlation
+    is actually lower than the previous example, at 0.02\. Here, *X* and *Y* tend
+    to "move together" over smaller scales, but this is averaged out over all samples
+    when the linear correlation is calculated.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The code to generate the plots presented in this and the preceding section
+    can be found here: [https://packt.link/XrUJU](https://packt.link/XrUJU).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Ultimately, any summary statistic such as correlation that you may choose is
+    only that: a summary. It could hide important details. For this reason, it is
+    usually a good idea to visually examine the relationship between the features
+    and response. This potentially takes up a lot of space on the page, so we won''t
+    demonstrate it here for all features in the case study. However, both pandas and
+    Seaborn offer functions to create what''s called a **scatter plot matrix**. A
+    scatter plot matrix is similar to a correlation plot, but it actually shows all
+    the data as a grid of scatter plots of all features and the response variable.
+    This allows you to examine the data directly in a concise format. Since this could
+    potentially be a lot of data and plots, you may need to downsample your data and
+    look at a reduced number of features for the function to run efficiently.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: F-test
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'While Pearson correlation is theoretically valid for continuous response variables,
+    the binary response variable for the case study data could be considered categorical
+    data, with only two categories: 0 and 1\. Among the different kinds of tests we
+    can run, to see whether features are associated with a categorical response, is
+    the `f_classif`. `f_regression`.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: We will do an ANOVA F-test using the candidate features for the case study data
+    in the following exercise. You will see that the output consists of F-statistics,
+    as well as **p-values**. How can we interpret this output? We will focus on the
+    p-value, for reasons that will become clear in the exercise. The p-value is a
+    useful concept across a wide variety of statistical measures. For instance, although
+    we didn't examine them, each of the Pearson correlations calculated for the preceding
+    correlation matrix has a corresponding p-value. There is a similar concept of
+    a p-value corresponding to linear regression coefficients, logistic regression
+    coefficients, and other measures.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In the context of the F-test, the p-value answers the question: "For the samples
+    in the positive class, how likely is it that the average value of this feature
+    is the same as that of samples in the negative class?" If the data indicated that
+    a feature has very different average values between the positive and negative
+    classes, the following will be the case:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: It will be very unlikely that those average values are the same (low p-value).
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: It will probably be a good feature in our model because it will help us discriminate
+    between positive and negative classes.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Keep these points in mind during the following exercise.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Exercise 3.01: F-test and Univariate Feature Selection'
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'In this exercise, we''ll use the F-test to examine the relationship between
+    the features and response variable. We will use this method to do what is called
+    **univariate feature selection**: the practice of testing features one by one
+    against the response variable, to see which ones have predictive power. Perform
+    the following steps to complete the exercise:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The Jupyter notebook for this exercise can be found here: [https://packt.link/ZDPYf](https://packt.link/ZDPYf).
+    This notebook also contains the prerequisite steps of loading the cleaned data
+    and importing the necessary libraries. These steps should be executed before step
+    1 of this exercise.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Our first step in doing the ANOVA F-test is to separate out the features and
+    response as NumPy arrays, taking advantage of the list we created, as well as
+    integer indexing in pandas:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'The output should show the shapes of the features and response:'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: There are 17 features, and both the features and response arrays have the same
+    number of samples as expected.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'Import the `f_classif` function and feed in the features and response:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'There are two outputs from `f_classif`: the **F-statistic** and the **p-value**,
+    for the comparison of each feature to the response variable. Let''s create a new
+    DataFrame containing the feature names and these outputs, to facilitate our inspection.
+    One way to specify a new DataFrame is by using a **dictionary**, with **key:value**
+    pairs of column names and the data to be contained in each column. We show the
+    DataFrame sorted (ascending) on p-value.'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'Use this code to create a DataFrame of feature names, F-statistics, and p-values,
+    and show it sorted on p-value:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'The output should look like this:'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '![Figure 3.8: Results of the ANOVA F-test'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '](img/B16925_03_08.jpg)'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'Figure 3.8: Results of the ANOVA F-test'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: Note that for every decrease in p-value, there is an increase in the F-statistic,
+    so the information in these columns is identical in terms of ranking features.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'The conclusions we can draw from the DataFrame of F-statistics and p-values
+    are similar to what we observed in the correlation plot: `PAY_1` and `LIMIT_BAL`
+    appear to be the most useful features. They have the smallest p-values, indicating
+    the average values of these features are `SelectPercentile` class. Also note there
+    is a similar class for the selection of the top "*k*" features (where *k* is any
+    number you specify), called `SelectKBest`. Here we demonstrate how to select the
+    top 20%.'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'To select the top 20% of features according to the F-test, first import the
+    `SelectPercentile` class:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Instantiate an object of this class, indicating we''d like to use the same
+    feature selection criteria, ANOVA F-test, that we''ve already been considering
+    in this exercise, and that we''d like to select the top 20% of features:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Use the `.fit` method to fit the object on our features and response data,
+    similar to how a model would be fit:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'The output should appear like this:'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: There are several ways to access the selected features directly, which you may
+    learn about in the scikit-learn documentation (that is, the `.transform` method,
+    or in the same step as fitting with `.fit_transform`). However, these methods
+    will return NumPy arrays, which don't tell you the names of the features that
+    were selected, just the values. For that, you can use the `.get_support` method
+    of the feature selector object, which will give you the column indices of the
+    feature array that were selected.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'Capture the indices of the selected features in an array named `best_feature_ix`:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'The output should appear as follows, indicating a logical index that can be
+    used with an array of feature names, as well as values, assuming they''re in the
+    same order as the features array supplied to `SelectPercentile`:'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '[PRE12]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'The feature names can be obtained using all but the last element (the `name`
+    response variable) of our `features_response` list by indexing with `:-1`:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE13]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Use the index array we created in *Step 7* with a list comprehension and the
+    `features` list, to find the selected feature names, as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE14]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'The output should be as follows:'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '[PRE15]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: In this code, the list comprehension has looped through the number of elements
+    in the `features` array (`len(features)`) with the `counter` loop increment, using
+    the `best_feature_ix` Boolean array, representing selected features, in the `if`
+    statement to test whether each feature was selected and capturing the name if
+    so.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: The selected features agree with the top four rows of our DataFrame of F-test
+    results, so the feature selection has worked as expected. While it's not strictly
+    necessary to do things both ways, since they both lead to the same result, it's
+    good to check your work, especially as you are learning new concepts. You should
+    be aware that with convenient methods such as `SelectPercentile`, you don't get
+    visibility of the F-statistics or p-values. However, in some situations, it may
+    be more convenient to use these methods, as the p-values may not necessarily be
+    important, outside of their utility in ranking features.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'Finer Points of the F-test: Equivalence to the t-test for Two Classes and Cautions'
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: When we use an F-test to look at the difference in means between just two groups,
+    as we've done here for the binary classification problem of the case study, the
+    test we are performing actually reduces to what's called a **t-test**. An F-test
+    is extensible to three or more groups and so is useful for multiclass classification.
+    A t-test just compares the means between two groups of samples, to see whether
+    the difference in those means is **statistically significant**.
+  prefs: []
+  type: TYPE_NORMAL
+- en: While the F-test served our purposes here of univariate feature selection, there
+    are a few cautions to keep in mind. Going back to the concept of formal statistical
+    assumptions, for the F-test these include that the data is `y`, to many potential
+    features from the matrix, `X`, we have performed what is known in statistics as
+    **multiple comparisons**. In short, this means that by examining multiple features
+    in comparison to the same response over and over, the odds increase that we'll
+    find what we think is a "good feature" just by random chance. However, such features
+    may not generalize to new data. There are statistical **corrections for multiple
+    comparisons** that amount to adjusting the p-values to account for this.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Even if we have not followed all the statistical rules that go along with these
+    methods, we can still get useful results from them. The multiple comparisons correction
+    is more of a concern when p-values are the ultimate quantity of interest, for
+    example, when making statistical inferences. Here, p-values are just a means to
+    an end of ranking the feature list. The order of this ranking would not change
+    if the p-values were corrected for multiple comparisons.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In addition to knowing which features are likely to be useful for modeling,
+    it is good to have a deeper understanding of the important features. Consequently,
+    we will do a detailed graphical exploration of these in the next exercise. We
+    will also look at other methods for feature selection later that don't make the
+    same assumptions as those we've introduced here and are more directly integrated
+    with the predictive models that we will build.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Hypotheses and Next Steps
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'According to our univariate feature exploration, the feature with the strongest
+    association with the response variable is `PAY_1`. Does this make sense? What
+    is the interpretation of `PAY_1`? `PAY_1` is the payment status of the account,
+    in the most recent month. As we learned in the initial data exploration, there
+    are some values that indicate that the account was in good standing: -2 means
+    no account usage, -1 means balance paid in full, and 0 means at least the minimum
+    payment was made. On the other hand, positive integer values indicate a delay
+    of payment by that many months. Accounts with delayed payments last month were
+    accounts that could be considered in default. This means that, essentially, this
+    feature captures historical values of the response variable. Features such as
+    this are extremely important as *one of the best predictors for just about any
+    machine learning problem is historical data on the same thing you are trying to
+    predict (that is, the response variable)*. This should make sense: people who
+    have defaulted before are probably at the highest risk of defaulting again.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: How about `LIMIT_BAL`, the credit limit of accounts? Thinking about how credit
+    limits are assigned, it is likely that our client has assessed how risky a borrower
+    is when deciding their credit limit. Riskier clients should be given lower limits,
+    so the creditor is less exposed. Therefore, we may expect to see a higher probability
+    of default for accounts with lower values for `LIMIT_BAL`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'What have we learned from our univariate feature selection exercise? We have
+    an idea of what the most important features in our model are likely to be. And,
+    from the correlation matrix, we have some idea of how they are related to the
+    response variable. However, knowing the limitations of the tests we used, it is
+    a good idea to visualize these features for a closer look at the relationship
+    between the features and response variable. We have also started to develop **hypotheses**
+    about these features: why do we think they are important? Now, by visualizing
+    the relationships between the features and the response variable, we can determine
+    whether our ideas are compatible with what we can see in the data.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Such hypotheses and visualizations are often a key part of presenting your results
+    to a client, who may be interested in how a model works, not just the fact that
+    it does work.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Exercise 3.02: Visualizing the Relationship Between the Features and Response
+    Variable'
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'In this exercise, you will further your knowledge of plotting functions from
+    Matplotlib that you used earlier in this book. You''ll learn how to customize
+    graphics to better answer specific questions with the data. As you pursue these
+    analyses, you will create insightful visualizations of how the `PAY_1` and `LIMIT_BAL`
+    features relate to the response variable, which may possibly provide support for
+    the hypotheses you formed about these features. This will be done by becoming
+    more familiar with the Matplotlib **Application Programming Interface** (**API**),
+    in other words, the syntax you use to interact with Matplotlib. Perform the following
+    steps to complete the exercise:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Before beginning step 1 of this exercise, make sure that you have imported
+    the necessary libraries and have loaded the correct dataframe. You can refer to
+    the following notebook for the prerequisite steps along with the code for this
+    exercise: [https://packt.link/DOrZ9](https://packt.link/DOrZ9).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Calculate a baseline for the response variable of the default rate across the
+    whole dataset using pandas'' `.mean()`:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE16]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'The output of this should be the following:'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '[PRE17]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: What would be a good way to visualize default rates for different values of
+    the `PAY_1` feature?
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: Recall our observation that this feature is sort of like a hybrid categorical
+    and numerical feature. We'll choose to plot it in a way that is typical for categorical
+    features, due to the relatively small number of unique values. In *Chapter 1*,
+    *Data Exploration and Cleaning*, we did `value_counts` of this feature as part
+    of data exploration, then later we learned about `groupby`/`mean` when looking
+    at the `EDUCATION` feature. `groupby`/`mean` would be a good way to visualize
+    the default rate again here, for different payment statuses.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'Use this code to create a `groupby`/`mean` aggregation:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE18]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '{''default payment next month'':np.mean})'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '[PRE19]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'The output should look as follows:'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '![Figure 3.9: Mean of the response variable by groups of the PAY_1 feature'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '](img/B16925_03_09.jpg)'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'Figure 3.9: Mean of the response variable by groups of the PAY_1 feature'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: Looking at these values, you may already be able to discern the trend. Let's
+    go straight to plotting them. We'll take it step by step and introduce some new
+    concepts. You should put all the code from *Steps 3* through *6* in a single code
+    cell.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: In Matplotlib, every plot exists on an axes, and within a `figure` window. By
+    creating objects for `axes` and `figure`, you can directly access and change their
+    properties, including axis labels and other kinds of annotation on the axes.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'Create an `axes` object in a variable also called `axes`, using the following
+    code:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE20]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: Plot the overall default rate as a red horizontal line.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Matplotlib makes this easy; you just have to indicate the *y* intercept of
+    this line with the `axhline` function. Notice that instead of calling this function
+    from `plt`, now we are calling it as a method on our `axes` object:'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '[PRE21]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: Now, over this line, we want to plot the default rate within each group of `PAY_1` values.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'Use the `plot` method of the DataFrame of grouped data we created. Specify
+    to include an `''x''` marker along the line plot, to not have a `legend` instance,
+    which we''ll create later, and that the **parent axes** of this plot should be
+    the axes we are already working with (otherwise, pandas would erase what was already
+    there and create new axes):'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE22]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: This is all the data we want to plot.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'Set the *y*-axis label and create a `legend` instance (there are many possible
+    options for controlling the legend appearance, but a simple way is to provide
+    a list of strings, indicating the labels for the graphical elements in the order
+    they were added to the axes):'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE23]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Executing all the code from *Steps 3* through *6* in a single code cell should
+    result in the following plot:![Figure 3.10: Credit default rates across the dataset'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '](img/B16925_03_10.jpg)'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'Figure 3.10: Credit default rates across the dataset'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'Our visualization of payment statuses has revealed a clear, and probably expected,
+    story: those who defaulted before are in fact more likely to default again. The
+    default rate of accounts in good standing is well below the overall default rate,
+    which we know from before is about 22%. However, over 30% of the accounts that
+    were in default last month will be in default again next month, according to this.
+    This is a good visual to share with our business partner as it shows the effect
+    of what may be one of the most important features in our model.'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'Now we turn our attention to the feature ranked as having the second strongest
+    association with the target variable: `LIMIT_BAL`. This is a numerical feature
+    with many unique values. A good way to visualize features such as this, for a
+    classification problem, is to plot multiple histograms on the same axis, with
+    different colors for the different classes. As a way to separate the classes,
+    we can index them from the DataFrame using logical arrays.'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'Use this code to create logical masks for positive and negative samples:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE24]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'To create our dual histogram plot, we''ll make another `axes` object, then
+    call the `.hist` method on it twice for the positive and negative class histograms.
+    We supply a few additional keyword arguments: the first histogram will have black
+    edges and white bars, while the second will use `alpha` to create transparency,
+    so we can see both histograms in the places they overlap. Once we have the histograms,
+    we rotate the *x*-axis tick labels to make them more legible and create several
+    other annotations that should be self-explanatory.'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'Use the following code to create the dual histogram plot with the aforementioned
+    properties:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE25]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'The plot should appear like this:'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '![Figure 3.11: Dual histograms of credit limits'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '](img/B16925_03_11.jpg)'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '[PRE26]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Create and display the histogram bin edges with this code:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE27]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'The output should be as follows:'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '[PRE28]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'The plotting code for the normalized histograms is similar to before, with
+    a few key changes: the use of the `bins` keyword to define bin edge locations,
+    `density=True` to normalize the histograms, and changes to the plot annotations.
+    The most complex part is that we need to adjust the `np.round` is needed due to
+    slight errors of floating-point arithmetic.'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'Run this code to produce normalized histograms:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE29]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'The plot should look like this:'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '![Figure 3.12: Normalized dual histograms'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '](img/B16925_03_12.jpg)'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'Figure 3.12: Normalized dual histograms'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'You can see that plots in Matplotlib are highly customizable. In order to view
+    all the different things you can get from and set on Matplotlib axes, have a look
+    here: [https://matplotlib.org/stable/api/axes_api.html](https://matplotlib.org/stable/api/axes_api.html).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: What can we learn from this plot? It looks like the accounts that default tend
+    to have a higher proportion of lower credit limits. Accounts with credit limits
+    less than NT$150,000 are relatively more likely to default, while the opposite
+    is true for accounts with limits higher than this. We should ask ourselves, does
+    this make sense? Our hypothesis was that the client would give riskier accounts
+    lower limits. This intuition is compatible with the higher proportions of defaulters
+    with lower credit limits that we observed here.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Depending on how the model building goes, if the features we examined in this
+    exercise turn out to be important for predictive modeling as we expect, it would
+    be good to show these graphs to our client, as part of a presentation of our work.
+    This would give the client insight into how the model works, as well as insights
+    into their data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: A key learning from this section is that effective visual presentations take
+    substantial time to produce. It is good to budget some time in your project workflow
+    for this. Convincing visuals are worth the effort since they should be able to
+    quickly and effectively communicate important findings to the client. They are
+    usually a better choice than adding lots of text to the materials that you create.
+    Visual communication of quantitative concepts is a core data science skill.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Univariate Feature Selection: What it Does and Doesn''t Do'
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In this chapter, we have learned techniques for going through features one by
+    one to see whether they have predictive power. This is a good first step, and
+    if you already have features that are very predictive of the outcome variable,
+    you may not need to spend much more time considering features before modeling.
+    However, there are drawbacks to univariate feature selection. In particular, it
+    does not consider the **interactions** between features. For example, what if
+    the credit default rate is very high specifically for people with both a certain
+    education level and a certain range of credit limit?
+  prefs: []
+  type: TYPE_NORMAL
+- en: Also, with the methods we used here, only the linear effects of features are
+    captured. If a feature is more predictive when it's undergone some type of **transformation**,
+    such as a **polynomial** or **logarithmic** transformation, or **binning** (**discretization**),
+    linear techniques of univariate feature selection may not be effective. Interactions
+    and transformations are examples of **feature engineering**, or creating new features,
+    in these cases from existing features. The shortcomings of linear feature selection
+    methods can be remedied by non-linear modeling techniques including decision trees
+    and methods based on them, which we will examine later. But there is still value
+    in looking for simple relationships that can be found by linear methods for univariate
+    feature selection, and it is quick to do.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Understanding Logistic Regression and the Sigmoid Function Using Function Syntax
+    in Python
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'In this section, we will open the "black box" of logistic regression all the
+    way: we will gain a comprehensive understanding of how it works. We''ll start
+    off by introducing a new programming concept: **functions**. At the same time,
+    we''ll learn about a mathematical function, the sigmoid function, which plays
+    a key role in logistic regression.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In the most basic sense, a function in computer programming is a piece of code
+    that takes inputs and produces outputs. You have been using functions throughout
+    the book: functions that were written by someone else. Any time that you use syntax
+    such as this: `output = do_something_to(input)`, you have used a function. For
+    example, NumPy has a function you can use to calculate the mean of the input:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE30]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Functions **abstract** away the operations being performed so that, in our
+    example, you don''t need to see all the lines of code that it takes to calculate
+    a mean, every time you need to do this. For many common mathematical functions,
+    there are already pre-defined versions available in packages such as NumPy. You
+    do not need to "reinvent the wheel." The implementations in popular packages are
+    likely popular for a reason: people have spent time thinking about how to create
+    them in the most efficient way. So, it would be wise to use them. However, since
+    all the packages we are using are **open source**, if you are interested in seeing
+    how the functions in the libraries we use are implemented, you are able to look
+    at the code within any of them.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now, for the sake of illustration, let''s learn Python function syntax by writing
+    our own function for the arithmetic mean. Function syntax in Python is similar
+    to `for` or `if` blocks, in that the body of a function is indented and the declaration
+    of the function is followed by a colon. Here is the code for a function to compute
+    the mean:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE31]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'After you execute the code cell with this definition, the function is available
+    to you in other code cells in the notebook. Take the following example:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE32]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The first part of defining a function, as shown here, is to start a line of
+    code with `def`, followed by a space, followed by the name you''d like to call
+    the function. After this come parentheses, inside which the names of the **parameters**
+    of the function are specified. Parameters are names of the input variables, where
+    these names are internal to the body of the function: the variable names defined
+    as parameters are available within the function when it is **called** (used),
+    but not outside the function. There can be more than one parameter; they would
+    be comma-separated. After the parentheses comes a colon.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The body of the function is indented and can contain any code that operates
+    on the inputs. Once these operations are done, the last line should start with
+    `return` and contain the output variable(s), comma-separated if there is more
+    than one. We are leaving out many fine points in this very simple introduction
+    to functions, but those are the essential parts you need to get started.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The power of a function comes when you use it. Notice how after we define the
+    function, in a separate code block we can **call** it by the name we've given
+    it, and it operates on whatever inputs we **pass** it. It's as if we've copied
+    and pasted all the code to this new location. But it looks much nicer than actually
+    doing that. And if you are going to use the same code many times, a function can
+    greatly reduce the overall length of your code.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'As a brief additional note, you can optionally specify the inputs using the
+    parameter names explicitly, which can be clearer when there are many inputs:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE33]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Now that we''re familiar with the basics of Python functions, we are going
+    to consider a mathematical function that''s important to logistic regression,
+    called **sigmoid**. This function may also be called the **logistic function**.
+    The definition of sigmoid is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 3.13: The sigmoid function'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/B16925_03_13.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Figure 3.13: The sigmoid function'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We will break down the different parts of this function. As you can see, the
+    sigmoid function involves the `exp`, that takes `e` to the input exponent automatically.
+    If you look at the documentation, you will see this process is called taking the
+    "exponential," which sounds vague. But it is assumed to be understood that the
+    base of the exponent is *e* in this case. In general, if you want to take an exponent
+    in Python, such as 23 ("two to the third power"), the syntax is two asterisks:
+    `2**3`, which equals 8, for example.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Consider how inputs may be passed to the `np.exp` function. Since NumPy''s
+    implementation is **vectorized**, this function can take individual numbers as
+    well as arrays or matrices as input. To illustrate individual arguments, we compute
+    the exponential of 1, which shows the approximate value of *e*, as well as *e0*,
+    which of course equals 1, as does the zeroth power of any base:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE34]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'To illustrate the vectorized implementation of `np.exp`, we create an array
+    of numbers using NumPy''s `linspace` function. This function takes as input the
+    starting and stopping points of a range, both inclusive, and the number of values
+    you''d like within that range, to create an array of that many linearly spaced
+    values. This function performs a somewhat similar role to Python''s `range`, but
+    can also produce decimal values:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 3.14: Using np.linspace to make an array'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/B16925_03_14.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Figure 3.14: Using np.linspace to make an array'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Since `np.exp` is vectorized, it will compute the exponential of the whole
+    array at once, in an efficient manner. Here is the code with output, to calculate
+    the exponential of our `X_exp` array and examine the first five values:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 3.15: NumPy''s exp function'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/B16925_03_15.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Figure 3.15: NumPy''s exp function'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Exercise 3.03: Plotting the Sigmoid Function'
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'In this exercise, we will use `X_exp` and `Y_exp`, created previously, to make
+    a plot of what the exponential function looks like over the interval `[-4, 4]`.
+    You need to have run all the code in *Figures 3.14* and *3.15* to have these variables
+    available for this exercise. Then we will define a function for the sigmoid, create
+    a plot of that, and consider how it is related to the exponential function. Perform
+    the following steps to complete the exercise:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Before beginning step 1 of this exercise, make sure that you have imported the
+    necessary libraries. The code for importing the libraries along with that for
+    rest of the steps in the exercise can be found here: [https://packt.link/Uq012](https://packt.link/Uq012).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Use this code to plot the exponential function:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE35]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'The plot should look like this:'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '![Figure 3.14: Using np.linspace to make an array'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '](img/B16925_03_16.jpg)'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'Figure 3.16: Plotting the exponential function'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: Notice that in titling the plot, we've taken advantage of a kind of syntax called
+    `^`.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: Also note in *Figure 3.16* that many points spaced close together create the
+    appearance of a smooth curve, but in fact, it is a graph of discrete points connected
+    by line segments.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '**What can we observe about the exponential function?**'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'It is never negative: as *X* approaches negative infinity, *Y* approaches 0.'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: As *X* increases, *Y* increases slowly at first, but very quickly "blows up."
+    This is what is meant when people say "exponential growth" to signify a rapid
+    increase.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '**How can you think about the sigmoid in terms of the exponential?**'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: First, the sigmoid involves *e*-X, as opposed to *e*X. The graph of *e*-X is
+    just the reflection of *e*X about the *y* axis. This can be plotted easily and
+    annotated using curly braces for multiple-character superscript in the plot title.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'Run this code to see the plot of *e*-X:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE36]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'The output should appear like this:'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '![Figure 3.17: Plot of exp(-X)'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '](img/B16925_03_17.jpg)'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'Figure 3.17: Plot of exp(-X)'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: Now, in the sigmoid function, *e*-X is in the denominator, with 1 added to it.
+    The numerator is 1\. So, what happens to the sigmoid as *X* approaches negative
+    infinity? We know that *e*-X "blows up," becoming very large. Overall, the denominator
+    becomes very large and the fraction approaches 0\. What about when *X* increases
+    toward positive infinity? We can see that *e*-X becomes very close to 0\. So,
+    in this case, the sigmoid function would be approximately *1/1 = 1*. This should
+    give you an intuition that the sigmoid function stays between 0 and 1\. Let's
+    now implement a sigmoid function in Python and use it to create a plot to see
+    how reality matches this intuition.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'Define a sigmoid function like this:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE37]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Make a larger range of *x* values to plot over and plot the sigmoid. Use this
+    code:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE38]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'The plot should look like this:'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '![Figure 3.18: A sigmoid function plot'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '](img/B16925_03_18.jpg)'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'Figure 3.18: A sigmoid function plot'
+  prefs: []
+  type: TYPE_NORMAL
+- en: This plot matches what we expected. Further, we can see that `sigmoid(0) = 0.5`.
+    What is special about the sigmoid function? The output of this function is strictly
+    bounded between 0 and 1\. This is a good property for a function that should predict
+    probabilities, which are also required to be between 0 and 1\. Technically, probabilities
+    can be exactly equal to 0 and 1, while the sigmoid never is. But the sigmoid can
+    be close enough that this is not a practical limitation.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Recall that we described logistic regression as producing **predicted probabilities**
+    of class membership, as opposed to directly predicting class membership. This
+    enables a more flexible implementation of logistic regression, allowing the selection
+    of the threshold probability. The sigmoid function is the source of these predicted
+    probabilities. Shortly, we will see how the different features are used in the
+    calculation of the predicted probabilities.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Scope of Functions
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'As you begin to use functions, you should develop an awareness of the concept
+    of `sigmoid` function, we created a variable, `Y`, inside the function. Variables
+    created inside functions are different from those created outside functions. They
+    are effectively created and destroyed within the function itself when it is called.
+    These variables are said to be `Y` variable after using the `sigmoid` function:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 3.19: The Y variable not in the scope of the notebook'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/B16925_03_19.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Figure 3.19: The Y variable not in the scope of the notebook'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The `Y` variable is not in the **global** scope of the notebook. However, global
+    variables created outside of functions are available within the local scope of
+    functions, even if they are not inputted as parameters to the function. Here we
+    demonstrate creating a variable outside of a function, which is global in scope,
+    and then accessing it within a function. The function actually doesn''t take any
+    parameters at all, but as you can see, it can work with the value of the global
+    variable to create an output:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 3.20: Global variable available within the local scope of the function'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/B16925_03_20.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Figure 3.20: Global variable available within the local scope of the function'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**More details on scope**'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The scope of variables can potentially be confusing but is good to know when
+    you start making more advanced use of functions. While this knowledge isn''t required
+    for the book, you may wish to get a more in-depth perspective on variable scope
+    in Python here: [https://nbviewer.jupyter.org/github/rasbt/python_reference/blob/master/tutorials/scope_resolution_legb_rule.ipynb](https://nbviewer.jupyter.org/github/rasbt/python_reference/blob/master/tutorials/scope_resolution_legb_rule.ipynb).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Sigmoid curves in scientific applications**'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Besides being fundamental to logistic regression, sigmoid curves are used in
+    a variety of applications. In biology, they can be used to describe the growth
+    of an organism, which starts slowly, then has a rapid phase, followed by a smooth
+    tapering off as the final size is reached. Sigmoids can also be used to describe
+    population growth, which has a similar trajectory, increasing rapidly but then
+    slowing as the carrying capacity of the environment is reached.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Why Is Logistic Regression Considered a Linear Model?
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: We mentioned previously that logistic regression is considered a `groupby`/`mean`
+    of the `EDUCATION` feature in *Chapter 1*, *Data Exploration and Cleaning*, as
+    well as for the `PAY_1` feature in this chapter, to see whether the default rates
+    across values of these features exhibited a linear trend. While this is a good
+    way to get a quick approximation of how "linear or not" these features may be,
+    here we formalize the notion of why logistic regression is a linear model.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'A model is considered linear if the transformation of features that is used
+    to calculate the prediction is a **linear combination** of the features. The possibilities
+    for a linear combination are that each feature can be multiplied by a numerical
+    constant, these terms can be added together, and an additional constant can be
+    added. For example, in a simple model with two features, *X*1 and *X*2, a linear
+    combination would take the following form:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 3.21: Linear combination of X1 and X2'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/B16925_03_21.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Figure 3.21: Linear combination of X1 and X2'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The constants *𝜃*i can be any number, positive, negative, or zero, for *i =
+    0, 1, and 2* (although if a coefficient is 0, this removes a feature from the
+    linear combination). A familiar example of a linear transformation of one variable
+    is a straight line with the equation *y = mx + b*, as discussed *Chapter 2*, *Introduction
+    to Scikit-Learn and Model Evaluation*. In this case, *𝜃*o *= b* and *𝜃*1 *= m*.
+    *𝜃*o is called the **intercept** of a linear combination, which should be familiar
+    from algebra.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'What kinds of things are "not allowed" in linear transformations? Any other
+    mathematical expressions besides what was just described, such as the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Multiplying a feature by itself; for example, *X*12 or *X*13\. These are called
+    polynomial terms.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Multiplying features together; for example, *X*1*X*2\. These are called interactions.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Applying non-linear transformations to features; for example, log and square root.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Other complex mathematical functions.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '"If then" types of statements. For example, "if *X*1 *> a*, then *y = b*."'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: However, while these transformations are not part of the basic formulation of
+    a linear combination, they could be added to a linear model by **engineering features**,
+    for example, defining a new feature, *X*3 = *X*12.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Earlier, we learned that the predictions of logistic regression, which take
+    the form of probabilities, are made using the sigmoid function. Taking another
+    look here, we see that this function is clearly non-linear:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 3.22: Non-linear sigmoid function'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/B16925_03_22.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Figure 3.22: Non-linear sigmoid function'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Why, then, is logistic regression considered a linear model? It turns out that
+    the answer to this question lies in a different formulation of the sigmoid equation,
+    called the `logit` function. We can derive the `logit` function by solving the
+    sigmoid function for *X*; in other words, finding the inverse of the sigmoid function.
+    First, we set the sigmoid equal to *p*, which we interpret as the probability
+    of observing the positive class, then solve for *X* as shown in the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 3.23: Solving for X'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/B16925_03_23.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Figure 3.23: Solving for X'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Here, we''ve used some laws of exponents and logs to solve for *X*. You may
+    also see `logit` expressed as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 3.24: The logit function'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/B16925_03_24.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Figure 3.24: The logit function'
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this expression, the `logit` function is also called the **log odds**, because
+    it is the natural logarithm of the **odds ratio**, *p/q*. Odds ratios may be familiar
+    from the world of gambling, via phrases such as "the odds are 2 to 1 that team
+    *a* will defeat team *b*."
+  prefs: []
+  type: TYPE_NORMAL
+- en: In general, what we've called capital *X* in these manipulations can stand for
+    a linear combination of all the features. For example, this would be *X =* *𝜃*o
+    *+* *𝜃*1*X*1 *+* *𝜃*2*X*2 in our simple case of two features. Logistic regression
+    is considered a linear model because the features included in *X* are, in fact,
+    only subject to a linear combination when the response variable is considered
+    to be the log odds. This is an alternative way of formulating the problem, as
+    compared to the sigmoid equation.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Putting the pieces together, the features *X*1, *X*2,…, *X*j look like this
+    in the sigmoid equation version of logistic regression:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 3.25: Sigmoid version of logistic regression'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/B16925_03_25.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Figure 3.25: Sigmoid version of logistic regression'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'But they look like this in the log odds version, which is why logistic regression
+    is called a linear model:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 3.26: Log odds version of logistic regression'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/B16925_03_26.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Figure 3.26: Log odds version of logistic regression'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Because of this way of looking at logistic regression, ideally, the features
+    of a logistic regression model would be **linear in the log odds** of the response
+    variable. We will see what is meant by this in the following exercise.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Logistic regression is part of a broader class of statistical models called
+    **Generalized Linear Models** (**GLMs**). GLMs are connected to the fundamental
+    concept of ordinary linear regression, which may have one feature (that is, the
+    **line of best fit**, *y = mx + b*, for a single feature, *x*) or more than one
+    in **multiple linear regression**. The mathematical connection between GLMs and
+    linear regression is the **link function**. The link function of logistic regression
+    is the logit function we just learned about.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Exercise 3.04: Examining the Appropriateness of Features for Logistic Regression'
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'In *Exercise 3.02*, *Visualizing the Relationship between the Features and
+    Response Variable*, we plotted a `groupby`/`mean` of what might be the most important
+    feature of the model, according to our exploration so far: the `PAY_1` feature.
+    By grouping samples by the values of `PAY_1`, and then looking at the mean of
+    the response variable, we are effectively looking at the probability, *p*, of
+    default within each of these groups.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In this exercise, we will evaluate the appropriateness of `PAY_1` for logistic
+    regression. We will do this by examining the log odds of default within these
+    groups to see whether the response variable is linear in the log odds, as logistic
+    regression formally assumes. Perform the following steps to complete the exercise:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Before beginning step 1 of this exercise, make sure that you have imported
+    the necessary libraries. You can refer to the following notebook for the prerequisite
+    steps: [https://packt.link/gtpF9](https://packt.link/gtpF9).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Confirm you still have access to the variables from *Exercise 3.02*, *Visualizing
+    the Relationship between the Features and Response Variable*, in your notebook
+    by reviewing the DataFrame of the average value of the response variable for different
+    values of `PAY_1` with this code:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE39]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'The output should be as follows:'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '![Figure 3.27: Rates of default within groups of PAY_1 values as probabilities
+    of default'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '](img/B16925_03_27.jpg)'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'Figure 3.27: Rates of default within groups of PAY_1 values as probabilities
+    of default'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'Extract the mean values of the response variable from these groups and put
+    them in a variable, `p`, representing the probability of default:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE40]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Create a probability, `q`, of not defaulting. Since there are only two possible
+    outcomes in this binary problem, and probabilities of all outcomes always sum
+    to 1, it is easy to calculate `q`. Also print the values of `p` and `q` to confirm:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE41]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'The output should be as follows:'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '![Figure 3.28: Calculating q from p'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '](img/B16925_03_28.jpg)'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'Figure 3.28: Calculating q from p'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'Calculate the odds ratio from `p` and `q`, as well as the log odds, using the
+    natural logarithm function from NumPy:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE42]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'The output should look like this:'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '![Figure 3.29: Odds ratio and log odds'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '](img/B16925_03_29.jpg)'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'Figure 3.29: Odds ratio and log odds'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'In order to plot the log odds against the values of the feature, we can get
+    the feature values from the index of the DataFrame containing `groupby`/`mean`.
+    You can show the index like this:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE43]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'This should produce the following output:'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '[PRE44]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Create a similar plot to what we have already done, to show the log odds against
+    the values of the feature. Here is the code:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE45]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'The plot should look like this:'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '![Figure 3.30: Log odds of default for values of PAY_1'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '](img/B16925_03_30.jpg)'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'Figure 3.30: Log odds of default for values of PAY_1'
+  prefs: []
+  type: TYPE_NORMAL
+- en: We can see in this plot that the relationship between the log odds of the response
+    variable and the `PAY_1` feature is not all that different from the relationship
+    between the rate of default and this feature that we plotted in *Exercise 3.02*,
+    *Visualizing the Relationship between the Features and Response Variable*. For
+    this reason, if the "rate of default" is a simpler concept for you to communicate
+    to the business partner, it may be preferable. However, in terms of understanding
+    the workings of logistic regression, this plot shows exactly what is assumed to
+    be linear.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Is a straight-line fit a good model for this data?**'
+  prefs: []
+  type: TYPE_NORMAL
+- en: It certainly seems like a "line of best fit" drawn on this plot would go up
+    from left to right. At the same time, this data doesn't seem like it would result
+    in a truly linear process. One way to look at this data is that the values -2,
+    -1, and 0 seem like they lie in a different regime of log odds than the others.
+    `PAY_1 = 1` is sort of intermediate, and the rest are mostly larger. It may be
+    that engineered features based on this variable, or different ways of encoding
+    the categories represented by -2, -1, and 0, would be more effective for modeling.
+    Keep this in mind as we proceed to model this data with logistic regression and
+    then other approaches later in the book.
+  prefs: []
+  type: TYPE_NORMAL
+- en: From Logistic Regression Coefficients to Predictions Using Sigmoid
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Before the next exercise, let's take a look at how the coefficients for logistic
+    regression are used to calculate predicted probabilities, and ultimately make
+    predictions for the class of the response variable.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Recall that logistic regression predicts the probability of class membership,
+    according to the sigmoid equation. In the case of two features with an intercept,
+    the equation is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 3.31: Sigmoid function to predict the probability of class membership
+    for two features'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/B16925_03_31.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Figure 3.31: Sigmoid function to predict the probability of class membership
+    for two features'
+  prefs: []
+  type: TYPE_NORMAL
+- en: When you call the `.fit` method of a logistic regression model object in scikit-learn
+    using the training data, the *𝜃*0, *𝜃*1, and *𝜃*2 parameters (intercept and coefficients)
+    are estimated from this labeled training data. Effectively, scikit-learn figures
+    out how to choose values for *𝜃*0, *𝜃*1, and *𝜃*2, so that it will classify as
+    many training data points correctly as possible. We'll gain some insight into
+    how this process works in the next chapter.
+  prefs: []
+  type: TYPE_NORMAL
+- en: When you call `.predict`, scikit-learn calculates predicted probabilities according
+    to the fitted parameter values and the sigmoid equation. A given sample will then
+    be classified as positive if *p ≥ 0.5*, and negative otherwise.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We know that the plot of the sigmoid equation looks like the following, which
+    we can connect to the equation in *Figure 3.31* by making the substitution *X
+    =* *𝜃*0 *+* *𝜃*1*X*1 *+* *𝜃*2*X*2:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 3.32: Predictions and true classes plotted together'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/B16925_03_32.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Figure 3.32: Predictions and true classes plotted together'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Notice here that if *X =* *𝜃*o *+* *𝜃*1*X*1 *+* *𝜃*2*X*2 *≥ 0* on the *x* axis,
+    then the predicted probability would be *p ≥ 0.5* on the *y* axis and the sample
+    would be classified as positive. Otherwise, *p* *<* *0.5* and the sample would
+    be classified as negative. We can use this observation to calculate a linear condition
+    for positive prediction, in terms of the *X*1 and *X*2 features, using the coefficients
+    and intercept. Solving the inequality for positive prediction, *X =* *𝜃*o *+*
+    *𝜃*1*X*1 *+* *𝜃*2*X*2 *≥ 0*, for *X*2, we can obtain a linear inequality similar
+    to a linear equation in *y = mx + b* form: *X*2 *≥ -(**𝜃*1*/**𝜃*2*)X*1 *- (**𝜃*o*/**𝜃*2*)*.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: This will help to see the linear decision boundary of logistic regression in
+    the *X*1*-X*2 **feature space** in the following exercise.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We have now learned, from a theoretical and mathematical perspective, why logistic
+    regression is considered a linear model. We also examined a single feature and
+    considered whether the assumption of linearity was appropriate. It is also important
+    to understand the assumption of linearity, in terms of how flexible and powerful
+    we can expect logistic regression to be. We explore this in the following exercise.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Exercise 3.05: Linear Decision Boundary of Logistic Regression'
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: In this exercise, we illustrate the concept of a **decision boundary** for a
+    binary classification problem. We use synthetic data to create a clear example
+    of how the decision boundary of logistic regression looks in comparison to the
+    training samples. We start by generating two features, *X*1 and *X*2, at random.
+    Since there are two features, we can say that the data for this problem is two-dimensional.
+    This makes it easy to visualize. The concepts we illustrate here generalize to
+    cases of more than two features, such as the real-world datasets you're likely
+    to see in your work; however, the decision boundary is harder to visualize in
+    higher-dimensional spaces.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Perform the following steps to complete the exercise:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Before beginning step 1 of this exercise, make sure that you have imported
+    the necessary libraries. You can refer to the following notebook for the prerequisite
+    steps: [https://packt.link/35ge1](https://packt.link/35ge1).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Generate the features using the following code:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE46]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: You don't need to worry too much about why we selected the values we did; the
+    plotting we do later should make it clear. Notice, however, that we have assigned
+    the true class at the same time, by defining here which points (`X`1`, X`2) will
+    be in the positive and negative classes. The result of this is that we have 20
+    samples each in the positive and negative classes, for a total of 40 samples,
+    and that we have two features for each sample. We show the first three values
+    of each feature for both the positive and negative classes.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'The output should be the following:'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '![Figure 3.33: Generating synthetic data for a binary classification problem'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '](img/B16925_03_33.jpg)'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'Figure 3.33: Generating synthetic data for a binary classification problem'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'Plot this data, coloring the positive samples as red squares and the negative
+    samples as blue *x*''s. The plotting code is as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE47]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'The result should look like this:'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '![Figure 3.34: Generating synthetic data for a binary classification problem'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '](img/B16925_03_34.jpg)'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'Figure 3.34: Generating synthetic data for a binary classification problem'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: In order to use our synthetic features with scikit-learn, we need to assemble
+    them into a matrix. We use NumPy's `block` function for this, to create a 40 by
+    2 matrix. There will be 40 rows because there are 40 total samples, and 2 columns
+    because there are 2 features. We will arrange things so that the features for
+    the positive samples come in the first 20 rows and those for the negative samples
+    after that.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'Create a 40 by 2 matrix and then show the shape and the first 3 rows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE48]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'The output should be as follows:'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '[PRE49]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: We also need a response variable to go with these features. We know how we defined
+    them, but we need an array of `y` values to let scikit-learn know.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'Create a vertical stack (`vstack`) of 20 ones and then 20 zeros to match our
+    arrangement of the features and reshape to the way that scikit-learn expects.
+    Here is the code:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE50]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'You will obtain the following output:'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '[PRE51]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: At this point, we are ready to fit a logistic regression model to this data
+    with scikit-learn. We will use all of the data as training data and examine how
+    well a linear model is able to fit the data. The next few steps should be familiar
+    from your work in earlier chapters on how to instantiate a model class and fit
+    the model.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'First, import the model class using the following code:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE52]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Now instantiate, indicating the `liblinear` solver, and show the model object
+    using the following code:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE53]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'The output should be as follows:'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '[PRE54]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: We'll discuss some of the different solvers available for logistic regression
+    in scikit-learn in *Chapter 4*, *The Bias-Variance Trade-Off*, but for now we'll
+    use this one.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'Now train the model on the synthetic data:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE55]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '`.predict` method on the same samples we used for model training. Then, in
+    order to add these predictions to the plot, we will create two lists of indices
+    to use with the arrays, according to whether the prediction is 1 or 0\. See whether
+    you can understand how we''ve used a list comprehension, including an `if` statement,
+    to accomplish this.'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'Use this code to get predictions and separate them into indices of positive
+    and negative class predictions. Show the indices of positive class predictions
+    as a check:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE56]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'The output should be as follows:'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '[PRE57]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'From the indices of positive predictions, we can already tell that not every
+    sample in the training data was classified correctly: the positive samples were
+    the first 20 samples, but there are indices outside of that range here. You may
+    have already guessed that a linear decision boundary would not be able to perfectly
+    classify this data, based on examining it. Now let''s put these predictions on
+    the plot, in the form of squares and circles around each data point, colored according
+    to positive and negative predictions, respectively: red for positive and blue
+    for negative.'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: You can compare the color and shape of the inner symbols, the true labels of
+    the data, to those of the outer symbols (predictions), to see which points were
+    classified correctly or incorrectly.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'Here is the plotting code:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE58]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'The plot should appear as follows:'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '![Figure 3.35: Predictions and true classes plotted together'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '](img/B16925_03_35.jpg)'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'Figure 3.35: Predictions and true classes plotted together'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: From the plot, it's apparent that the classifier struggles with data points
+    that are close to where you may imagine the linear decision boundary to be; some
+    of these may end up on the wrong side of that boundary. How might we figure out,
+    and visualize, the actual location of the decision boundary? From the previous
+    section, we know we can obtain the decision boundary of a logistic regression,
+    in two-dimensional feature space, using the inequality *X*2 *≥ -(**𝜃*1*/**𝜃*2*)X*1
+    *- (**𝜃*0*/**𝜃*2*)*. Since we've fitted the model here, we can retrieve the *𝜃*1
+    and *𝜃*2 coefficients, as well as the *𝜃*0 intercept, to plug into this equation
+    and create the plot.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'Use this code to get the coefficients from the fitted model and print them:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE59]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'The output should look like this:'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '[PRE60]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Use this code to get the intercept:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE61]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Now use the coefficients and intercept to define the linear decision boundary.
+    This captures the dividing line of the inequality, *X*2 *≥ -(**𝜃*1*/**𝜃*2*)X*1
+    *- (**𝜃*0*/**𝜃*2*)*:'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '[PRE62]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: To summarize the last few steps, after using the `.coef_` and `.intercept_`
+    methods to retrieve the *𝜃*1 and *𝜃*2 model coefficients and the *𝜃*0 intercept,
+    we then used these to create a line defined by two points, according to the equation
+    we described for the decision boundary.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'Plot the decision boundary using the following code, with some adjustments
+    to assign the correct labels for the legend, and to move the legend to a location
+    (`loc`) outside a plot that is getting crowded:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE63]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'You will obtain the following plot:'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '![Figure 3.36: True classes, predicted classes, and the decision boundary'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: of a logistic regression
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '](img/B16925_03_36.jpg)'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'Figure 3.36: True classes, predicted classes, and the decision boundary of
+    a logistic regression'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**How does the location of the decision boundary compare with where you thought
+    it would be?**'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Can you see how a linear decision boundary will never perfectly classify
+    this data?**'
+  prefs: []
+  type: TYPE_NORMAL
+- en: As a way around this, we could create **engineered features** from existing
+    features here, such as polynomials or interactions, to allow for more complex,
+    non-linear decision boundaries in a logistic regression. Or, we could use non-linear
+    models such as random forest, which can also accomplish this, as we'll see later.
+  prefs: []
+  type: TYPE_NORMAL
+- en: As a final note here, this example was easily visualized in two dimensions since
+    there are only two features. In general, the decision boundary can be described
+    by a **hyperplane**, which is the generalization of a straight line to multi-dimensional
+    spaces. However, the restrictive nature of the linear decision boundary is still
+    a factor for hyperplanes.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Activity 3.01: Fitting a Logistic Regression Model and Directly Using the Coefficients'
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'In this activity, we''re going to train a logistic regression model on the
+    two most important features we discovered in univariate feature exploration, as
+    well as learning how to manually implement logistic regression using coefficients
+    from the fitted model. This will show you how you could use logistic regression
+    in a computing environment where scikit-learn may not be available, but the mathematical
+    functions necessary to compute the sigmoid function are. On successful completion
+    of the activity, you should observe that the calculated ROC AUC values using scikit-learn
+    predictions and those obtained from manual predictions should be the same: approximately
+    0.63.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Perform the following steps to complete the activity:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Create a train/test split (80/20) with `PAY_1` and `LIMIT_BAL` as features.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Import `LogisticRegression`, with the default options, but set the solver to `'liblinear'`.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Train on the training data and obtain predicted classes, as well as class probabilities,
+    using the test data.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Pull out the coefficients and intercept from the trained model and manually
+    calculate predicted probabilities. You'll need to add a column of ones to your
+    features, to multiply by the intercept.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Using a threshold of `0.5`, manually calculate predicted classes. Compare this
+    to the class predictions outputted by scikit-learn.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Calculate the ROC AUC using both scikit-learn's predicted probabilities and
+    your manually predicted probabilities, and compare them.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'The Jupyter notebook containing the code for this activity can be found here:
+    [https://packt.link/4FHec](https://packt.link/4FHec). This notebook contains only
+    the Python code and corresponding outputs. The complete step-wise solution can
+    be found via [this link](B16925_Solution_ePub.xhtml#_idTextAnchor153).'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: Summary
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In this chapter, we have learned how to explore features one at a time, using
+    univariate feature selection methods including Pearson correlation and an ANOVA
+    F-test. While looking at features in this way does not always tell the whole story,
+    since you are potentially missing out on important interactions between features,
+    it is often a helpful step. Understanding the relationships between the most predictive
+    features and the response variable, and creating effective visualizations around
+    them, is a great way to communicate your findings to your client. We used customized
+    plots, such as overlapping histograms created with Matplotlib, to create visualizations
+    of the most important features.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Then we began an in-depth description of how logistic regression works, exploring
+    such topics as the sigmoid function, log odds, and the linear decision boundary.
+    While logistic regression is one of the simplest classification models, and often
+    is not as powerful as other methods, it is one of the most widely used and is
+    the basis for more sophisticated models such as deep neural networks for classification.
+    So, a detailed understanding of logistic regression can serve you well as you
+    explore more advanced topics in machine learning. And, in some cases, a simple
+    logistic regression may be all that's needed. All other things considered, the
+    simplest model that satisfies the requirements is probably the best model.
+  prefs: []
+  type: TYPE_NORMAL
+- en: If you master the materials in this and the next chapter, you will be well prepared
+    to use logistic regression in your work. In the next chapter, we'll build on the
+    fundamentals we learned here, to see how coefficients are estimated for a logistic
+    regression, as well as how logistic regression can be used effectively with large
+    numbers of features and can also be used for feature selection.
+  prefs: []
+  type: TYPE_NORMAL

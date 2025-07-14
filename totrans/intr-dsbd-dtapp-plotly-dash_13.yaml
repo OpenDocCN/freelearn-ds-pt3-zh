@@ -1,0 +1,933 @@
+- en: '*Chapter 10*: Turbo-charge Your Apps with Advanced Callbacks'
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: We will now take our apps to a new level of abstraction and power by introducing
+    new options available to callbacks. The general pattern we have followed has been
+    that we provide users with a component that they can interact with. Based on a
+    given set of options available to the component, users can influence certain actions,
+    such as producing a chart, for example. We will be exploring other options such
+    as deferring the execution of callbacks until a certain event happens, for example,
+    clicking a "Submit" button. We will also take a look at how we can allow users
+    to modify the layout of the app itself, by allowing them to add new dynamic components
+    to it. We will use some of this knowledge to add a minor but important improvement
+    to the clustering functionality that we introduced in [*Chapter 9*](B16780_09_Final_NM_ePub.xhtml#_idTextAnchor133),
+    *Letting Your Data Speak for Itself with Machine Learning*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We will first start by introducing the optional **State** parameter in our callbacks.
+    So far, all of our callbacks fire immediately when the user makes changes to any
+    of the inputs. In many cases, we want the users to set a few options and only
+    then hit a "Submit" button to invoke the callback function. This becomes important
+    when we have multiple inputs where it might be annoying or awkward if outputs
+    change while users are still making changes. In other cases, those callbacks might
+    take a long time to execute and/or be expensive to run. Again, in this case, we
+    want to block the execution until the user decides to trigger it.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Once the concept of `State` has been established, we will explore a new type
+    of dynamic callbacks that enable our users to make changes to the app, by adding
+    new charts for example. So far, we have allowed the users to simply modify the
+    input values available in the interactive components. We can take this to a new
+    level by introducing dynamic components that are generated based on the user's
+    interactions.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Finally, we will get an overview of **pattern-matching callbacks**, which allow
+    us to link dynamically created and interactive components together in a streamlined
+    way.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Here are the main topics that we will cover in this chapter:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Understanding `State`
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Creating components that control other components
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Allowing users to add dynamic components to the app
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Introducing pattern-matching callbacks
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Technical requirements
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: We will be using the same basic tools that we have used in most chapters so
+    far, and mainly focus on some new features in callback functions. We will use
+    Dash, Dash HTML Components, Dash Core Components, and Dash Bootstrap Components
+    for making our apps. For data manipulation, we will use pandas. For the charts
+    and visualizations, we will be using Plotly and Plotly Express, and finally, we
+    will use JupyterLab to interactively explore and create new functionality independently,
+    before incorporating it into our app.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The code files of this chapter can be found on GitHub at [https://github.com/PacktPublishing/Interactive-Dashboards-and-Data-Apps-with-Plotly-and-Dash/tree/master/chapter_10](https://github.com/PacktPublishing/Interactive-Dashboards-and-Data-Apps-with-Plotly-and-Dash/tree/master/chapter_10).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Check out the following video to see the Code in Action at [https://bit.ly/3v6ZYJw](https://bit.ly/3v6ZYJw).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let's start by getting familiar with `State`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Understanding State
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: The typical callback function structure that we used so far contained one or
+    more `Output` elements and one or more `Input` elements. As mentioned in the introduction,
+    the callbacks fire immediately when users modify an `Input` element. We want to
+    relax this option a little. We will start with a simple example demonstrating
+    why and how to use `State`, which is an optional argument that can be given to
+    our callbacks.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'To make the problem we are trying to solve clear, take a look at *Figure 10.1*:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 10.1 – An interactive app with outputs that are not properly synchronized
+    with input values](img/B16780_10_1.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 10.1 – An interactive app with outputs that are not properly synchronized
+    with input values
+  prefs: []
+  type: TYPE_NORMAL
+- en: As you can see, the output is showing the wrong values. The reason is that the
+    app was made very slow by introducing a waiting time, to simulate a practical
+    situation that you might face with your apps. The output was not wrong, actually;
+    it just took too long to update, so when the input was changed, it wasn't immediately
+    reflected in the output area. This is more important in this case because there
+    are two inputs governing the output. The interval between modifying the first
+    and second output might cause such confusion.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Another more important issue is that these options might take much more time
+    and cost a lot in terms of lost computing power and/or lost analyst time. Our
+    dataset is very small, and the types of calculations we ran on it are also very
+    simple, so performance was not an issue. In practical situations, you will more
+    likely deal with much larger datasets and run computations that take a considerable
+    amount of time. For example, changing the number of clusters to update our model
+    took a really negligible amount of time. In reality, that might take seconds,
+    minutes, or even more. We will solve this by adding a "Submit" button and introducing
+    `State` to our callback function.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Buttons are available as HTML components from the Dash HTML Components package.
+    They can also be used through Dash Bootstrap Components. Using the latter has
+    two advantages. First, they integrate well with the theme you are using, so this
+    takes care of visual consistency. Also, and this is probably more important, they
+    easily get one of the meaningful colors in case you want to communicate "success,"
+    "warning," "danger," or any of the other available colors/messages.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Buttons are available as `dcc.Button` or `dbc.Button`. Let's see how they can
+    be used to control the behavior of our app.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We need to first clarify the difference between `Input` and `State` in our callbacks.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Understanding the difference between Input and State
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: First, keep in mind that `Input` is what triggers the function, and that `State`
+    is simply a set of conditions that the app is in. It is up to us to decide which
+    components functions as `State` and which as `Input`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let''s update the guidelines for callback functions to clarify the distinction
+    that was just introduced:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The order of callback arguments has to always be one or more of `Output`, `Input`,
+    and optionally `State` arguments, in that order. If we have multiple elements
+    of any one of them, they all need to follow one another.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`State` is optional.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The `Input` element(s) is what triggers the callback to fire. Changing any or
+    all of the `State` in the app would not cause the execution of the callback.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Once an `Input` element is modified, the callback will be triggered with whatever
+    `State` has been changed since it was last triggered.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Let''s now see how to produce the code for the app shown in *Figure 10.1*,
+    and then modify it for the desired behavior. The callback function currently looks
+    like this:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'This is how we have managed all callbacks so far. Note that the callback will
+    run if either of the two inputs were modified. The change we want to introduce
+    will require two steps:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Add a button component to the page, placed under the `Textarea` component:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Add the button as an `Input` argument to the callback function. We now introduce
+    a new property that we haven''t seen yet, which is `n_clicks`. As the name suggests,
+    this corresponds to the number of clicks that were made on a certain component
+    during its lifetime in the user session. With every click, the number gets incremented
+    by one, and we can use that variable to check and control the callback''s behavior.
+    Note that we can also give it a default starting value, typically zero, but we
+    can give it another number if we want:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Now that we have made the button our `Input`, we want to keep `Dropdown` and
+    `Textarea`, but make them `State` arguments as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: With these changes, the callback now waits for `Input` to be changed. The user
+    can change `Dropdown` and/or `Textarea` as many times as they want without being
+    interrupted, and when they are ready, they can hit the "Submit" button to get
+    the desired result.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'When the app loads for the first time, the default value of the `n_clicks`
+    property is `None`. Also, we have nothing in the `Textarea` component and there
+    are no options selected from the dropdown yet. So, we do as usual: we use `raise
+    PreventUpdate` if we don''t have a value for `n_clicks`. To update the function
+    we introduced, we can simply introduce the following change to the signature of
+    the function. Note the addition of the corresponding `n_clicks` argument, as well
+    as its relative order:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'If we update the code, we can see that things will work as expected and the
+    user will be more in control of the process. *Figure 10.2* shows the updated functionality:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 10.2 – An interactive app with outputs now properly displaying the
+    expected input values](img/B16780_10_2.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 10.2 – An interactive app with outputs now properly displaying the expected
+    input values
+  prefs: []
+  type: TYPE_NORMAL
+- en: We can improve this experience even more by providing the user with a visual
+    cue, indicating that some processing is underway.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'With this new knowledge fresh in mind, let''s use it to modify the behavior
+    of our clustering functionality that we discussed in the introduction to this
+    chapter. *Figure 10.3* shows the desired outcome that we want to achieve:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 10.3 – The clustering functionality with a Submit button and a visual
+    progress indicator](img/B16780_10_3.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 10.3 – The clustering functionality with a Submit button and a visual
+    progress indicator
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'As you can see, we have introduced two new features. The first is the button
+    that we have already discussed and implemented in our independent small app. The
+    second is the Dash Core Components `Loading` component. This component is responsible
+    for displaying the symbol that is seen moving, or sometimes spinning, where the
+    output is expected to appear. Using it is extremely simple, but it''s also crucial
+    in such cases as this. It''s always good to confirm to users that their selection
+    (or any other interaction) has been acknowledged and is under process. Actually,
+    I think it''s good to use the `Loading` component on all outputs to give this
+    confirmation to users. It''s very easy to implement, and this is how we can update
+    the app to reflect this functionality:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: The `Graph` component already exists in our app; we just need to add it as the
+    `children` argument to the `Loading` component as you can see in the preceding
+    code. This will cause the animated symbol to remain animated until the underlying
+    object appears in its place.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let''s now modify the callback function to make the desired change:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: We basically made two changes. We first introduced `clustering_submit_button`
+    as an `Input` element and renamed each of the other arguments from `Input` to
+    `State`. The other change is passing `n_clicks` as the first argument to the function
+    signature. Remember that the names of the arguments can be anything, and what
+    matters is their order. We gave them clear names so we can easily refer to them
+    and manage them in the body of the function.
+  prefs: []
+  type: TYPE_NORMAL
+- en: You have now modified the clustering functionality, giving the user more control
+    and making it visually clearer with the `Loading` component. Feel free to add
+    it wherever you want in the app.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now we can take our callbacks to another interesting level.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Creating components that control other components
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'How about we provide an interactive component on the page where its values
+    (set by the user) serve as inputs to another function, which is in turn responsible
+    for the final output? *Figure 10.4* shows what the result looks like, and following
+    that is a discussion of the details and implementation:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 10.4 – An app with a component that dynamically determines the values
+    of another component](img/B16780_10_4.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 10.4 – An app with a component that dynamically determines the values
+    of another component
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let''s go through the visual elements of this app''s layout, one by one:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Success message**: The green strip at the top doesn''t appear when the app
+    loads. It only appears after the user adds the options to the dropdown and hits
+    the **Set options** button. Note that there is a dynamic message showing the user
+    the values that they added. Also, note that the alert message is "dismissable."
+    We have the **x** symbol on the right, allowing the user to remove this message.'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '`Textarea` component, which will be used to feed into the `options` property
+    of the `Dropdown` component underneath it. At this point in the app, `Dropdown`
+    is empty and has no options to choose from, and the `Graph` component also shows
+    an empty chart.'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '`Textarea` and hits this button, those lines will become options in `Dropdown`.'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '`Dropdown` component. After that, choosing a certain country code filters the
+    dataset by getting rows where the country code is equal to the user''s selection.
+    It then uses the resulting DataFrame to create the chart at the end.'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: There is not much practical value in such an app, as it would have been much
+    easier to simply provide the options in a `Dropdown` component and produce the
+    chart. We are simply doing this to demonstrate the new options that we can utilize
+    and doing so with a dataset with which we are familiar. There is also a big potential
+    for errors. What if the user doesn't know the code for a certain country? What
+    if they make a typo? Again, this is just for demonstration purposes.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This app can be written in around 30 lines of code and gives us two layers of
+    options, where one depends on the other. One set of options "waits" and depends
+    on the others to produce its outputs accordingly.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We now code the layout of the app, and after that we create the two callback
+    functions that make it interactive:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Run the necessary imports:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Create an app and its layout. All the following elements go into the app''s
+    layout:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Create an empty div that will contain the success message:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Create a `Label` component, telling the user how to interact with the app:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Create an empty `Textarea` component. Note that this is also available and
+    similar to the component of the same name, belonging to Dash Core Components:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Add a button for generating the dropdown and its options:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE12]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Create an empty `Dropdown`:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE13]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Create an empty `Graph` component:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE14]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'This should be enough for the visual elements of our app. We now need two functions
+    to create the interactivity we want:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`set_dropdown_options`: This function will take the lines from `Textarea` as
+    input and return a list of options to be fed to the `Dropdown` component.'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '`create_population_chart`: This function takes its input from the `Dropdown`
+    component and generates a population chart below it.'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'We now start with the first one:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Create the callback with the appropriate `Output`, `Input`, and `State` arguments.
+    We have two outputs that this function affects. The first is the `options` property
+    of the `Dropdown` component. The second is the div containing the success message.
+    For our `Input`, we will have the button, and our `State` will be the `Textarea`
+    component:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE15]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Create the function signature with appropriate argument names:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE16]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Create a variable holding the text provided as a list. We achieve that by splitting
+    the incoming text from `Textarea`. We also make sure to check for the case of
+    not having any clicks and use `raise PreventUpdate` in that case:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE17]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Create the success message as an `Alert` component, which is available from
+    Dash Bootstrap Components. Note that we also color it with a "color" called "success."
+    Naturally, you can also think of additional functionality that checks for valid
+    inputs, and if it doesn''t get one, the color of the message would be "warning"
+    or "danger," for example. Note that the text also dynamically adds the comma-separated
+    options that were provided by the user. We also set `dismissable=True` to allow
+    users to remove it from the page if they want to:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE18]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Create the options list that will set the `options` property of the currently
+    empty `Dropdown` component. We use the `text` variable for that:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE19]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Return the tuple of `options` and `message`:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE20]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Let''s now turn to our other function, which will take the selected country
+    code, and use it to generate the chart:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Create the callback with the required `Output` and `Input`:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE21]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Create the function signature as well as the check for the availability of
+    a value from the dropdown:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE22]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Create the required DataFrame subset based on the input value:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE23]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Return a chart with the appropriate values:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE24]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: We can now run the preceding code and create the desired app.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'To better understand the structure of our app, and to get used to inspecting
+    our callback chains, we can run the app in debug mode by running `app.run_server(debug=True)`
+    and see how inputs and outputs relate to one another in *Figure 10.5*:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 10.5 – App callback graph](img/B16780_10_5.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 10.5 – App callback graph
+  prefs: []
+  type: TYPE_NORMAL
+- en: You can easily see the names of the components and their IDs as specified in
+    our code. You can easily trace the sequence of events, starting from the bottom
+    left, following the arrows to the top right of the diagram.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We saw how we can create dynamic options in certain components that depend on
+    other components for their values. Dash neatly handled the behavior of components
+    and properly triggered the right functions when their inputs were available.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let's take things to an even more abstract and powerful level. Let's now allow
+    users to add full components by clicking a button.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Allowing users to add dynamic components to the app
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Not only will users be able to add components to the app''s layout, but the
+    components'' contents will also be dynamically generated. Take a look at *Figure
+    10.6* for the simplest example that we will start with:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 10.6 – An app allowing users to add components to the app''s layout](img/B16780_10_6.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 10.6 – An app allowing users to add components to the app's layout
+  prefs: []
+  type: TYPE_NORMAL
+- en: Although extremely simple, the charts in this app have different dynamic names,
+    as you can see in the chart titles. This was based on the dynamic value of `n_clicks`,
+    which changes on every click.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The amount of code required to generate this is similar to any simple app;
+    there isn''t much complexity involved. We just need to look at it with fresh eyes.
+    Let''s start by coding the layout, which will consist of two simple components:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Create a button to trigger the addition of new charts:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE25]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Create an empty div, with its `children` attribute set to an empty list. The
+    empty list is the key element that we will be working with:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE26]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: When this app loads for the first time, the user only sees a button that they
+    can use to add a chart. The area below it gets populated with an additional chart
+    every time they click the button.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let''s now create the callback function for this app:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Create the `Output`, `Input`, and `State` arguments as usual. The interesting
+    part to notice here is that the `children` property of the empty div acts both
+    as `Output` and as `State`. We usually take some component''s value and use it
+    to influence or change another component in the app. Who said we can''t take a
+    component, make a change to it, and return it back to where it came from in its
+    new state? This is exactly what we will do:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE27]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Create the function signature and check for `n_clicks`. Note here that `children`
+    is acting as `State` in this case:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE28]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Create an empty bar chart with a dynamic title, using the `n_clicks` property:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE29]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Append the new chart to the `children` component. If you remember, we set the
+    initial value of `children` in the empty div as an empty list. The following line
+    will take this list and append `new_chart` to it. There is nothing special about
+    this; we are simply using Python''s `list.append` method:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE30]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Now that our `children` list has been mutated by appending a new item to it,
+    we simply return it. Keep in mind that the return value of the callback function
+    will go to the div, and so now it is acting as an output:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE31]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: Note that this functionality was created by the application of simple principles.
+    We aren't using any new features here. The first technique was passing `children`
+    to our callback, and receiving it from the other side. The second one was using
+    the `n_clicks` property to dynamically set the titles of the charts.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The diagram in *Figure 10.7* shows the relationship between the elements we
+    created:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 10.7 – A callback function graph where a function returned a component
+    that it received and mutated](img/B16780_10_7.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 10.7 – A callback function graph where a function returned a component
+    that it received and mutated
+  prefs: []
+  type: TYPE_NORMAL
+- en: This diagram will remain the same regardless of the number of charts that were
+    added to the app. This means you don't have to worry about managing as many callback
+    functions as there are clicks.
+  prefs: []
+  type: TYPE_NORMAL
+- en: If you are ready to take this even further, we can add another component under
+    each chart, for example, a `Dropdown` component. And we can let the dropdown's
+    selected value produce a chart. Each dropdown value will be independent of the
+    others (if added by the user) and will only modify the chart it belongs to. The
+    good news is that all this will also be managed with one additional callback function
+    utilizing pattern-matching callbacks.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Introducing pattern-matching callbacks
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Mastering this feature, and here we are dealing with a truly new feature, will
+    allow you to take your apps to a new level of interactivity and power. The most
+    important feature of this capability is that it allows us to handle the interactivity
+    of components that didn't exist before. As we've done so far, when we allowed
+    users to create new charts by clicking a button, those components did not exist
+    before in the app. The more interesting thing is that the callback function that
+    handles them all is as simple as any other callback that takes values from a dropdown
+    and produces a chart. The trick is in slightly changing the `id` attribute of
+    our components.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'So far, we have set the `id` attributes as strings, and the only requirement
+    was that they be unique. We will now introduce a new way of creating this attribute,
+    which is by using dictionaries. Let''s first take a look at the end goal, then
+    modify the layout, the callbacks, and finally, discuss the new way of handling
+    the `id` property. *Figure 10.8* shows what our app will look like:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 10.8 – An app allowing users to add interactive components to the
+    app''s layout](img/B16780_10_8.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 10.8 – An app allowing users to add interactive components to the app's
+    layout
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the previous app, we were able to let the user generate new components on
+    the fly, and their content could be dynamic as well. We demonstrated this with
+    chart titles, using the `n_clicks` property to set the title dynamically. But
+    after adding those charts, the user couldn't interact with them. In other words,
+    they are dynamically generated, with potentially dynamic content, but once generated,
+    they are static, and we cannot interact with them.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The improvement we are now introducing is that we are making those charts interactive
+    (using the dropdowns) and having each of them linked to a single component, a
+    dropdown in this case. As you can see in *Figure 10.8*, each chart comes with
+    its own dropdown, and the user can independently generate multiple charts on top
+    of one another and compare. After that, they can do even more, by selecting different
+    countries on different charts. Of course, you can imagine a more involved set
+    of apps where users can do many other things.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The new additions to create this new functionality will be done in three steps:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Modify the `add_new_chart` function: This will simply consist of adding a dropdown
+    under each chart and appending two components, instead of one. Note that the layout
+    is exactly the same. We simply have a button and an empty div underneath it.'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Create a new callback function: This will link the newly generated pairs of
+    charts and dropdowns to determine their behavior.'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Modify the `id` attributes in the app: This is where we introduce the new functionality
+    and is the main feature that allows us to manage as many additional components
+    and their interactivity using a single callback function.'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'We first start by modifying the `add_new_chart` callback function:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We defined `new_chart` in the function, and this remains the same. Right under
+    that, we want to add `new_dropdown` for users to select the country that they
+    want to visualize:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE32]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Append the new components. In the first example, we appended `new_chart`, but
+    this time, we want to append the two items. The only thing to modify is to put
+    the two new components in a new div and append the new div. This way, we are effectively
+    appending one element (the div that contains two elements):'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE33]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: This is enough to cause the button to append two items for each click. As you
+    can see, the change was very simple. However, we will later come to set the `id`
+    attributes for these components in order to make them dynamically interactive.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now we have pairs of components added with every click on our button. One of
+    them has to be an `Output` element (`Graph`), and the other has to be an `Input`
+    element (`Dropdown`). As with every other interactivity feature, they need to
+    be linked with a callback function. We will create this now, and after that, we
+    will take a look at how to link those dynamic IDs together and manage how the
+    two callbacks interact with each other. The function is as simple as any callback
+    that we have created so far. Here it is, but without the decorator, which we will
+    discuss right after:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE34]'
+  prefs: []
+  type: TYPE_PRE
+- en: '*Figure 10.9* contains a diagram showing our pattern-matching callback function:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 10.9 – The callback graph of a pattern-matching callback](img/B16780_10_9.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 10.9 – The callback graph of a pattern-matching callback
+  prefs: []
+  type: TYPE_NORMAL
+- en: The top graph in *Figure 10.9* is exactly the same as the one in *Figure 10.7*.
+    It is for the simple function that adds new charts by appending them to the children
+    of the empty div. Note that the `id` attributes are labeled above each box representing
+    a component. Here they are **button** and **output**.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The graph for the second callback, `create_population_chart`, shows a similar
+    structure, but the IDs are dictionaries and not strings.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Pattern-matching callbacks use those dictionaries to map the different elements
+    together. Let's unpack those dictionaries and then see how they fit into the callbacks.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The first one is `{"index": MATCH, "type": "dropdown"}`. I believe the **type**
+    key is clear. We use it to make it easy to identify other components whose "type"
+    is "dropdown." It''s important to note that these names could be anything, but
+    obviously we would want meaningful and helpful names. The other dictionary has
+    **chart** for its **type** key. Again, this is also flexible, but I think it''s
+    clear here which elements we are referring to.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now we want to have independent functionality for each pair of components. In
+    other words, we want the user to be able to modify the second dropdown, generating
+    whatever chart they want, without that action affecting any other components in
+    the app. How do we achieve that? We simply tell Dash to match them, with `MATCH`.
+    This again belongs to an arbitrarily named key, `MATCH` is a wildcard object that
+    is available in the `dash.dependencies` module. There are also `ALL` and `ALLSMALLER`,
+    which work in a similar way with slight differences, but we will mainly focus
+    on `MATCH`. Now let's take a look at how the updated functions need to be specified
+    to cater to those IDs. The good news is that the only things we have to change
+    are the `id` attributes of the relevant components and pass them to the relevant
+    callback function arguments.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We are now ready to add the proper `id` attributes to complete the pattern-matching
+    callbacks. The first function, `add_new_chart`, takes the new dictionary `id`
+    attributes for the inner components that we allow the user to add to the app.
+    Note here that the "index" key takes `n_clicks` as its value. This value, as we
+    saw several times, is dynamic and changes every time the user clicks the button.
+    This means that every time the user clicks the button, we have a new unique ID
+    with which we can identify this component:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE35]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Now we have to map those IDs properly in the second function that is responsible
+    for managing their interactivity. The "`type`" key will be used to map "`chart`"
+    to "`chart`" and "`dropdown`" to "`dropdown`". As for `n_clicks`, since it is
+    dynamic, we match it with `MATCH`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE36]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Here you can find the full code for the two functions as a reference to get
+    the full picture:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE37]'
+  prefs: []
+  type: TYPE_PRE
+- en: You can easily imagine how flexible and extensible our apps can become with
+    such functionality, not to mention the ease of managing callbacks. Yet they are
+    not straightforward and might need some time to get used to, which I believe is
+    worth it.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We introduced many new concepts around callbacks, utilized some tricks, and
+    introduced new functionality. So, let's review what was covered in the chapter.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Summary
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: We first introduced the optional `State` argument to callback function decorators.
+    We saw how by combining it with `Input`, we can defer the execution of functions
+    until the user decides to execute them. We also ran several examples that added
+    buttons to invoke the execution. We then created a simple app where the user's
+    inputs to a certain component were used to dynamically populate options of another
+    component that was "waiting." Those new options were in turn used to create another
+    component.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Another interesting application of simple principles was allowing users to add
+    new components having dynamic content.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We finally introduced the most powerful and flexible feature, the pattern-matching
+    callbacks. We created an app where users are able to add as many charts as they
+    want. Furthermore, those charts acted independently from one another, and users
+    were empowered to customize their own dashboard.
+  prefs: []
+  type: TYPE_NORMAL
+- en: That was a lot to cover, and we turn next to another feature that allows us
+    to extend and expand our apps. We can only have so many components on a page until
+    it becomes cluttered. In many cases, it makes sense to create separate pages/URLs
+    for separate functionality, which is the topic of the next chapter.
+  prefs: []
+  type: TYPE_NORMAL

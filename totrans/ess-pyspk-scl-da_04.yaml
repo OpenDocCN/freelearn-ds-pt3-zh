@@ -1,0 +1,1569 @@
+- en: 'Chapter 3: Data Cleansing and Integration'
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In the previous chapter, you were introduced to the first step of the data analytics
+    process – that is, ingesting raw, transactional data from various source systems
+    into a cloud-based data lake. Once we have the raw data available, we need to
+    process, clean, and transform it into a format that helps with extracting meaningful,
+    actionable business insights. This process of cleaning, processing, and transforming
+    raw data is known as data cleansing and integration. This is what you will learn
+    about in this chapter.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Raw data sourced from operational systems is not conducive for data analytics
+    in its raw format. In this chapter, you will learn about various data integration
+    techniques, which are useful in consolidating raw, transactional data from disparate
+    source systems and joining them to enrich them and present the end user with a
+    single, consolidated version of the truth. Then, you will learn how to clean and
+    transform the form and structure of raw data into a format that is ready for data
+    analytics using data cleansing techniques. Data cleansing broadly deals with fixing
+    inconsistencies within data, dealing with bad and corrupt data, eliminating any
+    duplicates within data, and standardizing data to meet the enterprise data standards
+    and conventions. You will also learn about the challenges involved in using a
+    cloud data lake as an analytics data store. Finally, you will be introduced to
+    a modern data storage layer called Delta Lake to overcome these challenges.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This chapter will equip you with essential skills for consolidating, cleaning,
+    and transforming raw data into a structure that is ready for analytics, as well
+    as provide you with useful techniques for building scalable, reliable, and analytics-ready
+    data lakes in the cloud. As a developer, the topics included in this chapter will
+    help you give your business users access to all of their data at all times, allowing
+    them to draw actionable insights from their raw data much faster and easier.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In this chapter, the following main topics will be covered:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Transforming raw data into enriched meaningful data
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Building analytical data stores using cloud data lakes
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Consolidating data using data integration
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Making raw data analytics-ready using data cleansing
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Technical requirements
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In this chapter, we will be using the Databricks Community Edition to run our
+    code ([https://community.cloud.databricks.com](https://community.cloud.databricks.com)).
+    Sign-up instructions can be found at [https://databricks.com/try-databricks](https://databricks.com/try-databricks).
+  prefs: []
+  type: TYPE_NORMAL
+- en: The code in this chapter can be downloaded from [https://github.com/PacktPublishing/Essential-PySpark-for-Data-Analytics/tree/main/Chapter03](https://github.com/PacktPublishing/Essential-PySpark-for-Data-Analytics/tree/main/Chapter03).
+  prefs: []
+  type: TYPE_NORMAL
+- en: The datasets for this chapter can be found at [https://github.com/PacktPublishing/Essential-PySpark-for-Data-Analytics/tree/main/data](https://github.com/PacktPublishing/Essential-PySpark-for-Data-Analytics/tree/main/data).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Transforming raw data into enriched meaningful data
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Every data analytics system consists of a few key stages, including data ingestion,
+    data transformation, and loading into a data warehouse or a data lake. Only after
+    the data passes through these stages does it become ready for consumption by end
+    users for descriptive and predictive analytics. There are two common industry
+    practices for undertaking this process, widely known as **Extract, Transform,
+    Load** (**ETL**) and **Extract, Load, Transform** (**ELT**). In this section,
+    you will explore both these methods of data processing and understand their key
+    differences. You will also learn about the key advantages ELT has to offer over
+    ETL in the context of big data analytics in the cloud.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Extracting, transforming, and loading data
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'This is the typical data processing methodology that''s followed by almost
+    all data warehousing systems. In this methodology, data is extracted from the
+    source systems and stored in a temporary storage location such as a relational
+    database, called the staging area. Then, the data in the staging area is integrated,
+    cleansed, and transformed before being loaded into the data warehouse. The following
+    diagram illustrates a typical ETL process:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 3.1 – Extract, transform, and load'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/B16736_03_01.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Figure 3.1 – Extract, transform, and load
+  prefs: []
+  type: TYPE_NORMAL
+- en: As shown in the previous diagram, the ETL process consists of three main stages.
+    We will discuss these in the following sections.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Extracting data from operational systems
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: The ETL stage involves extracting selective, raw, transactional data from multiple
+    source systems and staging it at a temporary storage location. This step is equivalent
+    to the data ingestion process, which you learned about in [*Chapter 2*](B16736_02_Final_JM_ePub.xhtml#_idTextAnchor032),
+    *Data Ingestion*. The ETL process typically processes large volumes of data, though
+    running it directly on the source systems might put excessive load on them. Operational
+    systems are critical to the functionality of day-to-day business functions and
+    it is not advisable to unnecessarily tax them. Thus, the **Extract** process extracts
+    data from source systems during off-business hours and stores it in a staging
+    area. Furthermore, ETL processing can happen on the data in the staging area,
+    leaving operational systems to handle their core functions.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Transforming, cleaning, and integrating data
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: This stage involves various data transformation processes such as data integration,
+    data cleansing, joining, filtering, splitting, standardization, validation, and
+    more. This step converts raw transactional data into a clean, integrated, and
+    enriched version that is ready for business analytics. We will dive deeper into
+    this stage in the *Consolidating data using data integration* and *Making raw
+    data analytics ready using data cleansing* sections of this chapter.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Loading data into a data warehouse
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: This is the final stage of the ETL process, where the transformed data is finally
+    loaded into a persistent, historical data storage layer, such as a data warehouse.
+    Typically, ETL processing systems accomplish the **Transform** and **Load** steps
+    in a single flow, where raw data from the staging area is cleansed, integrated,
+    and transformed according to the business rules and loaded into a warehouse, all
+    in a single flow.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Pros and cons of ETL and data warehousing
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: Some advantages of the ETL methodology are that data is transformed and loaded
+    into a structured analytical data store such as a data warehouse, which allows
+    for efficient and performant analysis of the data. Since the ETL paradigm has
+    been in existence for a few decades now, there are sophisticated platforms and
+    tools on the market that can perform ETL in a very efficient manner in a single,
+    unified flow.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Another advantage of ETL is that since data is processed before being loaded
+    into its final storage, there is the opportunity to either omit unwanted data
+    or obscure sensitive data. This greatly helps with data regulatory and compliance
+    requirements.
+  prefs: []
+  type: TYPE_NORMAL
+- en: However, ETL processes run in a batch processing manner and typically run once
+    every night. Thus, new data is only available to end users once the ETL batch
+    process has finished successfully. This creates a dependency on data engineers
+    to efficiently run the ETL processes, and there is a considerable delay before
+    end users can get access to the latest data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The data in the staging area is almost entirely cleared every time before the
+    start of the next scheduled ETL load. Also, operational systems do not typically
+    keep a historical record of the transactional data for more than a few years.
+    This means that end users cease to have any access to historical raw data, other
+    than the processed data in the data warehouse. This historical raw data could
+    prove to be very useful for certain types of data analytics such as predictive
+    analytics, but data warehouses generally do not retain it.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The ETL process evolved around data warehousing concepts and is more suited
+    for business intelligence workloads, in an on-premises type of setting. The highly
+    structured and somewhat rigid nature of data warehouses makes ETL not very conducive
+    for data science and machine learning, both of which deal with a lot of unstructured
+    data. Moreover, the batch nature of the ETL process makes it unfit for real-time
+    analytics. Also, ETL and data warehouses do not take full advantage of the cloud
+    and cloud-based data lakes. That's why a new methodology for data processing has
+    emerged called **Extract, Load, and Transform**, or **ELT**, which we will take
+    a look at in the following section.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Extracting, loading, and transforming data
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'In the ELT methodology, transactional data from source systems is ingested
+    into a data lake in its original, raw format. The ingested, raw data in the data
+    lake is then transformed either on-demand or in a scheduled manner. In the ELT
+    process, raw data is directly staged on the data lake and is typically never purged.
+    As a result, data can grow enormously in size and require virtually unlimited
+    storage and compute capacity. On-premises data warehouses and data lakes were
+    not designed to handle data at such an enormous scale. Thus, the ELT methodology
+    is only made possible by modern cloud technologies that offer highly scalable
+    and elastic compute and storage resources. The following diagram depicts a typical
+    ELT process:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 3.2 – Extract, load, and transform'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/B16736_03_02.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Figure 3.2 – Extract, load, and transform
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the preceding diagram, raw data is either continuously or periodically ingested
+    from multiple source systems into a data lake. Then, the raw data in the data
+    lake is integrated, cleaned, and transformed before being stored back inside it.
+    The clean and aggregated data in the data lake serves as a single source of truth
+    for all types of downstream analytics.
+  prefs: []
+  type: TYPE_NORMAL
+- en: With ELT, virtually any amount of history can be maintained, and data can be
+    made available as soon as it is created in the source systems. There is no requirement
+    to pre-process data before ingesting it and since data lakes do not impose any
+    strict requirements on the format or structure of data, ELT can ingest and store
+    all kinds of structured, unstructured, and semi-structured data. Thus, the ETL
+    process makes all the historical raw data available so that data transformation
+    can become completely on demand.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Advantages of choosing ELT over ETL
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Some of the advantages of the ELT methodology are that data can be ingested
+    at much faster speeds since no pre-processing steps are required. It is much more
+    flexible with the kinds of data that can be ingested, helping unlock new analytics
+    use cases such as data science and machine learning. ETL leverages elastic storage
+    provided by cloud data lakes, helping organizations maintain a replica of transactional
+    data, along with virtually unlimited history. ELT, typically being cloud-based,
+    takes away the hassle of managing data replication and archiving as most cloud
+    providers have managed services for these and guarantee **Service-Level Agreements**
+    (**SLAs**).
+  prefs: []
+  type: TYPE_NORMAL
+- en: The ELT methodology is quickly becoming the de facto standard for big data processing
+    in the cloud for organizations with huge amounts of transactional data. The ELT
+    methodology of data processing is recommended for organizations that are already
+    in the cloud or with a future cloud strategy.
+  prefs: []
+  type: TYPE_NORMAL
+- en: However, the ELT methodology in the cloud is still very nascent, and cloud data
+    lakes do not offer any of the transactional or reliability guarantees that their
+    data warehousing counterparts already offer. In the next section, you will explore
+    some of the challenges involved in building cloud-based data lakes and some ways
+    to overcome them.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Building analytical data stores using cloud data lakes
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In this section, you will explore the advantages afforded by cloud-based data
+    lakes for big data analytics systems, and then understand some of the challenges
+    facing big data analytics systems while leveraging cloud-based data analytics
+    systems. You will also write a few **PySpark** code examples to experience these
+    challenges first-hand.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Challenges with cloud data lakes
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Cloud-based data lakes offer unlimited, scalable, and relatively inexpensive
+    data storage. They are offered as managed services by the individual cloud providers
+    and offer availability, scalability, efficiency, and lower **total cost of ownership**.
+    This helps organizations accelerate their digital innovation and achieve faster
+    time to market. However, cloud data lakes are object storages that evolved primarily
+    to solve the problem of storage scalability. They weren't designed to store highly
+    structured, strongly typed, analytical data. Given this, there are a few challenges
+    in using cloud-based data lakes as analytical storage systems.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Data reliability challenges with data lakes
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: Data lakes are not based on any underlying filesystem but on the object storage
+    mechanism, which manages data as objects. Object storage represents data as objects
+    with a unique identifier and its associated metadata. Object storages weren't
+    designed to manage frequently changing transactional data. Thus, they have a few
+    limitations regarding analytical data stores and data processing, such as eventual
+    consistency, lack of transactional guarantees, and more. We will look at these
+    in the following sections.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Eventual consistency of data
+  prefs:
+  - PREF_H4
+  type: TYPE_NORMAL
+- en: Cloud-based data lakes are distributed storage systems where data storage happens
+    across multiple machines instead of a single machine. Distributed storage systems
+    are governed by a theorem referred to as the CAP theorem. The **CAP theorem**
+    states that a distributed storage system can be tuned for only two of the three
+    parameters of CAP; that is, consistency, availability, and partition tolerance.
+    Not guaranteeing strong availability and partition tolerance can lead to data
+    loss or errors, so cloud-based data lakes prioritize these two so that they're
+    made eventually consistent.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Eventual consistency means that data written to a cloud data lake might not
+    be available instantly. This could lead to `FileNotFound` errors in a data analytics
+    system, where downstream business analytics processes try to read data from the
+    data lake while it is being written by an ELT process.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Lack of transactional guarantees
+  prefs:
+  - PREF_H4
+  type: TYPE_NORMAL
+- en: A typical relational database provides transactional guarantees when data is
+    being written. This simply means that a database operation either completely succeeds
+    or completely fails, and that any consumer trying to read the data simultaneously
+    doesn't get any inconsistent or incorrect data because of a database operation
+    failure.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Data lakes do not provide any such atomic transactional or durability guarantees.
+    This means that it's up to the developer to clean up and manually roll back half-written,
+    incomplete data from any failed jobs and reprocess the data all over again.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Consider the following code snippet, where we are ingesting CSV data, converting
+    it into Parquet format, and saving it to the data lake:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Here, let''s try and interrupt the job halfway through to simulate a Spark
+    job failure. Upon browsing the data lake at `/tmp/retail.parquet`, you will notice
+    a few half-written Parquet files. Let''s try and read those Parquet files via
+    another Spark job, as shown in the following code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: In the preceding code block, we have read a Parquet file that was the result
+    of a data ingestion job that failed halfway through. The expected result, when
+    we try to read this data on a data store that supports atomic transactions, is
+    that either the query yields no results or it just fails because the data is incorrect.
+    However, in the case of the preceding Spark job, we do get a few thousand records,
+    which is incorrect. This is because of the lack of atomic transaction guarantees
+    on the part of Apache Spark, as well as the data lake.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Lack of schema enforcement
+  prefs:
+  - PREF_H4
+  type: TYPE_NORMAL
+- en: Data lakes, being object stores, are not concerned with the structure and schema
+    of data and are happy to store all and any data without performing any checks
+    to make sure that data is consistent. Apache Spark also doesn't have any built-in
+    mechanism to enforce a user-defined schema. This results in corrupt and bad data,
+    with mismatched data types ending up in your data lake. This reduces data quality,
+    which is critical for end user analytical applications.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Take a look at the following code example, where we have written an initial
+    DataFrame with a few columns. The first column is of `IntegerType`, while the
+    second column is of `StringType`. We wrote the first DataFrame to the data lake
+    in Parquet format. Then, we generated a second DataFrame where both columns are
+    of `IntegerType`. Then, we tried to append the second DataFrame to the original
+    Parquet dataset already in the data lake, as shown in the following code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: The expected result on a strongly typed analytical data store such as a data
+    warehouse should be a data type mismatch error. However, neither Apache Spark
+    nor the data lake or the Parquet data format itself, throw an error while we try
+    to perform this operation, and the transaction seems to complete successfully.
+    This is undesirable as we have allowed inconsistent data to enter our data lake.
+    However, performing a read operation on the Parquet dataset would fail with a
+    type mismatch, which could be confusing and quite difficult to debug. This error
+    could have easily been caught during the data loading process if data lakes or
+    Apache Spark came with data validation support. It is important to always validate
+    the data's correctness and consistency before making it available for business
+    analytics because business decision-makers depend on it.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Unifying batch and streaming
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: One of the key requirements of modern big data analytics systems is getting
+    access to the latest data and insights in real time. Apache Spark comes with structured
+    streaming to handle all real-time analytics requirements. Despite stream processing,
+    batch processing remains a key aspect of big data analytics, and Apache Spark
+    has done quite a good job of unifying both real-time and batch analytics via its
+    Spark SQL Engine, which acts as the core abstraction layer for both batch and
+    streaming Spark jobs.
+  prefs: []
+  type: TYPE_NORMAL
+- en: However, data lakes do not support any level of atomic transactions or isolation
+    between different transactions on the same table or dataset. So, something like
+    the **Lambda Architecture**, which you learned about in [*Chapter 2*](B16736_02_Final_JM_ePub.xhtml#_idTextAnchor032),
+    *Data Ingestion*, would need to be employed to unify batch and stream processing
+    pipelines. This results in separate data processing pipelines, separate code bases,
+    and separate tables being maintained, one for batch processing and another stream
+    processing. This architecture of your big data analytics system is very complex
+    to design and maintain.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Updating and deleting data
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: In the ELT methodology, you are continuously ingesting new data into the data
+    lake and maintaining a replica of your source transactions inside it, along with
+    history over a certain period. Operational systems are constantly generating transactions.
+    However, from time to time, you must update and delete records.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Consider the example of an order that's been placed by a customer at an online
+    retailer. The transaction goes through different phases, starting with the order
+    being placed, the order being processed, the order getting ready for shipment,
+    the order getting shipped, the order in transit, and the order being delivered.
+    This change in the state of the transaction must be reflected in the data lake.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This process of capturing the change in the state of data is known as `UPDATE`
+    and `DELETE` operations in the data lake. Data lakes are append-only systems and
+    not designed to handle a large number of arbitrary updates and deletes. Thus,
+    implementing arbitrary updates and deletes increases the complexity of your ELT
+    application.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Rolling back incorrect data
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: Earlier, you learned that data lakes do not support any atomic transactional
+    guarantees on write operations. It is up to the data engineer to identify the
+    incorrect records, clean them up, and reprocess the data again for failed jobs.
+    For smaller datasets, this cleanup process could be as simple as truncating and
+    loading the entire dataset. However, for larger datasets at a big data scale with
+    petabytes of data, truncating and loading data is not at all feasible. Neither
+    data lakes nor Apache Spark has an easy rollback option, requiring the data engineer
+    to build complex mechanisms to handle failed jobs.
+  prefs: []
+  type: TYPE_NORMAL
+- en: A new class of modern data storage formats has emerged that tries to overcome
+    the data lake challenges mentioned in the previous section. Some examples of these
+    technologies are Apache Hudi, Apache Iceberg, and Delta Lake. In the following
+    section, we will explore Delta Lake and see how it can help in overcoming various
+    data lake challenges.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Overcoming data lake challenges with Delta Lake
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: In this section, you will be introduced to Delta Lake and understand how it
+    helps overcome some of the challenges of data lakes. You will also write a few
+    code examples to see Delta Lake in action.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Introduction to Delta Lake
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: '**Delta Lake** is an open source data storage layer that helps bring reliability,
+    ACID transactional guarantees, schema validation, and evolution to cloud-based
+    data lakes. Delta Lake also helps in unifying batch and stream processing. Delta
+    Lake was created by Databricks, the original creators of Apache Spark, and it
+    was designed to be completely compatible with all Apache Spark APIs.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Delta Lake is made up of a set of versioned Parquet files, along with a write-ahead
+    log called the **transaction log**. The Delta Transaction Log helps enable all
+    the features of Delta Lake. Let's dive deeper into the inner workings of Delta
+    Transaction Log to gain a better understanding of how Delta Lake operates.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Delta Lake transaction log
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: The **Delta transaction log** is based on a popular technique that's performed
+    on relational databases known as **write-ahead logging** (**WAL**). This technique
+    guarantees the atomicity and durability of write operations on a database. This
+    is achieved by recording each write operation as a transaction in the write-ahead
+    log before any data is written to the database. The Delta Transaction Log is based
+    on the same technique as WAL, but here, WAL, as well as the data that's been written,
+    is in files on the data lake.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let''s try to understand the Delta Transaction Log using a simple Spark job
+    that ingests CSV data into the data lake in Delta format, as shown in the following
+    code block:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The preceding code reads CSV files from the data lake, infers the schema of
+    the underlying data, along with the header, converts the data into Delta format,
+    and saves the data in a different location on the data lake. Now, let''s explore
+    the Delta file''s location on the data lake using the following command:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'After you execute the preceding command, you will notice the folder structure
+    of the Delta location, as shown in the following screenshot:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 3.3 – Delta folder structure'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/B16736_03_03.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Figure 3.3 – Delta folder structure
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In the preceding screenshot, you can see that a Delta Lake location contains
+    two parts: a folder named `_delta_log` and a set of Parquet files. The `_delta_log`
+    folder contains the Delta Transaction Log''s files. Let''s explore the transaction
+    log using the following command:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The preceding command displays the contents of the `_delta_log` folder, as
+    shown in the following screenshot:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 3.4 – Delta transaction log'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/B16736_03_04.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Figure 3.4 – Delta transaction log
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the preceding screenshot, we can see that the folder contains a few different
+    types of files. There are also a few files with the`.json` extension. These JSON
+    files are actual Delta Transaction Log files and contain an ordered record of
+    all the successful transactions that are performed on the Delta table.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs: []
+  type: TYPE_NORMAL
+- en: The previously used `%fs` filesystem commands are only available on the Databricks
+    platform. You will need to use the appropriate command to browse the data lake
+    that's appropriate for your Spark and data lake distribution.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Delta Lake transactions can be any operations that are performed on the Delta
+    table, such as inserts, updates, and deletes, or even metadata operations such
+    as renaming the table, changing the table schema, and so on. Every time an operation
+    takes place, a new record is appended to the Delta Transaction Log with actions
+    such as **Add file**, **Remove file**, **Update metadata**, and so on. These actions
+    are atomic units and are recorded in the order that they took place. They are
+    called **commits**.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'After every 10 commits, Delta Lake generates a checkpoint file in Parquet format
+    that contains all the transactions until that point in time. These periodic Parquet
+    checkpoint files make it fast and easy for a Spark job to read and reconstruct
+    the table''s state. This can easily be illustrated with the help of the following
+    Spark code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: In the preceding line of code, we read the Delta Transaction Log just like any
+    other JSON file by using a `spark.read()` function and created a Spark DataFrame.
+    Every time a `spark.read()` command is run on a Delta Lake table, a small Spark
+    job is executed to read the table's state, making metadata operations on Delta
+    Lake completely scalable.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs: []
+  type: TYPE_NORMAL
+- en: The `%fs` filesystem command to explore files on a data lake is only available
+    on the Databricks platform. You would need to choose a mechanism appropriate for
+    your Spark environment and data lake.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now that you have an understanding of the components of Delta Lake and the inner
+    workings of the Delta Transaction Log, let's see how Delta Lake can help solve
+    the challenges that data lakes face.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Improving data lake reliability with Delta Lake
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: Delta Lake, along with its transaction log, guarantees the atomicity and durability
+    of data written to the data lake. Delta Lake only commits a transaction to the
+    transaction log when all the data of the operation is completely written to the
+    data lake. Any Delta-aware consumer reading data from a Delta table will always
+    parse the Delta Transaction Log first to get the latest state of the Delta table.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This way, if the data ingestion job fails midway, a Delta Transaction Log-aware
+    consumer will parse the transaction log, get the last stable state of the table,
+    and only read the data that has commits in the transaction log. Any half-written,
+    dirty data that might be in the data lake will be completely ignored because such
+    data will not have any commits in the transaction log. Thus, Delta Lake, coupled
+    with its transaction log, makes data lakes more reliable by providing transactional
+    atomicity and durability guarantees.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Tip
+  prefs: []
+  type: TYPE_NORMAL
+- en: Both data readers and data writers need to be *Delta Transaction Log aware*
+    to get the ACID transaction guarantees of Delta Lake. Any reader or writer using
+    Apache Spark can be made fully *Delta Transaction Log aware* by just including
+    the appropriate version of the Delta Lake library on the Spark cluster. Delta
+    Lake also has connectors to external data processing systems such as Presto, Athena,
+    Hive, Redshift, and Snowflake.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Enabling schema validation with Delta Lake
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'Clean and consistent data is an essential requirement for any kind of business
+    analytics application. One of the easier ways to ensure that only clean data enters
+    the data lake is to make sure the schema is validated during the data ingestion
+    process. Delta Lake comes with a built-in schema validation mechanism and ensures
+    that any data being written to Delta Lake conforms to the user-defined schema
+    of the Delta table. Let''s explore this feature by creating a new Delta table
+    and trying to insert data with mismatching data types into it, as shown in the
+    following code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs: []
+  type: TYPE_PRE
+- en: In the previous code snippet, we created a Spark DataFrame named `df1` with
+    two columns, with `StringType` as the data type for both columns. We wrote this
+    DataFrame to the data lake using the Delta Lake format. Then, we created another
+    Spark DataFrame named `df2`, also with two columns, but their data types were
+    set to `LongType` and `IntegerType`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Next, we tried to append the second DataFrame to the original Delta table. As
+    expected, Delta Lake fails the operation and throws a *Failed to merge incompatible
+    data types StringType and IntegerType* exception. This way, Delta Lake ensures
+    data quality in data lakes by providing schema validation and enforcement during
+    data ingestion.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Schema evolution support with Delta Lake
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'Another common use case during data ingestion and the ELT process is that the
+    source schema might evolve from time to time and that it needs to be handled in
+    the data lake. One such scenario is that new columns could be added to the source
+    system tables. It is desirable to bring those new columns into our data lake table,
+    without it affecting our already existing data. This process is generally known
+    as **schema evolution**, and Delta Lake has built-in support for this. Let''s
+    explore schema evolution in Delta Lake with the following code example:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'In the preceding code snippet, we created a Spark DataFrame named `df1` that
+    has just one column labeled `id`. Then, we saved this DataFrame to the data lake
+    in Delta Lake format. Then, we created a second Spark DataFrame named `df2` with
+    two columns called `id` and `customer_id`. After, we appended the second DataFrame
+    to the original Delta table that was created from `df1`. This time, we used the
+    `mergeSchema` option. This `mergeSchema` option specifies that we are expecting
+    new columns to be written to Delta Lake, and these need to be appended to the
+    existing table. We can easily verify this by running the following command on
+    the Delta table:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'In the previous code block, we are loading the data in the Delta table into
+    a Spark DataFrame and calling the `show()` action to display the contents of the
+    DataFrame, as shown in the following figure:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 3.5 – Delta Lake schema evolution'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/B16736_03_05.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Figure 3.5 – Delta Lake schema evolution
+  prefs: []
+  type: TYPE_NORMAL
+- en: As you can see, new `mergeSchema` enabled, Delta Lake automatically adds the
+    new column to the existing table and marks the values of the rows that did not
+    exist previously as `null` values.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Arbitrary updates and deletes in data lakes with Delta Lake
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: Transactions not only get inserted into operating systems – they are also updated
+    and deleted from time to time. In the ELT process, a replica of the source system
+    data is maintained in the data lake. Thus, it becomes necessary to be able to
+    not only insert data into data lakes but also update and delete it. However, data
+    lakes are append-only storage systems with minimal or no support for any updates
+    or deletes. Delta Lake, however, has full support for inserting, updating, and
+    deleting records.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let''s take a look at an example of how we can update and delete arbitrary
+    data from Delta Lake, as shown in the following block of code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'In the preceding block of code, we created a Spark DataFrame with two columns
+    labeled `id` and `customer_id`. `id` has values ranging from 1 through 5\. We
+    saved this table to the data lake using the Delta Lake format. Now, let''s update
+    the `customer_id` column where values of the `id` column are greater than `2`,
+    as shown in the following code block:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs: []
+  type: TYPE_PRE
+- en: In the preceding code block, we updated the `customer_id` column using an `UPDATE`
+    SQL clause and specified the condition via a `WHERE` clause, just as you would
+    do on any RDBMS.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Tip
+  prefs: []
+  type: TYPE_NORMAL
+- en: The `%sql` magic command specifies that we intend to execute SQL queries in
+    the current notebook cell. Even though we did not explicitly create a table, we
+    can still refer to the Delta Lake location as a table using the `` delta.`path-to-delta-table`
+    `` syntax.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The second SQL query reads the data back from the Delta table and displays
+    it using the `SELECT` SQL clause, as shown in the following screenshot:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 3.6 – Updates with Delta Lake'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/B16736_03_06.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Figure 3.6 – Updates with Delta Lake
+  prefs: []
+  type: TYPE_NORMAL
+- en: Here, we can verify that all the rows of the Delta table with the value of the
+    `id` column greater than `2` were successfully updated. Thus, Delta Lake has full
+    support for updating multiple arbitrary records at scale with a simple SQL-like
+    syntax.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Tip
+  prefs: []
+  type: TYPE_NORMAL
+- en: A Delta table's metadata is entirely stored in the Delta Transaction Log itself.
+    This makes registering Delta tables with an external **metastore** such as **Hive**
+    completely optional. This makes it easier to just save the Delta table to the
+    data lake and use it via Spark's DataFrame and SQL APIs seamlessly.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now, let''s see how Delta supports deletes with the help of the following block
+    of code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE12]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'In the preceding code snippet, we used the `DELETE` command to delete all the
+    records that have an `id` of value `4`. The second query, where we used the `SELECT`
+    clause, displays the contents of the Delta table after the `DELETE` operation,
+    as shown in the following screenshot:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 3.7 – Deletes with Delta Lake'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/B16736_03_07.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Figure 3.7 – Deletes with Delta Lake
+  prefs: []
+  type: TYPE_NORMAL
+- en: Here, we can easily verify that we no longer have any rows with an `id` value
+    of `4`. Thus, Delta Lake also supports deleting arbitrary records at scale.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Tip
+  prefs: []
+  type: TYPE_NORMAL
+- en: Delta Lake supports both SQL and DataFrame syntax for DELETES, UPDATES, and
+    UPSERTS. A syntax reference can be found in the open source documentation, which
+    is maintained at [https://docs.delta.io/latest/delta-update.html#table-deletes-updates-and-merges](https://docs.delta.io/latest/delta-update.html#table-deletes-updates-and-merges).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Even `DELETE` and `UPDATE` operations on Delta Lake support the same transactional
+    guarantees of atomicity and durability as write operations. However, an interesting
+    thing to note is that every time a `DELETE` or `UPDATE` operation takes place,
+    instead of updating or deleting any data in place, Delta Lake generates a brand-new
+    file with the updated or deleted records and appends these new files to the existing
+    Delta table. Then, Delta Lake creates a new **commit** for this write transaction
+    in the transaction log and marks the older **commits** of the deleted or updated
+    records as invalid.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Thus, Delta Lake is never actually deleting or updating the actual data files
+    in the data lake; it is just appending new files for any operation and updating
+    the transaction log. Updating a smaller set of transaction log files is much faster
+    and more efficient than updating a large number of very large data files. This
+    process of updating and deleting records with Delta Lake is ultra-efficient and
+    can be scaled to petabytes of data. This feature is very useful for use cases
+    where customer arbitrary records need to be identified and deleted, such as in
+    GDPR compliance use cases.
+  prefs: []
+  type: TYPE_NORMAL
+- en: One more interesting side effect of this technique of always appending data
+    files and never deleting them is that Delta Lake maintains a historical audit
+    record of all the changes that happen to the data. This audit log is maintained
+    in the **Delta transaction log** and with its help, Delta Lake can travel back
+    in time to reproduce a snapshot of a Delta table at that point. We will explore
+    this feature in the next section.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Time travel and rollbacks with Delta Lake
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: Delta Lake keeps an audit log of how data has changed over time in its transaction
+    log. It also maintains older versions of Parquet data files every time data changes.
+    This gives Delta Lake the ability to reproduce a snapshot of the entire Delta
+    table at that point. This feature is called **Time Travel**.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'You can easily explore the audit trail of a Delta table using the following
+    SQL query:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE13]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'In the preceding Spark SQL query, we used the `DESCRIBE HISTORY` command to
+    reproduce the entire audit log of the changes that happened to the Delta table,
+    as shown here:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 3.8 – Time Travel with Delta Lake'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/B16736_03_08.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Figure 3.8 – Time Travel with Delta Lake
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In the preceding screenshot, you can see that this Delta table changed three
+    times. First, data was inserted into the table, then the table was updated, and
+    then records were deleted from the table. Delta Lake records all these events
+    as transactions called **commits**. The timestamp of the commit event version
+    number is also recorded in the change audit log. The timestamp or the table version
+    number can be used to travel back in time to a particular snapshot of the Delta
+    table using a SQL query, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE14]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'In the preceding SQL query, we performed a Delta Time Travel to the original
+    version of the table. Time Travel is very useful during data engineering and ELT
+    processing for performing rollbacks on tables if a data ingestion process fails.
+    Delta Time Travel can be used to restore a Delta table to a previous state, as
+    shown here:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE15]'
+  prefs: []
+  type: TYPE_PRE
+- en: In the preceding SQL query, we overwrote the Delta table using a snapshot from
+    a previous version of the table, all while making use of the **Delta Time Travel**
+    feature.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Another scenario where Delta Time Travel comes in handy is in data science and
+    machine learning use cases. Data scientists often conduct multiple machine learning
+    experiments by modifying the dataset that's used for experimentation. In the process,
+    they end up maintaining multiple physical versions of the same dataset or table.
+    Delta Lake can help eliminate these physical versions of tables with the help
+    of Time Travel, since Delta has built-in data versioning. You will explore this
+    technique in more detail in [*Chapter 9*](B16736_09_Final_JM_ePub.xhtml#_idTextAnchor164),
+    *Machine Learning Life Cycle Management*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Tip
+  prefs: []
+  type: TYPE_NORMAL
+- en: Delta continues to maintain versions of Parquet data files with every operation
+    that mutates data. This means that older versions of data files get accumulated
+    and Delta Lake doesn't automatically delete them. This could lead to a considerable
+    increase in the size of the data lake over a while. To overcome this scenario,
+    Delta Lake provides a `VACUUM` command to permanently remove older files that
+    are no longer referenced by the Delta table. More information regarding the `VACUUM`
+    command can be found at [https://docs.delta.io/latest/delta-utility.html#vacuum](https://docs.delta.io/latest/delta-utility.html#vacuum).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Unifying batch and stream processing using Delta Lake
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: Batch and real-time stream processing are essential components of any modern
+    big data architecture. In [*Chapter 2*](B16736_02_Final_JM_ePub.xhtml#_idTextAnchor032),
+    *Data Ingestion*, you learned how to use Apache Spark for batch and real-time
+    data ingestion. You also learned about the Lambda Architecture, which you can
+    use to implement simultaneous batch and stream processing. An implementation of
+    the Lambda Architecture with Apache Spark is still relatively complex as two separate
+    data processing pipelines need to be implemented for batch and real-time processing.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This complexity arises from the limitation of data lakes as they inherently
+    do not provide any transactional, atomicity, or durability guarantees on write
+    operations. Thus, batch and streaming processes cannot write data to the same
+    table or location on the data lake. Since Delta Lake already solves this challenge
+    of data lakes, a single Delta Lake can be used in conjunction with multiple batch
+    and real-time pipelines, further simplifying the Lambda Architecture. You will
+    explore this in more detail in [*Chapter 4*](B16736_04_Final_JM_ePub.xhtml#_idTextAnchor075)*,*
+    *Real-Time Data Analytics*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In summary, in this section, you learned that data lakes are instrumental in
+    enabling truly scalable big data processing systems. However, they weren't built
+    to be data analytics storage systems and have a few shortcomings, such as a lack
+    of ACID transactional guarantees, as well as the ability to support the process
+    of updating or deleting records, preserving data quality schema enforcement, or
+    unification of batch and stream processing. You also learned how modern data storage
+    layers such as Delta Lake can help overcome the challenges of data lakes and bring
+    them closer to being true data analytics storage systems.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now that you have an understanding of how to make cloud-based data lakes more
+    reliable and conducive for data analytics, you are ready to learn about the process
+    of transforming raw transactional data into meaningful business insights. We will
+    start by consolidating data from various disparate sources and creating a single,
+    unified view of data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Consolidating data using data integration
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '**Data integration** is an important step in both the ETL and ELT modes of
+    data processing. Data integration is the process of combining and blending data
+    from different data sources to create enriched data that happens to represent
+    a single version of the truth. Data integration is different from data ingestion
+    because data ingestion simply collects data from disparate sources and brings
+    it to a central location, such as a data warehouse. On the other hand, data integration
+    combines those disparate data sources to create a meaningful unified version of
+    the data that represents all the dimensions of the data. There are multiple ways
+    to perform data integration, and a few of them will be explored in this section.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Data consolidation via ETL and data warehousing
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Extracting, transforming, and loading data into data warehouses has been the
+    best technique of data integration over the last few decades. One of the primary
+    goals of data consolidation is to reduce the number of storage locations where
+    the data resides. The ETL process extracts data from various source systems and
+    then joins, filters, cleanses, and transforms the data according to user-specified
+    business rules and then loads it into a central data warehouse.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This way, ETL and data warehousing techniques, as well as the tools and technologies
+    that have been purposely built for this, support data consolidation and data integration.
+    Although ELT is a slightly different process than ETL and with Apache Spark, we
+    intend to build a data lake, the techniques of data integration and data consolidation
+    remain the same, even with ETL.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let's implement a data integration process using PySpark. As a first step, upload
+    all the datasets provided with this chapter to a location where they can be accessed
+    by your Spark cluster. In the case of Databricks Community Edition, the datasets
+    can be directly uploaded to the data lake from within the **File** menu of the
+    notebook. The links for the datasets and code files can be found in the *Technical
+    requirements* section at the beginning of this chapter.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let''s explore the schema of the two transactional datasets labeled `online_retail.csv`
+    and `online_retail_II.csv` using the following block of code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE16]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'In the preceding code snippet, we did the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: We defined the schema of a Spark DataFrame as a `StructType` consisting of multiple
+    StructFields. PySpark comes with these built-in structures to programmatically
+    define the schema of a DataFrame.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Then, we loaded the two CSV files into separate Spark DataFrames while using
+    the `schema` option to specify the data schema we created during *Step 1*. We
+    still specified the header option as `True` because the first line of the CSV
+    file has a header defined and we need to ignore it.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Finally, we printed the schema information of the two Spark DataFrames we created
+    in *Step 2*.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Now that we have the retail datasets from the CSV files loaded into Spark DataFrames,
+    let''s integrate them into a single dataset, as shown in the following lines of
+    code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE17]'
+  prefs: []
+  type: TYPE_PRE
+- en: In the preceding code, we simply combined the two Spark DataFrames containing
+    online retail transactional data to create a single Spark DataFrame by using the
+    `union()` function. The union operation combines the two distinct DataFrames into
+    a single DataFrame. The resultant consolidated dataset is labeled `retail_df`.
+    We can verify the results using the `show()` function.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Tip
+  prefs: []
+  type: TYPE_NORMAL
+- en: The `union()` function is a transformation and thus lazily evaluated. This means
+    that as soon as you call a `union()` on two Spark DataFrames, Spark checks to
+    see if the two DataFrames have the same number of columns and that their data
+    types match. It doesn't manifest the DataFrames into memory yet. The `show()`
+    function is an action, so Spark processes the transformations and manifests data
+    in memory. However, the `show()` function only works on a small number of the
+    DataFrame partitions and returns a sample set of the results to Spark Driver.
+    Thus, this action helps verify our code quickly.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Next, we have some data describing country codes and names stored in the `country_codes.csv`
+    file. Let''s integrate it with the `retail_df` DataFrame we created in the previous
+    step by using the following block of code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE18]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'In the previous code snippet, we did the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: We loaded the `country_codes.csv` file into a Spark DataFrame, with the `header`
+    option set to `True` and the file delimiter specified as `";"`.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: We renamed a few column names to follow standard naming conventions using the
+    `withColumnRenamed()` function. We dropped a few other columns that we thought
+    were not necessary for any of our business use cases. This resulted in a DataFrame
+    labeled `country_df` that contains the country code and other descriptive columns.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Then, we joined this DataFrame to the `retail_df` DataFrame from the previous
+    step. We used a `retail_df` DataFrame, irrespective of whether they have a matching
+    record in the `country_df` DataFrame.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: The resultant `integrated_df` DataFrame contains online retail transactional
+    data that's been enriched with descriptive columns from the `country_codes.csv`
+    dataset.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'We also have another dataset named `adult.data` that contains the income dataset
+    from the US census. Let''s integrate this dataset with the already integrated
+    and enriched retail transactional dataset, as shown in the following lines of
+    code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE19]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'In the previous code snippet, we did the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: We created a Spark DataFrame from the income dataset using the `spark.read.csv()`
+    function. This is a comma-delimited file with a header, so we used the appropriate
+    options. As a result, we have a DataFrame called `income_df`, with a few columns
+    related to consumer demographics and their income levels.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Then, we added two `income_df` and `integrated_df` DataFrames so that they can
+    be joined. We achieved this using the `monotonically_increasing_id()` function,
+    which generates unique incremental numbers.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: The two DataFrames were then joined based on the newly generated `integrated_df`
+    DataFrame, regardless of whether they have corresponding matching rows in the
+    `income_df` DataFrame. The result is integrated, enriched, retail transactional
+    data, with the country and the customer demographic and income information in
+    a single, unified dataset.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'This intermediate dataset can be useful for performing `retail_enriched.delta`,
+    as shown in the following code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE20]'
+  prefs: []
+  type: TYPE_PRE
+- en: In the previous code block, we reduced the number of partitions of the `retailed_enriched_df`
+    DataFrame to a single partition using the `coalesce()` function. This produces
+    a single portable Parquet file.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs: []
+  type: TYPE_NORMAL
+- en: One of the biggest challenges with learning and experimenting with big data
+    analytics is finding clean and useful datasets. In the preceding code example,
+    we had to introduce a surrogate key to join two independent datasets. In real-world
+    scenarios, you would never force a join between datasets unless the datasets are
+    related and a common join key exists between them.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Thus, using Spark's DataFrame operations or using Spark SQL, you can integrate
+    data from disparate sources and create an enriched and meaningful dataset that
+    represents a single version of the truth.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Integrating data using data virtualization techniques
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: '**Data virtualization**, as the name implies, is a virtual process where a
+    data virtualization layer acts as a logical layer on top of all the disparate
+    data sources. This virtual layer acts as a conduit for business users to seamlessly
+    access the required data in real time. The advantage data virtualization has over
+    the traditional **ETL** and **ELT** processes is that it doesn''t require any
+    data movement, and just exposes an integrated view of data to business users.
+    When business users try to access the data, the data virtualization layer queries
+    the underlying datasets and retrieves data in real time.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The advantage of the data virtualization layer is that it completely bypasses
+    any data movement, saving any time and resources that would typically be invested
+    in this process. It can present data in real time with minimal to no latency as
+    it directly fetches data from the source systems.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The disadvantage of data virtualization is that it is not a widely adopted technique
+    and the products that do offer it come at a premium price. Apache Spark doesn't
+    support data virtualization in its purest sense. However, Spark does support a
+    type of data virtualization technique called **data federation**, which you will
+    learn about in the next section.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Data integration through data federation
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: '**Data federation** is a type of data virtualization technique that uses a
+    virtual database, also called a federated database, to provide a consolidated
+    and homogeneous view of heterogeneous data sources. The idea here is to access
+    any data anywhere from a single data processing and metadata layer. Apache Spark
+    SQL Engine supports data federation, where Spark data sources can be used to define
+    external data sources for seamless access from within Spark SQL. With Spark SQL,
+    multiple data sources can be used with a single SQL query, without you having
+    to consolidate and transform the datasets first.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let''s take a look at a code example to learn how to achieve data federation
+    with Spark SQL:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE21]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'In the previous block of code, we created a table with MySQL as the source.
+    Here, the table we created with Spark is just a pointer to the actual table in
+    MySQL. Every time this Spark table is queried, it fetches data from the underlying
+    MySQL table over a JDBC connection. Let''s create another table from a Spark DataFrame
+    and save it in CSV format, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE22]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'In the preceding code block, we generated a Spark Dataframe with 16 rows and
+    2 columns. The first column, labeled `id`, is just an incremental number, while
+    the second column, labeled `salary`, is a random number that was generated using
+    the built-in `rand()` function. We saved the DataFrame to the data lake and registered
+    it with Spark''s built-in Hive metastore using the `saveAsTable()` function. Now
+    that we have two tables, each residing in a separate data source, let''s see how
+    we can use them together in a federated query via Spark SQL, as shown in the following
+    code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE23]'
+  prefs: []
+  type: TYPE_PRE
+- en: In the preceding SQL query, we joined the MySQL table to the CSV table residing
+    on the data lake in the same query to produce an integrated view of data. This
+    has demonstrated the data federation capabilities of Apache Spark.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Tip
+  prefs: []
+  type: TYPE_NORMAL
+- en: Certain specialist data processing engines are designed purely to be federated
+    databases, such as Presto. Presto is a distributed Massively Parallel Processing
+    (MPP) query engine for big data that was designed to give very fast query performance
+    on any data, anywhere. One advantage of using Apache Spark over Presto is that
+    it supports data federation, along with other use cases such as batch and real-time
+    analytics, data science, machine learning, and interactive SQL analytics, all
+    with a single unified engine. This makes the user experience much more seamless.
+    However, it is also very common for organizations to leverage several big data
+    technologies for different use cases.
+  prefs: []
+  type: TYPE_NORMAL
+- en: To summarize, data integration is the process of consolidating and combining
+    data from disparate data sources to produce meaningful data that gives a single
+    version of the truth. There are several techniques surrounding data integration,
+    including consolidating data using ETL or ELT techniques and data federation.
+    In this section, you learned how to leverage these techniques using Apache Spark
+    to achieve an integrated view of your data. The next step of your data analytics
+    journey is to learn how to clean messy and dirty data via a process called **data
+    cleansing**.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Making raw data analytics-ready using data cleansing
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Raw transactional data can have many kinds of inconsistencies, either inherent
+    to the data itself or developed during movement between various data processing
+    systems, during the data ingestion process. The data integration process can also
+    introduce inconsistencies in data. This is because data is being consolidated
+    from disparate systems with their own mechanism for data representation. This
+    data is not very clean, can have a few bad and corrupt records, and needs to be
+    cleaned before it is ready to generate meaningful business insights using a process
+    known as **data cleansing**.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Data cleansing is a part of the data analytics process and cleans data by fixing
+    bad and corrupt data, removing duplicates, and selecting a set of data that's
+    useful for a wide set of business use cases. When data is combined from disparate
+    sources, there might be inconsistencies in the data types, including mislabeled
+    or redundant data. Thus, data cleansing also incorporates data standardization
+    to bring integrated data up to an enterprise's standards and conventions.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The goal of data cleansing is to produce clean, consistent, and pristine data
+    that is ready for the final step of generating meaningful and actionable insights
+    from raw transactional data. In this section, you will learn about the various
+    steps involved in the data cleansing process.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Data selection to eliminate redundancies
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Once data has been integrated from various sources, there might be redundancies
+    in the integrated dataset. There might be fields that are not required by your
+    business analytics teams. The first step of data cleansing is identifying these
+    unnecessary data elements and removing them.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let''s perform data selection on the integrated dataset we produced in the
+    *Data consolidation via ETL and data warehousing* section. We need to look at
+    the table schema first to see what columns we have and what their data types are.
+    We can do this using the following line of code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE24]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The result of the preceding line of code shows all columns, and we can easily
+    spot that the `Country` and `CountryName` columns are redundant. We also have
+    some columns that were introduced in the dataset for data integration, and they
+    are not very useful for downstream analytics. Let''s clean up the unwanted and
+    redundant columns from the integrated dataset, as shown in the following block
+    of code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE25]'
+  prefs: []
+  type: TYPE_PRE
+- en: In the preceding code snippet, we used the `drop()` DataFrame operation to eliminate
+    unwanted columns. Now that we have selected the right data columns from the integrated
+    dataset, the next step is to identify and eliminate any duplicate rows.
+  prefs: []
+  type: TYPE_NORMAL
+- en: De-duplicating data
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'The first step of the deduplication process is to check if we have any duplicate
+    rows to begin with. We can do this using a combination of DataFrame operations,
+    as shown in the following block of code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE26]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The preceding lines of code show the count of all the rows after grouping the
+    rows by the `InvoiceNo`,  `InvoiceDate`, and `StockCode` columns. Here, we are
+    assuming that the `InvoiceNo`,  `InvoiceDate`, and `StockCode` column combination
+    is unique and that they form the `1`. However, in the results, we can see that
+    some rows have counts greater than `1`, which suggests that there might be duplicate
+    rows in the dataset. This should be inspected manually, once you''ve sampled a
+    few rows that show duplicates. This is to ensure they are duplicate rows. We can
+    do this using the following block of code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE27]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'In the preceding query, we checked a sample of the `InvoiceNo` and `StockCode`
+    values to see if the returned data contains duplicates. Just eyeballing the results,
+    we can see that there are duplicates in the dataset. We need to eliminate these
+    duplicates. Fortunately, PySpark comes with a handy function called `drop_duplicates()`
+    to just do that, as shown in the following line of code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE28]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'In the preceding line of code, we used the `drop_duplicates()` function to
+    eliminate duplicates based on a subset of columns. Let''s see if it eliminated
+    the duplicate rows by using the following line of code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE29]'
+  prefs: []
+  type: TYPE_PRE
+- en: The previous code groups the rows based on the **composite key** and checks
+    the count of each group. The result is an empty dataset, meaning that all the
+    duplicates have been successfully eliminated.
+  prefs: []
+  type: TYPE_NORMAL
+- en: So far, we have dropped unwanted columns from the integrated dataset and eliminated
+    duplicates. During the data selection step, we noticed that all the columns were
+    of the `string` type and that the column's names were following different naming
+    conventions. This can be rectified using the data standardization process.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Standardizing data
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: '**Data standardization** refers to where we make sure all the columns adhere
+    to their proper data types. This is also where we bring all the column names up
+    to our enterprise naming standards and conventions. This can be achieved in PySpark
+    using the following DataFrame operation:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE30]'
+  prefs: []
+  type: TYPE_PRE
+- en: In the preceding block of code, we essentially have a SQL `SELECT` query that
+    casts columns to their proper data types and aliases column names so that they
+    follow proper Pythonic naming standards. The result is a final dataset that contains
+    data from various sources integrated into a cleansed, deduplicated, and standardized
+    data format.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'This final dataset, which is the result of the data integration and data cleansing
+    phases of the data analytics process, is ready to be presented to business users
+    for them to run their business analytics on. Thus, it makes sense to persist this
+    dataset onto the data lake and make it available for end user consumption, as
+    shown in the following line of code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE31]'
+  prefs: []
+  type: TYPE_PRE
+- en: In the preceding line of code, we saved our final version of the pristine transactional
+    data in the data lake in Delta Lake format.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs: []
+  type: TYPE_NORMAL
+- en: It is an industry convention to call transactional data that's been replicated
+    straight from the source system **bronze** data, cleansed and integrated transactional
+    data **silver** data, and aggregated and summarized data **gold** data. The data
+    analytics process, in a nutshell, is a continuous process of ingesting bronze
+    data and transforming it into silver and gold data, until it is ready to be converted
+    into actionable business insights.
+  prefs: []
+  type: TYPE_NORMAL
+- en: To summarize the data cleaning process, we took the result set of the data integration
+    process, removed any redundant and unnecessary columns, eliminated duplicate rows,
+    and brought the data columns up to enterprise standards and conventions. All these
+    data processing steps were implemented using the DataFrame API, which is powered
+    by Spark SQL Engine. It can easily scale out this process to terabytes and petabytes
+    of data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Tip
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this chapter, data integration and data cleansing have been presented as
+    two independent and mutually exclusive processes. However, in real-life use cases,
+    it is a very common practice to implement these two steps together as a single
+    data processing pipeline.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The result of the data integration and data cleansing process is usable, clean,
+    and meaningful data that is ready for consumption by business analytics users.
+    Since we are working at a big data scale here, data must be structured and presented
+    in a way that improves the performance of business analytics queries. You will
+    learn about this in the following section.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Optimizing ELT processing performance with data partitioning
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: '**Data partitioning** is a process where a large dataset is physically split
+    into smaller parts. This way, when a query requires a portion of the larger dataset,
+    it can scan and load a subset of the partitions. This technique of eliminating
+    partitions that are not required by the query is called **partition pruning**.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Predicate pushdown** is another technique where parts of a query that filter,
+    slice, and dice data, called the **predicate**, are pushed down to the data storage
+    layer. It then becomes the data storage layer''s responsibility to filter out
+    all the partitions not required by the query.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Traditional RDBMS and data warehouses have always supported data partitioning,
+    partition pruning, and predicate pushdown. Semi-structured file formats such as
+    CSV and JSON support data partitioning and partition pruning but do not support
+    predicate pushdown. Apache Spark fully supports all three. With predicate pushdown,
+    Spark can delegate the task of filtering out data to the underlying data storage
+    layer, thus reducing the amount of data that needs to be loaded into Spark's memory
+    and then processed.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Structured data formats such as Parquet, ORC, and Delta Lake fully support partitioning
+    pruning and predicate pushdown. This helps Spark's Catalyst Optimizer generate
+    the best possible query execution plan. This is a strong reason to favor structured
+    file formats such as Apache Parquet with Spark over semi-structured data formats.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Consider that your data lake has historical data spanning several years and
+    that your typical queries involve only a few months to a few years of data at
+    a time. You can choose to store your data completely unpartitioned, with all the
+    data in a single folder. Alternatively, you can partition your data by year and
+    month attributes, as shown in the following diagram:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 3.9 – Data partitioning'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/B16736_03_09.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Figure 3.9 – Data partitioning
+  prefs: []
+  type: TYPE_NORMAL
+- en: On the right-hand side of the preceding diagram, we have unpartitioned data.
+    This pattern of data storage makes data storage a little easier because we just
+    keep appending new data to the same folder over and over again. However, after
+    a certain point, the data becomes unmanageable and makes it difficult to perform
+    any updates or deletes. Moreover, Apache Spark would need to read the entire dataset
+    into memory, losing any advantages that partition pruning and predicate pushdown
+    could have offered.
+  prefs: []
+  type: TYPE_NORMAL
+- en: On the right-hand side of the diagram, data is partitioned by year and then
+    by month. This makes writing data a little more involved as the Spark application
+    would need to choose the right partition every time before writing data. However,
+    this is a small penalty compared to the efficiency and performance that's gained
+    with updates and deletes, as well as downstream queries. Queries on such partitioned
+    data will be orders of magnitude faster as they make full use of partition pruning
+    and predicate pushdown. Thus, it is recommended to partition data with an appropriate
+    partition key to get the best performance and efficiency out of your data lake.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Since data partitioning plays a crucial role in determining the performance
+    of downstream analytical queries, it is important to choose the right partitioning
+    column. As a general rule of thumb, choose a partition column with low cardinality.
+    Partition sizes of at least one gigabyte are practical and typically, a date-based
+    column makes for a good candidate for the partition key.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs: []
+  type: TYPE_NORMAL
+- en: Recursive file listing on cloud-based object storage is usually slow and expensive.
+    So, using hierarchical partitioning on cloud-based object stores is not very efficient
+    and thus not recommended. This could be a performance bottleneck when more than
+    one partition key is required. Databricks's proprietary version of Delta Lake,
+    along with their Delta Engine, supports techniques such as **dynamic file pruning**
+    and **Z-order** multi-dimensional indexes to help solve the problems of hierarchical
+    partitioning on cloud-based data lakes. You can read more about them at [https://docs.databricks.com/delta/optimizations/dynamic-file-pruning.html](https://docs.databricks.com/delta/optimizations/dynamic-file-pruning.html).
+    However, these techniques are not available in the open source version of Delta
+    Lake yet.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Summary
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In this chapter, you learned about two prominent methodologies of data processing
+    known as **ETL** and **ELT** and saw the advantages of using ETL to unlock more
+    analytics use cases than what's possible with ETL. By doing this, you understood
+    the scalable storage and compute requirements of ETL and how modern cloud technologies
+    help enable the ELT way of data processing. Then, you learned about the shortcomings
+    of using cloud-based data lakes as analytics data stores, such as having a lack
+    of atomic transactional and durability guarantees. After, you were introduced
+    to Delta Lake as a modern data storage layer designed to overcome the shortcomings
+    of cloud-based data lakes. You learned about the data integration and data cleansing
+    techniques, which help consolidate raw transactional data from disparate sources
+    to produce clean, pristine data that is ready to be presented to end users to
+    generate meaningful insights. You also learned how to implement each of the techniques
+    used in this chapter using DataFrame operations and Spark SQL. You gained skills
+    that are essential for transforming raw transactional data into meaningful, enriched
+    data using the ELT methodology for big data at scale.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Typically, the data cleansing and integration processes are performance-intensive
+    and are implemented in a batch processing manner. However, in big data analytics,
+    you must get the latest transactional data to the end users as soon as it is generated
+    at the source. This is very helpful in tactical decision-making and is made possible
+    by real-time data analytics, which you will learn about in the next chapter.
+  prefs: []
+  type: TYPE_NORMAL

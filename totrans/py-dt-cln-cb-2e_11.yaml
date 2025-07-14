@@ -1,0 +1,1075 @@
+- en: '11'
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Tidying and Reshaping Data
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Echoing Leo Tolstoy’s wisdom (“Happy families are all alike; every unhappy family
+    is unhappy in its own way.”), Hadley Wickham tells us, all tidy data is fundamentally
+    alike, but all untidy data is messy in its own special way. How many times have
+    we all stared at some rows of data and thought, *“What… how... why did they do
+    that?”* This overstates the case somewhat. Although there are many ways that data
+    can be poorly structured, there are limits to human creativity in this regard.
+    It is possible to categorize the most frequent ways in which datasets deviate
+    from normalized or tidy forms.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'This was Hadley Wickham’s observation in his seminal work on tidy data. We
+    can lean on that work, and our own experiences with oddly structured data, to
+    prepare for the reshaping we have to do. Untidy data often has one or more of
+    the following characteristics: a lack of clarity about merge-by column relationships;
+    data redundancy on the *one* side of one-to-many relationships; data redundancy
+    due to many-to-many relationships; values stored in column names; multiple values
+    stored in one variable value; and data not being structured at the unit of analysis.
+    (Although the last category is not necessarily a case of untidy data, some of
+    the techniques we will review in the next few recipes are applicable to common
+    unit-of-analysis problems.)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We use powerful tools in this chapter to deal with the challenges of data cleaning
+    like the preceding. Specifically, we’ll go over the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Removing duplicated rows
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Fixing many-to-many relationships
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Using `stack` and `melt` to reshape data from wide to long format
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Melting multiple groups of columns
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Using `unstack` and `pivot` to reshape data from long to wide format
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Technical requirements
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: You will need pandas, NumPy, and Matplotlib to complete the recipes in this
+    chapter. I used pandas 2.1.4, but the code will run on pandas 1.5.3 or later.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The code in this chapter can be downloaded from the book’s GitHub repository,
+    [https://github.com/PacktPublishing/Python-Data-Cleaning-Cookbook-Second-Edition](https://github.com/PacktPublishing/Python-Data-Cleaning-Cookbook-Second-Edition).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Removing duplicated rows
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'There are several reasons why we might have data duplicated at the unit of
+    analysis:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The existing DataFrame may be the result of a one-to-many merge, and the one
+    side is the unit of analysis.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The DataFrame is repeated measures or panel data collapsed into a flat file,
+    which is just a special case of the first situation.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: We may be working with an analysis file where multiple one-to-many relationships
+    have been flattened, creating many-to-many relationships.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: When the *one* side is the unit of analysis, data on the *many* side may need
+    to be collapsed in some way. For example, if we are analyzing outcomes for a cohort
+    of students at a college, students are the unit of analysis; but we may also have
+    course enrollment data for each student. To prepare the data for analysis, we
+    might need to first count the number of courses, sum the total credits, or calculate
+    the GPA for each student, before ending up with one row per student. To generalize
+    from this example, we often need to aggregate the information on the *many* side
+    before removing duplicated data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this recipe, we look at the pandas techniques for removing duplicate rows,
+    and consider when we do and don’t need to do aggregation during that process.
+    We address duplication in many-to-many relationships in the next recipe.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Getting ready
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: We will work with the COVID-19 daily case data in this recipe. It has one row
+    per day per country, each row having the number of new cases and new deaths for
+    that day. There are also demographic data for each country, and running totals
+    for cases and deaths, so the last row for each country provides total cases and
+    total deaths.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Data note**'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Our World in Data provides COVID-19 public use data at [https://ourworldindata.org/covid-cases](https://ourworldindata.org/covid-cases).
+    The dataset includes total cases and deaths, tests administered, hospital beds,
+    and demographic data such as median age, gross domestic product, and diabetes
+    prevalence. The dataset used in this recipe was downloaded on March 3, 2024.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it…
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'We use `drop_duplicates` to remove duplicated demographic data for each country
+    in the COVID-19 daily data. We explore `groupby` as an alternative to `drop_duplicates`
+    when we need to do some aggregation before removing duplicated data:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Import `pandas` and the COVID-19 daily cases data:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Create lists for the daily cases and deaths columns, case total columns, and
+    demographic columns (the `total_cases` and `total_deaths` columns are the running
+    totals for cases and deaths respectively for that country):'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE2]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Create a DataFrame with just the daily data:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE4]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE5]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE6]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: Select one row per country.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Check to see how many countries (location) to expect by getting the number
+    of unique locations. Sort by location and casedate. Then use `drop_duplicates`
+    to select one row per location, and use the keep parameter to indicate that we
+    want the last row for each country:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE8]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE9]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE10]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE11]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE12]'
+  prefs: []
+  type: TYPE_PRE
+- en: Sum the values for each group.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Use the pandas DataFrame groupby method to sum total cases and deaths for each
+    country. (We calculate sums for cases and deaths here rather than using the running
+    total of cases and deaths already in the DataFrame.) Also, get the last value
+    for some of the columns that are duplicated across all rows for each country:
+    `median_age`, `gdp_per_capita`, `region`, and `casedate`. (We select only a few
+    columns from the DataFrame.) Notice that the numbers match those from *step 4*:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE13]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE14]'
+  prefs: []
+  type: TYPE_PRE
+- en: The choice of `drop_duplicates` or `groupby` to eliminate data redundancy comes
+    down to whether we need to do any aggregation before collapsing the *many* side.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How it works...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: The COVID-19 data has one row per country per day, but very little of the data
+    is actually daily data. Only `casedate`, `new_cases`, and `new_deaths` can be
+    considered daily data. The other columns show cumulative cases and deaths, or
+    demographic data. The cumulative data is redundant since we have the actual values
+    for `new_cases` and `new_deaths`. The demographic data has the same values for
+    each country across all days.
+  prefs: []
+  type: TYPE_NORMAL
+- en: There is an implied one-to-many relationship between the country (and its associated
+    demographic data) on the *one* side and the daily data on the *many* side. We
+    can recover that structure by creating a DataFrame with the daily data, and another
+    DataFrame with the demographic data. We do that in *steps 3* and *4*. When we
+    need totals across countries we can generate those ourselves, rather than storing
+    redundant data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The running totals variables are not completely useless, however. We can use
+    them to check our calculations of total cases and total deaths. *Step 5* shows
+    how we can use `groupby` to restructure data when we need to do more than drop
+    duplicates. In this case, we want to summarize `new_cases` and `new_deaths` for
+    each country.
+  prefs: []
+  type: TYPE_NORMAL
+- en: There’s more...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: I can sometimes forget a small detail. When changing the structure of data,
+    the meaning of certain columns can change. In this example, `casedate` becomes
+    the date for the last row for each country. We rename that column `lastdate`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: See also
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: We explore `groupby` in more detail in *Chapter 9*, *Fixing Messy Data When
+    Aggregating*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Hadley Wickham’s *Tidy Data* paper is available at [https://vita.had.co.nz/papers/tidy-data.pdf](https://vita.had.co.nz/papers/tidy-data.pdf).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Fixing many-to-many relationships
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: We sometimes have to work with a data table that was created from a many-to-many
+    merge. This is a merge where merge-by column values are duplicated on both the
+    left and right sides. As we discussed in the previous chapter, many-to-many relationships
+    in a data file often represent multiple one-to-many relationships where the *one*
+    side has been removed. There is a one-to-many relationship between dataset A and
+    dataset B, and also a one-to-many relationship between dataset A and dataset C.
+    The problem we sometimes have is that we receive a data file with B and C merged
+    but with A excluded.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The best way to work with data structured in this way is to recreate the implied
+    one-to-many relationships, if possible. We do this by first creating a dataset
+    structured like A; that is, how A is likely structured given the many-to-many
+    relationship we see between B and C. The key to being able to do this is to identify
+    a good merge-by column for the data on both sides of the many-to-many relationship.
+    This column, or these columns, will be duplicated in both the B and C datasets,
+    but will be unduplicated in the theoretical A dataset.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The data we use in this recipe is a good example. We have data from the Cleveland
+    Museum of Art on its collections. We have multiple rows for every item in the
+    museum’s collection. Those rows have data on the collection item (including title
+    and creation date); the creator (including years of birth and death); and citations
+    of the work in the press. When there are multiple creators and multiple citations,
+    which is often, rows are duplicated. More precisely, the number of rows for each
+    collection item is the Cartesian product of the number of citations and creations.
+    So, if there are 5 citations and 2 creators, we see 10 rows for that item.
+  prefs: []
+  type: TYPE_NORMAL
+- en: What we want instead is a collections file with one row (and a unique identifier)
+    for each item in the collection, a creators file with one row per creator for
+    each item, and a citations file with one row per citation of each item. We will
+    create those files in this recipe.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Some of you will have noticed that there is still more tidying up to do here.
+    We ultimately want a separate creator file with one row for every creator, and
+    another file with just a creator id and a collection item id. We need this structure
+    because a creator may be the creator for multiple items. We ignore that added
+    complication in this recipe.
+  prefs: []
+  type: TYPE_NORMAL
+- en: I should add that this situation is not the fault of the Cleveland Museum of
+    Art, which generously provides an API that returns collections data as a JSON
+    file. It is the responsibility of individuals who use the API to create data files
+    that are most appropriate for their research purposes. It is also possible, and
+    often a good choice, to work directly from the more flexible structure of a JSON
+    file. We demonstrate how to do that in *Chapter 12*, *Automate Data Cleaning with
+    User-Defined Functions, Classes, and Pipelines*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Getting ready
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: We will work with data on the Cleveland Museum of Art’s collections. The CSV
+    file has data on both creators and citations, merged by an `itemid` column that
+    identifies the collection item. There are one or many rows for citations and creators
+    for each item.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Data note**'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The Cleveland Museum of Art provides an API for public access to this data:
+    [https://openaccess-api.clevelandart.org/](https://openaccess-api.clevelandart.org/).
+    Much more than the citations and creators data is available in the API. The data
+    in this recipe were downloaded in April 2024.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it…
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'We handle many-to-many relationships between DataFrames by recovering the multiple
+    implied one-to-many relationships in the data:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Import `pandas` and the museum’s `collections` data. Let’s also limit the length
+    of values in the `collection` and `title` columns for easier display:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE15]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: Show some of the museum’s `collections` data. Notice that almost all of the
+    data values are redundant, except for `citation`.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Also, show the number of unique `itemid`, `citation`, and `creator` values.
+    There are 986 unique collection items, 12,941 citations, and 1,062 item/creator
+    combinations:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE16]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE17]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE18]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE19]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE20]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE21]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE22]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE23]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE24]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE25]'
+  prefs: []
+  type: TYPE_PRE
+- en: Show a collection item with duplicated citations and creators.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Only show the first 6 rows (there are actually 28 in total). Notice that the
+    citation data is duplicated for every creator:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE26]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE27]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Create a collections DataFrame. `title`, `category`, and `creation_date` should
+    be unique to a collection item, so we create a DataFrame with just those columns,
+    along with the `itemid` index. We get the expected number of rows, `986`:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE28]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE29]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE30]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE31]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Let’s look at the row in the new DataFrame, `cmacollections`, for the same
+    item we displayed in *step 3*:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE32]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE33]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: Create a citations DataFrame.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'This will just have `itemid` and `citation`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE34]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE35]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Create a creators DataFrame:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE36]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE37]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: Count the number of collection items with a creator born after 1950.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'First, convert the `birth_year` values from string to numeric. Then, create
+    a DataFrame with just young artists:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE38]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE39]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE40]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE41]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Now, we can merge the `youngartists` DataFrame with the collections DataFrame
+    to create a flag for collection items that have at least one creator born after
+    1950:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE42]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE43]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE44]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE45]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: Now we have three DataFrames—collection items (`cmacollections`), citations
+    (`cmacitations`), and creators (`cmacreators`)—instead of one. `cmacollections`
+    has a one-to-many relationship with both `cmacitations` and `cmacreators`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How it works...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: If you mainly work directly with enterprise data, you probably rarely see a
+    file with this kind of structure, but many of us are not so lucky. If we requested
+    data from the museum on both the media citations and creators of their collections,
+    it would not be completely surprising to get a data file similar to this one,
+    with duplicated data for citations and creators. But the presence of what looks
+    like a unique identifier of collection items gives us some hope of recovering
+    the one-to-many relationships between a collection item and its citations, and
+    a collection item and its creators.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*Step 2* shows that there are 986 unique `itemid` values. This suggests that
+    there are probably only 986 collection items represented in the 17,001 rows of
+    the DataFrame. There are 12,941 unique `itemid` and `citation` pairs, or about
+    13 citations per collection item on average. There are 1,062 `itemid` and `creator`
+    pairs.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*Step 3* shows the duplication of collection item values such as `title`. The
+    number of rows returned is equal to the Cartesian product of the merge-by values
+    on the left and right sides of a merge. For the *Dead Blue Roller* item, there
+    are 28 rows (we only show six of them in *step 3*), since there were 14 citations
+    and 2 creators. The row for each creator is duplicated 14 times; once for each
+    citation. Each citation is there twice; once for each creator. There are very
+    few use cases for which it makes sense to leave the data in this state.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Our North Star to guide us in getting this data into better shape is the `itemid`
+    column. We use it to create a collections DataFrame in *step 4*. We keep only
+    one row for each value of `itemid`, and get other columns associated with a collection
+    item, rather than a citation or creator—`title`, `category`, and `creation_date`
+    (since `itemid` is the index, we need to first reset the index before dropping
+    duplicates).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We follow the same procedure to create `citations` and `creators` DataFrames
+    in *steps 6* and *7*. We use `drop_duplicates` to keep unique combinations of
+    `itemid` and `citation`, and unique combinations of `itemid` and `creator`, respectively.
+    This gives us the expected number of rows in the example case: 14 `citations`
+    rows and 2 `creators` rows.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*Step 8* demonstrates how we can now work with these DataFrames to construct
+    new columns and do analysis. We want the number of collection items that have
+    at least one creator born after 1950\. The unit of analysis is the collection
+    items, but we need information from the creators DataFrame for the calculation.
+    Since the relationship between `cmacollections` and `cmacreators` is one-to-many,
+    we make sure that we are only retrieving one row per `itemid` in the creators
+    DataFrame, even if more than one creator for an item was born after 1950:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE46]'
+  prefs: []
+  type: TYPE_PRE
+- en: There’s more...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: The duplication that occurs with many-to-many merges is most problematic when
+    we are working with quantitative data. If the original file had the assessed value
+    of each item in the collection, it would be duplicated in much the same way as
+    `title` is duplicated. Any descriptive statistics we generated on the assessed
+    value would be off by a fair bit. For example, if the *Dead Blue Roller* item
+    had an assessed value of $1,000,000, we would get $28,000,000 when summarizing
+    the assessed value, since there are 28 duplicated values.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This shows the importance of normalized and tidy data. If there were an assessed
+    value column, we would have included it in the `cmacollections` DataFrame we created
+    in *step 4*. This value would be unduplicated and we would be able to generate
+    summary statistics for collections.
+  prefs: []
+  type: TYPE_NORMAL
+- en: I find it helpful to always return to the unit of analysis, which overlaps with
+    the tidy data concept but is different in some ways. The approach in *step 8*
+    would have been very different if we were just interested in the number of creators
+    born after 1950, instead of the number of collection items with a creator born
+    after 1950\. In that case, the unit of analysis would be the creator and we would
+    just use the creators DataFrame.
+  prefs: []
+  type: TYPE_NORMAL
+- en: See also
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: We examine many-to-many merges in the *Doing many-to-many merges* recipe in
+    *Chapter 10*, *Addressing Data Issues When Combining DataFrames*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We demonstrate a very different way to work with data structured in this way
+    in *Chapter 12*, *Automate Data Cleaning with User-Defined Functions, Classes
+    and Pipelines*, in the *Classes that handle non-tabular data structures* recipe.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Using stack and melt to reshape data from wide to long format
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: One type of untidiness that Wickham identified is variable values embedded in
+    column names. Although this rarely happens with enterprise or relational data,
+    it is fairly common with analytical or survey data. Variable names might have
+    suffixes that indicate a time period, such as a month or year. Or similar variables
+    on a survey might have similar names, such as `familymember1age` and `familymember2age`,
+    because that is convenient and consistent with the survey designers’ understanding
+    of the variable.
+  prefs: []
+  type: TYPE_NORMAL
+- en: One reason why this messiness happens relatively frequently with survey data
+    is that there can be multiple units of analysis on one survey instrument. An example
+    is the United States decennial census, which asks both household and personal
+    questions. Survey data is also sometimes made up of repeated measures or panel
+    data, but nonetheless often has only one row per respondent. When this is the
+    case, new measurements or responses are stored in new columns rather than new
+    rows, and the column names will be similar to column names for responses from
+    earlier periods, except for a change in suffix.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The United States **National Longitudinal Survey of Youth** (**NLS**) is a good
+    example of this. It is panel data, where each individual is surveyed each year.
+    However, there is just one row of data per respondent in the analysis file provided.
+    Responses to questions such as the number of weeks worked in a given year are
+    placed in new columns. Tidying the NLS data means converting columns such as `weeksworked17`
+    through `weeksworked21` (for weeks worked in 2017 through 2021) to just one column
+    for weeks worked, another column for year, and five rows for each person (one
+    for each year) rather than one. This is sometimes referred to as converting data
+    from *wide to long* format.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Amazingly, pandas has several functions that make transformations like this
+    relatively easy: `stack`, `melt`, and `wide_to_long`. We use `stack` and `melt`
+    in this recipe, and explore `wide_to_long` in the next.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Getting ready
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: We will work with the NLS data on the number of weeks worked and college enrollment
+    status for each year. The DataFrame has one row per survey respondent.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Data note**'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The **National Longitudinal Surveys** (**NLS**), administered by the United
+    States Bureau of Labor Statistics, are longitudinal surveys of individuals who
+    were in high school in 1997 when the surveys started. Participants were surveyed
+    each year through 2023\. The surveys are available for public use at [nlsinfo.org](https://nlsinfo.org).
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it…
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'We will use `stack` and `melt` to transform the NLS weeks worked data from
+    wide to long, pulling out year values from the column names as we do so:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Import `pandas` and the NLS data:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE47]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: View some of the values for the number of weeks worked.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'First, set the index:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE48]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE49]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE50]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE51]'
+  prefs: []
+  type: TYPE_PRE
+- en: Use `stack` to transform the data from wide to long.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'First, select only the `weeksworked##` columns. Use stack to move each column
+    name in the original DataFrame into the index and move the `weeksworked##` values
+    into the associated row. Reset the `index` so that the `weeksworked##` column
+    names become the values for the `level_1` column (which we rename `year`), and
+    the `weeksworked##` values become the values for the 0 column (which we rename
+    `weeksworked`):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Data note**'
+  prefs: []
+  type: TYPE_NORMAL
+- en: For future upgrades to `pandas 3.0`, we would have to mention keyword argument
+    as `(future_stack=True)` in the `stack` function.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE52]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE53]'
+  prefs: []
+  type: TYPE_PRE
+- en: Fix the `year` values.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Get the last digits of the year values, convert them to integers, and add 2,000:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE54]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE55]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE56]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE57]'
+  prefs: []
+  type: TYPE_PRE
+- en: Alternatively, use `melt` to transform the data from wide to long.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'First, reset the `index` and select the `originalid` and `weeksworked##` columns.
+    Use the `id_vars` and `value_vars` parameters of `melt` to specify `originalid`
+    as the `ID` variable and the `weeksworked##` columns as the columns to be rotated,
+    or melted. Use the `var_name` and `value_name` parameters to rename the columns
+    as `year` and `weeksworked` respectively. The column names in `value_vars` become
+    the values for the new year column (which we convert to an integer using the original
+    suffix). The values for the `value_vars` columns are assigned to the new `weeksworked`
+    column for the associated row:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE58]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE59]'
+  prefs: []
+  type: TYPE_PRE
+- en: Reshape the college enrollment columns with `melt`.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'This works the same way as the `melt` function for the weeks worked columns:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE60]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE61]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Merge the weeks worked and college enrollment data:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE62]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE63]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE64]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE65]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: This gives us one DataFrame from the melting of both the weeks worked and the
+    college enrollment columns.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How it works...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: We can use `stack` or `melt` to reshape data from wide to long format, but `melt`
+    provides more flexibility. `stack` will move all of the column names into the
+    index. We see in *step 4* that we get the expected number of rows after stacking,
+    `44920`, which is 5*8984, the number of rows in the initial data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: With `melt`, we can rotate the column names and values based on an `ID` variable
+    other than the index. We do this with the `id_vars` parameter. We specify which
+    variables to melt by using the `value_vars` parameter.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In *step 6*, we also reshape the college enrollment columns. To create one DataFrame
+    with the reshaped weeks worked and college enrollment data, we merge the two DataFrames
+    we created in *steps 5* and *6*. We will see in the next recipe how to accomplish
+    what we did in *steps 5* through *7* in one step.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Melting multiple groups of columns
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: When we needed to melt multiple groups of columns in the previous recipe, we
+    used `melt` twice and then merged the resulting DataFrames. That worked fine,
+    but we can accomplish the same tasks in one step with the `wide_to_long` function.
+    `wide_to_long` has more functionality than `melt`, but is a bit more complicated
+    to use.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Getting ready
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: We will work with the weeks worked and college enrollment data from the NLS
+    in this recipe.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it…
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'We will transform multiple groups of columns at once using `wide_to_long`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Import `pandas` and load the NLS data:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE66]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'View some of the weeks worked and college enrollment data:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE67]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE68]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: Run the `wide_to_long` function.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Pass a list to stubnames to indicate the column groups that are wanted. (All
+    columns starting with the same characters as each item in the list will be selected
+    for melting.) Use the `i` parameter to indicate the ID variable (`originalid`),
+    and use the `j` parameter to name the column (`year`) that is based on the column
+    suffixes—`17`, `18`, and so on:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE69]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE70]'
+  prefs: []
+  type: TYPE_PRE
+- en: '`wide_to_long` accomplishes in one step what it took us several steps to accomplish
+    in the previous recipe using `melt`.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: How it works...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: The `wide_to_long` function does almost all of the work for us, though it takes
+    more effort to set it up than for `stack` or `melt`. We need to provide the function
+    with the characters (`weeksworked` and `colenroct` in this case) of the column
+    groups. Since our variables are named with suffixes indicating the year, `wide_to_long`
+    translates the suffixes into values that make sense and melts them into the column
+    that is named with the `j` parameter. It’s almost magic!
+  prefs: []
+  type: TYPE_NORMAL
+- en: There’s more...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'The suffixes of the `stubnames` columns in this recipe are the same: 17 through
+    21\. But that does not have to be the case. When suffixes are present for one
+    column group, but not for another, the values for the latter column group for
+    that suffix will be missing. We can see that by excluding `weeksworked17` from
+    the DataFrame and adding `weeksworked16`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE71]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE72]'
+  prefs: []
+  type: TYPE_PRE
+- en: The `weeksworked` values for 2017 are now missing, as are the `colenroct` values
+    for 2016.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Using unstack and pivot to reshape data from long to wide format
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Sometimes, we actually have to move data from a tidy to an untidy structure.
+    This is often because we need to prepare the data for analysis with software packages
+    that do not handle relational data well, or because we are submitting data to
+    some external authority that has requested it in an untidy format. `unstack` and
+    `pivot` can be helpful when we need to reshape data from long to wide format.
+    `unstack` does the opposite of what we did with `stack`, and `pivot` does the
+    opposite of `melt`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Getting ready
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: We continue to work with the NLS data on weeks worked and college enrollment
+    in this recipe.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it…
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'We use `unstack` and `pivot` to return the melted NLS DataFrame to its original
+    state:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Import `pandas` and load the stacked and melted NLS data:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE73]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: Stack the data again.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'This repeats the stack from an earlier recipe in this chapter:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE74]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE75]'
+  prefs: []
+  type: TYPE_PRE
+- en: Melt the data again.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'This repeats the `melt` from an earlier recipe in this chapter:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE76]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE77]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Use `unstack` to convert the stacked data from long to wide:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE78]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '[PRE79]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: Use `pivot` to convert the melted data from long to wide.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'pivot is slightly more complicated than unstack. We need to pass arguments
+    to do the reverse of melt, telling pivot the column to use for the column name
+    suffixes (`year`) and where to grab the values to be unmelted (from the `weeksworked`
+    columns, in this case):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE80]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE81]'
+  prefs: []
+  type: TYPE_PRE
+- en: This returns the NLS data back to its original untidy form.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How it works...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: We first do a `stack` and a `melt` in *steps 2* and *3* respectively. This rotates
+    the DataFrames from wide to long format. We then `unstack` (*step 4*) and `pivot`
+    (*step 5*) those DataFrames to rotate them back from long to wide.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`unstack` uses the multi-index that is created by the `stack` to figure out
+    how to rotate the data.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The `pivot` function needs us to indicate the index column (`originalid`), the
+    column whose values will be appended to the column names (`year`), and the name
+    of the columns with the values to be unmelted (`weeksworked`). `Pivot` will return
+    multilevel column names. We fix that by pulling from the second level with `[col[1]
+    for col in weeksworked.columns[1:]]`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Summary
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: We explored key tidy data topics in this chapter. These topics included handling
+    duplicated data, either by dropping rows where the data are redundant, or aggregating
+    by group. We also restructured data stored in a many-to-many format into a tidy
+    format. Finally, we stepped through several ways of converting data from wide
+    to long format, and back to wide when necessary. Up next is the final chapter
+    of the book, where we will learn to automate data cleaning with user-defined functions,
+    classes and pipelines.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Join our community on Discord
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Join our community’s Discord space for discussions with the author and other
+    readers:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[https://discord.gg/p8uSgEAETX](https://discord.gg/p8uSgEAETX )'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/QR_Code10336218961138498953.png)'
+  prefs: []
+  type: TYPE_IMG

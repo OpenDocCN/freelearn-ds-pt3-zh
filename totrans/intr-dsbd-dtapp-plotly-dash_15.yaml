@@ -1,0 +1,986 @@
+- en: '*Chapter 12*: Deploying Your App'
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: We have done a lot of work, and I'm sure you are looking forward to sharing
+    that work with the world. With the app in its current state, we will go through
+    the process of setting up a server and deploying the app on a public address.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Essentially, what we will be doing is moving our data and code to a different
+    computer and running the app in a similar way to what we have done so far. However,
+    we need to set up a hosting account, a server, and a **Web Server Gateway Interface**
+    (**WSGI**) in order for our app to be publicly available and visible. We will
+    also need to establish a basic workflow for a development, deployment, and update
+    cycle.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We will take a brief look at the **Git** source control management system, as
+    well as do some basic **Linux system administration**. We will cover just enough
+    to get our app online, and we won't even be scratching the surface of what can
+    be done with those systems—I only mention them as a reference for further research.
+    The approach we follow is creating a very basic installation to get our app online
+    as fast as possible. This will not be achieved using simple tools. On the contrary—we
+    will be using some of the most powerful tools available, but we will use a very
+    simple setup. This will allow us to keep things simple at the beginning, and then
+    explore how to expand our apps and setup later.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The following topics will be covered in this chapter:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Establishing the general development, deployment, and update workflow
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Creating a hosting account and virtual server
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Connecting to your server with **Secure Shell** (**SSH**)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Running the app on the server
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Setting up and running the app with a WSGI
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Setting up and configuring the web server
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Managing maintenance and updates
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Technical requirements
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: We now need a Linux server connected to the internet; the data files; and our
+    app's code. We will be installing `Gunicorn` (Green Unicorn, the WSGI) and `nginx`
+    (the web server), as well as our app's Python packages as dependencies. We will
+    install `Dash` and its main packages; Dash Bootstrap Components; `pandas`; and
+    `sklearn`. An account on a source code management system such as Git will be needed,
+    and we will be using GitHub as an example for this chapter.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Our development workflow so far has been to test certain functionality on JupyterLab
+    and run it, and once it is working fine, we incorporate it to our app. This development
+    workflow will not change. We will simply add a few steps and components for deployment
+    after making our changes. So, let's start by establishing the workflow that we
+    will be working with.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Establishing the general development, deployment, and update workflow
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: When we discuss deployment, we are assuming that we are happy enough with what
+    we have developed so far. This could be when we run our app for the first time,
+    or after having introduced some changes or fixed some bugs. So, our data and code
+    are ready to go. Our focus will be to set up the required infrastructure to enable
+    us to run the code online.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The setup we will be going through is going to be simple and straightforward.
+    We will be using Linode as an example for our hosting provider. An important feature
+    of Linode is that it follows a philosophy of "open cloud." This means that the
+    server we will be working with will be a plain Linux server, using open source
+    components and packages that you can customize the way you want and migrate to
+    and from with ease. The potential challenge here is that with more freedom comes
+    more complexity and responsibility. In [*Chapter 4*](B16780_04_Final_NM_ePub.xhtml#_idTextAnchor060),
+    *Data Manipulation and Preparation – Paving the Way to Plotly Express*, we discussed
+    the trade-off involved in choosing between higher- and lower-level software, and
+    in this case, we will be working with a lower-level system to run our app.
+  prefs: []
+  type: TYPE_NORMAL
+- en: If you are experienced in running and managing servers, then you will have the
+    full flexibility that you need and you can skip most of the chapter. The good
+    news for beginners is that even though you will be "on your own," we will be running
+    a very simple setup with simple defaults. This should enable you to easily deploy
+    your app, and you can gradually learn more about how you might want to customize
+    your setup, knowing that you have full access to some of the top tools.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Our deployment workflow will contain three main components, outlined as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Your local workstation**: This has been extensively covered so far, and you
+    should have experience with the local setup that we have been working with so
+    far.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**A source code management system**: You don''t really need this to get your
+    app to run but it is a very good practice to follow, especially when your app
+    grows in size and when more people are involved in its maintenance.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**A server with the required infrastructure and setup**: Your code and data
+    will be running and served to the public from here.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'To make things clearer, the following screenshot shows the elements we are
+    discussing and, following that, a brief description of them and how they relate
+    to each stage in the development and deployment cycle:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 12.1 – The three main components in the development, deployment, and
+    update cycle](img/B16780_12_1.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 12.1 – The three main components in the development, deployment, and
+    update cycle
+  prefs: []
+  type: TYPE_NORMAL
+- en: One or more people write code on their local machines, and the code they write
+    travels both ways between them and the central Git repository. Note that code
+    does not travel between collaborators on the project—for example, by email; they
+    only send their code changes/additions to the Git repository. There are many benefits
+    to using a central Git repository. This is a large topic and there are special
+    books for it, so we will only cover very basic concepts, and I encourage you to
+    learn more. One of the most important things that Git facilitates is to have everyone
+    collaborate on a single set of changes—this streamlines the process for everyone.
+    There needs to be one or more administrators of the central repository, and that
+    person(s) approves what goes into the main repository and what doesn't. Additionally,
+    they need to be able to resolve conflicts. Two people might work on the same file
+    separately, and they might both push changes that conflict with each other, so
+    someone needs to decide what to do in such cases.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The approved version gets pushed from Git to the server and the website gets
+    published. As you can see, code goes in one direction only at this stage. Even
+    if you are working alone, it's highly advised to use Git to manage changes.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Another important benefit is that every set of changes (which are called "commits")
+    that are made contains metadata about when the changes were made, and by who.
+    More importantly, the commits show to which branch of changes they belong. In
+    case you need to roll back some changes, you can also "check out" a certain commit
+    or a branch, and take the full repository back to a certain state. You can fix
+    your bugs and make changes while your app is running, and then re-introduce them.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This was an oversimplification of what Git does and how it works, but I think
+    it's worth mentioning and learning more about. We will use it for deployment and
+    introduce very basic commands. We will go through the process of making a change
+    to one of our files in the final section of this chapter, to give an example of
+    how a change can be introduced using Git.
+  prefs: []
+  type: TYPE_NORMAL
+- en: At this stage, you have your code working locally with all the required data,
+    and you want to push it to a central Git repository and then to your server for
+    deployment. Alternatively, you might simply clone this book's repository and deploy
+    it to your server as well.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now that we have established the general cycle of our work and explored the
+    main components and steps, we are ready to start our work online, and we first
+    do so by setting up a Linode account.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Creating a hosting account and virtual server
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: It's straightforward to set up an account on Linode, and you can do so from
+    the signup page at [https://login.linode.com/signup](https://login.linode.com/signup).
+    Once you register and provide your billing information, you can start by creating
+    a "Linode." Virtual servers with their own **Internet Protocol** (**IP**) address
+    are also called Linodes (Linux + node), similar to the name of the company.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The process is straightforward and can be done through the main dashboard that
+    you land on when you log in.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The following screenshot shows some of the main options available to create
+    and manage your account:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 12.2 – The main objects that you can create on Linode; most importantly,
+    the "Linode"](img/B16780_12_2.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 12.2 – The main objects that you can create on Linode; most importantly,
+    the "Linode"
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Once you select the **Create** option and then select **Linode**, you are given
+    several options to choose from. We will go with **Distributions**. You can think
+    of distributions as bundles of software based on the Linux kernel but containing
+    different components. Each distribution is customized for a certain use case.
+    We will be using the Ubuntu distribution for our Linode. Other options can be
+    interesting—for example, **Marketplace** provides the option to create a full
+    installation of popular software with a few clicks. Feel free to explore these
+    other options as well. *Figure 12.3* shows the distribution we selected, and after
+    that you have a few simple options to choose from. Most importantly, you need
+    to choose a plan, and there are many to choose from, giving you a lot of flexibility.
+    You can use the smallest one for now, and then you can decide when/if you want
+    to upgrade. In the following screenshot, you can see the Ubuntu distribution being
+    selected:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 12.3 – Selecting and configuring a distribution on Linode](img/B16780_12_3.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 12.3 – Selecting and configuring a distribution on Linode
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Once you have finalized the remaining options you can hit the **Create** button,
+    and you should now land on the dashboard for your newly created Linode. The following
+    screenshot shows the top of the screen for that interface:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 12.4 – The Linodes dashboard containing several reports and details](img/B16780_12_4.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 12.4 – The Linodes dashboard containing several reports and details
+  prefs: []
+  type: TYPE_NORMAL
+- en: You can see all the relevant details about your newly created Linode on this
+    screen, and you can refer back to it to get performance data and other information,
+    or in case you want to make any changes. Later on, you will probably want to either
+    upgrade your plan or add volumes for extra storage, and so on.
+  prefs: []
+  type: TYPE_NORMAL
+- en: For us, the interesting part of this screen is the **SSH Access** part. We will
+    now use this to log in to our server, and we won't be using the web interface
+    from now on.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Important note
+  prefs: []
+  type: TYPE_NORMAL
+- en: Linode provides several ways to interact with and manage your account. It provides
+    an **application programming interface** (**API**) and a **command-line interface**
+    (**CLI**), among other tools, from which you can do pretty much anything that
+    you can do through the web interface. It's more convenient to use the web interface
+    for simple tasks such as the one we just did. Using the API and/or the CLI becomes
+    more useful for automating and operationalizing tasks on a large scale.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now that we have our server running, we want to start working on it. This will
+    mainly be done through the SSH interface.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Connecting to your server with SSH
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: SSH is a protocol for moving data securely, over an unsecured network. This
+    will enable us to get access to and run code from the command line of our server,
+    using the Terminal on our local machine.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let's start by copying the `ssh root@127.105.72.121` command by clicking on
+    the clipboard icon next to it, which you can see in *Figure 12.4* as well.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now, open the terminal application on your local machine and paste the command,
+    as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'As you can see, we had two main responses: one asking if we want to connect
+    and add the IP to the list of known hosts, to which we answered `yes`; and another
+    response, after having confirmed, asking us for our password.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Once you enter your password, which you have created for this specific server
+    (Linode) and not for your account, you get the new prompt, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'You now have root access to your server from your own terminal application.
+    A good thing to do immediately (and frequently) is to update your system''s packages.
+    Two quick commands to do that are shown here:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: Later on, you will probably need to manage updates to other packages that you
+    install separately.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Having root access is very powerful and you can do anything as the root user,
+    which means that this could also be a security risk. If someone else were able
+    to accidentally sign in using your root user, they could potentially add or delete
+    any files they want, with no restrictions whatsoever.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Because of that, we will use the recommended practice of creating a limited
+    user immediately, and only signing in using that user. Proceed as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Create a new user using whatever name you want, as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'You will be prompted to enter and re-enter a password for this user. By now,
+    you will have three passwords: one for the Linode account, another for the root
+    user of this Linode, and one for the limited user we just created. Optionally,
+    you can also provide the full name, phone number, and other details. You can hit
+    *Enter* and skip those options if you want. Even though this user is limited,
+    we can add it to the `sudo` (superuser `do`!) group. This will allow this user
+    to access root privileges temporarily, whenever we want to make some admin tasks
+    or access sensitive files. Now that we have a new limited user, let''s add it
+    to the `sudo` group, as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Having created a limited user that can temporarily use `sudo` privileges, we
+    can now sign out of root, and log back in again with the new user, as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'You should get a message that the connection to your IP address was lost, and
+    you should see the prompt in the Terminal of your local machine. Now, we log in
+    using the new user, the same way we did previously, as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Once you log in successfully, you will be given a new prompt showing the logged-in
+    user, as seen here:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'We are now ready to get started with building our app on the server, but before
+    that, let''s see how we can access sensitive files and use `sudo` privileges,
+    as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Try to access one of the system''s log files—for example, using the `cat` command,
+    as illustrated in the following code snippet:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'We were not given permission, which is the right outcome. Now, we can ask for
+    `sudo` access by running the same command and preceding it with the `sudo` command,
+    as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: Enter the password for this user and get access to the requested sensitive files.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: You will face this situation quite frequently, and you can easily use the `sudo`
+    command to get temporary root access.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We have a good part of our server ready to go, but we are still not there yet.
+    We now want to get our files and data on the server, and then install the required
+    Python packages.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Running the app on the server
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: What we will do in this section is exactly what we did back in [*Chapter 1*](B16780_01_Final_NM_ePub.xhtml#_idTextAnchor015),
+    *Overview of the Dash Ecosystem*. We will clone the code and data repository from
+    GitHub and get them to the server, install the dependencies, and try to run the
+    app.
+  prefs: []
+  type: TYPE_NORMAL
+- en: You typically have Python already installed on such servers, but it's always
+    good to check and know how to get it, in case you don't. An easy way to check
+    if we have it installed, and to get the version in one go, is to run `python --version`
+    from the command line. Keep in mind that the `python` command can be interpreted
+    to mean Python 2\. The upgrade to Python 3 took a while to get fully implemented,
+    and so, during that time, to differentiate between the two versions the `python3`
+    command was used, to be explicit about wanting to run Python version 3\. This
+    applies to the `pip` command, which can also be run as `pip3`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'When I ran `python3 --version`, I got version 3.8.6\. By the time you read
+    this, the default version might be different. Also, at the time of this writing,
+    Python 3.9 was launched and was considered stable. This is what I got when I tried
+    to run it from the command line:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs: []
+  type: TYPE_PRE
+- en: No explanation needed. We were also reminded that in order to install such a
+    package, we need to use `sudo` as well. These are some examples of what you can
+    use and what you might typically face, but Linux administration is another massive
+    topic, and it's good to familiarize yourself with some of its basics.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let''s now activate a virtual environment and clone the GitHub repository,
+    using the exact same steps we used in [*Chapter 1*](B16780_01_Final_NM_ePub.xhtml#_idTextAnchor015),
+    *Overview of the Dash Ecosystem*, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Create a Python virtual environment in a folder called `dash_project` (or any
+    other name you want). This will also create a new folder with the name you chose.
+    Note that you might need to install `venv` for this to work, and you should get
+    the command to do so, as in the previous example, as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Activate the virtual environment. You should now see the name of the environment
+    in parentheses, indicating that the environment is activated, as illustrated in
+    the following code snippet:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE12]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Go into the environment folder by running the following command:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE13]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'We now want to clone our GitHub repository, and get all available files and
+    code on our server. We will use the book''s repository as an example, but I encourage
+    you to run and clone your own instead. Run the following command:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE14]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Next, we need to install the required packages, which we do by getting into
+    the main folder and running the command for that, as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE15]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'We can now enter into any chapter''s folder to run that particular version
+    of the app. In the following code snippet, we can see what happens if we go into
+    the final version of [*Chapter 11*](B16780_11_Final_NM_ePub.xhtml#_idTextAnchor151),
+    *URLs and Multi-Page Apps*:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE16]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Going through the preceding sequence of steps produces the exact same result
+    that we are familiar with when running our apps locally, as you can see in the
+    following screenshot:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 12.5 – The app running on the server](img/B16780_12_5.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 12.5 – The app running on the server
+  prefs: []
+  type: TYPE_NORMAL
+- en: Getting the preceding message means that the code is working fine, with no issues.
+    Of course, it also gives us a big warning that we are using a development server
+    only and that we should not use it in a production deployment.
+  prefs: []
+  type: TYPE_NORMAL
+- en: So, we will set up our web server. But before that, we need to use the interface
+    that makes it easy for our web framework (Flask) to work with any web server we
+    want. This interface is called a WSGI (pronounced Wiz-ghee, or whiskey!).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let''s first establish a basic understanding of the components and phases involved
+    in serving our app that we will be working with. The following screenshot shows
+    a simple sequence that requests and responses flow through when a user accesses
+    our app from their browser:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 12.6 – The components of our app, on a public server](img/B16780_12_6.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 12.6 – The components of our app, on a public server
+  prefs: []
+  type: TYPE_NORMAL
+- en: The request starts form the left (as you can see in the preceding screenshot),
+    and then goes through several components until it reaches Dash, which runs our
+    `app.py` module. Then, our app's code generates a response that goes through the
+    same components in the opposite direction, until it reaches the user's browser.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let''s briefly discuss each of those elements, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Browser**: This is straightforward and can mean any **HyperText Transfer
+    Protocol** (**HTTP**) client. When the user enters a **Uniform Resource Locator**
+    (**URL**) and hits *Enter*, the browser makes a request to the web server.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Web server**: The job of the web server is to handle the requests that it
+    receives. Our problem is that the server doesn''t execute Python code, so there
+    needs to be some way for us to get the requests, interpret them, and return responses.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**WSGI server**: This is the middleware that does the job of speaking the server''s
+    language, as well as speaking Python. Having this set up means that our web framework
+    (Flask, in this case) does not need to worry about handling the server or handling
+    many requests. It can focus on creating the web app, and only needs to make sure
+    that it conforms to the WSGI specification. This also means that with this set
+    up, we are free to change our web server and/or WSGI server without having to
+    make any changes to our app''s code.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Web framework**: This is the Flask web framework with which Dash is built.
+    A Dash app is basically a Flask app, and we have covered this quite extensively.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: We don't need to know about web servers or WSGI servers any more than this for
+    now. Let's see how simple it is to run our app using our WSGI server.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Setting up and running the app with a WSGI
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: We have run our app using the `python app.py` command from the command line.
+    Alternatively, we used the `app.run_server` method when running with `jupyter_dash`.
+    We are going to do it now with Gunicorn, our WSGI server.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The command is slightly different from the previous one and is run with the
+    following pattern:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE17]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'We have two main differences here. First, we only use the module name, or the
+    filename without the `.py` extension. Then, we add a colon, and then the server
+    name. This is a simple variable that we have to define, and it can be done with
+    one line of code, right after we define our top-level `app` variable, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE18]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Now that we have defined our sever as `server`, and assuming our app is in
+    a file called `app.py`, we can run the app from the command line, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE19]'
+  prefs: []
+  type: TYPE_PRE
+- en: That's it for the WSGI server!
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Once that change has been made, we can go to the folder where our app is and
+    run it with the preceding command. The following screenshot shows the output we
+    get when running our app with the `gunicorn` command:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 12.7 – Running the app with the Gunicorn WSGI server](img/B16780_12_7.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 12.7 – Running the app with the Gunicorn WSGI server
+  prefs: []
+  type: TYPE_NORMAL
+- en: This output shows that our app is working fine. We can also see that it is listening
+    at a different port. The default port for Dash is `8050`, while here it is `8000`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We have come one step closer to the browser and the user. It seems the code
+    is working fine with the WSGI server. Let's now set up our web server to make
+    our app publicly available.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Setting up and configuring the web server
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: We will be using nginx as our web server in this example. You can now stop the
+    app using *Ctrl* + *C* from the command line. Alternatively, you can stop your
+    app using the `kill` command, which requires you to know the ID of the process
+    that is running your app. This is useful if you log in later and have no idea
+    which processes are running, and want to identify the process responsible for
+    your app.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'You can run the `ps -A` process status command from the command line to get
+    all the currently running processes. You can either scroll to find a process whose
+    name contains `gunicorn` or add a pipe, and search for that process in the previous
+    command''s output, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE20]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Running the preceding command while the app is running gets us the output you
+    see in the following screenshot:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 12.8 – How to find the process IDs for processes containing a certain
+    text pattern](img/B16780_12_8.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 12.8 – How to find the process IDs for processes containing a certain
+    text pattern
+  prefs: []
+  type: TYPE_NORMAL
+- en: The process IDs are the same as the ones that we got when we ran with Gunicorn,
+    which you can also see in the preceding screenshot.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'To stop the app, you can use the `kill` command, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE21]'
+  prefs: []
+  type: TYPE_PRE
+- en: Now that we have checked that our app runs with our WSGI server, it is time
+    to set up our web server.
+  prefs: []
+  type: TYPE_NORMAL
+- en: As mentioned before, even though we will use the simplest possible configuration
+    to make things easy for us, we will still be using one of the most powerful web
+    servers available.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let''s start by installing it. From the command line, while logged in to your
+    server, run the following command:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE22]'
+  prefs: []
+  type: TYPE_PRE
+- en: We now want to create a configuration file for our app. Installing nginx does
+    several things, one of which is creating a `sites-enabled` folder. We want to
+    create our configuration file there, with basic options. We can use any text editor
+    for that; a simple one to use that you can usually find on Linux machines is the
+    `nano` editor. Running it as a command followed by a filename opens that file
+    for editing (or creates one if it doesn't exist).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'From the command line, run the following command to open and edit our file:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE23]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'You should get an empty file, and you can copy and paste the following code,
+    but make sure to replace the IP address after `server_name` with your own IP address:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE24]'
+  prefs: []
+  type: TYPE_PRE
+- en: This code contains configuration for the `server` context, as you can see. It
+    tells it to listen on port `80`, which is the default port for web servers. It
+    also defines the `server_name` as the IP address. Later on, you can use this to
+    define your own domain name.
+  prefs: []
+  type: TYPE_NORMAL
+- en: It then defines the behavior of the server for `location /` under another block.
+    The most important thing for us is that we are making nginx a proxy server with
+    the `proxy_pass` directive and telling it to listen to the URL and port that Gunicorn
+    is listening to. So, now, the cycle should be complete. Our web server will be
+    sending and receiving requests and responses through the correct URL and port,
+    where the interface with our Python code is handled by Gunicorn.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Installing nginx creates a default configuration file, which we need to unlink
+    with the following command:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE25]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'We just need to reload nginx after making this change. Keep this in mind when
+    you make any changes in the future. You should reload nginx for any changes to
+    take place, which you can do with the following command:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE26]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Now, we can run our app with `gunicorn app:server`, and then, using our browser,
+    we can navigate to our IP address and see the app online, as can be seen in the
+    following screenshot:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 12.9 – The app deployed on a public address](img/B16780_12_9.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 12.9 – The app deployed on a public address
+  prefs: []
+  type: TYPE_NORMAL
+- en: Congratulations! Your app is now available to anyone with an internet connection;
+    it is on a public server, and you can share your work with the world.
+  prefs: []
+  type: TYPE_NORMAL
+- en: What happens after that? How do you make changes, and what if there were upgrades
+    to the packages that you used?
+  prefs: []
+  type: TYPE_NORMAL
+- en: We tackle some simple guidelines that might be helpful to follow for the maintenance
+    phase, after we have deployed our app.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Managing maintenance and updates
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Several things will probably need to be managed and handled after publishing
+    your app, and we cover a few of them.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Fixing bugs and making changes
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: This should follow the same workflow we established at the beginning of this
+    chapter. Any changes to our code, whether bug fixes or additions to our functionality,
+    should be done the same way. We edit code locally, make sure it is running correctly,
+    and then push to the central Git repository. Then, from the server, we pull the
+    changes and rerun the app.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Updating Python packages
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: There are several packages that our app depends on, and you will most likely
+    have even more in your daily work. Those packages will release updates every now
+    and then, and you need to make sure that they are up to date. Some of those updates
+    are security updates and need to be handled as soon as possible, while others
+    introduce new options to packages. In general, you can run `pip install --upgrade
+    <package_name>` to achieve this, but you will still need to check if the new functionality
+    might change the way your app is running or whether it will break your existing
+    code. Well-maintained packages usually publish any such breaking changes and also
+    provide instructions for upgrading, if needed.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Once you have decided to upgrade packages, you can run the upgrade locally
+    to first test your app and make sure it is running with the new version, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'From the command line, go into the app''s folder on your local machine, as
+    follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE27]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Activate the virtual environment, like this:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE28]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'You should now see the name of your environment in parentheses `(env_name)`
+    and you are now ready to upgrade the package of your choice, as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE29]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Assuming everything went fine, run your app, and make sure it is running as
+    expected by executing the following command:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE30]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'If everything went well, you now need to update your `requirements.txt` file
+    to reflect the new version of the package, and possibly modified versions of other
+    dependencies. We first use the `pip freeze` command. This takes all the available
+    packages in the current environment, as well as their dependencies, together with
+    the right version number and prints them out to `stdout`. Now, we want to take
+    this output and redirect it to the `requirements.txt` file to overwrite it with
+    the updated requirements. We can do those two steps in one go, but it''s good
+    to familiarize yourself with the output of the first command first, which can
+    be seen here:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE31]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Commit the changes to the Git repository and push to GitHub. The `git add`
+    command adds the file(s) to the staging area, which means they are now ready to
+    be added to the history of the repository. The next step is to commit those additions
+    with the `git commit` command, which also takes a message in which you state what
+    has been done. We then submit the changes to the online repository with the `push`
+    command, as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE32]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Now that you have the latest `requirements.txt` file on your central Git repository
+    you can pull it to your server, just as we did in this chapter. After logging
+    in to your server, moving into your project''s folder, and activating its virtual
+    environment, you can pull the changes. The `git pull` command does two things.
+    First, it fetches the latest changes of the repository from the remote server.
+    Then, it merges the changes into the local copy, and you get the updated app.
+    The command is shown here:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE33]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'The change we fetched and merged in this case was the updated `requirements.txt`
+    file. We now run the following command to install our packages on the server using
+    the new versions:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE34]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: This should start your app again, with the latest updates included. While we
+    changed the requirements file in this case, we could have also changed the app's
+    file, or maybe added new data. Whatever the change, this is the general cycle
+    that we go through to incorporate those changes.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now that you have a new component to handle—your server—you will also be managing
+    and maintaining it as well.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Maintaining your server
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'The following list provides a very brief and oversimplified set of things that
+    you might be interested in, without instructions. The proper way is to learn more
+    about Linux system administration, but these are likely things you will want to
+    manage and can easily find guides and documentation for:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Adding a custom domain**: You probably want a nice name for your app, and
+    not an IP address. This is straightforward, and you need to buy a domain name
+    from a registrar and make the necessary changes to enable that. You can find many
+    examples and guides on Linode''s documentation on how to achieve that.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Setting up a security certificate**: This is important and has become straightforward
+    and free to do. Many guides and examples are available for that as well.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Updating packages**: As we did the first time we logged in, it''s good to
+    constantly update your server''s packages and especially make sure you have the
+    latest security updates.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`sudo` group. There are other things that can be done as well, such as hardening
+    your SSH access with authentication key pairs and configuring a firewall, among
+    other actions.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: We made a big leap in this chapter, and we quickly explored very powerful tools
+    and techniques, so let's recap on what we covered in this chapter.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Summary
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: We started by establishing a simple workflow to manage the cycle of development,
+    deployment, and updates. We defined three main components for this workflow and
+    how they relate to one another. We discussed the relationship between local workstations,
+    a central Git repository, and a web server, and set some guidelines on how work
+    should flow between them.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We then created a hosting account, set up a virtual server, and got ready to
+    do work on the server locally. Then, we explored how we can access the server
+    locally through SSH, and ran some basic security and administration tasks. We
+    cloned our repository and saw that it can run on the server exactly as we do locally.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We then discussed the two other required components for our app to be available
+    publicly. We ran our app slightly differently by using a WSGI server. The last
+    step was to install and configure a web server, using the simplest setup possible.
+    Our app was then accessible on a public IP.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Finally, we explored which ongoing maintenance tasks might be interesting. Most
+    importantly, we ran through the process of upgrading our Python packages, changing
+    a file, committing it to Git, pushing it to the online repository, and merging
+    the changes to our server. This is definitely something that you will be doing
+    continuously.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Our final chapter of the book will be about other directions that you might
+    be interested in exploring and other areas that we haven't covered. You now know
+    your way around Dash and can very easily navigate and find out whatever you need
+    to know, yet there are many other things to explore. We will take a quick tour
+    of those options in the last chapter.
+  prefs: []
+  type: TYPE_NORMAL
