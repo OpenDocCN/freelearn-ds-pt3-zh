@@ -1,0 +1,664 @@
+<html><head></head><body>
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Visualizing Multivariate Data</h1>
+                </header>
+            
+            <article>
+                
+<p>When we have <strong>big data</strong> that contains many variables, the plot types in <a href="7daeb59b-3e8e-4a33-9437-2839c6ed47e4.xhtml" target="_blank">Chapter 7</a>, <em>Visualizing Online Data</em> may no longer be an effective way of data visualization. We may try to cramp as many variables in a single plot as possible, but the overcrowded or cluttered details would quickly reach the boundary of a human's visual perception capabilities.</p>
+<p>In this chapter, we aim to introduce multivariate data visualization techniques; they enable us to better understand the distribution of data and the relationships between variables. Here is the outline of this chapter:</p>
+<ul>
+<li>Getting End-of-Day (EOD) stock data from Quandl</li>
+<li>Two-dimensional faceted plots:
+<ul>
+<li>Factor plot in Seaborn</li>
+<li>Faceted grid in Seaborn</li>
+<li>Pair plot in Seaborn</li>
+</ul>
+</li>
+<li>Other two-dimensional multivariate plots:
+<ul>
+<li>Heatmap in Seaborn</li>
+<li>Candlestick plot in matplotlib.finance:
+<ul>
+<li>Visualizing various stock market indicators</li>
+</ul>
+</li>
+<li>Building a comprehensive stock chart</li>
+</ul>
+</li>
+<li>Three-dimensional plots:
+<ul>
+<li>Scatter plot</li>
+<li>Bar chart</li>
+<li>Caveats of using Matplotlib 3D</li>
+</ul>
+</li>
+</ul>
+<p>First, we will discuss faceted plots, which is a divide-and-conquer approach to visualizing multivariate data. The gestalt of this approach is to slice input data into different facets such that only a handful of attributes will be represented in each visualization panel. This will reduce visual clutter by allowing inspection of variables in reduced subsets. Sometimes, finding a suitable way to represent multivariate data in a 2D graph is difficult. Therefore, we are going to introduce 3D plotting functions in Matplotlib as well. </p>
+<p>The data used in this chapter was collected from Quandl's End-of-Day (EOD) stock database. Let's get the data from Quandl first.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Getting End-of-Day (EOD) stock data from Quandl</h1>
+                </header>
+            
+            <article>
+                
+<p>Since we are going to discuss stock data extensively, note that we do not guarantee the accuracy, completeness, or validity of the content presented; nor are we responsible for any errors or omissions that may have occurred. The data, visualizations, and analyses are provided on an “as is” basis for educational purposes only, without any representations, warranties, or conditions of any kind. Therefore, the publisher and the authors do not accept liability for your use of the content. It should be noted that past stock performance may not predict future performance. Readers should also be aware of the risks involved in stock investments and should not take any investment decisions based on the content in this chapter. In addition, readers are advised to conduct their own independent research into individual stocks before making an investment decision.</p>
+<p>We are going to adapt the Quandl JSON API code in <a href="7daeb59b-3e8e-4a33-9437-2839c6ed47e4.xhtml" target="_blank">Chapter 7</a>, <span><em>Visualizing Online Data</em> </span>to get EOD stock data from Quandl. The historical stock data from January 1, 2017 to June 30, 2017 for six stock codes will be obtained: Apple Inc.(EOD/AAPL), The Procter &amp; Gamble Company (EOD/PG), Johnson &amp; Johnson (EOD/JNJ), Exxon Mobil Corporation (EOD/XOM), International Business Machines Corporation (EOD/IBM), and Microsoft Corporation (EOD/MSFT). Again, we will use the default <kbd>urllib</kbd> and <kbd>json</kbd> modules to handle Quandl API calls, followed by converting the data into a Pandas DataFrame:</p>
+<pre class="mce-root">from urllib.request import urlopen<br/>import json<br/>import pandas as pd<br/><br/></pre>
+<pre class="mce-root">def get_quandl_dataset(api_key, code, start_date, end_date):<br/>    """Obtain and parse a quandl dataset in Pandas DataFrame format<br/><br/>    Quandl returns dataset in JSON format, where data is stored as a <br/>    list of lists in response['dataset']['data'], and column headers<br/>    stored in response['dataset']['column_names'].<br/>           <br/>    Args:<br/>        api_key: Quandl API key<br/>        code: Quandl dataset code<br/><br/>    Returns:<br/>        df: Pandas DataFrame of a Quandl dataset<br/><br/>    """<br/>    base_url = "https://www.quandl.com/api/v3/datasets/"<br/>    url_suffix = ".json?api_key="<br/>    date = "&amp;start_date={}&amp;end_date={}".format(start_date, end_date)<br/><br/>    # Fetch the JSON response <br/>    u = urlopen(base_url + code + url_suffix + api_key + date)<br/>    response = json.loads(u.read().decode('utf-8'))<br/>    <br/>    # Format the response as Pandas Dataframe<br/>    df = pd.DataFrame(response['dataset']['data'], columns=response['dataset']<br/>    ['column_names'])<br/>       <br/>    return df<br/><br/># Input your own API key here<br/>api_key = "INSERT YOUR KEY HERE"<br/><br/># Quandl code for six US companies<br/>codes = ["EOD/AAPL", "EOD/PG", "EOD/JNJ", "EOD/XOM", "EOD/IBM", "EOD/MSFT"]<br/>start_date = "2017-01-01"<br/>end_date = "2017-06-30"<br/><br/>dfs = []<br/># Get the DataFrame that contains the EOD data for each company<br/>for code in codes:<br/>    df = get_quandl_dataset(api_key, code, start_date, end_date)<br/>    df["Company"] = code[4:]<br/>    dfs.append(df)<br/><br/># Concatenate all dataframes into a single one<br/>stock_df = pd.concat(dfs)<br/><br/># Sort by ascending order of Company then Date<br/>stock_df = stock_df.sort_values(["Company","Date"])<br/>stock_df.head()</pre>
+<div class="output_html rendered_html output_subarea output_execute_result">
+<div>
+<table style="border-collapse: collapse;width: 50%" class="dataframe" border="1">
+<tbody>
+<tr>
+<td>
+<p>-</p>
+</td>
+<td><strong>Date</strong></td>
+<td><strong>Open</strong></td>
+<td><strong>High</strong></td>
+<td><strong>Low</strong></td>
+<td><strong>Close</strong></td>
+<td><strong>Volume</strong></td>
+<td><strong>Dividend</strong></td>
+<td><strong>Split</strong></td>
+<td><strong>Adj_Open</strong></td>
+<td><strong>Adj_High</strong></td>
+<td><strong>Adj_Low</strong></td>
+<td><strong>Adj_Close</strong></td>
+<td><strong>Adj_Volume</strong></td>
+<td><strong>Company</strong></td>
+</tr>
+<tr>
+<td><strong>124</strong></td>
+<td>2017-01-03</td>
+<td>115.80</td>
+<td>116.3300</td>
+<td>114.76</td>
+<td>116.15</td>
+<td>28781865.0</td>
+<td>0.0</td>
+<td>1.0</td>
+<td>114.833750</td>
+<td>115.359328</td>
+<td>113.802428</td>
+<td>115.180830</td>
+<td>28781865.0</td>
+<td>AAPL</td>
+</tr>
+<tr>
+<td><strong>123</strong></td>
+<td>2017-01-04</td>
+<td>115.85</td>
+<td>116.5100</td>
+<td>115.75</td>
+<td>116.02</td>
+<td>21118116.0</td>
+<td>0.0</td>
+<td>1.0</td>
+<td>114.883333</td>
+<td>115.537826</td>
+<td>114.784167</td>
+<td>115.051914</td>
+<td>21118116.0</td>
+<td>AAPL</td>
+</tr>
+<tr>
+<td><strong>122</strong></td>
+<td>2017-01-05</td>
+<td>115.92</td>
+<td>116.8642</td>
+<td>115.81</td>
+<td>116.61</td>
+<td>22193587.0</td>
+<td>0.0</td>
+<td>1.0</td>
+<td>114.952749</td>
+<td>115.889070</td>
+<td>114.843667</td>
+<td>115.636991</td>
+<td>22193587.0</td>
+<td>AAPL</td>
+</tr>
+<tr>
+<td><strong>121</strong></td>
+<td>2017-01-06</td>
+<td>116.78</td>
+<td>118.1600</td>
+<td>116.47</td>
+<td>117.91</td>
+<td>31751900.0</td>
+<td>0.0</td>
+<td>1.0</td>
+<td>115.805573</td>
+<td>117.174058</td>
+<td>115.498159</td>
+<td>116.926144</td>
+<td>31751900.0</td>
+<td>AAPL</td>
+</tr>
+<tr>
+<td><strong>120</strong></td>
+<td>2017-01-09</td>
+<td>117.95</td>
+<td>119.4300</td>
+<td>117.94</td>
+<td>118.99</td>
+<td>33561948.0</td>
+<td>0.0</td>
+<td>1.0</td>
+<td>116.965810</td>
+<td>118.433461</td>
+<td>116.955894</td>
+<td>117.997132</td>
+<td>33561948.0</td>
+<td>AAPL</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<p> </p>
+<p>The dataframe contains <strong>Opening, High, Low, and Closing</strong> (<strong>OHLC</strong>) prices for each stock. Extra information is also available; for example, the dividend column reflects the cash dividend value on that day. The split column shows the ratio of new shares to old shares if a split occurred on that day. The adjusted prices account for price fluctuations due to distributions or corporate actions by assuming that all these actions were reinvested into the current stock. For more information about these columns, consult the documentation pages on Quandl.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Grouping the companies by industry</h1>
+                </header>
+            
+            <article>
+                
+<p>As you may have noticed, three of the companies (AAPL, IBM, and MSFT) are tech companies, while the remaining three companies are not. Stock analysts often group companies by industry to gain deeper insights. Let's try to label the companies by industry:</p>
+<pre># Classify companies by industry<br/>tech_companies = set(["AAPL","IBM","MSFT"])<br/>stock_df['Industry'] = ["Tech" if c in tech_companies else "Others" for c in stock_df['Company']]</pre>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Converting the date to a supported format</h1>
+                </header>
+            
+            <article>
+                
+<p>The <kbd>Date</kbd> column in <kbd>stock_df</kbd> is recorded as a series of Python strings. Although Seaborn can use string-formatted dates in some functions, Matplotlib cannot. To make the dates malleable to data processing and visualizations, we need to convert the values to float numbers supported by Matplotlib:</p>
+<pre class="mce-root">from matplotlib.dates import date2num<br/><br/><br/># Convert Date column from string to Python datetime object,<br/># then to float number that is supported by Matplotlib.<br/>stock_df["Datetime"] = date2num(pd.to_datetime(stock_df["Date"], format="%Y-%m-%d").tolist())</pre>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Getting the percentage change of the closing price</h1>
+                </header>
+            
+            <article>
+                
+<p>Next, we want to calculate the change of the closing price with regard to the previous day's close. The <kbd>pct_change()</kbd> function in Pandas makes this task very easy:</p>
+<pre class="mce-root">import numpy as np<br/><br/><br/># Calculate percentage change versus the previous close<br/>stock_df["Close_change"] = stock_df["Close"].pct_change()<br/># Since the DataFrame contain multiple companies' stock data, <br/># the first record in the "Close_change" should be changed to<br/># NaN in order to prevent referencing the price of incorrect company.<br/>stock_df.loc[stock_df["Date"]=="2017-01-03", "Close_change"] = np.NaN<br/>stock_df.head()</pre>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Two-dimensional faceted plots</h1>
+                </header>
+            
+            <article>
+                
+<p>We are going to introduce three major ways to create faceted plots: <kbd>seaborn.factorplot()</kbd>, <kbd>seaborn.FacetGrid()</kbd>, and <kbd>seaborn.pairplot()</kbd>. You might have seen some faceted plots in the previous chapter, when we talked about <kbd>seaborn.lmplot()</kbd>. Actually, the <kbd>seaborn.lmplot()</kbd> function combines <kbd>seaborn.regplot()</kbd> with <kbd>seaborn.FacetGrid()</kbd>, and the definitions of data subsets can be adjusted by the <kbd>hue</kbd>, <kbd>col</kbd>, and <kbd>row</kbd> parameters.</p>
+<p>We are going to introduce three major ways to create faceted plots: <kbd>seaborn.factorplot()</kbd>, <kbd>seaborn.FacetGrid()</kbd>, and <kbd>seaborn.pairplot()</kbd>. These functions actually work similarly to <kbd>seaborn.lmplot()</kbd> in the way of defining facets.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Factor plot in Seaborn</h1>
+                </header>
+            
+            <article>
+                
+<p>With the help of <kbd>seaborn.factorplot()</kbd>, we can draw categorical point plots, box plots, violin plots, bar plots, or strip plots onto a <kbd>seaborn.FacetGrid()</kbd> by tuning the <kbd>kind</kbd> parameter. The default plot type for <kbd>factorplot</kbd> is point plot. Unlike other plotting functions in Seaborn, which support a wide variety of input data formats, <kbd>factorplot</kbd> supports pandas DataFrames as input only, while variable/column names can be supplied as string to <kbd>x</kbd>, <kbd>y</kbd>, <kbd>hue</kbd>, <kbd>col</kbd>, or <kbd>row</kbd>:</p>
+<pre>import seaborn as sns<br/>import matplotlib.pyplot as plt<br/><br/><br/>sns.set(style="ticks")<br/><br/># Plot EOD stock closing price vs Date for each company.<br/># Color of plot elements is determined by company name (hue="Company"),<br/># plot panels are also arranged in columns accordingly (col="Company").<br/># The col_wrap parameter determines the number of panels per row (col_wrap=3).<br/>g = sns.factorplot(x="Date", y="Close", <br/>                   hue="Company", col="Company", <br/>                   data=stock_df, col_wrap=3)<br/><br/>plt.show()</pre>
+<div class="CDPAlignCenter CDPAlign"><img class="image-border" src="assets/a7c1f5ff-03a5-457c-88df-43387f11b9eb.png" style="width:55.50em;height:37.00em;"/></div>
+<p>There are several issues in the preceding plot.</p>
+<p>First, the aspect ratio (length divided by height) is slightly suboptimal for a time series chart. A wider plot would allow us to observe minute changes during the time period. We are going to adjust that using the <kbd>aspect</kbd> parameter.</p>
+<p>Second, the lines and dots are too thick, thereby masking some details in the plot. We can reduce the size of these visual elements by tweaking the <kbd>scale</kbd> parameter.</p>
+<p>Lastly, the ticks are too close to each other, and the tick labels are overlapping. After plotting, <kbd>sns.factorplot()</kbd> returns a FacetGrid, which was denoted as <kbd>g</kbd> in the code. We can further tweak the aesthetics of the plot, such as tick positions and labels, by calling the relevant functions in the <kbd>FacetGrid</kbd> object:</p>
+<pre class="mce-root"># Increase the aspect ratio and size of each panel<br/>g = sns.factorplot(x="Date", y="Close", <br/>                   hue="Company", col="Company", <br/>                   data=stock_df,<br/>                   col_wrap=3, size=3,<br/>                   scale=0.5, aspect=1.5)<br/><br/># Thinning of ticks (select 1 in 10)<br/>locs, labels = plt.xticks()<br/>g.set(xticks=locs[0::10], xticklabels=labels[0::10])<br/><br/># Rotate the tick labels to prevent overlap<br/>g.set_xticklabels(rotation=30)<br/><br/># Reduce the white space between plots<br/>g.fig.subplots_adjust(wspace=.1, hspace=.2)<br/>plt.show()<br/><br/></pre>
+<div class="CDPAlignCenter CDPAlign"><img class="image-border" src="assets/7d9f248d-c1a1-49a3-8bce-5e0fcd17860d.png" style="width:60.83em;height:27.00em;"/></div>
+<pre class="mce-root"># Create faceted plot separated by industry<br/>g = sns.factorplot(x="Date", y="Close", <br/>                   hue="Company", col="Industry", <br/>                   data=stock_df, size=4, <br/>                   aspect=1.5, scale=0.5)<br/><br/>locs, labels = plt.xticks()<br/>g.set(xticks=locs[0::10], xticklabels=labels[0::10])<br/>g.set_xticklabels(rotation=30)<br/>plt.show()</pre>
+<div class="CDPAlignCenter CDPAlign"><img class="image-border" src="assets/9bd895a6-fd03-4b75-b4ec-aceacf3e227b.png" style="width:61.83em;height:19.25em;"/></div>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Faceted grid in Seaborn</h1>
+                </header>
+            
+            <article>
+                
+<p>Up until now, we have already mentioned <kbd>FacetGrid</kbd> a few times, but what exactly is it?</p>
+<p>As you may know, <kbd>FacetGrid</kbd> is an engine for subsetting data and drawing plot panels determined by assigning variables to the rows and columns of <kbd>hue</kbd> parameters. While we can use wrapper functions such as <kbd>lmplot</kbd> and <kbd>factorplot</kbd> to scaffold plots on <kbd>FacetGrid</kbd> easily, it would be more flexible to build FacetGrid from scratch. To do that, we first supply a pandas DataFrame to the <kbd>FacetGrid</kbd> object and specify the way to lay out the grid via <kbd>col</kbd>, <kbd>row</kbd>, and <kbd>hue</kbd> parameters. Then we can assign a Seaborn or Matplotlib plotting function to each panel by calling the <kbd>map()</kbd> function of the <kbd>FacetGrid</kbd> object:</p>
+<pre class="mce-root"># Create a FacetGrid<br/>g = sns.FacetGrid(stock_df, col="Company", hue="Company",<br/>                  size=3, aspect=2, col_wrap=2)<br/><br/># Map the seaborn.distplot function to the panels,<br/># which shows a histogram of closing prices.<br/>g.map(sns.distplot, "Close")<br/><br/># Label the axes<br/>g.set_axis_labels("Closing price (US Dollars)", "Density")<br/><br/>plt.show()</pre>
+<div class="CDPAlignCenter CDPAlign"><img class="image-border" src="assets/e74166a5-0600-434c-8e64-6a522ee0e42b.png" style="width:52.67em;height:39.50em;"/></div>
+<p>We can also supply keyword arguments to the plotting functions:</p>
+<pre class="mce-root">g = sns.FacetGrid(stock_df, col="Company", hue="Company",<br/>                  size=3, aspect=2.2, col_wrap=2)<br/><br/># We can supply extra kwargs to the plotting function.<br/># Let's turn off KDE line (kde=False), and plot raw <br/># frequency of bins only (norm_hist=False).<br/># By setting rug=True, tick marks that denotes the<br/># density of data points will be shown in the bottom.<br/>g.map(sns.distplot, "Close", kde=False, norm_hist=False, rug=True)<br/><br/>g.set_axis_labels("Closing price (US Dollars)", "Density")<br/><br/>plt.show()</pre>
+<div class="CDPAlignCenter CDPAlign"><img class="image-border" src="assets/b43fd7ec-bb68-4cbd-9774-0e4b67927941.png" style="width:48.33em;height:32.92em;"/></div>
+<p><kbd>FacetGrid</kbd> is not limited to the use of Seaborn plotting functions; let's try to map the good old <kbd><span>Matplotlib.pyplot.plot()</span></kbd> function to <kbd>FacetGrid</kbd>:</p>
+<pre class="mce-root">from matplotlib.dates import DateFormatter<br/><br/><br/>g = sns.FacetGrid(stock_df, hue="Company", col="Industry",<br/>                  size=4, aspect=1.5, col_wrap=2)<br/><br/># plt.plot doesn't support string-formatted Date,<br/># so we need to use the Datetime column that we<br/># prepared earlier instead.<br/>g.map(plt.plot, "Datetime", "Close", marker="o", markersize=3, linewidth=1)<br/>g.add_legend()<br/><br/># We can access individual axes through g.axes[column]<br/># or g.axes[row,column] if multiple rows are present.<br/># Let's adjust the tick formatter and rotate the tick labels<br/># in each axes.<br/>for col in range(2):<br/>    g.axes[col].xaxis.set_major_formatter(DateFormatter('%Y-%m-%d'))<br/>    plt.setp(g.axes[col].get_xticklabels(), rotation=30)<br/> <br/>g.set_axis_labels("", "Closing price (US Dollars)")<br/>plt.show()</pre>
+<div class="mce-root CDPAlignCenter CDPAlign"><img class="image-border" src="assets/f84aae52-3a98-4977-a152-67f75474aa82.png" style="width:62.67em;height:19.50em;"/></div>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Pair plot in Seaborn</h1>
+                </header>
+            
+            <article>
+                
+<p>A pair plot is a special type of <kbd>FacetGrid</kbd>. Pairwise relationships between all variables in the input DataFrame will be visualized as scatter plots. In addition, a series of histograms will be displayed along the diagonal axes to show the distribution of the variable in that column:</p>
+<pre class="mce-root"># Show a pairplot of three selected variables (vars=["Open", "Volume", "Close"])<br/>g = sns.pairplot(stock_df, hue="Company", <br/>                 vars=["Open", "Volume", "Close"])<br/><br/>plt.show()</pre>
+<div class="CDPAlignCenter CDPAlign"><img class="image-border" src="assets/41b3562e-4fe4-44d6-a6b9-6513e117f5a8.png" style="width:41.42em;height:37.08em;"/></div>
+<p class="mce-root">We can tweak many aspects of the plot. In the next example, we will increase the aspect ratio, change the plot type in the diagonal line to KDE plot, and adjust the aesthetics of the plots using keyword arguments:</p>
+<pre class="mce-root"># Adjust the aesthetics of the plot<br/>g = sns.pairplot(stock_df, hue="Company", <br/>                 aspect=1.5, diag_kind="kde", <br/>                 diag_kws=dict(shade=True),<br/>                 plot_kws=dict(s=15, marker="+"),<br/>                 vars=["Open", "Volume", "Close"])<br/><br/>plt.show()</pre>
+<div class="CDPAlignCenter CDPAlign"><img class="image-border" src="assets/0cc657ec-9fb4-4433-862f-8dac69d6e56c.png" style="width:53.83em;height:33.25em;"/></div>
+<p>Similar to other plots based on <kbd>FacetGrid</kbd>, we can define the variables to be displayed in each panel. We can also manually define the comparisons that matter to us instead of an all-versus-all comparison by setting the <kbd>x_vars</kbd> and <kbd>y_vars</kbd> parameters. You may also use <kbd>seaborn.PairGrid()</kbd> directly if you require even higher flexibility for defining comparison groups:</p>
+<pre class="mce-root"># Manually defining the comparisons that we are interested.<br/>g = sns.pairplot(stock_df, hue="Company", aspect=1.5,<br/>                 x_vars=["Open", "Volume"],<br/>                 y_vars=["Close", "Close_change"])<br/><br/>plt.show()</pre>
+<div class="CDPAlignCenter CDPAlign"><img class="image-border" src="assets/6978d291-58f4-41f9-a2d0-ac3c3ffa0622.png" style="width:47.75em;height:28.50em;"/></div>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Other two-dimensional multivariate plots</h1>
+                </header>
+            
+            <article>
+                
+<p>FacetGrid, factor plot, and pair plot may take up a lot of space when we need to visualize more variables or samples. There are two special plot types that come in handy if you want the maximize space efficiency - Heatmaps and Candlestick plots.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Heatmap in Seaborn</h1>
+                </header>
+            
+            <article>
+                
+<p>A heatmap is an extremely compact way to display a large amount of data. In the finance world, color-coded blocks can give investors a quick glance at which stocks are up or down. In the scientific world, heatmaps allow researchers to visualize the expression level of thousands of genes.</p>
+<p>The <kbd>seaborn.heatmap()</kbd> function expects a 2D list, 2D Numpy array, or pandas DataFrame as input. If a list or array is supplied, we can supply column and row labels via <kbd>xticklabels</kbd> and <kbd>yticklabels</kbd> respectively. On the other hand, if a DataFrame is supplied, the column labels and index values will be used to label the columns and rows respectively.</p>
+<p>To get started, we will plot an overview of the performance of the six stocks using a heatmap. We define stock performance as the change of closing price when compared to the previous close. This piece of information was already calculated earlier in this chapter (that is, the <kbd>Close_change</kbd> column). Unfortunately, we can't supply the whole DataFrame to <kbd>seaborn.heatmap()</kbd> directly, since it expects company names as columns, date as index, and the change in closing price as values.</p>
+<p>If you are familiar with Microsoft Excel, you might have experience in using pivot tables, a powerful technique to summarize the levels or values of a particular variable. pandas includes such functionality. The following code excerpt makes use of the wonderful <kbd>Pandas.DataFrame.pivot()</kbd> function to make a pivot table:</p>
+<pre>stock_change = stock_df.pivot(index='Date', columns='Company', values='Close_change')<br/>stock_change = stock_change.loc["2017-06-01":"2017-06-30"]<br/>stock_change.head()</pre>
+<table style="border-collapse: collapse;width: 50%" class="dataframe" border="1">
+<tbody>
+<tr>
+<td><strong>Company Date</strong></td>
+<td><strong>AAPL</strong></td>
+<td><strong>IBM</strong></td>
+<td><strong>JNJ</strong></td>
+<td><strong>MSFT</strong></td>
+<td><strong>PG</strong></td>
+<td><strong>XOM</strong></td>
+</tr>
+<tr>
+<td><strong>2017-06-01</strong></td>
+<td>0.002749</td>
+<td>0.000262</td>
+<td>0.004133</td>
+<td>0.003723</td>
+<td>0.000454</td>
+<td>0.002484</td>
+</tr>
+<tr>
+<td><strong>2017-06-02</strong></td>
+<td>0.014819</td>
+<td>-0.004061</td>
+<td>0.010095</td>
+<td>0.023680</td>
+<td>0.005220</td>
+<td>-0.014870</td>
+</tr>
+<tr>
+<td><strong>2017-06-05</strong></td>
+<td>-0.009778</td>
+<td>0.002368</td>
+<td>0.002153</td>
+<td>0.007246</td>
+<td>0.001693</td>
+<td>0.007799</td>
+</tr>
+<tr>
+<td><strong>2017-06-06</strong></td>
+<td>0.003378</td>
+<td>-0.000262</td>
+<td>0.003605</td>
+<td>0.003320</td>
+<td>0.000676</td>
+<td>0.013605</td>
+</tr>
+<tr>
+<td><strong>2017-06-07</strong></td>
+<td>0.005957</td>
+<td>-0.009123</td>
+<td>-0.000611</td>
+<td>-0.001793</td>
+<td>-0.000338</td>
+<td>-0.003694</td>
+</tr>
+</tbody>
+</table>
+<p> </p>
+<p>With the pivot table ready, we can proceed to plot our first heatmap:</p>
+<pre>ax = sns.heatmap(stock_change)<br/>plt.show()</pre>
+<div class="CDPAlignCenter CDPAlign"><img class="image-border" src="assets/67b07b08-fcdf-4b0c-a0e6-6a95b296085c.png" style="width:49.00em;height:33.75em;"/></div>
+<p>The default heatmap implementation is not really compact enough. Of course, we can resize the figure via <kbd>plt.figure(figsize=(width, height))</kbd>; we can also toggle the square parameter to create square-shaped blocks. To ease visual recognition, we can add a thin border around the blocks.</p>
+<p>By US stock market convention, green denotes a rise and red denotes a fall in prices. Hence we can adjust the <kbd>cmap</kbd> parameter to adjust the color map. However, neither Matplotlib nor Seaborn includes a red-green color map, so we need to create our own:</p>
+<div class="packt_infobox">At the end of <a href="7daeb59b-3e8e-4a33-9437-2839c6ed47e4.xhtml" target="_blank">Chapter 7</a>, <em>Visualizing Online Data</em>, we briefly introduced functions for creating custom color maps. Here we will use <kbd>seaborn.diverging_palette()</kbd> to create the red-green color map, which requires us to specify the hues, saturation, and lightness (husl) for the negative and positive extents of the color map. You may also use this code to launch an interactive widget in Jupyter Notebook to help select the colors:
+<p> </p>
+<p><kbd>%matplotlib notebook</kbd><br/>
+<kbd>import seaborn as sns</kbd></p>
+<p><kbd>sns.choose_diverging_palette(as_cmap=True)</kbd> </p>
+</div>
+<pre class="mce-root"># Create a new red-green color map using the husl color system<br/># h_neg and h_pos determines the hue of the extents of the color map.<br/># s determines the color saturation<br/># l determines the lightness<br/># sep determines the width of center point<br/># In addition, we need to set as_cmap=True as the cmap parameter of <br/># sns.heatmap expects matplotlib colormap object.<br/>rdgn = sns.diverging_palette(h_neg=10, h_pos=140, s=80, l=50,<br/>                             sep=10, as_cmap=True)<br/><br/># Change to square blocks (square=True), add a thin<br/># border (linewidths=.5), and change the color map<br/># to follow US stocks market convention (cmap="RdGn").<br/>ax = sns.heatmap(stock_change, cmap=rdgn,<br/>                 linewidths=.5, square=True)<br/><br/># Prevent x axes label from being cropped<br/>plt.tight_layout()<br/>plt.show()</pre>
+<div class="CDPAlignCenter CDPAlign"><img class="image-border" src="assets/6c6e3457-478c-4902-9df9-38304a360e53.png" style="width:29.92em;height:38.83em;"/></div>
+<p>It could be hard to discern small differences in values when color is the only discriminative factor. Adding text annotations to each color block may help readers understand the magnitude of the difference:</p>
+<pre class="mce-root">fig = plt.figure(figsize=(6,8))<br/><br/># Set annot=True to overlay the values.<br/># We can also assign python format string to fmt. <br/># For example ".2%" refers to percentage values with<br/># two decimal points.</pre>
+<p class="mce-root"/>
+<p class="mce-root"/>
+<pre class="mce-root">ax = sns.heatmap(stock_change, cmap=rdgn,<br/>                 annot=True, fmt=".2%",<br/>                 linewidths=.5, cbar=False)<br/>plt.show()</pre>
+<div class="CDPAlignCenter CDPAlign"><img class="image-border" src="assets/8157d51c-154a-4507-b8f8-845ed511a41a.png" style="width:28.58em;height:38.17em;"/></div>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Candlestick plot in matplotlib.finance</h1>
+                </header>
+            
+            <article>
+                
+<p>As you have seen in the first part of this chapter, our dataset contains the opening and closing prices as well as the highest and lowest price per trading day. None of the plots we have described thus far are able to describe the trend of all these variables in a single plot.</p>
+<p>In the financial world, the candlestick plot is almost the default choice for describing price movements of stocks, currencies, and commodities over a time period. Each candlestick consists of the body, describing the opening and closing prices, and extended wicks illustrating the highest and lowest prices of a particular trading day. If the closing price is higher than the opening price, the candlestick is often colored black. Conversely, the candlestick is colored red if the closing price is lower. The trader can then infer the opening and closing prices based on the combination of color and the boundary of the candlestick body.</p>
+<p>In the following example, we are going to prepare a candlestick chart of Apple Incorporation in the last 50 trading days of our DataFrame. We will also apply the tick formatter to label the ticks as dates:</p>
+<pre class="mce-root">import matplotlib.pyplot as plt<br/>from matplotlib.dates import date2num, WeekdayLocator, DayLocator, DateFormatter, MONDAY<br/>from matplotlib.finance import candlestick_ohlc<br/><br/><br/># Extract stocks data for AAPL.<br/># candlestick_ohlc expects Date (in floating point number), Open, High, Low,<br/># Close columns only<br/># So we need to select the useful columns first using DataFrame.loc[]. Extra <br/># columns can exist, <br/># but they are ignored. Next we get the data for the last 50 trading only for <br/># simplicity of plots.<br/>candlestick_data = stock_df[stock_df["Company"]=="AAPL"]\<br/>                       .loc[:, ["Datetime", "Open", "High", "Low", "Close",<br/>                       "Volume"]]\<br/>                       .iloc[-50:]<br/><br/># Create a new Matplotlib figure<br/>fig, ax = plt.subplots()<br/><br/># Prepare a candlestick plot<br/>candlestick_ohlc(ax, candlestick_data.values, width=0.6)<br/><br/>ax.xaxis.set_major_locator(WeekdayLocator(MONDAY)) # major ticks on the mondays<br/>ax.xaxis.set_minor_locator(DayLocator()) # minor ticks on the days<br/>ax.xaxis.set_major_formatter(DateFormatter('%Y-%m-%d'))<br/>ax.xaxis_date() # treat the x data as dates<br/># rotate all ticks to vertical<br/>plt.setp(ax.get_xticklabels(), rotation=90, horizontalalignment='right')<br/><br/>ax.set_ylabel('Price (US $)') # Set y-axis label<br/>plt.show()</pre>
+<div class="CDPAlignCenter CDPAlign"><img class="image-border" src="assets/3c187f5e-6be3-47c0-b30d-e6f741886c36.png" style="width:44.42em;height:30.50em;"/></div>
+<div class="packt_infobox">Starting from Matplotlib 2.0, <kbd>matplotlib.finance</kbd> is deprecated. Readers should use <kbd>mpl_finance</kbd> (<a href="https://github.com/matplotlib/mpl_finance" target="_blank">https://github.com/matplotlib/mpl_finance</a>) in the future instead. However, as of writing this chapter, <kbd>mpl_finance</kbd> is not yet available on PyPI, so let's stick to <kbd>matplotlib.finance</kbd> for the time being.</div>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Visualizing various stock market indicators</h1>
+                </header>
+            
+            <article>
+                
+<p>The candlestick plot in the current form is a bit bland. Traders usually overlay stock indicators such as <strong>Average True Range</strong> (<strong>ATR</strong>), Bollinger band, <strong>Commodity Channel Index</strong> (<strong>CCI</strong>), <strong>Exponential Moving Average</strong> (<strong>EMA</strong>), <strong>Moving Average Convergence Divergence</strong> (<strong>MACD</strong>), <strong>Relative Strength Index</strong> (<strong>RSI</strong>), and various <span>other</span><span> </span><span>stats</span> for <span>technical analysis.</span></p>
+<p>Stockstats (<a href="https://github.com/jealous/stockstats">https://github.com/jealous/stockstats</a>) is a great package for calculating these indicators/stats and many more. It wraps around pandas DataFrames and generate the stats on the fly when they are accessed. To use <kbd>stockstats</kbd>, we simply install it via PyPI: <kbd>pip install stockstats</kbd>.</p>
+<p>Next, we can convert a pandas DataFrame to a stockstats DataFrame via <kbd>stockstats.StockDataFrame.retype()</kbd>. A plethora of stock indicators can then be accessed by following the pattern <kbd>StockDataFrame["variable_timeWindow_indicator"]</kbd>. For example, <kbd>StockDataFrame['open_2_sma']</kbd> would give us the 2-day simple moving average on the opening price. Shortcuts may be available for some indicators, so please consult the official documentation for more information:</p>
+<pre class="mce-root">from stockstats import StockDataFrame<br/><br/><br/># Convert to StockDataFrame<br/># Need to pass a copy of candlestick_data to StockDataFrame.retype<br/># Otherwise the original candlestick_data will be modified<br/>stockstats = StockDataFrame.retype(candlestick_data.copy())<br/><br/># 5-day exponential moving average on closing price<br/>ema_5 = stockstats["close_5_ema"]<br/># 20-day exponential moving average on closing price<br/>ema_20 = stockstats["close_20_ema"]<br/># 50-day exponential moving average on closing price<br/>ema_50 = stockstats["close_50_ema"]<br/># Upper Bollinger band<br/>boll_ub = stockstats["boll_ub"]<br/># Lower Bollinger band<br/>boll_lb = stockstats["boll_lb"]<br/># 7-day Relative Strength Index<br/>rsi_7 = stockstats['rsi_7']<br/># 14-day Relative Strength Index<br/>rsi_14 = stockstats['rsi_14']</pre>
+<p>With the stock indicators ready, we can overlay them on the same candlestick chart:</p>
+<pre class="mce-root">import datetime<br/>import matplotlib.pyplot as plt<br/>from matplotlib.dates import date2num, WeekdayLocator, DayLocator, DateFormatter, MONDAY<br/>from matplotlib.finance import candlestick_ohlc<br/><br/><br/># Create a new Matplotlib figure<br/>fig, ax = plt.subplots()<br/><br/># Prepare a candlestick plot<br/>candlestick_ohlc(ax, candlestick_data.values, width=0.6)<br/><br/># Plot stock indicators in the same plot<br/>ax.plot(candlestick_data["Datetime"], ema_5, lw=1, label='EMA (5)')<br/>ax.plot(candlestick_data["Datetime"], ema_20, lw=1, label='EMA (20)')<br/>ax.plot(candlestick_data["Datetime"], ema_50, lw=1, label='EMA (50)')<br/>ax.plot(candlestick_data["Datetime"], boll_ub, lw=2, linestyle="--", label='Bollinger upper')<br/>ax.plot(candlestick_data["Datetime"], boll_lb, lw=2, linestyle="--", label='Bollinger lower')<br/><br/>ax.xaxis.set_major_locator(WeekdayLocator(MONDAY)) # major ticks on <br/># the mondays<br/>ax.xaxis.set_minor_locator(DayLocator()) # minor ticks on the days<br/>ax.xaxis.set_major_formatter(DateFormatter('%Y-%m-%d'))<br/>ax.xaxis_date() # treat the x data as dates<br/># rotate all ticks to vertical<br/>plt.setp(ax.get_xticklabels(), rotation=90, horizontalalignment='right')<br/><br/>ax.set_ylabel('Price (US $)') # Set y-axis label<br/><br/># Limit the x-axis range from 2017-4-23 to 2017-7-1<br/>datemin = datetime.date(2017, 4, 23)<br/>datemax = datetime.date(2017, 7, 1)<br/>ax.set_xlim(datemin, datemax)<br/><br/>plt.legend() # Show figure legend<br/>plt.tight_layout()<br/>plt.show()</pre>
+<div class="CDPAlignCenter CDPAlign"><img class="image-border" src="assets/cc3ee719-5c97-415e-a83b-fc86db81482a.png" style="width:47.25em;height:32.50em;"/></div>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Building a comprehensive stock chart</h1>
+                </header>
+            
+            <article>
+                
+<p>In the following elaborate example, we are going to apply the many techniques that we have covered thus far to create a more comprehensive stock chart. In addition to the preceding plot, we will add a line chart to display the <strong>Relative Strength Index</strong> (<strong>RSI</strong>) and a bar chart to show trade volume. A special market event (<a href="http://markets.businessinsider.com/news/stocks/apple-stock-price-falling-new-iphone-speed-2017-6-1002082799">http://markets.businessinsider.com/news/stocks/apple-stock-price-falling-new-iphone-speed-2017-6-1002082799</a>) is going to be annotated on the chart as well:</p>
+<p class="mce-root"/>
+<div class="packt_tip">If you look closely at the charts, you might notice some missing dates. These days are usually non-trading days or public holidays that were not present in our DataFrame.</div>
+<pre class="mce-root">import datetime<br/>import matplotlib.pyplot as plt<br/>from matplotlib.dates import date2num, WeekdayLocator, DayLocator, DateFormatter, MONDAY<br/>from matplotlib.finance import candlestick_ohlc<br/>from matplotlib.ticker import FuncFormatter<br/><br/><br/># FuncFormatter to convert tick values to Millions<br/>def millions(x, pos):<br/>    return '%dM' % (x/1e6)<br/><br/># Create 3 subplots spread acrosee three rows, with shared x-axis. <br/># The height ratio is specified via gridspec_kw<br/>fig, axarr = plt.subplots(nrows=3, ncols=1, sharex=True, figsize=(8,8),<br/>                          gridspec_kw={'height_ratios':[3,1,1]})<br/><br/># Prepare a candlestick plot in the first axes<br/>candlestick_ohlc(axarr[0], candlestick_data.values, width=0.6)<br/><br/># Overlay stock indicators in the first axes<br/>axarr[0].plot(candlestick_data["Datetime"], ema_5, lw=1, label='EMA (5)')<br/>axarr[0].plot(candlestick_data["Datetime"], ema_20, lw=1, label='EMA (20)')<br/>axarr[0].plot(candlestick_data["Datetime"], ema_50, lw=1, label='EMA (50)')<br/>axarr[0].plot(candlestick_data["Datetime"], boll_ub, lw=2, linestyle="--", label='Bollinger upper')<br/>axarr[0].plot(candlestick_data["Datetime"], boll_lb, lw=2, linestyle="--", label='Bollinger lower')<br/><br/># Display RSI in the second axes<br/>axarr[1].axhline(y=30, lw=2, color = '0.7') # Line for oversold threshold<br/>axarr[1].axhline(y=50, lw=2, linestyle="--", color = '0.8') # Neutral RSI<br/>axarr[1].axhline(y=70, lw=2, color = '0.7') # Line for overbought threshold<br/>axarr[1].plot(candlestick_data["Datetime"], rsi_7, lw=2, label='RSI (7)')<br/>axarr[1].plot(candlestick_data["Datetime"], rsi_14, lw=2, label='RSI (14)')<br/><br/># Display trade volume in the third axes<br/>axarr[2].bar(candlestick_data["Datetime"], candlestick_data['Volume'])<br/><br/># Mark the market reaction to the Bloomberg news<br/># https://www.bloomberg.com/news/articles/2017-06-09/apple-s-new<br/># -iphones-said-to-miss-out-on-higher-speed-data-links<br/># http://markets.businessinsider.com/news/stocks/apple-stock-price<br/># -falling-new-iphone-speed-2017-6-1002082799<br/>axarr[0].annotate("Bloomberg News",<br/>                  xy=(datetime.date(2017, 6, 9), 155), xycoords='data',<br/>                  xytext=(25, 10), textcoords='offset points', size=12,<br/>                  arrowprops=dict(arrowstyle="simple",<br/>                  fc="green", ec="none"))<br/><br/># Label the axes<br/>axarr[0].set_ylabel('Price (US $)')<br/>axarr[1].set_ylabel('RSI')<br/>axarr[2].set_ylabel('Volume (US $)')<br/><br/>axarr[2].xaxis.set_major_locator(WeekdayLocator(MONDAY)) # major ticks on the mondays<br/>axarr[2].xaxis.set_minor_locator(DayLocator()) # minor ticks on the days<br/>axarr[2].xaxis.set_major_formatter(DateFormatter('%Y-%m-%d'))<br/>axarr[2].xaxis_date() # treat the x data as dates<br/>axarr[2].yaxis.set_major_formatter(FuncFormatter(millions)) # Change the y-axis ticks to millions<br/>plt.setp(axarr[2].get_xticklabels(), rotation=90, horizontalalignment='right') # Rotate x-tick labels by 90 degree<br/><br/># Limit the x-axis range from 2017-4-23 to 2017-7-1<br/>datemin = datetime.date(2017, 4, 23)<br/>datemax = datetime.date(2017, 7, 1)<br/>axarr[2].set_xlim(datemin, datemax)<br/><br/># Show figure legend<br/>axarr[0].legend()<br/>axarr[1].legend()<br/><br/># Show figure title<br/>axarr[0].set_title("AAPL (Apple Inc.) NASDAQ", loc='left')<br/><br/># Reduce unneccesary white space<br/>plt.tight_layout()<br/>plt.show()</pre>
+<div class="CDPAlignCenter CDPAlign"><img class="image-border" src="assets/69797210-b5fa-42bc-9a89-e4eedda2a87b.png" style="width:38.75em;height:38.75em;"/></div>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Three-dimensional (3D) plots</h1>
+                </header>
+            
+            <article>
+                
+<p class="mce-root">By transitioning to the three-dimensional space, you may enjoy greater creative freedom when creating visualizations. The extra dimension can also accommodate more information in a single plot. However, some may argue that 3D is nothing more than a visual gimmick when projected to a 2D surface (such as paper) as it would obfuscate the interpretation of data points.</p>
+<p class="mce-root">In Matplotlib version 2, despite significant developments in the 3D API, annoying bugs or glitches still exist. We will discuss some workarounds toward the end of this chapter. More powerful Python 3D visualization packages do exist (such as MayaVi2, Plotly, and VisPy), but it's good to use Matplotlib's 3D plotting functions if you want to use the same package for both 2D and 3D plots, or you would like to maintain the aesthetics of its 2D plots.</p>
+<p class="mce-root">For the most part, 3D plots in Matplotlib have similar structures to 2D plots. As such, we will not go through every 3D plot type in this section. We will put our focus on 3D scatter plots and bar charts.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">3D scatter plot</h1>
+                </header>
+            
+            <article>
+                
+<p class="mce-root">In <a href="bf358e3c-35c4-47c5-9683-7378dfa01c4e.xhtml" target="_blank">Chapter 6</a>, <em>Hello Plotting World!</em>, we have already explored scatter plots in two dimensions. In this section, let's try to create a 3D scatter plot. Before doing that, we need some data points in three dimensions (<em>x</em>, <em>y</em>, <em>z</em>):</p>
+<pre class="mce-root">import pandas as pd<br/><br/>source = "https://raw.githubusercontent.com/PointCloudLibrary/data/master/tutorials/ism_train_cat.pcd"<br/>cat_df = pd.read_csv(source, skiprows=11, delimiter=" ", names=["x","y","z"], encoding='latin_1') <br/>cat_df.head()</pre>
+<table style="border-collapse: collapse;width: 50%" class="dataframe" border="1">
+<tbody>
+<tr>
+<td><strong>Point</strong></td>
+<td><strong>x</strong></td>
+<td><strong>y</strong></td>
+<td><strong>z</strong></td>
+</tr>
+<tr>
+<td><strong>0</strong></td>
+<td>-17.034178</td>
+<td>18.972282</td>
+<td>40.482403</td>
+</tr>
+<tr>
+<td><strong>1</strong></td>
+<td>-16.881481</td>
+<td>21.815451</td>
+<td>44.156799</td>
+</tr>
+<tr>
+<td><strong>2</strong></td>
+<td>-16.749582</td>
+<td>18.154911</td>
+<td>34.131474</td>
+</tr>
+<tr>
+<td><strong>3</strong></td>
+<td>-16.876919</td>
+<td>20.598286</td>
+<td>36.271809</td>
+</tr>
+<tr>
+<td><strong>4</strong></td>
+<td>-16.849340</td>
+<td>17.403711</td>
+<td>42.993984</td>
+</tr>
+</tbody>
+</table>
+<p>To declare a 3D plot, we first need to import the <kbd>Axes3D</kbd> object from the <kbd>mplot3d</kbd> extension in <kbd>mpl_toolkits</kbd>, which is responsible for rendering 3D plots in a 2D plane. After that, we need to specify <kbd>projection='3d'</kbd> when we create subplots:</p>
+<pre class="mce-root">from mpl_toolkits.mplot3d import Axes3D<br/>import matplotlib.pyplot as plt<br/><br/>fig = plt.figure()<br/>ax = fig.add_subplot(111, projection='3d')<br/>ax.scatter(cat_df.x, cat_df.y, cat_df.z)<br/><br/>plt.show()</pre>
+<div class="CDPAlignCenter CDPAlign"><img class="image-border" src="assets/0c1800e1-f59a-4c26-a62e-f42eac2c6a47.png" style="width:40.58em;height:30.42em;"/></div>
+<p class="mce-root">Behold, the mighty sCATter plot in 3D. Cats are currently taking over the internet. According to the New York Times, cats are "the essential building block of the Internet" (<a href="https://www.nytimes.com/2014/07/23/upshot/what-the-internet-can-see-from-your-cat-pictures.html">https://www.nytimes.com/2014/07/23/upshot/what-the-internet-can-see-from-your-cat-pictures.html</a>). Undoubtedly, they deserve a place in this chapter as well.</p>
+<p class="mce-root">Contrary to the 2D version of <kbd>scatter()</kbd>, we need to provide X, Y, and Z coordinates when we are creating a 3D scatter plot. Yet the parameters that are supported in 2D <kbd>scatter()</kbd> can be applied to 3D <kbd>scatter()</kbd> as well:</p>
+<pre class="mce-root">fig = plt.figure()<br/>ax = fig.add_subplot(111, projection='3d')<br/><br/># Change the size, shape and color of markers<br/>ax.scatter(cat_df.x, cat_df.y, cat_df.z, s=4, c="g", marker="o")<br/><br/>plt.show()</pre>
+<div class="CDPAlignCenter CDPAlign"><img class="image-border" src="assets/06ee11d2-4d8c-495c-a134-117b8d0bb11b.png" style="width:41.33em;height:31.75em;"/></div>
+<p>To change the viewing angle and elevation of the 3D plot, we can make use of <kbd>view_init()</kbd>. The <kbd>azim</kbd> parameter specifies the azimuth angle in the X-Y plane, while <kbd>elev</kbd> specifies the elevation angle. When the azimuth angle is 0, the X-Y plane would appear to the north from you. Meanwhile, an azimuth angle of 180 would show you the south side of the X-Y plane:</p>
+<pre class="mce-root">fig = plt.figure()<br/>ax = fig.add_subplot(111, projection='3d')<br/>ax.scatter(cat_df.x, cat_df.y, cat_df.z,s=4, c="g", marker="o")<br/><br/># elev stores the elevation angle in the z plane azim stores the <br/># azimuth angle in the x,y plane<br/>ax.view_init(azim=180, elev=10)<br/><br/>plt.show()</pre>
+<div class="CDPAlignCenter CDPAlign"><img class="image-border" src="assets/8e24fedd-2a1c-4960-a65c-9912cb91dca5.png" style="width:29.92em;height:22.25em;"/></div>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">3D bar chart</h1>
+                </header>
+            
+            <article>
+                
+<p>We introduced candlestick plots for showing <strong>Open-High-Low-Close</strong> (<strong>OHLC</strong>) financial data. In addition, a 3D bar chart can be employed to show OHLC across time. The next figure shows a typical example of plotting a 5-day OHLC bar chart:</p>
+<pre class="mce-root">import matplotlib.pyplot as plt<br/>import numpy as np<br/>from mpl_toolkits.mplot3d import Axes3D<br/><br/><br/># Get 1 and every fifth row for the 5-day AAPL OHLC data<br/>ohlc_5d = stock_df[stock_df["Company"]=="AAPL"].iloc[1::5, :]<br/><br/>fig = plt.figure()<br/>ax = fig.add_subplot(111, projection='3d')<br/><br/># Create one color-coded bar chart for Open, High, Low and Close prices.<br/>for color, col, z in zip(['r', 'g', 'b', 'y'], ["Open", "High", "Low", <br/>                          "Close"], [30, 20, 10, 0]):<br/>    xs = np.arange(ohlc_5d.shape[0])<br/>    ys = ohlc_5d[col]<br/>    # Assign color to the bars<br/>    colors = [color] * len(xs)<br/>    ax.bar(xs, ys, zs=z, zdir='y', color=colors, alpha=0.8, width=5)<br/><br/>plt.show()</pre>
+<div class="CDPAlignCenter CDPAlign"><img class="image-border" src="assets/cd5659d3-e410-4dbe-a51c-12fb5a218e01.png" style="width:39.58em;height:27.17em;"/></div>
+<p>The method for setting ticks and labels is similar to other Matplotlib plotting functions:</p>
+<pre class="mce-root">fig = plt.figure(figsize=(9,7))<br/>ax = fig.add_subplot(111, projection='3d')<br/><br/># Create one color-coded bar chart for Open, High, Low and Close prices.<br/>for color, col, z in zip(['r', 'g', 'b', 'y'], ["Open", "High", "Low", <br/>                          "Close"], [30, 20, 10, 0]):<br/>    xs = np.arange(ohlc_5d.shape[0])<br/>    ys = ohlc_5d[col]<br/>    # Assign color to the bars <br/>    colors = [color] * len(xs)<br/>    ax.bar(xs, ys, zs=z, zdir='y', color=colors, alpha=0.8)<br/><br/># Manually assign the ticks and tick labels<br/>ax.set_xticks(np.arange(ohlc_5d.shape[0]))<br/>ax.set_xticklabels(ohlc_5d["Date"], rotation=20,<br/>                   verticalalignment='baseline',<br/>                   horizontalalignment='right',<br/>                   fontsize='8')<br/>ax.set_yticks([30, 20, 10, 0])<br/>ax.set_yticklabels(["Open", "High", "Low", "Close"])<br/><br/># Set the z-axis label<br/>ax.set_zlabel('Price (US $)')<br/><br/># Rotate the viewport<br/>ax.view_init(azim=-42, elev=31)<br/>plt.tight_layout()<br/>plt.show()</pre>
+<div class="CDPAlignCenter CDPAlign"><img class="image-border" src="assets/802994e2-c7c6-4e94-aece-6fea3a3eeea7.png" style="width:41.50em;height:32.33em;"/></div>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Caveats of Matplotlib 3D</h1>
+                </header>
+            
+            <article>
+                
+<p class="mce-root">Due to the lack of a true 3D graphical rendering backend (such as OpenGL) and proper algorithm for detecting 3D objects' intersections, the 3D plotting capabilities of Matplotlib are not great but just adequate for typical applications. In the official Matplotlib FAQ (<a href="https://matplotlib.org/mpl_toolkits/mplot3d/faq.html">https://matplotlib.org/mpl_toolkits/mplot3d/faq.html</a>), the author noted that 3D plots may not look right at certain angles. Besides, we also reported that <kbd>mplot3d</kbd> would fail to clip bar charts if zlim is set (<a href="https://github.com/matplotlib/matplotlib/issues/8902">https://github.com/matplotlib/matplotlib/issues/8902</a>; see also <a href="https://github.com/matplotlib/matplotlib/issues/209">https://github.com/matplotlib/matplotlib/issues/209</a>). Without improvements in the 3D rendering backend, these issues are hard to fix.</p>
+<p class="mce-root">To better illustrate the latter issue, let's try to add <kbd>ax.set_zlim3d(bottom=110, top=150)</kbd> right above <kbd>plt.tight_layout()</kbd> in the previous 3D bar chart:</p>
+<div class="CDPAlignCenter CDPAlign"><img class="image-border" src="assets/8edd8612-18d7-40dc-880f-1d264127265f.png" style="width:37.17em;height:28.92em;"/></div>
+<p>Clearly, something is going wrong, as the bars overshoot the lower boundary of the axes. We will try to address the latter issue through the following workaround:</p>
+<pre class="mce-root"># FuncFormatter to add 110 to the tick labels<br/>def major_formatter(x, pos):<br/>    return "{}".format(x+110)<br/> <br/>fig = plt.figure(figsize=(9,7))<br/>ax = fig.add_subplot(111, projection='3d')<br/><br/># Create one color-coded bar chart for Open, High, Low and Close prices.<br/>for color, col, z in zip(['r', 'g', 'b', 'y'], ["Open", "High", "Low", <br/>                          "Close"], [30, 20, 10, 0]):<br/>    xs = np.arange(ohlc_5d.shape[0])<br/>    ys = ohlc_5d[col]<br/><br/>    # Assign color to the bars <br/>    colors = [color] * len(xs)<br/> <br/>    # Truncate the y-values by 110<br/>    ax.bar(xs, ys-110, zs=z, zdir='y', color=colors, alpha=0.8)<br/><br/># Manually assign the ticks and tick labels<br/>ax.set_xticks(np.arange(ohlc_5d.shape[0]))<br/>ax.set_xticklabels(ohlc_5d["Date"], rotation=20,<br/>                   verticalalignment='baseline',<br/>                   horizontalalignment='right',<br/>                   fontsize='8')<br/><br/># Set the z-axis label<br/>ax.set_yticks([30, 20, 10, 0])<br/>ax.set_yticklabels(["Open", "High", "Low", "Close"])<br/>ax.zaxis.set_major_formatter(FuncFormatter(major_formatter))<br/>ax.set_zlabel('Price (US $)')<br/><br/># Rotate the viewport<br/>ax.view_init(azim=-42, elev=31)<br/><br/>plt.tight_layout()<br/>plt.show()</pre>
+<div class="CDPAlignCenter CDPAlign"><img class="image-border" src="assets/3893c300-afb5-489e-9222-2088a3ff323c.png" style="width:36.17em;height:28.08em;"/></div>
+<p>Basically, we truncated the <em>y</em> values by 110, and then we used a tick formatter (<kbd>major_formatter</kbd>) to shift the tick value back to the original. For 3D scatter plots, we can simply remove the data points that exceed the boundary of <kbd>set_zlim3d()</kbd> in order to generate a proper figure. However, these workarounds may not work for every 3D plot type.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Summary</h1>
+                </header>
+            
+            <article>
+                
+<p>You have successfully learned the techniques for visualizing multivariate data in 2D and 3D forms. Although most examples in this chapter revolved around the topic of stock trading, the data processing and visualization methods can be applied <span>readily</span><span> </span><span>to other fields as well. In particular, the divide-and-conquer approach used to visualize multivariate data in facets is extremely useful in the scientific field. </span></p>
+<p>We didn't go into too much detail of the 3D plotting capability of Matplotlib, as it is yet to be polished. For simple 3D plots, Matplotlib already suffices. The learning curve can be reduced if we use the same package for both 2D and 3D plots. You are advised to take a look at MayaVi2, Plotly, and VisPy if you require more powerful 3D plotting functions.</p>
+
+
+            </article>
+
+            
+        </section>
+    </body></html>

@@ -1,0 +1,1718 @@
+<html><head></head><body>
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Restructuring Data into a Tidy Form</h1>
+                </header>
+            
+            <article>
+                
+<p>All the datasets used in the preceding chapters have not had much or any work done to change their structure. We immediately began processing the datasets in their original shape. Many datasets in the wild will need a significant amount of restructuring before commencing a more detailed analysis. In some cases, an entire project might only be concerned with formatting the data in such a way that it can be easily processed by someone else.</p>
+<p class="mce-root">In this chapter, we will cover the following topics:</p>
+<ul>
+<li>Tidying variable values as column names with<span> </span><kbd>stack</kbd></li>
+<li>Tidying variable values as column names with<span> </span><kbd>melt</kbd></li>
+<li>Stacking multiple groups of variables simultaneously</li>
+<li>Inverting stacked data</li>
+<li>Unstacking after a<span> </span><kbd>groupby</kbd><span> </span>aggregation</li>
+<li>Replicating<span> </span><kbd>pivot_table</kbd><span> </span>with a<span> </span><kbd>groupby</kbd><span> </span>aggregation</li>
+<li>Renaming axis levels for easy reshaping</li>
+<li>Tidying when multiple variables are stored as column names</li>
+<li>Tidying when multiple variables are stored as column values</li>
+<li>Tidying when two or more values are stored in the same cell</li>
+<li>Tidying when variables are stored in column names and values</li>
+<li>Tidying when multiple observational units are stored in the same table</li>
+</ul>
+<p>There are many terms that are used to describe the process of data restructuring, with <strong>tidy data</strong> being the most common to data scientists. Tidy data is a term coined by Hadley Wickham to describe a form of data that makes analysis easy to do. This chapter will cover many ideas formulated by Hadley and how to accomplish them with pandas. To learn a great deal more about tidy data, read Hadley's paper (<a href="http://vita.had.co.nz/papers/tidy-data.pdf" target="_blank">http://vita.had.co.nz/papers/tidy-data.pdf</a>).</p>
+<p>What is tidy data? Hadley puts forth three simple guiding principles that determine whether a dataset is tidy or not:</p>
+<ul>
+<li>Each variable forms a column</li>
+<li>Each observation forms a row</li>
+<li>Each type of observational unit forms a table</li>
+</ul>
+<p>Any dataset that does not meet these guidelines is considered messy. This definition will make more sense once we start restructuring our data into tidy form, but for now, we'll need to know what variables, observations, and observational units are.</p>
+<p>To gain intuition about what a variable actually is, it is good to think about the distinction between a variable name and the variable value. The variable names are labels, such as gender, race, salary, and position. The variable values are those things liable to change for every observation, such as male/female for gender or white/black for race. A single observation is the collection of all variable values for a single observational unit. To help understand what an observational unit might be, consider a retail store, which has data for each transaction, employee, customer, item, and the store itself. Each of these can be considered an observational unit and would require its own table. Combining employee information (like the number of hours worked) with customer information (like amount spent) in the same table would break this tidy principle.</p>
+<p>The first step to resolving messy data is to recognize it when it exists, and there are boundless possibilities. Hadley explicitly mentions five of the most common types of messy data:</p>
+<ul>
+<li>Column names are values, not variable names</li>
+<li>Multiple variables are stored in column names</li>
+<li>Variables are stored in both rows and columns</li>
+<li>Multiple types of observational units are stored in the same table</li>
+<li>A single observational unit is stored in multiple tables</li>
+</ul>
+<p>It is important to understand that tidying data does not typically involve changing the values of your dataset, filling in missing values, or doing any sort of analysis. Tidying data involves changing the shape or structure of the data to meet the tidy principles. Tidy data is akin to having all your tools in the toolbox instead of scattered randomly throughout your house. Having the tools properly in the toolbox allows all other tasks to be completed easily. Once the data is in the correct form, it becomes much easier to perform further analysis.</p>
+<p>Once you have spotted messy data, you will use the pandas tools to restructure the data, so that it is tidy. The main tidy tools that pandas has available for you are the DataFrame methods <kbd>stack</kbd>, <kbd>melt</kbd>, <kbd>unstack</kbd>, and <kbd>pivot</kbd>. More complex tidying involves ripping apart text, which necessitates the <kbd>str</kbd> accessor. Other helper methods, such as <kbd>rename</kbd>, <kbd>rename_axis</kbd>, <kbd>reset_index</kbd>, and <kbd>set_index</kbd> will help with applying the final touches to tidy data.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Tidying variable values as column names with stack</h1>
+                </header>
+            
+            <article>
+                
+<p>To help understand the differences between tidy and messy data, let's take a look at a simple table that may or may not be in tidy form:</p>
+<pre>&gt;&gt;&gt; state_fruit = pd.read_csv('data/state_fruit.csv', index_col=0)<br/>&gt;&gt;&gt; state_fruit</pre>
+<div class="mce-root CDPAlignCenter CDPAlign"><img src="assets/0c3550a4-3074-402c-8c02-ba272547bde2.png" style="width:17.83em;height:8.83em;"/></div>
+<p>There does not appear to be anything messy about this table, and the information is easily consumable. However, according to the tidy principles, it isn't actually tidy. Each column name is actually the value of a variable. In fact, none of the variable names are even present in the DataFrame. One of the first steps to transform a messy dataset into tidy data is to identify all of the variables. In this particular dataset, we have variables for <strong>state</strong> and <strong>fruit</strong>. There's also the numeric data that wasn't identified anywhere in the context of the problem. We can label this variable as <strong>weight</strong> or any other sensible name.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Getting ready</h1>
+                </header>
+            
+            <article>
+                
+<p>This particular messy dataset contains variable values as column names. We will need to transpose these column names into column values. In this recipe, we use the <kbd>stack</kbd> method to restructure our DataFrame into tidy form.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">How to do it...</h1>
+                </header>
+            
+            <article>
+                
+<ol>
+<li>First, take note that the state names are in the index of the DataFrame. These states are correctly placed vertically and do not need to be restructured. It is the column names that are the problem. The <kbd>stack</kbd> method takes all of the column names and reshapes them to be vertical as a single index level:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; state_fruit.stack()<br/>Texas    Apple      12
+         Orange     10
+         Banana     40
+Arizona  Apple       9
+         Orange      7
+         Banana     12
+Florida  Apple       0
+         Orange     14
+         Banana    190
+dtype: int64</pre>
+<ol start="2">
+<li>Notice that we now have a Series with a MultiIndex. There are now two levels in the index. The original index has been pushed to the left to make room for the old column names. With this one command, we now essentially have tidy data. Each variable, state, fruit, and weight is vertical. Let's use the <kbd>reset_index</kbd> method to turn the result into a DataFrame:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; state_fruit_tidy = state_fruit.stack().reset_index()<br/>&gt;&gt;&gt; state_fruit_tidy</pre>
+<div class="CDPAlignCenter CDPAlign"><img src="assets/85efcd7a-edc3-44b9-8578-696dafb6a1bd.png" style="width:12.17em;height:18.33em;"/></div>
+<ol start="3">
+<li>Our structure is now correct, but the column names are meaningless. Let's replace them with proper identifiers:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; state_fruit_tidy.columns = ['state', 'fruit', 'weight']<br/>&gt;&gt;&gt; state_fruit_tidy</pre>
+<div class="CDPAlignCenter CDPAlign"><img src="assets/9e607e7b-2dd2-4c90-94c3-4e5f7f659dc7.png" style="width:12.92em;height:19.17em;"/></div>
+<ol start="4">
+<li>Instead of directly changing the columns attribute, it's possible to use the lesser-known Series method <kbd>rename_axis</kbd> to set the names of the index levels before using <kbd>reset_index</kbd>:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; state_fruit.stack()\<br/>               .rename_axis(['state', 'fruit'])<br/><br/>state    fruit <br/>Texas    Apple      12
+         Orange     10
+         Banana     40
+Arizona  Apple       9
+         Orange      7
+         Banana     12
+Florida  Apple       0
+         Orange     14
+         Banana    190
+dtype: int64</pre>
+<ol start="5">
+<li>From here, we can simply chain the <kbd>reset_index</kbd> method with the <kbd>name</kbd> parameter to reproduce the output from step 3:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; state_fruit.stack()\<br/>               .rename_axis(['state', 'fruit'])\<br/>               .reset_index(name='weight')</pre>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">How it works...</h1>
+                </header>
+            
+            <article>
+                
+<p>The <kbd>stack</kbd> method is powerful and it takes time to understand and appreciate fully. It takes all the column names and transposes them, so they become the new innermost index level. Notice how each old column name still labels its original value by being paired with each state. There were nine original values in a 3 x 3 DataFrame, which got transformed into a single Series with the same number of values. The original first row of data became the first three values in the resulting Series.</p>
+<p>After resetting the index in step 2, pandas defaults our DataFrame columns to <kbd>level_0</kbd>, <kbd>level_1</kbd>, and <kbd>0</kbd>. This is because the Series calling this method has two index levels that were formally unnamed. Pandas also refers to indexes by integer beginning from zero from the outside.</p>
+<p>Step 3 shows a simple and intuitive way to rename the columns. You can simply set new columns for the entire DataFrame by setting the columns attribute equal to a list.</p>
+<p>Alternatively, it is possible to set the column names in a single step by chaining the <kbd>rename_axis</kbd> method that, when passing a list as the first argument, uses those values as the index level names. Pandas uses these index level names as the new column names when the index is reset. Additionally, the <kbd>reset_index</kbd> method has a <kbd>name</kbd> parameter corresponding to the new column name of the Series values.</p>
+<div class="packt_tip packt_infobox">All Series have a <kbd>name</kbd> attribute that can be set directly or with the <kbd>rename</kbd> method. It is this attribute that becomes the column name when using <kbd>reset_index</kbd>.</div>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">There's more...</h1>
+                </header>
+            
+            <article>
+                
+<p>One of the keys to using <kbd>stack</kbd> is to place all of the columns that you do not wish to transform in the index. The dataset in this recipe was initially read with the states in the index. Let's take a look at what would have happened if we did not read the states into the index:</p>
+<pre>&gt;&gt;&gt; state_fruit2 = pd.read_csv('data/state_fruit2.csv')<br/>&gt;&gt;&gt; state_fruit2</pre>
+<div class="CDPAlignCenter CDPAlign"><img src="assets/825e195b-4117-4d76-a0a6-9c475c9f493f.png" style="width:16.17em;height:7.33em;"/></div>
+<p>As the state names are not in the index, using <kbd>stack</kbd> on this DataFrame reshapes all values into one long Series of values:</p>
+<pre>&gt;&gt;&gt; state_fruit2.stack()<br/>0  State       Texas<br/>   Apple          12
+   Orange         10
+   Banana         40
+1  State     Arizona
+   Apple           9
+   Orange          7
+   Banana         12
+2  State     Florida
+   Apple           0
+   Orange         14
+   Banana        190
+dtype: object</pre>
+<p>This command reshapes all the columns, this time including the states, and is not at all what we need. In order to reshape this data correctly, you will need to put all the non-reshaped columns into the index first with the <kbd>set_index</kbd> method, and then use <kbd>stack</kbd>. The following code gives a similar result to step 1:</p>
+<pre>&gt;&gt;&gt; state_fruit2.set_index('State').stack()</pre>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">See also</h1>
+                </header>
+            
+            <article>
+                
+<ul>
+<li>Pandas official documentation on <em>Reshaping and Pivot Tables</em> (<a href="http://pandas.pydata.org/pandas-docs/stable/reshaping.html" target="_blank">http://bit.ly/2xbnNms</a>)</li>
+<li>Pandas official documentation on the <kbd>stack</kbd> method (<a href="https://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.stack.html" target="_blank">http://bit.ly/2vWZhH1</a>)</li>
+</ul>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Tidying variable values as column names with melt</h1>
+                </header>
+            
+            <article>
+                
+<p>Like most large Python libraries, pandas has many different ways to accomplish the same task--the differences usually being readability and performance. Pandas contains a DataFrame method named <span><kbd>melt</kbd> that</span> works similarly to the <span><kbd>stack</kbd></span> method described in the previous recipe but gives a bit more flexibility.</p>
+<div class="packt_infobox">Before pandas version 0.20, <kbd>melt</kbd> was only provided as a function that had to be accessed with <kbd>pd.melt</kbd>. Pandas is still an evolving library and you need to expect changes with each new version. Pandas has been making a push to move all functions that only operate on DataFrames to methods, such as they did with <kbd>melt</kbd>. This is the preferred way to use <kbd>melt</kbd> and the way this recipe uses it. Check the <em>What's New</em> part of the pandas documentation to stay up to date with all the changes (<a href="http://bit.ly/2xzXIhG" target="_blank">http://bit.ly/2xzXIhG</a>).</div>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Getting ready</h1>
+                </header>
+            
+            <article>
+                
+<p>In this recipe, we use the <kbd>melt</kbd> method to tidy a simple DataFrame with variable values as column names.</p>
+<p class="mce-root"/>
+<p class="mce-root"/>
+<p class="mce-root"/>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">How to do it...</h1>
+                </header>
+            
+            <article>
+                
+<ol>
+<li>Read in the <kbd>state_fruit2</kbd> dataset and identify which columns need to be transformed and which ones do not:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; state_fruit2 = pd.read_csv('data/state_fruit2.csv')<br/>&gt;&gt;&gt; state_fruit2</pre>
+<div class="CDPAlignCenter CDPAlign"><img src="assets/a8e3bd31-0e35-437c-93e2-b78b1c43a731.png" style="width:17.50em;height:7.92em;"/></div>
+<ol start="2">
+<li>Use the <kbd>melt</kbd> method by passing the appropriate columns to the <kbd>id_vars</kbd> and <kbd>value_vars</kbd> parameters:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; state_fruit2.melt(id_vars=['State'],<br/>                      value_vars=['Apple', 'Orange', 'Banana'])</pre>
+<div class="CDPAlignCenter CDPAlign"><img src="assets/21219e55-bc00-472e-a99c-e85328927350.png" style="width:10.92em;height:15.92em;"/></div>
+<ol start="3">
+<li>This one step creates tidy data for us. By default, <kbd>melt</kbd> refers to the transformed former column names as <em>variable</em> and the corresponding values as <em>value</em>. Conveniently, <kbd>melt</kbd> has two additional parameters, <kbd>var_name</kbd> and <kbd>value_name</kbd>, that give you the ability to rename these two columns:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; state_fruit2.melt(id_vars=['State'],<br/>                      value_vars=['Apple', 'Orange', 'Banana'],<br/>                      var_name='Fruit',<br/>                      value_name='Weight')</pre>
+<div class="CDPAlignCenter CDPAlign"><img src="assets/8622f3dc-f2f8-4598-90f2-9a2e72e9cd64.png" style="width:10.83em;height:16.00em;"/></div>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">How it works...</h1>
+                </header>
+            
+            <article>
+                
+<p>The <kbd>melt</kbd> method is powerful and dramatically reshapes your DataFrame. It takes up to five parameters, with two of them being crucial to understanding how to reshape your data correctly:</p>
+<ul>
+<li><kbd>id_vars</kbd> <span>is</span> <span>a list of column names that you want to preserve as columns and not reshape</span></li>
+<li><kbd>value_vars</kbd> <span>is</span> a list of column names that you want to reshape into a single column</li>
+</ul>
+<p>The <kbd>id_vars</kbd>, or the identification variables, remain in the same column but repeat for each of the columns passed to <kbd>value_vars</kbd>. One crucial aspect of <kbd>melt</kbd> is that it ignores values in the index, and, in fact, it silently drops your index and replaces it with a default <kbd>RangeIndex</kbd>. This means that if you do have values in your index that you would like to keep, you will need to reset the index first before using <kbd>melt</kbd>.</p>
+<div class="packt_infobox">It is somewhat common terminology to refer to the transformation of horizontal column names into vertical column values as <strong>melting</strong>, <strong>stacking</strong>, or <strong>unpivoting</strong>.</div>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">There's more...</h1>
+                </header>
+            
+            <article>
+                
+<p>All the parameters for the <kbd>melt</kbd> method are optional, and if you desire all your values to be in a single column and their old column labels to be in the other, you may call <kbd>melt</kbd> with just its defaults:</p>
+<pre>&gt;&gt;&gt; state_fruit2.melt()</pre>
+<div class="CDPAlignCenter CDPAlign"><img src="assets/98b9e58c-f2d0-4210-92dd-e2d5dac1e42d.png" style="width:10.42em;height:25.08em;"/></div>
+<p>More realistically, you might have lots of variables that need melting and would like to specify only the identification variables. In that case, calling <kbd>melt</kbd> in the following manner will yield the same result as in step 2. You actually don't even need a list when melting a single column and can simply pass its string value:</p>
+<pre>&gt;&gt;&gt; state_fruit2.melt(id_vars='State')</pre>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">See also</h1>
+                </header>
+            
+            <article>
+                
+<ul>
+<li>Pandas official documentation on the <kbd>melt</kbd> method (<a href="https://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.melt.html" target="_blank">http://bit.ly/2vcuZNJ</a>)</li>
+<li>Pandas developers discussion of <kbd>melt</kbd> and other similar functions being converted to methods (<a href="https://github.com/pandas-dev/pandas/issues/12640" target="_blank">http://bit.ly/2iqIQhI</a>)</li>
+</ul>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Stacking multiple groups of variables simultaneously</h1>
+                </header>
+            
+            <article>
+                
+<p>Some datasets contain multiple groups of variables as column names that need to be stacked simultaneously into their own columns. An example of the <kbd>movie</kbd> dataset can help clarify this. Let's begin by selecting all columns containing the actor names and their corresponding Facebook likes:</p>
+<pre style="padding-left: 30px">&gt;&gt;&gt; movie = pd.read_csv('data/movie.csv')<br/>&gt;&gt;&gt; actor = movie[['movie_title', 'actor_1_name', <br/>                   'actor_2_name', 'actor_3_name', <br/>                   'actor_1_facebook_likes',<br/>                   'actor_2_facebook_likes',<br/>                   'actor_3_facebook_likes']]<br/>&gt;&gt;&gt; actor.head()</pre>
+<div class="CDPAlignCenter CDPAlign"><img src="assets/28f8a2eb-d81b-475d-a563-3d82da61a598.png" style="width:64.00em;height:14.42em;"/></div>
+<p>If we define our variables as the title of the movie, the actor name, and the number of Facebook likes, then we will need to stack independently two sets of columns, which is not possible using a single call to <kbd>stack</kbd> or <kbd>melt</kbd>.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Getting ready</h1>
+                </header>
+            
+            <article>
+                
+<p>In this recipe, we will tidy our <kbd>actor</kbd> DataFrame by simultaneously stacking the actor names and their corresponding Facebook likes with the <kbd>wide_to_long</kbd> function.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">How to do it...</h1>
+                </header>
+            
+            <article>
+                
+<ol>
+<li>We will be using the versatile <kbd>wide_to_long</kbd> function to reshape our data into tidy form. To use this function, we will need to change the column names that we are stacking, so that they end with a digit. We first create a user-defined function to change the column names:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; def change_col_name(col_name):<br/>        col_name = col_name.replace('_name', '')<br/>        if 'facebook' in col_name:<br/>            fb_idx = col_name.find('facebook')<br/>            col_name = col_name[:5] + col_name[fb_idx - 1:] \<br/>                                    + col_name[5:fb_idx-1]<br/>        return col_name</pre>
+<ol start="2">
+<li>Pass <span>this function to</span> the <kbd>rename</kbd> method to transform all the column names:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; actor2 = actor.rename(columns=change_col_name)<br/>&gt;&gt;&gt; actor2.head()</pre>
+<div class="CDPAlignCenter CDPAlign"><img src="assets/7ef188f2-f6c0-4325-a78d-8c0bcd1e752f.png" style="width:63.17em;height:14.25em;"/></div>
+<ol start="3">
+<li>Use the <kbd>wide_to_long</kbd> function to stack the actor and Facebook sets of columns simultaneously:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; stubs = ['actor', 'actor_facebook_likes']<br/>&gt;&gt;&gt; actor2_tidy = pd.wide_to_long(actor2, <br/>                                  stubnames=stubs, <br/>                                  i=['movie_title'], <br/>                                  j='actor_num', <br/>                                  sep='_')<br/>&gt;&gt;&gt; actor2_tidy.head()</pre>
+<div class="CDPAlignCenter CDPAlign"><img src="assets/24a5560f-de6c-4b7f-a913-6a9650921b6e.png" style="width:34.67em;height:9.83em;"/></div>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">How it works...</h1>
+                </header>
+            
+            <article>
+                
+<p>The <kbd>wide_to_long</kbd> <span>function</span> works in a fairly specific manner. Its main parameter is <kbd>stubnames</kbd>, which is a list of strings. Each string represents a single column grouping. All columns that begin with this string will be stacked into a single column. In this recipe, there are two groups of columns: <em>actor</em>, and <em>actor_facebook_likes</em>. By default, each of these groups of columns will need to end in a digit. This digit will subsequently be used to label the reshaped data. Each of these column groups has an underscore character separating the <kbd>stubname</kbd> from the ending digit. To account for this, you must use the <kbd>sep</kbd> parameter.</p>
+<p>The original column names do not match the pattern needed for <kbd>wide_to_long</kbd> to work. The column names could have been changed manually by exactly specifying their values with a list. This could quickly become a lot of typing so instead, we define a function that automatically converts our columns to a format that works. The <kbd>change_col_name</kbd> <span>function</span> removes <strong>_name</strong> from the actor columns and rearranges the Facebook columns so that now they both end in digits.</p>
+<p>To actually accomplish the column renaming, we use the <kbd>rename</kbd> method in step 2. It accepts many different types of arguments, one of which is a function. When passing it to a function, every column name gets implicitly passed to it one at a time.</p>
+<p>We have now correctly created two independent groups of columns, those beginning with <strong>actor</strong> and <strong>actor_facebook_likes</strong> that will be stacked<strong>.</strong> In addition to this, <kbd>wide_to_long</kbd> requires a unique column, parameter <kbd>i</kbd>, to act as an identification variable that will not be stacked. Also required is the parameter <kbd>j</kbd>, which simply renames the identifying digit stripped from the end of the original column names. By default, the prefix parameter contains the <strong>regular expression</strong>, <strong>\d+</strong> that searches for one more or more digits. The <strong>\d</strong> is a special token that matches the digits 0-9. The plus sign, <strong>+</strong>, makes the expression match for one or more of these digits.</p>
+<div class="packt_infobox">To become a powerful user of the <kbd>str</kbd> methods, you will need to be familiar with regular expressions, which are a sequence of characters that match a particular pattern within some text. They consist of <strong>metacharacters</strong>, which have a special meaning, and <strong>literal</strong> characters. To make yourself useful with regular expressions check this short tutorial from <em>Regular-Expressions.info</em> (<a href="http://bit.ly/2wiWPbz" target="_blank">http://bit.ly/2wiWPbz</a>).</div>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">There's more...</h1>
+                </header>
+            
+            <article>
+                
+<p>The function <kbd>wide_to_long</kbd> works when all groupings of variables have the same numeric ending as they did in this recipe. When your variables do not have the same ending or don't end in a digit, you can still use <kbd>wide_to_long</kbd> to do simultaneous column stacking. For instance, let's take a look at the following dataset:</p>
+<pre>&gt;&gt;&gt; df = pd.read_csv('data/stackme.csv')<br/>&gt;&gt;&gt; df</pre>
+<div class="CDPAlignCenter CDPAlign"><img src="assets/ab29bdc4-c4a2-4f3a-a9bb-217ce9330c2d.png" style="width:17.67em;height:6.92em;"/></div>
+<p>Let's say we wanted columns <kbd>a1</kbd> and <kbd>b1</kbd> stacked together, as well as columns <kbd>d</kbd> and <kbd>e</kbd>. Additionally, we wanted to use <kbd>a1</kbd> and <kbd>b1</kbd> as labels for the rows. To accomplish this task, we would need to rename the columns so that they ended in the label we desired:</p>
+<pre>&gt;&gt;&gt; df2 = df.rename(columns = {'a1':'group1_a1', 'b2':'group1_b2',<br/>                               'd':'group2_a1', 'e':'group2_b2'})<br/>&gt;&gt;&gt; df2</pre>
+<div class="CDPAlignCenter CDPAlign"><img src="assets/44caf11d-1056-4f5f-99a6-c155b4979a95.png" style="width:29.50em;height:7.33em;"/></div>
+<p>We would then need to modify the suffix parameter, which normally defaults to a regular expression that selects digits. Here, we simply tell it to find any number of characters:</p>
+<pre>&gt;&gt;&gt; pd.wide_to_long(df2, <br/>                    stubnames=['group1', 'group2'], <br/>                    i=['State', 'Country', 'Test'], <br/>                    j='Label', <br/>                    suffix='.+', <br/>                    sep='_')</pre>
+<div class="CDPAlignCenter CDPAlign"><img src="assets/dd943f25-9112-4778-8006-b0fccb810901.png" style="width:19.58em;height:14.58em;"/></div>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">See also</h1>
+                </header>
+            
+            <article>
+                
+<ul>
+<li>Pandas official documentation for <kbd>wide_to_long</kbd> (<a href="https://pandas.pydata.org/pandas-docs/stable/generated/pandas.wide_to_long.html" target="_blank">http://bit.ly/2xb8NVP</a>)</li>
+</ul>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Inverting stacked data</h1>
+                </header>
+            
+            <article>
+                
+<p>DataFrames have two similar methods, <kbd>stack</kbd> and <kbd>melt</kbd>, to convert horizontal column names into vertical column values. DataFrames have the ability to invert these two operations directly with the <kbd>unstack</kbd> and <kbd>pivot</kbd> methods respectively.  <kbd>stack</kbd>/<kbd>unstack</kbd> are simpler methods that allow control over only the column/row indexes, while <kbd>melt</kbd>/<kbd>pivot</kbd> gives more flexibility to choose which columns are reshaped.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Getting ready</h1>
+                </header>
+            
+            <article>
+                
+<p>In this recipe, we will <kbd>stack</kbd>/<kbd>melt</kbd> a dataset and promptly invert the operation with <kbd>unstack</kbd>/<kbd>pivot</kbd> back to its original form.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">How to do it...</h1>
+                </header>
+            
+            <article>
+                
+<ol>
+<li>Read in the <kbd>college</kbd> dataset with the institution name as the index, and with only the undergraduate race columns:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; usecol_func = lambda x: 'UGDS_' in x or x == 'INSTNM'<br/>&gt;&gt;&gt; college = pd.read_csv('data/college.csv', <br/>                          index_col='INSTNM', <br/>                          usecols=usecol_func)<br/>&gt;&gt;&gt; college.head()</pre>
+<div class="CDPAlignCenter CDPAlign"><img src="assets/efc80119-761f-4d14-b1a5-3f42839c8892.png" style="width:71.00em;height:16.67em;"/></div>
+<ol start="2">
+<li>Use the <kbd>stack</kbd> method to convert each horizontal column name into a vertical index level:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; college_stacked = college.stack()<br/>&gt;&gt;&gt; college_stacked.head(18)<br/>INSTNM                                         
+Alabama A &amp;amp; M University         UGDS_WHITE    0.0333
+                                     UGDS_BLACK    0.9353
+                                     UGDS_HISP     0.0055
+                                     UGDS_ASIAN    0.0019
+                                     UGDS_AIAN     0.0024
+                                     UGDS_NHPI     0.0019
+                                     UGDS_2MOR     0.0000
+                                     UGDS_NRA      0.0059
+                                     UGDS_UNKN     0.0138
+University of Alabama at Birmingham  UGDS_WHITE    0.5922
+                                     UGDS_BLACK    0.2600
+                                     UGDS_HISP     0.0283
+                                     UGDS_ASIAN    0.0518
+                                     UGDS_AIAN     0.0022
+                                     UGDS_NHPI     0.0007
+                                     UGDS_2MOR     0.0368
+                                     UGDS_NRA      0.0179
+                                     UGDS_UNKN     0.0100
+dtype: float64</pre>
+<ol start="3">
+<li>Invert this stacked data back to its original form with the <kbd>unstack</kbd> Series method:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; college_stacked.unstack()</pre>
+<ol start="4">
+<li>A similar sequence of operations can be done with <kbd>melt</kbd> followed by <kbd>pivot</kbd>. First, read in the data without putting the institution name in the index:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; college2 = pd.read_csv('data/college.csv', <br/>                          usecols=usecol_func)<br/>&gt;&gt;&gt; college2.head()</pre>
+<div class="CDPAlignCenter CDPAlign"><img src="assets/b634368b-df19-474a-97bf-39d015e36450.png" style="width:66.67em;height:13.58em;"/></div>
+<ol start="5">
+<li>Use the <kbd>melt</kbd> method to transpose all the race columns into a single column:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; college_melted = college2.melt(id_vars='INSTNM', <br/>                                   var_name='Race',<br/>                                   value_name='Percentage')<br/>&gt;&gt;&gt; college_melted.head()</pre>
+<div class="CDPAlignCenter CDPAlign"><img src="assets/d3043e3c-0590-402f-ba89-581207ade0bc.png" style="width:26.17em;height:10.67em;"/></div>
+<ol start="6">
+<li>Use the <kbd>pivot</kbd> method to invert this previous result:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; melted_inv = college_melted.pivot(index='INSTNM', <br/>                                      columns='Race',<br/>                                      values='Percentage')<br/>&gt;&gt;&gt; melted_inv.head()</pre>
+<div class="CDPAlignCenter CDPAlign"><img src="assets/99990148-2b85-45ac-a1d6-1a00c08d9940.png" style="width:63.83em;height:14.92em;"/></div>
+<ol start="7">
+<li>Notice that the institution names are now shuttled over into the index and are not in their original order. The column names are not in their original order. To get an exact replication of our starting DataFrame from step 4, use the <kbd>.loc</kbd> indexing operator to select rows and columns simultaneously and then reset the index:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; college2_replication = melted_inv.loc[college2['INSTNM'],<br/>                                          college2.columns[1:]]\<br/>                                     .reset_index()<br/>&gt;&gt;&gt; college2.equals(college2_replication)<br/>True</pre>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">How it works...</h1>
+                </header>
+            
+            <article>
+                
+<p>There are multiple ways to accomplish the same thing in step 1. Here, we show the versatility of the <kbd>read_csv</kbd> function. The <kbd>usecols</kbd> parameter accepts either a list of the columns that we would like to import or a function that dynamically determines them. We use an anonymous function that checks whether the column name contains <kbd>UGDS_</kbd> or is equal to <kbd>INSTNM</kbd>. The function is passed each column name as a string and must return a boolean. A huge amount of memory can be saved in this manner.</p>
+<p>The <kbd>stack</kbd> method in step 2 puts all column names into the innermost index level and returns a Series. In step 3, the <kbd>unstack</kbd> method inverts this operation by taking all the values in the innermost index level converting them to column names.</p>
+<div class="packt_infobox">The result from step 3 isn't quite an exact replication of step 1. There are entire rows of missing values, and by default, the <kbd>stack</kbd> method drops these during step 2. To keep these missing values and create an exact replication, use <kbd>dropna=False</kbd> in the <kbd>stack</kbd> method.</div>
+<p>Step 4 reads in the same dataset as in step 1 but does not put the institution name in the index because the <kbd>melt</kbd> method isn't able to access it. Step 5 uses the <kbd>melt</kbd> method to transpose all the <strong>Race</strong> columns. It does this by leaving the <kbd>value_vars</kbd> parameter as its default value <kbd>None</kbd>. When not specified, all the columns not present in the <kbd>id_vars</kbd> parameter get transposed.</p>
+<p>Step 6 inverts the operation from step 5 with the <kbd>pivot</kbd> method, which accepts three parameters. Each parameter takes a single column as a string. The column referenced by the <kbd>index</kbd> parameter remains vertical and becomes the new index. The values of the column referenced by the <kbd>columns</kbd> parameter become the column names. The values referenced by the <kbd>values</kbd> parameter become tiled to correspond with the intersection of their former index and columns label.</p>
+<p>To make an exact replication with <kbd>pivot</kbd>, we need to sort the rows and columns in the exact order from the original. As the institution name is in the index, we use the <kbd>.loc</kbd> indexing operator as a way to sort the DataFrame by its original index.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">There's more...</h1>
+                </header>
+            
+            <article>
+                
+<p>To help further understand <kbd>stack</kbd>/<kbd>unstack</kbd>, let's use them to <strong>transpose</strong> the <kbd>college</kbd> DataFrame.</p>
+<div class="packt_infobox">In this context, we are using the precise mathematical definition of the transposing of a matrix, where the new rows are the old columns of the original data matrix.</div>
+<p class="mce-root"/>
+<p>If you take a look at the output from step 2, you'll notice that there are two index levels. By default, the <kbd>unstack</kbd> method uses the innermost index level as the new column values. Index levels are numbered beginning from zero from the outside. Pandas defaults the <kbd>level</kbd> parameter of the <kbd>unstack</kbd> method to -1, which refers to the innermost index. We can instead <kbd>unstack</kbd> the outermost column using <kbd>level=0</kbd>:</p>
+<pre>&gt;&gt;&gt; college.stack().unstack(0)</pre>
+<div class="CDPAlignCenter CDPAlign"><img src="assets/23f980c3-580e-470f-94c9-476146342f49.png" style="width:61.08em;height:26.42em;"/></div>
+<p>There is actually a very simple way to transpose a DataFrame that don't require <kbd>stack</kbd> or <kbd>unstack</kbd> by using the <kbd>transpose</kbd> method or the <kbd>T</kbd> attribute like this:</p>
+<pre>&gt;&gt;&gt; college.T<br/>&gt;&gt;&gt; college.transpose()</pre>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">See also</h1>
+                </header>
+            
+            <article>
+                
+<ul>
+<li>Refer to the <em>Selecting DataFrame rows and columns simultaneously</em> recipe from <a href="3b938362-1f65-406c-ba9d-3bf735543ca8.xhtml" target="_blank">Chapter 10</a>, <em>Selecting Subsets of Data</em></li>
+<li>Pandas official documentation of the <kbd>unstack</kbd> (<a href="https://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.unstack.html" target="_blank">http://bit.ly/2xIyFvr</a>) and <kbd>pivot</kbd> (<a href="https://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.pivot.html" target="_blank">http://bit.ly/2f3qAWP</a>) methods</li>
+</ul>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Unstacking after a groupby aggregation</h1>
+                </header>
+            
+            <article>
+                
+<p>Grouping data by a single column and performing an aggregation on a single column returns a simple and straightforward result that is easy to consume. When grouping by more than one column, a resulting aggregation might not be structured in a manner that makes consumption easy. Since <kbd>groupby</kbd> operations by default put the unique grouping columns in the index, the <kbd>unstack</kbd> method can be extremely useful to rearrange the data so that it is presented in a manner that is more useful for interpretation.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Getting ready</h1>
+                </header>
+            
+            <article>
+                
+<p>In this recipe, we use the <kbd>employee</kbd> dataset to perform an aggregation, grouping by multiple columns. We then use the <kbd>unstack</kbd> method to reshape the result into a format that makes for easier comparisons of different groups.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">How to do it...</h1>
+                </header>
+            
+            <article>
+                
+<ol>
+<li>Read in the employee dataset and find the mean salary by race:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; employee = pd.read_csv('data/employee.csv')<br/>&gt;&gt;&gt; employee.groupby('RACE')['BASE_SALARY'].mean().astype(int)<br/>RACE
+American Indian or Alaskan Native    60272
+Asian/Pacific Islander               61660
+Black or African American            50137
+Hispanic/Latino                      52345
+Others                               51278
+White                                64419
+Name: BASE_SALARY, dtype: int64</pre>
+<ol start="2">
+<li>This is a very simple <kbd>groupby</kbd> operation that results in a Series that is easy to read and has no need to reshape. Let's now find the average salary for all races by gender:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; agg = employee.groupby(['RACE', 'GENDER'])['BASE_SALARY'] \<br/>                  .mean().astype(int)<br/>&gt;&gt;&gt; agg<br/>RACE                               GENDER
+American Indian or Alaskan Native  Female    60238
+                                   Male      60305
+Asian/Pacific Islander             Female    63226
+                                   Male      61033
+Black or African American          Female    48915
+                                   Male      51082
+Hispanic/Latino                    Female    46503
+                                   Male      54782
+Others                             Female    63785
+                                   Male      38771
+White                              Female    66793
+                                   Male      63940
+Name: BASE_SALARY, dtype: int64</pre>
+<ol start="3">
+<li>This aggregation is more complex and can be reshaped to make different comparisons easier. For instance, it would be easier to compare male versus female salaries for each race if they were side by side and not vertical as they are now. Let's unstack the gender index level:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; agg.unstack('GENDER')</pre>
+<div class="CDPAlignCenter CDPAlign"><img src="assets/d0f45d1b-2ade-4b1d-afdd-1a734cd20390.png" style="width:21.83em;height:15.25em;"/></div>
+<ol start="4">
+<li>Similarly, we can <kbd>unstack</kbd> the race index level:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; agg.unstack('RACE')</pre>
+<div class="CDPAlignCenter CDPAlign"><img src="assets/ecc8127d-acf5-46df-9220-f3d95d9fb67a.png" style="width:52.00em;height:8.17em;"/></div>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">How it works...</h1>
+                </header>
+            
+            <article>
+                
+<p>Step 1 has the simplest possible aggregation with a single grouping column (<kbd>RACE</kbd>), a single aggregating column (<kbd>BASE_SALARY</kbd>), and a single aggregating function (<kbd>mean</kbd>). This result is easy to consume and doesn't require any more processing to evaluate. Step 2 slightly increases the complexity by grouping by both race and gender together. The resulting MultiIndex Series contains all the values in a single dimension, which makes comparisons more difficult. To make the information easier to consume, we use the <kbd>unstack</kbd> method to convert the values in one (or more) of the levels to columns.</p>
+<p><span>By default,</span> <kbd>unstack</kbd> <span>uses the innermost index level as the new columns. You can specify the exact level you would like to unstack with the</span> <kbd>level</kbd> <span>parameter, which accepts either the level name as a string or the level integer location. It is preferable to use the level name over the integer location to avoid ambiguity. Steps 3 and 4 unstack each level, which results in a DataFrame with a single-level index. It is now much easier to compare salaries from each race by gender.</span></p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">There's more...</h1>
+                </header>
+            
+            <article>
+                
+<p>If there are multiple grouping and aggregating columns, then the immediate result will be a DataFrame and not a Series. For instance, let's calculate more aggregations than just the mean, as was done in step 2:</p>
+<pre style="padding-left: 60px">&gt;&gt;&gt; agg2 = employee.groupby(['RACE', 'GENDER'])['BASE_SALARY'] \<br/>                   .agg(['mean', 'max', 'min']).astype(int)<br/>&gt;&gt;&gt; agg2</pre>
+<div class="CDPAlignCenter CDPAlign"><img src="assets/e38c7d48-cec8-4d77-a314-b241e25607e3.png" style="width:26.58em;height:23.75em;"/></div>
+<p>Unstacking the <strong>Gender</strong> column will result in MultiIndex columns. From here, you can keep swapping row and column levels with both the <kbd>unstack</kbd> and <kbd>stack</kbd> methods until you achieve the structure of data you desire:</p>
+<pre style="padding-left: 60px">&gt;&gt;&gt; agg2.unstack('GENDER')</pre>
+<div class="CDPAlignCenter CDPAlign"><img src="assets/ba0f9ae2-4f39-4fa4-beaa-12eb750daafa.png" style="width:35.42em;height:16.67em;"/></div>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">See also</h1>
+                </header>
+            
+            <article>
+                
+<ul>
+<li>
+<p class="p1">Refer to the <em>Grouping and aggregating with multiple columns</em> <span>recipe</span> and functions from <a href="b50e0294-740b-45fc-9c4e-284ecfda8b7d.xhtml" target="_blank">Chapter 13</a>, <em>Grouping for Aggregation, Filtration, and Transformation</em></p>
+</li>
+</ul>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Replicating pivot_table with a groupby aggregation</h1>
+                </header>
+            
+            <article>
+                
+<p>At first glance, it may seem that the <kbd>pivot_table</kbd> method provides a unique way to analyze data. However, after a little massaging, it is possible to replicate its functionality exactly with a <kbd>groupby</kbd> aggregation. Knowing this equivalence can help shrink the universe of pandas functionality.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Getting ready</h1>
+                </header>
+            
+            <article>
+                
+<p>In this recipe, we use the <kbd>flights</kbd> dataset to create a pivot table and then recreate it using <kbd>groupby</kbd> operations.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">How to do it...</h1>
+                </header>
+            
+            <article>
+                
+<ol>
+<li>Read in the flights dataset, and use the <kbd>pivot_table</kbd> method to find the total number of canceled flights per origin airport for each airline:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; flights = pd.read_csv('data/flights.csv')<br/>&gt;&gt;&gt; fp = flights.pivot_table(index='AIRLINE', <br/>                             columns='ORG_AIR', <br/>                             values='CANCELLED', <br/>                             aggfunc='sum',<br/>                             fill_value=0).round(2)<br/>&gt;&gt;&gt; fp.head()</pre>
+<div class="CDPAlignCenter CDPAlign"><img src="assets/563d0c11-0a75-4dc2-962d-a70ff0a70e91.png" style="width:32.17em;height:13.50em;"/></div>
+<ol start="2">
+<li>A <kbd>groupby</kbd> aggregation cannot directly replicate this table. The trick is to group by all the columns in the <kbd>index</kbd> and <kbd>columns</kbd> parameters first:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; fg = flights.groupby(['AIRLINE', 'ORG_AIR'])['CANCELLED'].sum()<br/>&gt;&gt;&gt; fg.head()<br/>AIRLINE  ORG_AIR
+AA       ATL         3
+         DEN         4
+         DFW        86
+         IAH         3
+         LAS         3
+Name: CANCELLED, dtype: int64</pre>
+<ol start="3">
+<li>Use the <kbd>unstack</kbd> method to pivot the <kbd>ORG_AIR</kbd> index level to column names:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; fg_unstack = fg.unstack('ORG_AIR', fill_value=0)<br/>&gt;&gt;&gt; fp.equals(fg_unstack)<br/>True</pre>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">How it works...</h1>
+                </header>
+            
+            <article>
+                
+<p>The <kbd>pivot_table</kbd> method is very versatile and flexible but performs a rather similar operation to a <kbd>groupby</kbd> aggregation with step 1 showing a simple example. The <kbd>index</kbd> parameter takes a column (or columns) that will not be pivoted and whose unique values will be placed in the index. The <kbd>columns</kbd> parameter takes a column (or columns) that will be pivoted and whose unique values will be made into column names. The <kbd>values</kbd> parameter takes a column (or columns) that will be aggregated.</p>
+<p>There also exists an <kbd>aggfunc</kbd> parameter that takes an aggregating function (or functions) that determines how the columns in the <kbd>values</kbd> parameter get aggregated. It defaults to the mean, and, in this example, we change it to calculate the sum. Additionally, some unique combinations of <kbd>AIRLINE</kbd> and <kbd>ORG_AIR</kbd> do not exist. These missing combinations will default to missing values in the resulting DataFrame. Here, we use the <kbd>fill_value</kbd> parameter to change them to zero.</p>
+<p>Step 2 begins the replication process using all the columns in the <kbd>index</kbd> and <kbd>columns</kbd> parameter as the grouping columns. This is the key to making this recipe work. A pivot table is simply an intersection of all the unique combinations of the grouping columns. Step 3 finishes the replication by pivoting the innermost index level into column names with the <kbd>unstack</kbd> method. Just like with <kbd>pivot_table</kbd>, not all combinations of <kbd>AIRLINE</kbd> and <kbd>ORG_AIR</kbd> exist; we again use the <kbd>fill_value</kbd> parameter to force these missing intersections to zero.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">There's more...</h1>
+                </header>
+            
+            <article>
+                
+<p>It is possible to replicate much more complex pivot tables with <kbd>groupby</kbd> aggregations. For instance, take the following result from <kbd>pivot_table</kbd>:</p>
+<pre>&gt;&gt;&gt; flights.pivot_table(index=['AIRLINE', 'MONTH'],<br/>                        columns=['ORG_AIR', 'CANCELLED'],<br/>                        values=['DEP_DELAY', 'DIST'],<br/>                        aggfunc=[np.sum, np.mean],<br/>                        fill_value=0)</pre>
+<div class="CDPAlignCenter CDPAlign"><img src="assets/ee0f83c3-f7e7-4cd0-ac93-2be6b3bd0e52.png" style="width:60.67em;height:16.67em;"/></div>
+<p>To replicate this with a <kbd>groupby</kbd> aggregation, simply follow the same pattern from the recipe and place all the columns from the <kbd>index</kbd> and <kbd>columns</kbd> parameters into the <kbd>groupby</kbd> method and then <kbd>unstack</kbd> the columns:</p>
+<pre>&gt;&gt;&gt; flights.groupby(['AIRLINE', 'MONTH', 'ORG_AIR', 'CANCELLED']) \<br/>           ['DEP_DELAY', 'DIST'] \<br/>           .agg(['mean', 'sum']) \<br/>           .unstack(['ORG_AIR', 'CANCELLED'], fill_value=0) \<br/>           .swaplevel(0, 1, axis='columns')</pre>
+<p>There are a few differences. The <kbd>pivot_table</kbd> method does not accept aggregation functions as strings when passed as a list like the <kbd>agg</kbd> groupby method. Instead, you must use NumPy functions. The order of the column levels also differs, with <kbd>pivot_table</kbd> putting the aggregation functions at a level preceding the columns in the <kbd>values</kbd> parameter. This is equalized with the <kbd>swaplevel</kbd> method that, in this instance, switches the order of the top two levels.</p>
+<div class="packt_infobox">As of the time of writing this book, there is a bug when unstacking more than one column. The <kbd>fill_value</kbd> parameter is ignored (<a href="https://github.com/pandas-dev/pandas/issues/13971" target="_blank">http://bit.ly/2jCPnWZ</a>). To work around this bug, chain <kbd>.fillna(0)</kbd> to the end of the code.</div>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Renaming axis levels for easy reshaping</h1>
+                </header>
+            
+            <article>
+                
+<p>Reshaping with the <kbd>stack</kbd>/<kbd>unstack</kbd> methods is far easier when each axis (index/column) level has a name. Pandas allows users to reference each axis level by integer location or by name. Since integer location is implicit and not explicit, you should consider using level names whenever possible. This advice follows from <em>The</em> <em>Zen of Python</em> (<a href="http://bit.ly/2xE83uC" target="_blank">http://bit.ly/2xE83uC</a>), a short list of guiding principles for Python of which the second one is <em>Explicit is better than implicit</em>.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Getting ready</h1>
+                </header>
+            
+            <article>
+                
+<p>When grouping or aggregating with multiple columns, the resulting pandas object will have multiple levels in one or both of the axes. In this recipe, we will name each level of each axis and then use the methods <kbd>stack</kbd>/<kbd>unstack</kbd> to dramatically reshape the data to the desired form.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">How to do it...</h1>
+                </header>
+            
+            <article>
+                
+<ol>
+<li>Read in the college dataset, and find a few basic summary statistics on the undergraduate population and SAT math scores by institution and religious affiliation:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; college = pd.read_csv('data/college.csv')<br/>&gt;&gt;&gt; cg = college.groupby(['STABBR', 'RELAFFIL']) \<br/>                ['UGDS', 'SATMTMID'] \<br/>                .agg(['size', 'min', 'max']).head(6)</pre>
+<div class="CDPAlignCenter CDPAlign"><img src="assets/6ec7dfb9-fb3b-439d-9693-dea41616d025.png" style="width:28.17em;height:16.75em;"/></div>
+<ol start="2">
+<li>Notice that both index levels have names and are the old column names. The column levels, on the other hand, do not have names. Use the <kbd>rename_axis</kbd> method to supply level names to them:</li>
+</ol>
+<pre style="padding-left: 60px" class="mce-root">&gt;&gt;&gt; cg = cg.rename_axis(['AGG_COLS', 'AGG_FUNCS'], axis='columns')<br/>&gt;&gt;&gt; cg</pre>
+<div class="CDPAlignCenter CDPAlign"><img src="assets/d68168ab-e11d-4f74-ac6e-e567fae7f7dd.png" style="width:27.75em;height:15.92em;"/></div>
+<ol start="3">
+<li>Now that each axis level has a name, reshaping is a breeze. Use the <kbd>stack</kbd> method to move the <kbd>AGG_FUNCS</kbd> column to an index level:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; cg.stack('AGG_FUNCS').head()</pre>
+<div class="CDPAlignCenter CDPAlign"><img src="assets/2651e1eb-49ec-4de9-a8c3-1c5ba20e8bb4.png" style="width:21.75em;height:12.00em;"/></div>
+<ol start="4">
+<li>By default, stacking places the new column level in the innermost position. Use the <kbd>swaplevel</kbd> method to switch the placement of the levels:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; cg.stack('AGG_FUNCS').swaplevel('AGG_FUNCS', 'STABBR',<br/>                                    axis='index').head()</pre>
+<div class="CDPAlignCenter CDPAlign"><img src="assets/77c9ed9a-de64-4f3f-89ce-eb0ef47617a3.png" style="width:22.08em;height:11.42em;"/></div>
+<ol start="5">
+<li>We can continue to make use of the axis level names by sorting levels with the <kbd>sort_index</kbd> method:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; cg.stack('AGG_FUNCS') \<br/>      .swaplevel('AGG_FUNCS', 'STABBR', axis='index') \<br/>      .sort_index(level='RELAFFIL', axis='index') \<br/>      .sort_index(level='AGG_COLS', axis='columns').head(6)</pre>
+<div class="CDPAlignCenter CDPAlign"><img src="assets/f83a1be9-1118-4ce7-9b80-e374e3d0c29e.png" style="width:25.17em;height:15.67em;"/></div>
+<ol start="6">
+<li>To completely reshape your data, you might need to stack some columns while unstacking others. Chain the two methods together in a single command:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; cg.stack('AGG_FUNCS').unstack(['RELAFFIL', 'STABBR'])</pre>
+<div class="CDPAlignCenter CDPAlign"><img src="assets/d3d07ca2-2a5f-4b03-a969-7dc29d04e458.png" style="width:41.17em;height:12.50em;"/></div>
+<ol start="7">
+<li>Stack all the columns at once to return a Series:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; cg.stack(['AGG_FUNCS', 'AGG_COLS']).head(12)<br/>STABBR  RELAFFIL  AGG_FUNCS  AGG_COLS
+AK      0         count      UGDS            7.0
+                             SATMTMID        0.0
+                  min        UGDS          109.0
+                  max        UGDS        12865.0
+        1         count      UGDS            3.0
+                             SATMTMID        1.0
+                  min        UGDS           27.0
+                             SATMTMID      503.0
+                  max        UGDS          275.0
+                             SATMTMID      503.0
+AL      0         count      UGDS           71.0
+                             SATMTMID       13.0
+dtype: float64</pre>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">How it works...</h1>
+                </header>
+            
+            <article>
+                
+<p>It is common for the result of a <kbd>groupby</kbd> aggregation to produce a DataFrame or Series with multiple axis levels. The resulting DataFrame from the <kbd>groupby</kbd> operation in step 1 has multiple levels for each axis. The column levels are not named, which would require us to reference them only by their integer location. To greatly ease our ability to reference the column levels, we rename them with the <kbd>rename_axis</kbd> method.</p>
+<p>The <kbd>rename_axis</kbd> method is a bit strange in that it can modify both the level names and the level values based on the type of the first argument passed to it. Passing it a list (or a scalar if there is only one level) changes the names of the levels. Passing it a dictionary or a function changes the values of the levels. In step 2, we pass the <kbd>rename_axis</kbd> method a list and are returned a DataFrame with all axis levels named.</p>
+<p>Once all the axis levels have names, we can easily and explicitly control the structure of data. Step 3 stacks the <kbd>AGG_FUNCS</kbd> column into the innermost index level. The <kbd>swaplevel</kbd> method in step 4 accepts the name or position of the levels that you want to swap as the first two arguments. The <kbd>sort_index</kbd> method is called twice and sorts the actual values of each level. Notice that the values of the column level are the column names <kbd>SATMTMID</kbd> and <kbd>UGDS</kbd>.</p>
+<p>We can get vastly different output by both stacking and unstacking, as done in step 6. It is also possible to stack every single column level into the index to produce a Series.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">There's more...</h1>
+                </header>
+            
+            <article>
+                
+<p>If you wish to dispose of the level values altogether, you may set them to <kbd>None</kbd>. A case for this can be made when there is a need to reduce clutter in the visual output of a DataFrame or when it is obvious what the column levels represent and no further processing will take place:</p>
+<pre>&gt;&gt;&gt; cg.rename_axis([None, None], axis='index') \<br/>      .rename_axis([None, None], axis='columns')</pre>
+<div class="CDPAlignCenter CDPAlign"><img src="assets/b1ad2bd3-f4b8-4c58-ad05-3372f30ef470.png" style="width:21.33em;height:14.25em;"/></div>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Tidying when multiple variables are stored as column names</h1>
+                </header>
+            
+            <article>
+                
+<p>One particular flavor of messy data appears whenever the column names contain multiple different variables themselves. A common example of this scenario occurs when age and sex are concatenated together. To tidy datasets like this, we must manipulate the columns with the pandas <kbd>str</kbd> accessor, an attribute that contains additional methods for string processing.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Getting ready...</h1>
+                </header>
+            
+            <article>
+                
+<p>In this recipe, we will first identify all the variables of which some will be concatenated together as column names. We then reshape the data and parse the text to extract the correct variable values.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">How to do it...</h1>
+                </header>
+            
+            <article>
+                
+<ol>
+<li>Read in the men's <kbd>weightlifting</kbd> dataset, and identify the variables:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; weightlifting = pd.read_csv('data/weightlifting_men.csv')<br/>&gt;&gt;&gt; weightlifting</pre>
+<div class="CDPAlignCenter CDPAlign"><img src="assets/edd05ae0-84ad-445b-9253-a47df0bfc41c.png" style="width:55.25em;height:16.25em;"/></div>
+<ol start="2">
+<li>The variables are the weight category, sex/age category, and the qualifying total. The age and sex variables have been concatenated together into a single cell. Before we can separate them, let's use the <kbd>melt</kbd> method to transpose the age and sex column names into a single vertical column:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; wl_melt = weightlifting.melt(id_vars='Weight Category', <br/>                                 var_name='sex_age', <br/>                                 value_name='Qual Total')<br/>&gt;&gt;&gt; wl_melt.head()</pre>
+<div class="CDPAlignCenter CDPAlign"><img src="assets/339c92ee-9050-4902-be9e-956b2a6dcc9d.png" style="width:20.92em;height:13.00em;"/></div>
+<ol start="3">
+<li>Select the <kbd>sex_age</kbd> column, and use the <kbd>split</kbd> method available from the <kbd>str</kbd> accessor to split the column into two different columns:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; sex_age = wl_melt['sex_age'].str.split(expand=True)<br/>&gt;&gt;&gt; sex_age.head()</pre>
+<div class="CDPAlignCenter CDPAlign"><img src="assets/fafd813e-d36e-43cf-8c2b-1a150aacc052.png" style="width:7.67em;height:11.83em;"/></div>
+<ol start="4">
+<li>This operation returned a completely separate DataFrame with meaningless column names. Let's rename the columns so that we can explicitly access them:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; sex_age.columns = ['Sex', 'Age Group']<br/>&gt;&gt;&gt; sex_age.head()</pre>
+<div class="CDPAlignCenter CDPAlign"><img src="assets/4dffbd4f-2739-4cff-9b78-28b679065e88.png" style="width:10.42em;height:12.33em;"/></div>
+<ol start="5">
+<li>Use the indexing operator directly after the <kbd>str</kbd> accessor to select the first character from the <kbd>Sex</kbd> column:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; sex_age['Sex'] = sex_age['Sex'].str[0]<br/>&gt;&gt;&gt; sex_age.head()</pre>
+<div class="CDPAlignCenter CDPAlign"><img src="assets/d243cb22-19e7-43dc-a3cc-96fb06022077.png" style="width:10.25em;height:12.50em;"/></div>
+<ol start="6">
+<li>Use the <kbd>pd.concat</kbd> function to concatenate this DataFrame with <kbd>wl_melt</kbd> to produce a tidy dataset:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; wl_cat_total = wl_melt[['Weight Category', 'Qual Total']]<br/>&gt;&gt;&gt; wl_tidy = pd.concat([sex_age, wl_cat_total], axis='columns')<br/>&gt;&gt;&gt; wl_tidy.head()</pre>
+<div class="CDPAlignCenter CDPAlign"><img src="assets/cb920c05-8091-49c8-b933-746cafedeef4.png" style="width:21.50em;height:11.42em;"/></div>
+<ol start="7">
+<li>This same result could have been created with the following:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; cols = ['Weight Category', 'Qual Total']<br/>&gt;&gt;&gt; sex_age[cols] = wl_melt[cols]</pre>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">How it works...</h1>
+                </header>
+            
+            <article>
+                
+<p>The <kbd>weightlifting</kbd> dataset, like many datasets, has easily digestible information in its raw form, but technically, it is messy, as all but one of the column names contain information for sex and age. Once the variables are identified, we can begin to tidy the dataset. Whenever column names contain variables, you will need to use the <kbd>melt</kbd> (or <kbd>stack</kbd>) method. The <kbd>Weight Category</kbd> variable is already in the correct position so we keep it as an identifying variable by passing it to the <kbd>id_vars</kbd> parameter. Note that we don't explicitly need to name all the columns that we are melting with <kbd>value_vars</kbd>. By default, all the columns not present in <kbd>id_vars</kbd> get melted.</p>
+<p>The <kbd>sex_age</kbd> column needs to be parsed, and split into two variables. For this, we turn to the extra functionality provided by the <kbd>str</kbd> accessor, only available to Series (a single DataFrame column). The <kbd>split</kbd> method is one of the more common methods in this situation, as it can separate different parts of the string into their own column. By default, it splits on an empty space, but you may also specify a string or regular expression with the <kbd>pat</kbd> parameter. When the <kbd>expand</kbd> parameter is set to <kbd>True</kbd>, a new column forms for each independent split character segment. When <kbd>False</kbd>, a single column is returned, containing a list of all the segments.</p>
+<p>After renaming the columns in step 4, we need to use the <kbd>str</kbd> accessor again. Interestingly enough, the indexing operator is available to select or slice segments of a string. Here, we select the first character, which is the variable for sex. We could go further and split the ages into two separate columns for minimum and maximum age, but it is common to refer to the entire age group in this manner, so we leave it as is.</p>
+<p>Step 6 shows one of two different methods to join all the data together. The <kbd>concat</kbd> function accepts a collection of DataFrames and either concatenates them vertically (<kbd>axis='index'</kbd>) or horizontally (<kbd>axis='columns'</kbd>). Because the two DataFrames are indexed identically, it is possible to assign the values of one DataFrame to new columns in the other as done in step 7.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">There's more...</h1>
+                </header>
+            
+            <article>
+                
+<p>Another way to complete this recipe, beginning after step 2, is by directly assigning new columns from the <kbd>sex_age</kbd> column without using the <kbd>split</kbd> method. The <kbd>assign</kbd> method may be used to add these new columns dynamically:</p>
+<pre>&gt;&gt;&gt; age_group = wl_melt.sex_age.str.extract('(\d{2}[-+](?:\d{2})?)',<br/>                                            expand=False)<br/>&gt;&gt;&gt; sex = wl_melt.sex_age.str[0]<br/>&gt;&gt;&gt; new_cols = {'Sex':sex, <br/>                'Age Group': age_group}<br/>&gt;&gt;&gt; wl_tidy2 = wl_melt.assign(**new_cols) \<br/>                      .drop('sex_age',axis='columns')<br/><br/>&gt;&gt;&gt; wl_tidy2.sort_index(axis=1).equals(wl_tidy.sort_index(axis=1))<br/>True</pre>
+<p>The <kbd>Sex</kbd> column is found in the exact same manner as done in step 5. Because we are not using <kbd>split</kbd>, the <kbd>Age Group</kbd> column must be extracted in a different manner. The <kbd>extract</kbd> method uses a complex regular expression to extract very specific portions of the string. To use <kbd>extract</kbd> correctly, your pattern must contain capture groups. A capture group is formed by enclosing parentheses around a portion of the pattern. In this example, the entire expression is one large capture group. It begins with <kbd>\d{2}</kbd>, which searches for exactly two digits, followed by either a literal plus or minus, optionally followed by two more digits. Although the last part of the expression, <kbd>(?:\d{2})?</kbd>, is surrounded by parentheses, the <kbd>?:</kbd>  denotes that it is not actually a capture group. It is technically a non-capturing group used to express two digits together as optional. The <kbd>sex_age</kbd> column is no longer needed and is dropped. Finally, the two tidy DataFrames are compared against one another and are found to be equivalent.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">See also</h1>
+                </header>
+            
+            <article>
+                
+<ul>
+<li>Refer to the site <em>Regular-Expressions.info</em> for more on non-capturing groups (<a href="http://www.regular-expressions.info/brackets.html" target="_blank">http://bit.ly/2f60KSd</a>)</li>
+</ul>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Tidying when multiple variables are stored as column values</h1>
+                </header>
+            
+            <article>
+                
+<p>Tidy datasets must have a single column for each variable. Occasionally, multiple variable names are placed in a single column with their corresponding value placed in another. The general format for this kind of messy data is as follows:</p>
+<div class="CDPAlignCenter CDPAlign"><img src="assets/42ccf8cc-1772-41ed-978d-baeb3c6042db.png" style="width:11.25em;height:14.42em;"/></div>
+<p>In this example, the first and last three rows represent two distinct observations that should each be rows. The data needs to be pivoted such that it ends up like this:</p>
+<div class="CDPAlignCenter CDPAlign"><img src="assets/8bbcb829-f145-419a-b236-d56c301bed4b.png" style="width:17.42em;height:5.83em;"/></div>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Getting ready</h1>
+                </header>
+            
+            <article>
+                
+<p>In this recipe, we identify the column containing the improperly structured variables and pivot it to create tidy data.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">How to do it...</h1>
+                </header>
+            
+            <article>
+                
+<ol>
+<li>Read in the restaurant <kbd>inspections</kbd> dataset, and convert the <kbd>Date</kbd> column data type to <kbd>datetime64</kbd>:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; inspections = pd.read_csv('data/restaurant_inspections.csv',<br/>                              parse_dates=['Date'])<br/>&gt;&gt;&gt; inspections.head()</pre>
+<div class="CDPAlignCenter CDPAlign"><img src="assets/c0cb0612-2512-4bf6-b4c7-fe701add7627.png" style="width:39.58em;height:21.42em;"/></div>
+<ol start="2">
+<li>This dataset has two variables, <kbd>Name</kbd> and <kbd>Date</kbd>, that are each correctly contained in a single column. The <kbd>Info</kbd> column itself has five different variables: <kbd>Borough</kbd>, <kbd>Cuisine</kbd>, <kbd>Description</kbd>, <kbd>Grade</kbd>, and <kbd>Score</kbd>. Let's attempt to use the <kbd>pivot</kbd> method to keep the <kbd>Name</kbd> and <kbd>Date</kbd> columns vertical, create new columns out of all the values in the <kbd>Info</kbd> column, and use the <kbd>Value</kbd> column as their intersection:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; inspections.pivot(index=['Name', 'Date'],<br/>                      columns='Info', values='Value')<br/>NotImplementedError: &gt; 1 ndim Categorical are not supported at this time</pre>
+<ol start="3">
+<li>Unfortunately, pandas developers have not implemented this functionality for us. There is a good chance that in the future, this line of code is going to work. Thankfully, for the most part, pandas has multiple ways of accomplishing the same task. Let's put <kbd>Name</kbd>, <kbd>Date</kbd>, and <kbd>Info</kbd> into the index:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; inspections.set_index(['Name','Date', 'Info']).head(10)</pre>
+<div class="CDPAlignCenter CDPAlign"><img src="assets/8cc902d7-4f90-45e4-9e77-c46bb9f9bad2.png" style="width:33.92em;height:20.58em;"/></div>
+<ol start="4">
+<li>Use the <kbd>unstack</kbd> method to pivot all the values in the <kbd>Info</kbd> column:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; inspections.set_index(['Name','Date', 'Info']) \<br/>               .unstack('Info').head()</pre>
+<div class="CDPAlignCenter CDPAlign"><img src="assets/1d9dc70a-4ba4-4c52-baaa-0885be04978e.png" style="width:50.42em;height:15.00em;"/></div>
+<ol start="5">
+<li>Make the index levels into columns with the <kbd>reset_index</kbd> method:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; insp_tidy = inspections.set_index(['Name','Date', 'Info']) \<br/>                           .unstack('Info') \<br/>                           .reset_index(col_level=-1)<br/>&gt;&gt;&gt; insp_tidy.head()</pre>
+<div class="CDPAlignCenter CDPAlign"><img src="assets/43f33846-bc71-4616-8bef-0479a9369591.png" style="width:56.67em;height:14.50em;"/></div>
+<ol start="6">
+<li>The dataset is tidy, but there is some annoying leftover pandas debris that needs to be removed. Let's use the MultiIndex method <kbd>droplevel</kbd> to remove the top column level and then rename the index level to <kbd>None</kbd>:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; insp_tidy.columns = insp_tidy.columns.droplevel(0) \<br/>                                         .rename(None)<br/>&gt;&gt;&gt; insp_tidy.head()</pre>
+<div class="CDPAlignCenter CDPAlign"><img src="assets/03216f24-010c-4470-996c-1d5f4f3f575c.png" style="width:58.33em;height:14.33em;"/></div>
+<ol start="7">
+<li>The creation of the column MultiIndex in step 4 could have been avoided by converting that one column DataFrame into a Series with the <kbd>squeeze</kbd> method. The following code produces the same result as the previous step:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; inspections.set_index(['Name','Date', 'Info']) \<br/>               .squeeze() \<br/>               .unstack('Info') \<br/>               .reset_index() \<br/>               .rename_axis(None, axis='columns')</pre>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">How it works...</h1>
+                </header>
+            
+            <article>
+                
+<p>In step 1, we notice that there are five variables placed vertically in the <kbd>Info</kbd> column with their corresponding value in the <kbd>Value</kbd> column. Because we need to pivot each of these five variables as horizontal column names, it would seem that the <kbd>pivot</kbd> method would work. Unfortunately, pandas developers have yet to implement this special case when there is more than one non-pivoted column. We are forced to use a different method.</p>
+<p>The <kbd>unstack</kbd> method also pivots vertical data, but only for data in the index. Step 3 begins this process by moving both the columns that will and will not be pivoted into the index with the <kbd>set_index</kbd> method. Once these columns are in the index, <kbd>unstack</kbd> can be put to work as done in step 3.</p>
+<p>Notice that as we are unstacking a DataFrame, pandas keeps the original column names (here, it is just a single column, <kbd>Value</kbd>) and creates a MultiIndex with the old column names as the upper level. The dataset is now essentially tidy but we go ahead and make our non-pivoted columns normal columns with the <kbd>reset_index</kbd> method. Because we have MultiIndex columns, we can choose which level the new column names will belong to with the <kbd>col_level</kbd> parameter. By default, the names are inserted into the uppermost level (level 0). We use <kbd>-1</kbd> to indicate the bottommost level.</p>
+<p>After all this, we have some excess DataFrame names and indexes that need to be discarded. Unfortunately, there isn't a DataFrame method that can remove levels, so we must drop down into the index and use its <kbd>droplevel</kbd> method. Here, we overwrite the old MultiIndex columns with single-level columns. These columns still have a useless name attribute, <kbd>Info</kbd>, which is renamed to <kbd>None</kbd>.</p>
+<p>Cleaning up the MultiIndex columns could have been avoided by forcing the resulting DataFrame from step 3 to a Series. The <kbd>squeeze</kbd> method works only on single-column DataFrames and turns them into Series.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">There's more...</h1>
+                </header>
+            
+            <article>
+                
+<p>It is actually possible to use the <kbd>pivot_table</kbd> method, which has no restrictions on how many non-pivoted columns are allowed. The <kbd>pivot_table</kbd> method differs from <kbd>pivot</kbd> by performing an aggregation for all the values that correspond to the intersection between the columns in the <kbd>index</kbd> and <kbd>columns</kbd> parameters. Because it is possible that there are multiple values in this intersection, <kbd>pivot_table</kbd> requires the user to pass it an aggregating function, in order to output a single value.<span> We use the <kbd>first</kbd> aggregating function, which takes the first of the values of the group. In this particular example, there is exactly one value for each intersection, so there is nothing to be aggregated. The default aggregation function is the mean, which will produce an error here since some of the values are strings:</span></p>
+<pre>&gt;&gt;&gt; inspections.pivot_table(index=['Name', 'Date'], <br/>                            columns='Info', <br/>                            values='Value', <br/>                            aggfunc='first') \<br/>               .reset_index() \<br/>               .rename_axis(None, axis='columns')</pre>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">See also</h1>
+                </header>
+            
+            <article>
+                
+<ul>
+<li>Pandas official documentation of the <kbd>droplevel</kbd> (<a href="http://pandas.pydata.org/pandas-docs/stable/generated/pandas.MultiIndex.droplevel.html" target="_blank">http://bit.ly/2yo5BXf</a>) and <kbd>squeeze</kbd> (<a href="http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.squeeze.html" target="_blank">http://bit.ly/2yo5TgN</a>) methods</li>
+</ul>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Tidying when two or more values are stored in the same cell</h1>
+                </header>
+            
+            <article>
+                
+<p>Tabular data, by nature, is two-dimensional, and thus, there is a limited amount of information that can be presented in a single cell. As a workaround, you will occasionally see datasets with more than a single value stored in the same cell. Tidy data allows for exactly a single value for each cell. To rectify these situations, you will typically need to parse the string data into multiple columns with the methods from the <kbd>str</kbd> Series accessor.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Getting ready...</h1>
+                </header>
+            
+            <article>
+                
+<p>In this recipe, we examine a dataset that has a column containing multiple different variables in each cell. We use the <kbd>str</kbd> accessor to parse these strings into separate columns to tidy the data.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">How to do it...</h1>
+                </header>
+            
+            <article>
+                
+<ol>
+<li>Read in the Texas <kbd>cities</kbd> dataset, and identify the variables:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; cities = pd.read_csv('data/texas_cities.csv')<br/>&gt;&gt;&gt; cities</pre>
+<div class="CDPAlignCenter CDPAlign"><img src="assets/31a2b314-702f-4cca-b436-cd0d8fdc701c.png" style="width:16.58em;height:7.92em;"/></div>
+<ol start="2">
+<li>The <kbd>City</kbd> column looks good and contains exactly one value. The <kbd>Geolocation</kbd> column, on the other hand, contains four variables: <kbd>latitude</kbd>, <kbd>latitude direction</kbd>, <kbd>longitude</kbd>, and <kbd>longitude direction</kbd>. Let's split the <kbd>Geolocation</kbd> column into four separate columns:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; geolocations = cities.Geolocation.str.split(pat='. ',<br/>                                                expand=True)<br/>&gt;&gt;&gt; geolocations.columns = ['latitude', 'latitude direction',<br/>                            'longitude', 'longitude direction']<br/>&gt;&gt;&gt; geolocations</pre>
+<div class="CDPAlignCenter CDPAlign"><img src="assets/5264d585-9f44-4741-9b3e-c87b9bd36cb9.png" style="width:24.25em;height:7.42em;"/></div>
+<ol start="3">
+<li>Because the original data type for the <kbd>Geolocation</kbd> was an object, all the new columns are also objects. Let's change <kbd>latitude</kbd> and <kbd>longitude</kbd> into floats:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; geolocations = geolocations.astype({'latitude':'float',<br/>                                        'longitude':'float'})<br/>&gt;&gt;&gt; geolocations.dtypes<br/>latitude               float64
+latitude direction      object
+longitude              float64
+longitude direction     object
+dtype: object</pre>
+<ol start="4">
+<li>Concatenate these new columns with the <kbd>City</kbd> column from the original:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; cities_tidy = pd.concat([cities['City'], geolocations],<br/>                            axis='columns')<br/>&gt;&gt;&gt; cities_tidy</pre>
+<div class="CDPAlignCenter CDPAlign"><img src="assets/d64eada2-828f-45a4-bf44-27938354fa58.png" style="width:26.33em;height:7.00em;"/></div>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">How it works...</h1>
+                </header>
+            
+            <article>
+                
+<p>After reading the data, we decide how many variables there are in the dataset. Here, we chose to split the <kbd>Geolocation</kbd> column into four variables, but we could have just chosen two for latitude and longitude and used a negative sign to differentiate between west/east and south/north.</p>
+<p>There are a few ways to parse the <kbd>Geolocation</kbd> column with the methods from the <kbd>str</kbd> accessor. The easiest way is to use the <kbd>split</kbd> method. We pass it a simple regular expression defined by any character (the period) and a space. When a space follows any character, a split is made, and a new column is formed. The first occurrence of this pattern takes place at the end of the latitude. A space follows the degree character, and a split is formed. The splitting characters are discarded and not kept in the resulting columns. The next split matches the comma and space following directly after the latitude direction.</p>
+<p>A total of three splits are made, resulting in four columns. The second line in step 2 provides them with meaningful names. Even though the resulting <kbd>latitude</kbd> and <kbd>longitude</kbd> columns appear to be floats, they are not. They were originally parsed from an object column and therefore remain object data types. Step 3 uses a dictionary to map the column names to their new types.</p>
+<p>Instead of using a dictionary, which would require a lot of typing if you had many column names, you can use the function <kbd>to_numeric</kbd> to attempt to convert each column to either integer or float. To apply this function iteratively over each column, use the <kbd>apply</kbd> method with the following:</p>
+<pre>&gt;&gt;&gt; geolocations.apply(pd.to_numeric, errors='ignore')</pre>
+<p>Step 4 concatenates the city to the front of this new DataFrame to complete the process of making tidy data.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">There's more...</h1>
+                </header>
+            
+            <article>
+                
+<p>The <kbd>split</kbd> method worked exceptionally well in this example with a simple regular expression. For other examples, some columns might require you to create splits on several different patterns. To search for multiple regular expressions, use the pipe character <kbd>|</kbd>. For instance, if we wanted to split only the degree symbol and comma, each followed by a space, we would do the following:</p>
+<pre>&gt;&gt;&gt; cities.Geolocation.str.split(pat='° |, ', expand=True)</pre>
+<p>This returns the same DataFrame from step 2. Any number of additional split patterns may be appended to the preceding string pattern with the pipe character.</p>
+<p>The <kbd>extract</kbd> method is another excellent method which allows you to extract specific groups within each cell. These capture groups must be enclosed in parentheses. Anything that matches outside the parentheses is not present in the result. The following line produces the same output as step 2:</p>
+<pre>&gt;&gt;&gt; cities.Geolocation.str.extract('([0-9.]+). (N|S), ([0-9.]+). (E|W)',<br/>                                   expand=True)</pre>
+<p><span>This regular expression has four capture groups. The first and third groups search for at least one or more consecutive digits with decimals. The second and fourth groups search for a single character (the direction). The first and third capture groups are separated by any character followed by a space. The second capture group is separated by a comma and then a space.</span></p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Tidying when variables are stored in column names and values</h1>
+                </header>
+            
+            <article>
+                
+<p>One particularly difficult form of messy data to diagnose appears whenever variables are stored both horizontally across the column names and vertically down column values. <span>You will typically encounter this type of dataset, not in a database, but from a summarized report that someone else has already generated.</span></p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Getting ready</h1>
+                </header>
+            
+            <article>
+                
+<p>In this recipe, variables are identified both vertically and horizontally and reshaped into tidy data with the <kbd>melt</kbd> and <kbd>pivot_table</kbd> methods.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">How to do it...</h1>
+                </header>
+            
+            <article>
+                
+<ol>
+<li>Read in the <kbd>sensors</kbd> dataset and identify the variables:</li>
+</ol>
+<pre style="padding-left: 60px" class="mce-root">&gt;&gt;&gt; sensors = pd.read_csv('data/sensors.csv')<br/>&gt;&gt;&gt; sensors</pre>
+<div class="CDPAlignCenter CDPAlign"><img src="assets/282dc5ee-23e7-4efb-aaa3-f0dc2d4a047f.png" style="width:24.67em;height:13.33em;"/></div>
+<ol start="2">
+<li>The only variable placed correctly in a vertical column is <kbd>Group</kbd>. The <kbd>Property</kbd> column appears to have three unique variables, <kbd>Pressure</kbd>, <kbd>Temperature</kbd>, and <kbd>Flow</kbd>. The rest of the columns <kbd>2012</kbd> to <kbd>2016</kbd> are themselves a single variable, which we can sensibly name <kbd>Year</kbd>. It isn't possible to restructure this kind of messy data with a single DataFrame method. Let's begin with the <kbd>melt</kbd> method to pivot the years into their own column:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; sensors.melt(id_vars=['Group', 'Property'], var_name='Year') \<br/>           .head(6)</pre>
+<div class="CDPAlignCenter CDPAlign"><img src="assets/0d2b310a-19e4-4cb7-87c8-d0c052a7e68a.png" style="width:17.50em;height:14.25em;"/></div>
+<ol start="3">
+<li>This takes care of one of our issues. Let's use the <kbd>pivot_table</kbd> method to pivot the <kbd>Property</kbd> column into new column names:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; sensors.melt(id_vars=['Group', 'Property'], var_name='Year') \<br/>           .pivot_table(index=['Group', 'Year'],<br/>                        columns='Property', values='value') \<br/>           .reset_index() \<br/>           .rename_axis(None, axis='columns')</pre>
+<div class="CDPAlignCenter CDPAlign"><img src="assets/10329c01-746c-4fdd-8402-a4fa284c0286.png" style="width:19.83em;height:20.00em;"/></div>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">How it works...</h1>
+                </header>
+            
+            <article>
+                
+<p>Once we have identified the variables in step 1, we can begin our restructuring. Pandas does not have a method to pivot columns <span>simultaneously,</span> so we must take on this task one step at a time. We correct the years by keeping the <kbd>Property</kbd> column vertical by passing it to the <kbd>id_vars</kbd> parameter in the <kbd>melt</kbd> method.</p>
+<p>The result is now precisely the pattern of messy data found in the preceding recipe, <em>Tidying when multiple variables are stored as column values.</em> As explained in the <em>There's more</em> section of that recipe, we must use <kbd>pivot_table</kbd> to pivot a DataFrame when using more than one column in the <kbd>index</kbd> parameter. After pivoting, the <kbd>Group</kbd> and <kbd>Year</kbd> variables are stuck in the index. We push them back out as columns. The <kbd>pivot_table</kbd> method preserves the column name used in the <kbd>columns</kbd> parameter as the name of the column index. After resetting the index, this name is meaningless, and we remove it with <kbd>rename_axis</kbd>.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">There's more...</h1>
+                </header>
+            
+            <article>
+                
+<p>Whenever a solution involves <kbd>melt</kbd>, <kbd>pivot_table</kbd>, or <kbd>pivot</kbd>, you can be sure that there is an alternative method using <kbd>stack</kbd> and <kbd>unstack</kbd>. The trick is first to move the columns that are not currently being pivoted into the index:</p>
+<pre>&gt;&gt;&gt; sensors.set_index(['Group', 'Property']) \<br/>           .stack() \<br/>           .unstack('Property') \<br/>           .rename_axis(['Group', 'Year'], axis='index') \<br/>           .rename_axis(None, axis='columns') \<br/>           .reset_index()</pre>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Tidying when multiple observational units are stored in the same table</h1>
+                </header>
+            
+            <article>
+                
+<p><span>It is generally easier to maintain data when each table contains information from a single observational unit. On the other hand, it can be easier to find insights when all data is in a single table, and in the case of machine learning, all data must be in a single table. The focus of tidy data is not on directly performing analysis. Rather, it is structuring the data so that analysis is easier further down the line, and when there are multiple observational units in one table, they may need to get separated into their own tables.</span></p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Getting ready</h1>
+                </header>
+            
+            <article>
+                
+<p><span>In this recipe, we use the <kbd>movie</kbd> dataset to identify the three observational units (movies, actors, and directors) and create separate tables for each. One of the keys to this recipe is understanding that the actor and director Facebook likes are independent of the movie. Each actor and director is mapped to a single value representing their number of Facebook likes. Due to this independence, we can separate the data for the movies, directors, and actors into their own tables. Database folks call this process normalization, which increases data integrity and reduces redundancy.</span></p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">How to do it...</h1>
+                </header>
+            
+            <article>
+                
+<ol>
+<li>Read in the altered <kbd>movie</kbd> dataset, and output the first five rows:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; movie = pd.read_csv('data/movie_altered.csv')<br/>&gt;&gt;&gt; movie.head()</pre>
+<div class="CDPAlignCenter CDPAlign"><img src="assets/b97a1df3-edb5-4e9c-8a1d-56e74387c59c.png" style="width:63.00em;height:19.25em;"/></div>
+<ol start="2">
+<li>This dataset contains information on the movie itself, the director, and actors. These three entities can be considered observational units. Before we start, let's use the <kbd>insert</kbd> method to create a column to uniquely identify each movie:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; movie.insert(0, 'id', np.arange(len(movie)))<br/>&gt;&gt;&gt; movie.head()</pre>
+<div class="CDPAlignCenter CDPAlign"><img src="assets/764642b0-57b7-450a-aa3d-ec0fb80d040f.png" style="width:64.58em;height:21.00em;"/></div>
+<ol start="3">
+<li>Let's attempt to tidy this dataset with the <kbd>wide_to_long</kbd> <span>function</span> to put all the actors in one column and their corresponding Facebook likes in another, and do the same for the director, even though there is only one per movie:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; stubnames = ['director', 'director_fb_likes',<br/>                 'actor', 'actor_fb_likes']<br/>&gt;&gt;&gt; movie_long = pd.wide_to_long(movie, <br/>                                 stubnames=stubnames, <br/>                                 i='id', <br/>                                 j='num', <br/>                                 sep='_').reset_index()<br/><br/>&gt;&gt;&gt; movie_long['num'] = movie_long['num'].astype(int)<br/>&gt;&gt;&gt; movie_long.head(9)</pre>
+<div class="CDPAlignCenter CDPAlign"><img src="assets/db2fb0dd-88b9-4ca5-8d58-a1a47e5fcd3a.png" style="width:55.08em;height:16.83em;"/></div>
+<ol start="4">
+<li>The dataset is now ready to be split into multiple smaller tables:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; movie_table = movie_long[['id', 'title', 'year', 'duration', 'rating']]<br/>&gt;&gt;&gt; director_table = movie_long[['id', 'num',<br/>                                 'director', 'director_fb_likes']]<br/>&gt;&gt;&gt; actor_table = movie_long[['id', 'num',<br/>                              'actor', 'actor_fb_likes']]</pre>
+<div class="CDPAlignCenter CDPAlign"><img src="assets/5ea1387e-c719-46d4-91ab-dddbda8d76b3.png" style="width:17.83em;height:10.83em;"/>  <img src="assets/fc4648c2-7958-4413-8d1c-71a644b02675.png" style="width:11.58em;height:10.83em;"/>  <img src="assets/393e3f43-5347-419b-89f6-e5b2cdebdf0c.png" style="width:11.58em;height:10.83em;"/></div>
+<ol start="5">
+<li>There are still several issues with these tables. The <kbd>movie</kbd> table duplicates each movie three times, the director table has two missing rows for each ID, and a few movies have missing values for some of the actors. Let's take care of these issues:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; movie_table = movie_table.drop_duplicates() \<br/>                               .reset_index(drop=True)<br/>&gt;&gt;&gt; director_table = director_table.dropna() \<br/>                                     .reset_index(drop=True)<br/>&gt;&gt;&gt; actor_table = actor_table.dropna() \<br/>                             .reset_index(drop=True)</pre>
+<div class="CDPAlignCenter CDPAlign"><img src="assets/5fff55d4-6424-4a23-a31e-9b3811062ec7.png" style="width:24.17em;height:8.50em;"/>    <img src="assets/f2c340d0-bc16-4d3f-9b3e-e985172fe4d6.png" style="width:15.83em;height:8.50em;"/></div>
+<ol start="6">
+<li>Now that we have separated the observational units into their own tables, let's compare the memory of the original dataset with these three tables:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; movie.memory_usage(deep=True).sum()<br/>2318234<br/><br/>&gt;&gt;&gt; movie_table.memory_usage(deep=True).sum() + \<br/>    director_table.memory_usage(deep=True).sum() + \<br/>    actor_table.memory_usage(deep=True).sum()<br/>2627306</pre>
+<ol start="7">
+<li>Our new tidier data actually takes up a little more memory. This is to be expected, as all the data in the original columns are simply spread out into the new tables. The new tables also each have an index, and two of them have an extra <kbd>num</kbd> column, which accounts for the extra memory. We can, however, take advantage of the fact that the count of Facebook likes is independent of the movie, meaning that each actor and director has exactly one count of Facebook likes for all movies. Before we can do this, we need to create another table mapping each movie to each actor/director. Let's first create <kbd>id</kbd> columns specific to the actor and director tables, uniquely identifying each actor/director:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; director_cat = pd.Categorical(director_table['director'])<br/>&gt;&gt;&gt; director_table.insert(1, 'director_id', director_cat.codes)<br/><br/>&gt;&gt;&gt; actor_cat = pd.Categorical(actor_table['actor'])<br/>&gt;&gt;&gt; actor_table.insert(1, 'actor_id', actor_cat.codes)</pre>
+<div class="CDPAlignCenter CDPAlign"><img src="assets/daf3c29d-7671-482c-8238-fba2bbcbf5aa.png" style="width:18.58em;height:8.67em;"/>   <img src="assets/216498c9-7f00-499c-8364-15e4062a925e.png" style="width:20.42em;height:8.67em;"/></div>
+<ol start="8">
+<li>We can use these tables to form our intermediate tables and unique <kbd>actor</kbd>/<kbd>director</kbd> tables. Let's first do this with the <kbd>director</kbd> tables:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; director_associative = director_table[['id', 'director_id',<br/>                                           'num']]<br/>&gt;&gt;&gt; dcols = ['director_id', 'director', 'director_fb_likes']<br/>&gt;&gt;&gt; director_unique = director_table[dcols].drop_duplicates() \<br/>                                           .reset_index(drop=True)</pre>
+<div class="CDPAlignCenter CDPAlign"><img src="assets/70bc3432-dfb3-4c38-8d3f-70bc9c0be26a.png" style="width:8.92em;height:9.00em;"/>     <img src="assets/820a26f7-83b9-4d2c-b109-513beb3c607a.png" style="width:17.58em;height:9.00em;"/></div>
+<ol start="9">
+<li>Let's do the same thing with the <kbd>actor</kbd> table:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; actor_associative = actor_table[['id', 'actor_id', 'num']]<br/>&gt;&gt;&gt; acols = ['actor_id', 'actor', 'actor_fb_likes']<br/>&gt;&gt;&gt; actor_unique = actor_table[acols].drop_duplicates() \<br/>                                     .reset_index(drop=True)</pre>
+<div class="CDPAlignCenter CDPAlign"><img src="assets/0a2222e9-0cb6-4351-922d-21aab964aee2.png" style="width:8.42em;height:9.25em;"/>    <img src="assets/e577a0e7-455c-4a7d-8abf-6863ea069432.png" style="width:15.92em;height:8.83em;"/></div>
+<ol start="10">
+<li>Let's find out how much memory our new tables consume:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; movie_table.memory_usage(deep=True).sum() + \<br/>    director_associative.memory_usage(deep=True).sum() + \<br/>    director_unique.memory_usage(deep=True).sum() + \<br/>    actor_associative.memory_usage(deep=True).sum() + \<br/>    actor_unique.memory_usage(deep=True).sum()<br/>1833402</pre>
+<ol start="11">
+<li>Now that we have normalized our tables, we can build an entity-relationship diagram showing all the tables (entities), columns, and relationships. This diagram was created with the easy to use ERDPlus (<a href="https://erdplus.com/#/" target="_blank">https://erdplus.com</a>):
+<div class="CDPAlignCenter CDPAlign"><img src="assets/272f2599-5e7a-4001-94e9-90eb430ba6d7.png" style="width:56.83em;height:19.92em;"/></div>
+</li>
+</ol>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">How it works...</h1>
+                </header>
+            
+            <article>
+                
+<p>After importing the data and identifying the three entities, we must create a unique identifier for each observation so that we can link to the movies, actors and directors together once they have been separated into different tables. In step 2, we simply set the ID column as the row number beginning from zero. In step 3, we use the <kbd>wide_to_long</kbd> function to simultaneously <kbd>melt</kbd> the <kbd>actor</kbd> and <kbd>director</kbd> columns. It uses the integer suffix of the columns to align the data vertically and places this integer suffix in the index. The parameter <kbd>j</kbd> is used to control its name. The values in the columns not in the <kbd>stubnames</kbd> list repeat to align with the columns that were melted.</p>
+<p>In step 4, we create our three new tables, keeping the <kbd>id</kbd> column in each. We also keep the <kbd>num</kbd> column to identify the exact <kbd>director</kbd>/<kbd>actor</kbd> column from which it was derived. Step 5 condenses each table by removing duplicates and missing values.</p>
+<p>After step 5, the three observational units are in their own tables, but they still contain the same amount of data as the original <span>(and a bit more)</span>, as seen in step 6. <span>To return the correct number of bytes from the</span> <kbd>memory_usage</kbd> <span>method for <kbd>object</kbd> data type columns, you must set the</span> <kbd>deep</kbd> <span>parameter to</span> <kbd>True</kbd><span>.</span></p>
+<p>Each actor/director needs only one entry in his or her respective tables. We can't simply make a table of just actor name and Facebook likes, as there would be no way to link the actors back to the original movie. The relationship between movies and actors is called a <strong>many-to-many relationship</strong>. Each movie is associated with multiple actors, and each actor can appear in multiple movies. To resolve this relationship, an intermediate or associative table is created, which contains the unique identifiers (<strong>primary keys</strong>) of both the movie and actor.</p>
+<p>To create associative tables, we must uniquely identify each actor/director. One trick is to create a categorical data type out of each actor/director name with <kbd>pd.Categorical</kbd>. Categorical data types have an internal map from each value to an integer. This integer is found in the <kbd>codes</kbd> attribute, which is used as the unique ID. To set up the creation of the associative table, we add this unique ID to the <kbd>actor</kbd>/<kbd>director</kbd> tables.</p>
+<p>Step 8 and step 9 create the associative tables by selecting both of the unique identifiers. Now, we can reduce the <kbd>actor</kbd> and <kbd>director</kbd> tables to just the unique names and Facebook likes. This new arrangement of tables uses 20% less memory than the original. Formal relational databases have entity-relationship diagrams to visualize the tables. In step 10, we use the simple ERDPlus tool to make the visualization, which greatly eases the understanding of the relationships between the tables.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">There's more...</h1>
+                </header>
+            
+            <article>
+                
+<p>It is possible to recreate the original <kbd>movie</kbd> table by joining all the tables back together. First, join the associative tables to the <kbd>actor</kbd>/<kbd>director</kbd> tables. Then pivot the num column, and add the column prefixes back:</p>
+<pre>&gt;&gt;&gt; actors = actor_associative.merge(actor_unique, on='actor_id') \<br/>                              .drop('actor_id', 1) \<br/>                              .pivot_table(index='id', <br/>                                           columns='num',<br/>                                           aggfunc='first')<br/><br/>&gt;&gt;&gt; actors.columns = actors.columns.get_level_values(0) + '_' + \<br/>                     actors.columns.get_level_values(1).astype(str)<br/><br/>&gt;&gt;&gt; directors = director_associative.merge(director_unique,<br/>                                           on='director_id') \<br/>                                    .drop('director_id', 1) \<br/>                                    .pivot_table(index='id',<br/>                                                 columns='num',<br/>                                                 aggfunc='first')<br/><br/>&gt;&gt;&gt; directors.columns = directors.columns.get_level_values(0) + '_' + \<br/>                        directors.columns.get_level_values(1) \<br/>                                         .astype(str)</pre>
+<div class="CDPAlignCenter CDPAlign"><img src="assets/ba4a5426-19e4-4531-b181-647f0192e0df.png" style="width:38.17em;height:10.75em;"/></div>
+<div class="CDPAlignCenter CDPAlign"><img src="assets/c3b43d8b-89fd-4066-8431-9f8ded3783f7.png" style="width:17.00em;height:12.58em;"/></div>
+<p>These tables can now be joined together with <kbd>movie_table</kbd>:</p>
+<pre>&gt;&gt;&gt; movie2 = movie_table.merge(directors.reset_index(),<br/>                               on='id', how='left') \<br/>                        .merge(actors.reset_index(),<br/>                               on='id', how='left')<br/>&gt;&gt;&gt; movie.equals(movie2[movie.columns])<br/>True</pre>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">See also</h1>
+                </header>
+            
+            <article>
+                
+<ul>
+<li>More on database normalization (<a href="https://en.wikipedia.org/wiki/Database_normalization" target="_blank">http://bit.ly/2w8wahQ</a>), associative tables (<a href="https://en.wikipedia.org/wiki/Associative_entity" target="_blank">http://bit.ly/2yqE4oh</a>), and primary and foreign keys (<a href="https://en.wikipedia.org/wiki/Unique_key" target="_blank">http://bit.ly/2xgIvEb</a>)</li>
+<li>Refer to the <em>Stacking multiple groups of variables simultaneously</em> <span>recipe</span> in this chapter for more information on the <kbd>wide_to_long</kbd> function</li>
+</ul>
+
+
+            </article>
+
+            
+        </section>
+    </body></html>

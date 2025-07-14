@@ -1,0 +1,1204 @@
+<html><head></head><body>
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Index Alignment</h1>
+                </header>
+            
+            <article>
+                
+<p>When multiple Series or DataFrames are combined in some way, each dimension of the data automatically aligns on each axis first before any computation happens. This silent and automatic alignment of axes can cause tremendous confusion for the uninitiated, but it gives great flexibility to the power user. This chapter explores the Index object in-depth before showcasing a variety of recipes that take advantage of its automatic alignment.</p>
+<p class="CDPAlignLeft CDPAlign">In this chapter, we will cover the following topics:</p>
+<ul>
+<li>Examining the Index object</li>
+<li>Producing Cartesian products</li>
+<li>Exploding indexes</li>
+<li>Filling values with unequal indexes</li>
+<li>Appending columns from different DataFrames</li>
+<li>Highlighting the maximum value from each column</li>
+<li>Replicating<span> </span><kbd>idxmax</kbd><span> </span>with method chaining</li>
+<li>Finding the most common maximum</li>
+</ul>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Examining the Index object</h1>
+                </header>
+            
+            <article>
+                
+<p>Each axis of Series and DataFrames has an Index object that labels the values. There are many different types of Index objects, but they all share the same common behavior. All Index objects, except for the special MultiIndex, are single-dimensional data structures that combine the functionality and implementation of Python sets and NumPy ndarrays.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Getting ready</h1>
+                </header>
+            
+            <article>
+                
+<p>In this recipe, we will examine the column index of the college dataset and explore much of its functionality.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">How to do it...</h1>
+                </header>
+            
+            <article>
+                
+<ol>
+<li>Read in the college dataset, assign for the column index to a variable, and output it:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; college = pd.read_csv('data/college.csv')<br/>&gt;&gt;&gt; columns = college.columns<br/>&gt;&gt;&gt; columns<br/>Index(['INSTNM', 'CITY', 'STABBR', 'HBCU', ...], dtype='object')</pre>
+<ol start="2">
+<li>Use the <kbd>values</kbd> attribute to access the underlying NumPy array:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; columns.values<br/>array(['INSTNM', 'CITY', 'STABBR', 'HBCU', ...], dtype=object)</pre>
+<ol start="3">
+<li>Select items from the index by integer location with scalars, lists, or slices:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; columns[5]<br/>'WOMENONLY'<br/><br/>&gt;&gt;&gt; columns[[1,8,10]]<br/>Index(['CITY', 'SATMTMID', 'UGDS'], dtype='object')<br/><br/>&gt;&gt;&gt; columns[-7:-4]<br/>Index(['PPTUG_EF', 'CURROPER', 'PCTPELL'], dtype='object')</pre>
+<div class="cell code_cell rendered unselected">
+<div class="input"/>
+</div>
+<ol start="4">
+<li>Indexes share many of the same methods as Series and DataFrames:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; columns.min(), columns.max(), columns.isnull().sum()<br/>('CITY', 'WOMENONLY', 0)</pre>
+<ol start="5">
+<li>Use basic arithmetic and comparison operators directly on <kbd>Index</kbd> objects:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; columns + '_A'<br/>Index(['INSTNM_A', 'CITY_A', 'STABBR_A', 'HBCU_A', ...], dtype='object')<br/><br/>&gt;&gt;&gt; columns &gt; 'G'<br/>array([ True, False,  True,  True, ...], dtype=bool)</pre>
+<ol start="6">
+<li>Trying to change an Index value directly after its creation fails. <span>Indexes are immutable objects:</span></li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; columns[1] = 'city'<br/>TypeError: Index does not support mutable operations</pre>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">How it works...</h1>
+                </header>
+            
+            <article>
+                
+<p>As you can see from many of the Index object operations, it appears to have quite a bit in common with both Series and <kbd>ndarrays</kbd>. One of the biggest differences comes in step 6. Indexes are immutable and their values cannot be changed once created.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">There's more...</h1>
+                </header>
+            
+            <article>
+                
+<p>Indexes support the set operations, union, intersection, difference, and symmetric difference:</p>
+<pre>&gt;&gt;&gt; c1 = columns[:4]<br/>&gt;&gt;&gt; c1<br/>Index(['INSTNM', 'CITY', 'STABBR', 'HBCU'], dtype='object')<br/><br/>&gt;&gt;&gt; c2 = columns[2:6]<br/>&gt;&gt;&gt; c2<br/>Index(['STABBR', 'HBCU', 'MENONLY'], dtype='object')<br/><br/>&gt;&gt;&gt; c1.union(c2) # or `c1 | c2`<br/>Index(['CITY', 'HBCU', 'INSTNM', 'MENONLY', 'RELAFFIL', 'STABBR'], dtype='object')<br/><br/>&gt;&gt;&gt; c1.symmetric_difference(c2) # or `c1 ^ c2`<br/>Index(['CITY', 'INSTNM', 'MENONLY'], dtype='object')</pre>
+<p>Indexes share some of the same operations as Python sets. Indexes are similar to Python sets in another important way. They are (usually) implemented using hash tables, which make for extremely fast access when selecting rows or columns from a DataFrame. As they are implemented using hash tables, the values for the Index object need to be immutable such as a string, integer, or tuple just like the keys in a Python dictionary.</p>
+<div class="packt_infobox">Indexes support duplicate values, and if there happens to be a duplicate in any Index, then a hash table can no longer be<br/>
+used for its implementation, and object access becomes much slower.</div>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">See also</h1>
+                </header>
+            
+            <article>
+                
+<ul>
+<li>Pandas official documentation of <kbd>Index</kbd> (<a href="https://pandas.pydata.org/pandas-docs/stable/generated/pandas.Index.html" target="_blank">http://bit.ly/2upfgtr</a>)</li>
+</ul>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Producing Cartesian products</h1>
+                </header>
+            
+            <article>
+                
+<p>Whenever two Series or DataFrames operate with another Series or DataFrame, the indexes (both the row index and column index) of each object align first before any operation begins. This index alignment happens silently and can be very surprising for those new to pandas. This alignment always creates a Cartesian product between the indexes unless the indexes are identical.</p>
+<div class="packt_infobox">A Cartesian product is a mathematical term that usually appears in set theory. A Cartesian product between two sets is all the combinations of pairs of both sets. For example, the 52 cards in a standard playing card deck represent a Cartesian product between the 13 ranks (A, 2, 3,..., Q, K) and the four suits.</div>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Getting ready</h1>
+                </header>
+            
+            <article>
+                
+<p>Producing a Cartesian product isn't always the intended outcome, but it's extremely important to be aware of how and when it occurs to avoid unintended consequences. In this recipe, two Series with overlapping but non-identical indexes are added together, yielding a surprising result.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">How to do it...</h1>
+                </header>
+            
+            <article>
+                
+<p>Follow these steps to create a Cartesian product:</p>
+<ol start="1">
+<li>Construct two Series that have indexes that are different but contain some of the same values:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; s1 = pd.Series(index=list('aaab'), data=np.arange(4))<br/>&gt;&gt;&gt; s1<br/>a    0
+a    1
+a    2
+b    3
+dtype: int64<br/><br/>&gt;&gt;&gt; s2 = pd.Series(index=list('cababb'), data=np.arange(6))<br/>&gt;&gt;&gt; s2<br/>c    0
+a    1
+b    2
+a    3
+b    4
+b    5
+dtype: int64</pre>
+<ol start="2">
+<li>Add the two Series together to produce a Cartesian product:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; s1 + s2<br/>a    1.0
+a    3.0
+a    2.0
+a    4.0
+a    3.0
+a    5.0
+b    5.0
+b    7.0
+b    8.0
+c    NaN
+dtype: float64</pre>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">How it works...</h1>
+                </header>
+            
+            <article>
+                
+<p>Each Series was created with the class constructor which accepts a wide variety of inputs with the simplest being a sequence of values for each of the parameters <kbd>index</kbd> and data.</p>
+<p>Mathematical Cartesian products are slightly different from the outcome of operating on two pandas objects. Each <kbd>a</kbd> label in <kbd>s1</kbd> pairs up with each <kbd>a</kbd> label in <kbd>s2</kbd>. This pairing produces six <kbd>a</kbd> labels, three <kbd>b</kbd> labels, and one <kbd>c</kbd> label in the resulting Series. A Cartesian product happens between all identical index labels.</p>
+<p>As the element with label <kbd>c</kbd> is unique to Series <kbd>s2</kbd>, pandas defaults its value to missing, as there is no label for it to align to in <kbd>s1</kbd>. Pandas defaults to a missing value whenever an index label is unique to one object. This has the unfortunate consequence of changing the data type of the Series to a float, whereas each Series had only integers as values. This occurred because of NumPy's missing value object; <kbd>np.nan</kbd> only exists for floats but not for integers. Series and DataFrame columns must have homogeneous numeric data types; therefore, each value was converted to a float. This makes very little difference for this small dataset, but for larger datasets, this can have a significant memory impact.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">There's more...</h1>
+                </header>
+            
+            <article>
+                
+<p>An exception to the preceding example takes place when the indexes contain the same exact elements in the same order. When this occurs, a Cartesian product does not take place, and the indexes instead align by their position. Notice here that each element aligned exactly by position and that the data type remained an integer:</p>
+<pre>&gt;&gt;&gt; s1 = pd.Series(index=list('aaabb'), data=np.arange(5))<br/>&gt;&gt;&gt; s2 = pd.Series(index=list('aaabb'), data=np.arange(5))<br/>&gt;&gt;&gt; s1 + s2<br/>a    0
+a    2
+a    4
+b    6
+b    8
+dtype: int64</pre>
+<p>If the elements of the index are identical, but the order is different between the Series, a Cartesian product occurs. Let's change the order of the index in <kbd>s2</kbd> and rerun the same operation:</p>
+<pre>&gt;&gt;&gt; s1 = pd.Series(index=list('aaabb'), data=np.arange(5))<br/>&gt;&gt;&gt; s2 = pd.Series(index=list('bbaaa'), data=np.arange(5))<br/>&gt;&gt;&gt; s1 + s2<br/>a    2<br/>a    3<br/>a    4
+a    3
+a    4
+a    5
+a    4
+a    5
+a    6
+b    3
+b    4
+b    4
+b    5
+dtype: int64</pre>
+<p>It is quite interesting that pandas has two drastically different outcomes for this same operation. If a Cartesian product was the only choice for pandas, then something as simple as adding DataFrame columns together would explode the number of elements returned.</p>
+<p>In this recipe, each Series had a different number of elements. Typically, array-like data structures in Python and other languages do not allow operations to take place when the operating dimensions do not contain the same number of elements. Pandas allows this to happen by aligning the indexes first before completing the operation.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Exploding indexes</h1>
+                </header>
+            
+            <article>
+                
+<p>The previous recipe walked through a trivial example of two small Series being added together with unequal indexes. This problem can produce comically incorrect results when dealing with larger data.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Getting ready</h1>
+                </header>
+            
+            <article>
+                
+<p>In this recipe, we add two larger Series that have indexes with only a few unique values but in different orders. The result will explode the number of values in the indexes.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">How to do it...</h1>
+                </header>
+            
+            <article>
+                
+<ol>
+<li>Read in the employee data and set the index equal to the race column:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; employee = pd.read_csv('data/employee.csv', index_col='RACE')<br/>&gt;&gt;&gt; employee.head()</pre>
+<div class="CDPAlignCenter CDPAlign"><img style="text-align: center;font-size: 1em;width:63.08em;height:20.83em;" class="image-border" src="assets/3c2c2456-00e7-471b-9b21-c30ae0628d71.png"/></div>
+<ol start="2">
+<li>Select the <kbd>BASE_SALARY</kbd> column as two different Series. Check to see whether this operation actually did create two new objects:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; salary1 = employee['BASE_SALARY']<br/>&gt;&gt;&gt; salary2 = employee['BASE_SALARY']<br/>&gt;&gt;&gt; salary1 is salary2<br/>True</pre>
+<ol start="3">
+<li>The <kbd>salary1</kbd> and <kbd>salary2</kbd> <span>variables</span> are actually referring to the same object. This means that any change to one will change the other. To ensure that you receive a brand new copy of the data, use the <kbd>copy</kbd> method:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; salary1 = employee['BASE_SALARY'].copy()<br/>&gt;&gt;&gt; salary2 = employee['BASE_SALARY'].copy()<br/>&gt;&gt;&gt; salary1 is salary2<br/>False</pre>
+<ol start="4">
+<li>Let's change the order of the index for one of the Series by sorting it:</li>
+</ol>
+<pre style="padding-left: 60px" class="mce-root">&gt;&gt;&gt; salary1 = salary1.sort_index()<br/>&gt;&gt;&gt; salary1.head()<br/>RACE
+American Indian or Alaskan Native    78355.0
+American Indian or Alaskan Native    81239.0
+American Indian or Alaskan Native    60347.0
+American Indian or Alaskan Native    68299.0
+American Indian or Alaskan Native    26125.0
+Name: BASE_SALARY, dtype: float64<br/><br/>&gt;&gt;&gt; salary2.head()<br/>RACE
+Hispanic/Latino    121862.0
+Hispanic/Latino     26125.0
+White               45279.0
+White               63166.0
+White               56347.0
+Name: BASE_SALARY, dtype: float64</pre>
+<ol start="5">
+<li>Let's add these <kbd>salary</kbd> Series together:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; salary_add = salary1 + salary2<br/>&gt;&gt;&gt; salary_add.head()<br/>RACE
+American Indian or Alaskan Native    138702.0
+American Indian or Alaskan Native    156710.0
+American Indian or Alaskan Native    176891.0
+American Indian or Alaskan Native    159594.0
+American Indian or Alaskan Native    127734.0
+Name: BASE_SALARY, dtype: float64</pre>
+<ol start="6">
+<li>The operation completed successfully. Let's create one more Series of <kbd>salary1</kbd> added to itself and then output the lengths of each Series. We just exploded the index from 2,000 values to more than 1 million:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; salary_add1 = salary1 + salary1<br/>&gt;&gt;&gt; len(salary1), len(salary2), len(salary_add), len(salary_add1)<br/>(2000, 2000, 1175424, 2000)</pre>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">How it works...</h1>
+                </header>
+            
+            <article>
+                
+<p>Step 2 appears at first to create two unique objects but in fact, it creates a single object that is referred to by two different variable names. The expression <kbd>employee['BASE_SALARY']</kbd>, technically creates a <strong>view</strong>, and not a brand new copy. This is verified with the <kbd>is</kbd> operator.</p>
+<div class="packt_infobox">In pandas, a view is not a new object but just a reference to another object, usually some subset of a DataFrame. This shared object can be a cause for many issues.</div>
+<p>To ensure that both variables reference completely different objects, we use the <kbd>copy</kbd> Series method and again verify that they are different objects with the <kbd>is</kbd> operator. Step 4 uses the <kbd>sort_index</kbd> method to sort the Series by race. Step 5 adds these different Series together to produce some result. By just inspecting the head, it's still not clear what has been produced.</p>
+<p>Step 6 adds <kbd>salary1</kbd> to itself to show a comparison between the two different Series additions. The length of all the Series in this recipe are output and we clearly see that <kbd>series_add</kbd> has now exploded to over one million values. A Cartesian product took place for each unique value in the index because the indexes were not exactly the same. This recipe dramatically shows how much of an impact the index can have when combining multiple Series or DataFrames.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">There's more...</h1>
+                </header>
+            
+            <article>
+                
+<p>We can verify the number of values of <kbd>salary_add</kbd> by doing a little mathematics. As a Cartesian product takes place between all of the same index values, we can sum the square of their individual counts. Even missing values in the index produce Cartesian products with themselves:</p>
+<pre>&gt;&gt;&gt; index_vc = salary1.index.value_counts(dropna=False)<br/>&gt;&gt;&gt; index_vc<br/>Black or African American            700
+White                                665
+Hispanic/Latino                      480
+Asian/Pacific Islander               107
+NaN                                   35
+American Indian or Alaskan Native     11
+Others                                 2
+Name: RACE, dtype: int64<br/><br/>&gt;&gt;&gt; index_vc.pow(2).sum()<br/>1175424</pre>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Filling values with unequal indexes</h1>
+                </header>
+            
+            <article>
+                
+<p>When two Series are added together using the plus operator and one of the index labels does not appear in the other, the resulting value is always missing. Pandas offers the <kbd>add</kbd> method, which provides an option to fill the missing value.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Getting ready</h1>
+                </header>
+            
+            <article>
+                
+<p>In this recipe, we add together multiple Series from the <kbd>baseball</kbd> dataset with unequal indexes using the <kbd>fill_value</kbd> parameter of the <kbd>add</kbd> method to ensure that there are no missing values in the result.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">How to do it...</h1>
+                </header>
+            
+            <article>
+                
+<ol>
+<li>Read in the three <kbd>baseball</kbd> datasets and set the index as <kbd>playerID</kbd>:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; baseball_14 = pd.read_csv('data/baseball14.csv',<br/>                              index_col='playerID')<br/>&gt;&gt;&gt; baseball_15 = pd.read_csv('data/baseball15.csv',<br/>                              index_col='playerID')<br/>&gt;&gt;&gt; baseball_16 = pd.read_csv('data/baseball16.csv',<br/>                              index_col='playerID')<br/>&gt;&gt;&gt; baseball_14.head()</pre>
+<div class="CDPAlignCenter CDPAlign"><img class="image-border" src="assets/3df8c217-9081-49b2-86c8-2737836ff6d9.png" style="width:63.17em;height:15.08em;"/></div>
+<ol start="2">
+<li>Use the index method <kbd>difference</kbd> to discover which index labels are in <kbd>baseball_14</kbd> and not in <kbd>baseball_15</kbd>, and vice versa:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; baseball_14.index.difference(baseball_15.index)<br/>Index(['corpoca01', 'dominma01', 'fowlede01', 'grossro01',<br/>       'guzmaje01', 'hoeslj01', 'krausma01', 'preslal01',<br/>       'singljo02'], dtype='object', name='playerID')<br/><br/>&gt;&gt;&gt; baseball_14.index.difference(baseball_16.index)<br/>Index(['congeha01', 'correca01', 'gattiev01', 'gomezca01',<br/>       'lowrije01', 'rasmuco01', 'tuckepr01', 'valbulu01'],
+       dtype='object', name='playerID')</pre>
+<p class="mce-root"/>
+<ol start="3">
+<li>There are quite a few players unique to each index. Let's find out how many hits each player has in total over the three-year period. The <kbd>H</kbd> <span>column</span> contains the number of hits:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; hits_14 = baseball_14['H']<br/>&gt;&gt;&gt; hits_15 = baseball_15['H']<br/>&gt;&gt;&gt; hits_16 = baseball_16['H']<br/>&gt;&gt;&gt; hits_14.head()<br/>playerID
+altuvjo01    225
+cartech02    115
+castrja01    103
+corpoca01     40
+dominma01    121
+Name: H, dtype: int64</pre>
+<ol start="4">
+<li>Let's first add together two Series using the plus operator:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; (hits_14 + hits_15).head()<br/>playerID
+altuvjo01    425.0
+cartech02    193.0
+castrja01    174.0
+congeha01      NaN
+corpoca01      NaN
+Name: H, dtype: float64</pre>
+<ol start="5">
+<li>Even though players <kbd>congeha01</kbd> and <kbd>corpoca01</kbd> have recorded hits for 2015, their result is missing. Let's use the <kbd>add</kbd> method and its parameter, <kbd>fill_value</kbd>, to avoid missing values:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; hits_14.add(hits_15, fill_value=0).head()<br/>playerID
+altuvjo01    425.0
+cartech02    193.0
+castrja01    174.0
+congeha01     46.0
+corpoca01     40.0
+Name: H, dtype: float64</pre>
+<ol start="6">
+<li>We add hits from 2016 by chaining the <kbd>add</kbd> method once more:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; hits_total = hits_14.add(hits_15, fill_value=0) \<br/>                        .add(hits_16, fill_value=0)<br/>&gt;&gt;&gt; hits_total.head()<br/>playerID
+altuvjo01    641.0
+bregmal01     53.0
+cartech02    193.0
+castrja01    243.0
+congeha01     46.0
+Name: H, dtype: float64</pre>
+<ol start="7">
+<li>Check for missing values in the result:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; hits_total.hasnans<br/>False</pre>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">How it works...</h1>
+                </header>
+            
+            <article>
+                
+<p>The <kbd>add</kbd> method works similarly to the plus operator but allows for more flexibility by providing the <kbd>fill_value</kbd> parameter to take the place of a non-matching index. In this problem, it makes sense to default the non-matching index value to 0, but you could have used any other number.</p>
+<p>There will be occasions when each Series contains index labels that correspond to missing values. In this specific instance, when the two Series are added, the index label will still correspond to a missing value regardless if the <kbd>fill_value</kbd> parameter is used. To clarify this, take a look at the following example where the index label <kbd>a</kbd> corresponds to a missing value in each Series:</p>
+<pre>&gt;&gt;&gt; s = pd.Series(index=['a', 'b', 'c', 'd'],<br/>                  data=[np.nan, 3, np.nan, 1])<br/>&gt;&gt;&gt; s<br/>a    NaN
+b    3.0
+c    NaN
+d    1.0
+dtype: float64<br/><br/>&gt;&gt;&gt; s1 = pd.Series(index=['a', 'b', 'c'], data=[np.nan, 6, 10])<br/>&gt;&gt;&gt; s1<br/>a    NaN <br/>b    6.0<br/>c   10.0 <br/>dtype: float64<br/><br/>&gt;&gt;&gt; s.add(s1, fill_value=5)<br/>a     NaN
+b     9.0
+c    15.0
+d     6.0
+dtype: float64</pre>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">There's more...</h1>
+                </header>
+            
+            <article>
+                
+<p>This recipe shows how to add Series with only a single index together. It is also entirely possible to add DataFrames together. Adding DataFrames together will align both the index and columns before computation and yield missing values for non-matching indexes. Let's start by selecting a few of the columns from the 2014 baseball dataset.</p>
+<pre>&gt;&gt;&gt; df_14 = baseball_14[['G','AB', 'R', 'H']]<br/>&gt;&gt;&gt; df_14.head()</pre>
+<div class="CDPAlignCenter CDPAlign"><img class="image-border" src="assets/925e3c65-b0b0-4610-8768-ed57f0f07d3e.png" style="width:12.67em;height:10.75em;"/></div>
+<div>Let's also select a few of the same and a few different columns from the 2015 baseball dataset:</div>
+<pre>&gt;&gt;&gt; df_15 = baseball_15[['AB', 'R', 'H', 'HR']]<br/>&gt;&gt;&gt; df_15.head()</pre>
+<div class="CDPAlignCenter CDPAlign"><img class="image-border" src="assets/48c50717-2d2c-4ab0-b247-7ac9996abf1e.png" style="width:12.17em;height:10.92em;"/></div>
+<p>Adding the two DataFrames together create missing values wherever rows or column labels cannot align. Use the <kbd>style</kbd> attribute to access the <kbd>highlight_null</kbd> method to easily see where the missing values are:</p>
+<pre>&gt;&gt;&gt; (df_14 + df_15).head(10).style.highlight_null('yellow')</pre>
+<div class="CDPAlignCenter CDPAlign"><img class="image-border" src="assets/7d3abb8d-db33-4a10-b126-7fcdb14c8e92.png" style="width:17.08em;height:20.92em;"/></div>
+<p>Only the rows with <kbd>playerID</kbd> appearing in both DataFrames will be non-missing. Similarly, the columns <kbd>AB</kbd>, <kbd>H</kbd>, and <kbd>R</kbd> are the only ones that appear in both DataFrames. Even if we use the <kbd>add</kbd> method with the <kbd>fill_value</kbd> parameter specified, we still have missing values. This is because some combinations of rows and columns never existed in our input data. For example, the intersection of <kbd>playerID</kbd> <em>congeha01</em> and column <kbd>G</kbd>. He only appeared in the 2015 dataset that did not have the <kbd>G</kbd> column. Therefore, no value was filled with it:</p>
+<pre>&gt;&gt;&gt; df_14.add(df_15, fill_value=0).head(10) \<br/>         .style.highlight_null('yellow')</pre>
+<div class="CDPAlignCenter CDPAlign"><img class="image-border" src="assets/034d596f-f6a3-4bef-a441-9876f382215f.png" style="width:15.50em;height:20.83em;"/></div>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Appending columns from different DataFrames</h1>
+                </header>
+            
+            <article>
+                
+<p>All DataFrames can add new columns to themselves. However, as usual, whenever a DataFrame is adding a new column from another DataFrame or Series, the indexes align first before the new column is created.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Getting ready</h1>
+                </header>
+            
+            <article>
+                
+<p>This recipe uses the <kbd>employee</kbd> dataset to append a new column containing the maximum salary of that employee's department.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">How to do it...</h1>
+                </header>
+            
+            <article>
+                
+<ol>
+<li><span>Import the <kbd>employee</kbd> data and select the <kbd>DEPARTMENT</kbd> and <kbd>BASE_SALARY</kbd> columns in a new DataFrame:</span></li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; employee = pd.read_csv('data/employee.csv')<br/>&gt;&gt;&gt; dept_sal = employee[['DEPARTMENT', 'BASE_SALARY']]</pre>
+<ol start="2">
+<li>Sort this smaller DataFrame by salary within each department:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; dept_sal = dept_sal.sort_values(['DEPARTMENT', 'BASE_SALARY'], <br/>                                      ascending=[True, False])</pre>
+<ol start="3">
+<li>Use the <kbd>drop_duplicates</kbd> method to keep the first row of each <kbd>DEPARTMENT</kbd>:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; max_dept_sal = dept_sal.drop_duplicates(subset='DEPARTMENT')<br/>&gt;&gt;&gt; max_dept_sal.head()</pre>
+<div class="CDPAlignCenter CDPAlign"><img class="image-border" src="assets/d8ceb0fc-6e16-478d-92aa-0c92e459cee3.png" style="width:22.58em;height:11.08em;"/></div>
+<ol start="4">
+<li>Put the <kbd>DEPARTMENT</kbd> column into the index for each DataFrames:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; max_dept_sal = max_dept_sal.set_index('DEPARTMENT')<br/>&gt;&gt;&gt; employee = employee.set_index('DEPARTMENT')</pre>
+<ol start="5">
+<li>Now that the indexes contain matching values, we can append a new column to the <kbd>employee</kbd> DataFrame:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; employee['MAX_DEPT_SALARY'] = max_dept_sal['BASE_SALARY']<br/>&gt;&gt;&gt; employee.head()</pre>
+<div class="CDPAlignCenter CDPAlign"><img class="image-border" src="assets/c4b7b4e0-0965-4667-aa95-5a77cb78a941.png" style="width:64.08em;height:13.67em;"/></div>
+<ol start="6">
+<li>We can validate our results with the <kbd>query</kbd> method to check whether there exist any rows where <kbd>BASE_SALARY</kbd> is greater than <kbd>MAX_DEPT_SALARY</kbd>:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; employee.query('BASE_SALARY &gt; MAX_DEPT_SALARY')</pre>
+<div class="CDPAlignCenter CDPAlign"><img class="image-border" src="assets/1e21fa39-41e4-46f4-9077-ce4e247d2181.png" style="width:53.42em;height:7.33em;"/></div>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">How it works...</h1>
+                </header>
+            
+            <article>
+                
+<p>Steps 2 and 3 find the maximum salary for each department. For automatic index alignment to work properly, we set each DataFrame index as the department. Step 5 works because each row index from the left DataFrame; <kbd>employee</kbd> aligns with one and only one index from the right DataFrame, <kbd>max_dept_sal</kbd>. If <kbd>max_dept_sal</kbd> had repeats of any departments in its index, then the operation would fail.</p>
+<p>For instance, let's see what happens when we use a DataFrame on the right-hand side of the equality that has repeated index values. We use the <kbd>sample</kbd> DataFrame method to randomly choose ten rows without replacement:</p>
+<pre>&gt;&gt;&gt; np.random.seed(1234)<br/>&gt;&gt;&gt; random_salary = dept_sal.sample(n=10).set_index('DEPARTMENT')<br/>&gt;&gt;&gt; random_salary</pre>
+<div class="CDPAlignCenter CDPAlign"><img class="image-border" src="assets/c71b573f-af49-4b9e-9bbb-cacd9c5d9532.png" style="width:22.50em;height:23.42em;"/></div>
+<p>Notice how there are several repeated departments in the index. Now when we attempt to create a new column, an error is raised alerting us that there are duplicates. At least one index label in the <kbd>employee</kbd> DataFrame is joining with two or more index labels from <kbd>random_salary</kbd>:</p>
+<pre>&gt;&gt;&gt; employee['RANDOM_SALARY'] = random_salary['BASE_SALARY']<br/><span class="ansi-red-fg">ValueError</span>: cannot reindex from a duplicate axis</pre>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">There's more...</h1>
+                </header>
+            
+            <article>
+                
+<p>Not all indexes on the left-hand side of the equal sign need to have a match, but at most can have one. If there is nothing for the left DataFrame index to align to, the resulting value will be missing. Let's create an example where this happens. We will use only the first three rows of the <kbd>max_dept_sal</kbd> Series to create a new column:</p>
+<pre>&gt;&gt;&gt; employee['MAX_SALARY2'] = max_dept_sal['BASE_SALARY'].head(3)<br/>&gt;&gt;&gt; employee.MAX_SALARY2.value_counts()<br/>140416.0    29
+100000.0    11
+64251.0      5
+Name: MAX_SALARY2, dtype: int64<br/><br/><br/>&gt;&gt;&gt; employee.MAX_SALARY2.isnull().mean()<br/>.9775</pre>
+<p>The operation completed successfully but filled in salaries for <span>only</span> three of the departments. All the other departments that did not appear in the first three rows of the <kbd>max_dept_sal</kbd> Series resulted in a missing value.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Highlighting the maximum value from each column</h1>
+                </header>
+            
+            <article>
+                
+<p>The <kbd>college</kbd> dataset has many numeric columns describing different metrics about each school. Many people are interested in schools that perform the best for certain metrics.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Getting ready</h1>
+                </header>
+            
+            <article>
+                
+<p>This recipe discovers the school that has the maximum value for each numeric column and styles the DataFrame in order to highlight the information so that it is easily consumed by a user.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">How to do it...</h1>
+                </header>
+            
+            <article>
+                
+<ol>
+<li>Read the college dataset with the institution name as the index:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; college = pd.read_csv('data/college.csv', index_col='INSTNM')<br/>&gt;&gt;&gt; college.dtypes<br/>CITY                   object
+STABBR                 object
+HBCU                  float64
+MENONLY               float64
+                       ...   
+PCTFLOAN              float64
+UG25ABV               float64
+MD_EARN_WNE_P10        object
+GRAD_DEBT_MDN_SUPP     object
+Length: 26, dtype: object</pre>
+<p class="mce-root"/>
+<p class="mce-root"/>
+<p class="mce-root"/>
+<p class="mceNonEditable"/>
+<ol start="2">
+<li>All the other columns besides <kbd>CITY</kbd> and <kbd>STABBR</kbd> appear to be numeric. Examining the data types from the preceding step reveals unexpectedly that the <kbd>MD_EARN_WNE_P10</kbd> and <kbd>GRAD_DEBT_MDN_SUPP</kbd> <span>columns</span> are of type object and not numeric. To help get a better idea of what kind of values are in these columns, let's examine their first value:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; college.MD_EARN_WNE_P10.iloc[0]<br/>'30300'<br/><br/>&gt;&gt;&gt; college.GRAD_DEBT_MDN_SUPP.iloc[0]<br/>'33888'</pre>
+<ol start="3">
+<li>These values are strings but we would like them to be numeric. This means that there are likely to be non-numeric characters that appear elsewhere in the Series. One way to check for this is to sort these columns in descending order and examine the first few rows:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; college.MD_EARN_WNE_P10.sort_values(ascending=False).head()<br/>INSTNM
+Sharon Regional Health System School of Nursing    PrivacySuppressed
+Northcoast Medical Training Academy                PrivacySuppressed
+Success Schools                                    PrivacySuppressed
+Louisiana Culinary Institute                       PrivacySuppressed
+Bais Medrash Toras Chesed                          PrivacySuppressed
+Name: MD_EARN_WNE_P10, dtype: object</pre>
+<ol start="4">
+<li>The culprit appears to be that some schools have privacy concerns about these two columns of data. To force these columns to be numeric, use the pandas function <kbd>to_numeric</kbd>:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; cols = ['MD_EARN_WNE_P10', 'GRAD_DEBT_MDN_SUPP']<br/>&gt;&gt;&gt; for col in cols:<br/>        college[col] = pd.to_numeric(college[col], errors='coerce')<br/><br/>&gt;&gt;&gt; college.dtypes.loc[cols]<br/>MD_EARN_WNE_P10       float64
+GRAD_DEBT_MDN_SUPP    float64
+dtype: object</pre>
+<p class="mce-root"/>
+<p class="mce-root"/>
+<ol start="5">
+<li>Use the <kbd>select_dtypes</kbd> method to filter for only numeric columns. This will exclude <kbd>STABBR</kbd> and <kbd>CITY</kbd> <span>columns,</span> where a maximum value doesn't make sense with this problem:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; college_n = college.select_dtypes(include=[np.number])<br/>&gt;&gt;&gt; college_n.head()</pre>
+<div class="CDPAlignCenter CDPAlign"><img style="text-align: center;font-size: 1em;width:71.25em;height:16.58em;" class="image-border" src="assets/8b94a8f7-cb84-4108-b3d3-798f75cdce6d.png"/></div>
+<ol start="6">
+<li>By utilizing the data dictionary, there are several columns that have only binary (0/1) values that will not provide useful information. To programmatically find these columns, we can create boolean Series and find all the columns that have two unique values with the <kbd>nunique</kbd> method:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; criteria = college_n.nunique() == 2<br/>&gt;&gt;&gt; criteria.head()<br/>HBCU          True
+MENONLY       True
+WOMENONLY     True
+RELAFFIL      True
+SATVRMID     False
+dtype: bool</pre>
+<ol start="7">
+<li>Pass this boolean Series to the indexing operator of the columns index object and create a list of the binary columns:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; binary_cols = college_n.columns[criteria].tolist()<br/>&gt;&gt;&gt; binary_cols<br/>['HBCU', 'MENONLY', 'WOMENONLY', 'RELAFFIL', 'DISTANCEONLY', 'CURROPER']</pre>
+<ol start="8">
+<li>Remove the binary columns with the <kbd>drop</kbd> method:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; college_n2 = college_n.drop(labels=binary_cols, axis='columns')<br/>&gt;&gt;&gt; college_n2.head()</pre>
+<div class="CDPAlignCenter CDPAlign"><img class="image-border" src="assets/f0aef0a2-b9f1-404c-8fab-7b302aa8bada.png" style="width:61.08em;height:14.42em;"/></div>
+<ol start="9">
+<li>Use the <kbd>idxmax</kbd> method to find the index label of the maximum value for each column:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; max_cols = college_n2.idxmax()<br/>&gt;&gt;&gt; max_cols<br/>SATVRMID                      California Institute of Technology
+SATMTMID                      California Institute of Technology
+UGDS                               University of Phoenix-Arizona
+UGDS_WHITE                Mr Leon's School of Hair Design-Moscow
+                                         ...                    
+PCTFLOAN                                  ABC Beauty College Inc
+UG25ABV                           Dongguk University-Los Angeles
+MD_EARN_WNE_P10                     Medical College of Wisconsin
+GRAD_DEBT_MDN_SUPP    Southwest University of Visual Arts-Tucson
+Length: 18, dtype: object</pre>
+<ol start="10">
+<li>Call the <kbd>unique</kbd> method on the <kbd>max_cols</kbd> Series. This returns an <kbd>ndarray</kbd> of the unique column names:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; unique_max_cols = max_cols.unique()<br/>&gt;&gt;&gt; unique_max_cols[:5]<br/>array(['California Institute of Technology',
+       'University of Phoenix-Arizona',
+       "Mr Leon's School of Hair Design-Moscow",
+       'Velvatex College of Beauty Culture',
+       'Thunderbird School of Global Management'], dtype=object)</pre>
+<ol start="11">
+<li>Use the values of <kbd>max_cols</kbd> to select only the rows that have schools with a maximum value and then use the <kbd>style</kbd> attribute to highlight these values:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; college_n2.loc[unique_max_cols].style.highlight_max()</pre>
+<div class="CDPAlignCenter CDPAlign"><img src="assets/eac420e0-ba86-4a95-95aa-059b068cb5fd.png" style="width:37.92em;height:24.25em;"/></div>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">How it works...</h1>
+                </header>
+            
+            <article>
+                
+<p>The <kbd>idxmax</kbd> method is very powerful and becomes quite useful when the index is meaningfully labeled. It was unexpected that both <kbd>MD_EARN_WNE_P10</kbd> and <kbd>GRAD_DEBT_MDN_SUPP</kbd> were of <kbd>object</kbd> data type. When importing, pandas coerces all numeric values of columns to strings if the column contains at least one string.</p>
+<p>By examining a specific column value in step 2, we were able to see <span>clearly</span> that we had strings in these columns. In step 3, we sort in descending order as numeric characters appear first. This elevates all alphabetical values to the top of the Series. We uncover the <kbd>PrivacySuppressed</kbd> string causing havoc. Pandas has the ability to force all strings that contain only numeric characters to actual numeric data types with the <kbd>to_numeric</kbd> function. To override the default behavior of raising an error when <kbd>to_numeric</kbd> encounters a string that cannot be converted, you must pass <em>coerce</em> to the <kbd>errors</kbd> parameter. This forces all non-numeric character strings to become missing values (<kbd>np.nan</kbd>).</p>
+<p>Several columns don't have useful or meaningful maximum values. They were removed in step 4 through step 6. The <kbd>select_dtypes</kbd> can be extremely useful for very wide DataFrames with lots of columns.</p>
+<p>In step 7, <kbd>idxmax</kbd> iterates through all the columns to find the index of the maximum value for each column. It outputs the results as a Series. The school with both the highest SAT math and verbal scores is California Institute of Technology. Dongguk University Los Angeles has the highest number of students older than 25.</p>
+<p>Although the information provided by <kbd>idxmax</kbd> is nice, it does not yield the corresponding maximum value. To do this, we gather all the unique school names from the values of the <kbd>max_cols</kbd> Series.</p>
+<p>Finally, in step 8, we use the <kbd>.loc</kbd> indexer to select rows based on the index label, which we made as school names in the first step. This filters for only schools that have a maximum value. DataFrames have an experimental <kbd>style</kbd> attribute that itself has some methods to alter the appearance of the displayed DataFrame. Highlighting the maximum value makes the result much clearer.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">There's more...</h1>
+                </header>
+            
+            <article>
+                
+<p>By default, the <kbd>highlight_max</kbd> method highlights the maximum value of each column. We can use the <kbd>axis</kbd> parameter to highlight the maximum value of each row instead. Here, we select just the race percentage columns of the <kbd>college</kbd> dataset and highlight the race with the highest percentage for each school:</p>
+<pre>&gt;&gt;&gt; college = pd.read_csv('data/college.csv', index_col='INSTNM')<br/>&gt;&gt;&gt; college_ugds = college.filter(like='UGDS_').head()<br/>&gt;&gt;&gt; college_ugds.style.highlight_max(axis='columns')</pre>
+<div class="CDPAlignCenter CDPAlign"><img class="image-border" src="assets/55f8f912-bfef-4d73-9205-ee2c8d67e1cb.png" style="width:70.58em;height:16.42em;"/></div>
+<p>Attempting to apply a style on a large DataFrame can cause Jupyter to crash, which is why the style was only applied to the head of the DataFrame.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">See also</h1>
+                </header>
+            
+            <article>
+                
+<ul>
+<li>Pandas official documentation on Dataframe <em>Styling</em> (<a href="https://pandas.pydata.org/pandas-docs/stable/style.html" target="_blank">http://bit.ly/2hsZkVK</a>)</li>
+</ul>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Replicating idxmax with method chaining</h1>
+                </header>
+            
+            <article>
+                
+<p>It can be a good exercise to attempt an implementation of a built-in DataFrame method on your own. This type of replication can give you a deeper understanding of other pandas methods that you normally wouldn't have come across. <kbd>idxmax</kbd> is a challenging method to replicate using only the methods covered thus far in the book.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Getting ready</h1>
+                </header>
+            
+            <article>
+                
+<p>This recipe slowly chains together basic methods to eventually find all the row index values that contain a maximum column value.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">How to do it...</h1>
+                </header>
+            
+            <article>
+                
+<ol>
+<li>Load in the college dataset and execute the same operations as the previous recipe to get only the numeric columns that are of interest:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; college = pd.read_csv('data/college.csv', index_col='INSTNM')<br/>&gt;&gt;&gt; cols = ['MD_EARN_WNE_P10', 'GRAD_DEBT_MDN_SUPP']<br/><br/>&gt;&gt;&gt; for col in cols:<br/>        college[col] = pd.to_numeric(college[col], errors='coerce')<br/><br/>&gt;&gt;&gt; college_n = college.select_dtypes(include=[np.number])<br/>&gt;&gt;&gt; criteria = college_n.nunique() == 2<br/>&gt;&gt;&gt; binary_cols = college_n.columns[criteria].tolist()<br/>&gt;&gt;&gt; college_n = college_n.drop(labels=binary_cols, axis='columns')</pre>
+<ol start="2">
+<li>Find the maximum of each column with the <kbd>max</kbd> method:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; college_n.max().head()<br/>SATVRMID         765.0
+SATMTMID         785.0
+UGDS          151558.0
+UGDS_WHITE         1.0
+UGDS_BLACK         1.0
+dtype: float64</pre>
+<ol start="3">
+<li>Use the <kbd>eq</kbd> DataFrame method to test each value with its column <kbd>max</kbd>. By default, the <kbd>eq</kbd> method aligns the columns of the column DataFrame with the labels of the passed Series index:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; college_n.eq(college_n.max()).head()</pre>
+<div class="CDPAlignCenter CDPAlign"><img class="image-border" src="assets/e0256497-0a05-4391-b89c-474c19ba9c8a.png" style="width:51.75em;height:19.08em;"/></div>
+<ol start="4">
+<li>All the rows in this DataFrame that have at least one <kbd>True</kbd> value must contain a column maximum. Let's use the <kbd>any</kbd> method to find all such rows that have at least one <kbd>True</kbd> value:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; has_row_max = college_n.eq(college_n.max()).any(axis='columns')<br/>&gt;&gt;&gt; has_row_max.head()<br/>INSTNM
+Alabama A &amp; M University               False
+University of Alabama at Birmingham    False
+Amridge University                     False
+University of Alabama in Huntsville    False
+Alabama State University               False
+dtype: bool</pre>
+<ol start="5">
+<li>There are only 18 columns, which means that there should only be at most 18 <kbd>True</kbd> values in <kbd>has_row_max</kbd>. Let's find out how many there actually are:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; college_n.shape<br/>(7535, 18)<br/><br/>&gt;&gt;&gt; has_row_max.sum()<br/>401</pre>
+<ol start="6">
+<li>This was a bit unexpected, but it turns out that there are columns with many rows that equal the maximum value. This is common with many of the percentage columns that have a maximum of 1. <kbd>idxmax</kbd> returns the first occurrence of the maximum value. Let's back up a bit, remove the <kbd>any</kbd> method, and look at the output from step 3. Let's run the <kbd>cumsum</kbd> method instead to accumulate all the <kbd>True</kbd> values. The first and last three rows are shown:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; college_n.eq(college_n.max()).cumsum()</pre>
+<div class="CDPAlignCenter CDPAlign"><img class="image-border" src="assets/3591f3ec-bbbd-49d3-834c-c838e44f4009.png" style="width:68.92em;height:43.92em;"/></div>
+<ol start="7">
+<li>Some columns have one unique maximum like <kbd>SATVRMID</kbd> and <kbd>SATMTMID</kbd>, while others like <kbd>UGDS_WHITE</kbd> have many. 109 schools have 100% of their undergraduates as white. If we chain the <kbd>cumsum</kbd> method one more time, the value 1 would only appear once in each column and it would be the first occurrence of the maximum:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; college_n.eq(college_n.max()).cumsum().cumsum()</pre>
+<div class="CDPAlignCenter CDPAlign"><img class="image-border" src="assets/0528cfc1-4884-47df-a1d5-fa527e3ea823.png" style="width:67.33em;height:35.08em;"/></div>
+<ol start="8">
+<li>We can now test the equality of each value against 1 with the <kbd>eq</kbd> method and then use the <kbd>any</kbd> method to find rows that have at least one <kbd>True</kbd> value:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; has_row_max2 = college_n.eq(college_n.max()) \<br/>                             .cumsum() \<br/>                             .cumsum() \<br/>                             .eq(1) \<br/>                             .any(axis='columns')<br/>&gt;&gt;&gt; has_row_max2.head()<br/>INSTNM
+Alabama A &amp; M University               False
+University of Alabama at Birmingham    False
+Amridge University                     False
+University of Alabama in Huntsville    False
+Alabama State University               False
+dtype: bool</pre>
+<ol start="9">
+<li>Test that <kbd>has_row_max2</kbd> has no more <kbd>True</kbd> values than the number of columns:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; has_row_max2.sum()<br/>16</pre>
+<ol start="10">
+<li>We need all the institutions where <kbd>has_row_max2</kbd> is <kbd>True</kbd>. We can simply use boolean indexing on the Series itself:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; idxmax_cols = has_row_max2[has_row_max2].index<br/>&gt;&gt;&gt; idxmax_cols<br/>Index(['Thunderbird School of Global Management',
+       'Southwest University of Visual Arts-Tucson',<br/>       'ABC Beauty College Inc',
+       'Velvatex College of Beauty Culture',
+       'California Institute of Technology',
+       'Le Cordon Bleu College of Culinary Arts-San Francisco',
+       'MTI Business College Inc', 'Dongguk University-Los Angeles',
+       'Mr Leon's School of Hair Design-Moscow',
+       'Haskell Indian Nations University', 'LIU Brentwood',
+       'Medical College of Wisconsin', 'Palau Community College',
+       'California University of Management and Sciences',
+       'Cosmopolitan Beauty and Tech School',<br/>       'University of Phoenix-Arizona'], dtype='object', name='INSTNM')</pre>
+<ol start="11">
+<li>All 16 of these institutions are the index of the first maximum occurrence for at least one of the columns. We can check whether they are the same as the ones found with the <kbd>idxmax</kbd> <span>method:</span></li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; set(college_n.idxmax().unique()) == set(idxmax_cols)<br/>True</pre>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">How it works...</h1>
+                </header>
+            
+            <article>
+                
+<p>The first step replicates work from the previous recipe by converting two columns to numeric and eliminating the binary columns. We find the maximum value of each column in step 2. Care needs to be taken here as pandas silently drops columns that it cannot produce a maximum. If this happens, then step 3 will still complete but produce all <kbd>False</kbd> values for each column without an available maximum.</p>
+<p>Step 4 uses the <kbd>any</kbd> method to scan across each row in search of at least one <kbd>True</kbd> value. Any row with at least one <kbd>True</kbd> value contains a maximum value for a column. We sum up the resulting boolean Series in step 5 to determine how many rows contain a maximum. Somewhat unexpectedly, there are far more rows than columns. Step 6 gives insight on why this happens. We take a cumulative sum of the output from step 3 and detect the total number of rows that equal the maximum for each column.</p>
+<p>Many colleges have 100% of their student population as only a single race. This is by far the largest contributor to the multiple rows with maximums. As you can see, there is only one row with a maximum value for both SAT score columns and undergraduate population, but several of the race columns have a tie for the maximum.</p>
+<p>Our goal is to find the first row with the maximum value. We need to take the cumulative sum once more so that each column has only a single row equal to 1. Step 8 formats the code to have one method per line and runs the <kbd>any</kbd> method exactly as it was done in step 4. If this step is successful, then we should have no more <kbd>True</kbd> values than the number of columns. Step 9 asserts that this is true.</p>
+<p>To validate that we have found the same columns as <kbd>idxmax</kbd> in the previous columns, we use boolean selection on <kbd>has_row_max2</kbd> with itself. The columns will be in a different order so we convert the sequence of column names to sets, which are inherently unordered to compare equality.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">There's more...</h1>
+                </header>
+            
+            <article>
+                
+<p>It is possible to complete this recipe in one long line of code chaining the indexing operator with an anonymous function. This little trick removes the need for step 10. We can time the difference between the direct <kbd>idxmax</kbd> method and our manual effort in this recipe:</p>
+<pre>&gt;&gt;&gt; %timeit college_n.idxmax().values<br/>1.12 ms ± 28.4 µs per loop (mean ± std. dev. of 7 runs, 1000 loops each)<br/><br/>&gt;&gt;&gt; %timeit college_n.eq(college_n.max()) \<br/>                                  .cumsum() \<br/>                                  .cumsum() \<br/>                                  .eq(1) \<br/>                                  .any(axis='columns') \<br/>                                  [lambda x: x].index<br/>5.35 ms ± 55.2 µs per loop (mean ± std. dev. of 7 runs, 100 loops each)</pre>
+<p>Our effort is, unfortunately, five times as slow as the built-in <kbd>idxmax</kbd> pandas method but regardless of its performance regression, many creative and practical solutions use the accumulation methods like <kbd>cumsum</kbd> with boolean Series to find streaks or specific patterns along an axis.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Finding the most common maximum</h1>
+                </header>
+            
+            <article>
+                
+<p>The college dataset contains the undergraduate population percentage of eight different races for over 7,500 colleges. It would be interesting to find the race with the highest undergrad population for each school and then find the distribution of this result for the entire dataset. We would be able to answer a question like, <em>What percentage of institutions have more white students than any other race?</em></p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Getting ready</h1>
+                </header>
+            
+            <article>
+                
+<p>In this recipe, we find the race with the highest percentage of the undergraduate population for each school with the <kbd>idxmax</kbd> method and then find the distribution of these maximums.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">How to do it...</h1>
+                </header>
+            
+            <article>
+                
+<ol>
+<li>Read in the college dataset and select just those columns with undergraduate race percentage information:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; college = pd.read_csv('data/college.csv', index_col='INSTNM')<br/>&gt;&gt;&gt; college_ugds = college.filter(like='UGDS_')<br/>&gt;&gt;&gt; college_ugds.head()</pre>
+<div class="CDPAlignCenter CDPAlign"><img class="image-border" src="assets/69b400f6-4d02-4018-9443-ba548c759335.png" style="width:74.50em;height:17.50em;"/></div>
+<ol start="2">
+<li>Use the <kbd>idxmax</kbd> method to get the column name with the highest race percentage for each row:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; highest_percentage_race = college_ugds.idxmax(axis='columns')<br/>&gt;&gt;&gt; highest_percentage_race.head()<br/>INSTNM
+Alabama A &amp; M University               UGDS_BLACK
+University of Alabama at Birmingham    UGDS_WHITE
+Amridge University                     UGDS_BLACK
+University of Alabama in Huntsville    UGDS_WHITE
+Alabama State University               UGDS_BLACK
+dtype: object</pre>
+<ol start="3">
+<li>Use the <kbd>value_counts</kbd> method to return the distribution of maximum occurrences:</li>
+</ol>
+<pre style="padding-left: 60px">&gt;&gt;&gt; highest_percentage_race.value_counts(normalize=True)<br/>UGDS_WHITE    0.670352
+UGDS_BLACK    0.151586
+UGDS_HISP     0.129473
+UGDS_UNKN     0.023422
+UGDS_ASIAN    0.012074
+UGDS_AIAN     0.006110
+UGDS_NRA      0.004073
+UGDS_NHPI     0.001746
+UGDS_2MOR     0.001164
+dtype: float64</pre>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">How it works...</h1>
+                </header>
+            
+            <article>
+                
+<p>The key to this recipe is recognizing that the columns all represent the same unit of information. We can compare these columns with each other, which is usually <span>not</span> the case. For instance, it wouldn't make sense to directly compare SAT verbal scores with the undergraduate population. As the data is structured in this manner, we can apply the <kbd>idxmax</kbd> method to each row of data to find the column with the largest value. We need to alter its default behavior with the <kbd>axis</kbd> parameter.</p>
+<p>Step 2 completes this operation and returns a Series, to which we can now simply apply the <kbd>value_counts</kbd> method to return the distribution. We pass <kbd>True</kbd> to the <kbd>normalize</kbd> parameter as we are interested in the distribution (relative frequency) and not the raw counts.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">There's more...</h1>
+                </header>
+            
+            <article>
+                
+<p>We might want to explore more and answer the question: For the schools with more black students than any other race, what is the distribution of its second highest race percentage?</p>
+<pre>&gt;&gt;&gt; college_black = college_ugds[highest_percentage_race == 'UGDS_BLACK']<br/>&gt;&gt;&gt; college_black = college_black.drop('UGDS_BLACK', axis='columns')<br/>&gt;&gt;&gt; college_black.idxmax(axis='columns').value_counts(normalize=True)<br/>UGDS_WHITE    0.661228
+UGDS_HISP     0.230326
+UGDS_UNKN     0.071977
+UGDS_NRA      0.018234
+UGDS_ASIAN    0.009597
+UGDS_2MOR     0.006718
+UGDS_AIAN     0.000960
+UGDS_NHPI     0.000960
+dtype: float64</pre>
+<p>We needed to drop the <kbd>UGDS_BLACK</kbd> column before applying the same method from this recipe. Interestingly, it seems that these schools with higher black populations have a tendency to have higher Hispanic populations.</p>
+
+
+            </article>
+
+            
+        </section>
+    </body></html>

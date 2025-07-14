@@ -1,0 +1,1310 @@
+<html><head></head><body>
+  <div id="_idContainer094" class="Basic-Text-Frame">
+    <h1 class="chapterNumber">7</h1>
+    <h1 id="_idParaDest-201" class="chapterTitle">Reshaping DataFrames</h1>
+    <p class="normal">Working with data is hard. Rarely, if ever, can you just collect data and have it immediately yield insights. Often, significant time and effort must be put into cleansing, transforming, and <em class="italic">reshaping</em> your data to get it into a format that is usable, digestible, and/or understandable.</p>
+    <p class="normal">Is your source data a collection of CSV files, where each file represents a different day? Proper use of <code class="inlineCode">pd.concat</code> will help you take those files and combine them into one with ease.</p>
+    <p class="normal">Does the relational database you use as a source store data in a normalized form, while the target columnar database would prefer to ingest data all in one table? <code class="inlineCode">pd.merge</code> can help you combine your data together.</p>
+    <p class="normal">What if your boss asks you to take millions of rows of data and, from that, produce a nice summary report that anyone in the business can understand? <code class="inlineCode">pd.pivot_table</code> is the right tool for the job here, allowing you to quickly and easily summarize your data.</p>
+    <p class="normal">Ultimately, the reasons why you need to reshape your data come from different places. Whether your requirements are driven by systems or people, pandas can help you manipulate data as needed.</p>
+    <p class="normal">Throughout this chapter, we will walk you through the functions and methods that pandas offers to reshape your data. Equipped with the proper knowledge and some creativity, reshaping with pandas can be one of the most fun and rewarding parts of your analytical process.</p>
+    <p class="normal">We are going to cover the following recipes in this chapter:</p>
+    <ul>
+      <li class="bulletList">Concatenating <code class="inlineCode">pd.DataFrame</code> objects</li>
+      <li class="bulletList">Merging DataFrames with <code class="inlineCode">pd.merge</code></li>
+      <li class="bulletList">Joining DataFrames with <code class="inlineCode">pd.DataFrame.join</code></li>
+      <li class="bulletList">Reshaping with <code class="inlineCode">pd.DataFrame.stack</code> and <code class="inlineCode">pd.DataFrame.unstack</code></li>
+      <li class="bulletList">Reshaping with <code class="inlineCode">pd.DataFrame.melt</code></li>
+      <li class="bulletList">Reshaping with <code class="inlineCode">pd.wide_to_long</code></li>
+      <li class="bulletList">Reshaping with <code class="inlineCode">pd.DataFrame.pivot</code> and <code class="inlineCode">pd.pivot_table</code></li>
+      <li class="bulletList">Reshaping with <code class="inlineCode">pd.DataFrame.explode</code></li>
+      <li class="bulletList">Transposing with <code class="inlineCode">pd.DataFrame.T</code></li>
+    </ul>
+    <h1 id="_idParaDest-202" class="heading-1">Concatenating pd.DataFrame objects</h1>
+    <p class="normal">The term <em class="italic">concatenation</em> in pandas refers to the process of taking two or more <code class="inlineCode">pd.DataFrame</code> objects <a id="_idIndexMarker354"/>and stacking them in some manner. Most commonly, users in pandas perform what we would consider to be <em class="italic">vertical</em> concatenation, which places the <code class="inlineCode">pd.DataFrame</code> objects on top of one another:</p>
+    <figure class="mediaobject"><img src="../Images/B31091_07_01.png" alt=""/></figure>
+    <p class="packt_figref">Figure 7.1: Vertical concatenation of two pd.DataFrame objects</p>
+    <p class="normal">However, pandas also has the flexibility to take your <code class="inlineCode">pd.DataFrame</code> objects and stack them side by side, through a process called <em class="italic">horizontal</em> concatenation:</p>
+    <figure class="mediaobject"><img src="../Images/B31091_07_02.png" alt="A diagram of a table  Description automatically generated"/></figure>
+    <p class="packt_figref">Figure 7.2: Vertical concatenation of two pd.DataFrame objects</p>
+    <p class="normal">These figures may provide you with a good grasp of what concatenation is all about, but there are <a id="_idIndexMarker355"/>some potential issues to consider. What should happen if we try to concatenate vertically, but our column labels are not the same across all of the objects? On the flip side, what should happen if we try to concatenate horizontally, and not all of the row labels are the same?</p>
+    <p class="normal">Regardless of the direction along which you would like to concatenate, and regardless of how your labels may or may not align, concatenation in pandas is controlled entirely through the <code class="inlineCode">pd.concat</code> function. This recipe will walk you through the basics of <code class="inlineCode">pd.concat</code>, while showing you how you can control its behavior when you aren’t always working with like-labeled <code class="inlineCode">pd.DataFrame</code> objects.</p>
+    <h2 id="_idParaDest-203" class="heading-2">How to do it</h2>
+    <p class="normal">Let’s imagine we have collected data about the stock performance of various companies across two different quarters. To best showcase how concatenation works, we have intentionally made it so that the two <code class="inlineCode">pd.DataFrame</code> objects cover different time periods, show different companies, and even contain different columns:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">df_q1 = pd.DataFrame([
+    ["AAPL", <span class="hljs-number">100.</span>, <span class="hljs-number">50.</span>, <span class="hljs-number">75.</span>],
+    ["MSFT", <span class="hljs-number">80.</span>, <span class="hljs-number">42.</span>, <span class="hljs-number">62.</span>],
+    ["AMZN", <span class="hljs-number">60.</span>, <span class="hljs-number">100.</span>, <span class="hljs-number">120.</span>],
+], columns=["ticker", "shares", "low", "high"])
+df_q1 = df_q1.convert_dtypes(dtype_backend="numpy_nullable")
+df_q1
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">    ticker   shares   low   high
+0   AAPL     100      50    75
+1   MSFT     80       42    62
+2   AMZN     60       100   120
+</code></code></pre>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">df_q2 = pd.DataFrame([
+    ["AAPL", <span class="hljs-number">80.</span>, <span class="hljs-number">70.</span>, <span class="hljs-number">80.</span>, <span class="hljs-number">77.</span>],
+    ["MSFT", <span class="hljs-number">90.</span>, <span class="hljs-number">50.</span>, <span class="hljs-number">60.</span>, <span class="hljs-number">55.</span>],
+    ["IBM", <span class="hljs-number">100.</span>, <span class="hljs-number">60.</span>, <span class="hljs-number">70.</span>, <span class="hljs-number">64.</span>],
+    ["GE", <span class="hljs-number">42.</span>, <span class="hljs-number">30.</span>, <span class="hljs-number">50.</span>, <span class="hljs-number">44.</span>],
+], columns=["ticker", "shares", "low", "high", "close"])
+df_q2 = df_q2.convert_dtypes(dtype_backend="numpy_nullable")
+df_q2
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">    ticker   shares   low   high   close
+0   AAPL     80       70    80     77
+1   MSFT     90       50    60     55
+2   IBM      100      60    70     64
+3   GE       42       30    50     44
+</code></code></pre>
+    <p class="normal">The most <a id="_idIndexMarker356"/>basic call to <code class="inlineCode">pd.concat</code> would accept both of these <code class="inlineCode">pd.DataFrame</code> objects in a list. By default, this will stack the objects vertically, i.e., the first <code class="inlineCode">pd.DataFrame</code> is simply stacked on top of the second.</p>
+    <p class="normal">While most of the columns in our <code class="inlineCode">pd.DataFrame</code> objects overlap, <code class="inlineCode">df_q1</code> does not have a <code class="inlineCode">close</code> column, whereas <code class="inlineCode">df_q2</code> does. To still make the concatenation work, pandas will include the <em class="italic">close</em> column in the result of <code class="inlineCode">pd.concat</code>, assigning a missing value to the rows that came from <code class="inlineCode">df_q1</code>:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">pd.concat([df_q1, df_q2])
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">    ticker   shares   low   high   close
+0   AAPL     100      50    75     &lt;NA&gt;
+1   MSFT     80       42    62     &lt;NA&gt;
+2   AMZN     60       100   120    &lt;NA&gt;
+0   AAPL     80       70    80     77
+1   MSFT     90       50    60     55
+2   IBM      100      60    70     64
+3   GE       42       30    50     44
+</code></code></pre>
+    <p class="normal">You should also take note of the row index that pandas gives in the result. In essence, pandas takes the index values of <code class="inlineCode">df_q1</code>, which range from 0–2, and then takes the index values of <code class="inlineCode">df_q2</code>, which range from 0–3. When creating the new row index, pandas simply retains <a id="_idIndexMarker357"/>those values, stacking them vertically in the result. If you do not care for that behavior, you can pass in <code class="inlineCode">ignore_index=True</code> to <code class="inlineCode">pd.concat</code>:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">pd.concat([df_q1, df_q2], ignore_index=<span class="hljs-literal">True</span>)
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">    ticker   shares   low   high   close
+0   AAPL     100      50    75     &lt;NA&gt;
+1   MSFT     80       42    62     &lt;NA&gt;
+2   AMZN     60       100   120    &lt;NA&gt;
+3   AAPL     80       70    80     77
+4   MSFT     90       50    60     55
+5   IBM      100      60    70     64
+6   GE       42       30    50     44
+</code></code></pre>
+    <p class="normal">Another potential issue is that we can no longer see which <code class="inlineCode">pd.DataFrame</code> our records originally come from. To retain that information, we can pass through a <code class="inlineCode">keys=</code> argument, providing custom labels to denote the source of our data:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">pd.concat([df_q1, df_q2], keys=["q1", "q2"])
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">         ticker   shares   low   high   close
+q1   0   AAPL     100      50    75     &lt;NA&gt;
+     1   MSFT     80       42    62     &lt;NA&gt;
+     2   AMZN     60       100   120    &lt;NA&gt;
+q2   0   AAPL     80       70    80     77
+     1   MSFT     90       50    60     55
+     2   IBM      100      60    70     64
+     3   GE       42       30    50     44
+</code></code></pre>
+    <p class="normal"><code class="inlineCode">pd.concat</code> also allows you to control the direction in which things are being concatenated. Instead of the default behavior to stack vertically, we can pass <code class="inlineCode">axis=1</code> to see things stacked horizontally:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">pd.concat([df_q1, df_q2], keys=["q1", "q2"], axis=<span class="hljs-number">1</span>)
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">    q1                      …   q2
+    ticker   shares   low   …   low   high   close
+0   AAPL     100      50    …   70    80     77
+1   MSFT     80       42    …   50    60     55
+2   AMZN     60       100   …   60    70     64
+3   &lt;NA&gt;     &lt;NA&gt;     &lt;NA&gt;  …   30    50     44
+4 rows × 9 columns
+</code></code></pre>
+    <p class="normal">While this gave us back a result without error, a closer inspection of the result reveals some issues. The first two rows of data cover both <code class="inlineCode">AAPL</code> and <code class="inlineCode">MSFT</code>, respectively, so there is no cause for concern there. However, the third row of data shows <code class="inlineCode">AMZN</code> as the Q1 ticker and <code class="inlineCode">IBM</code> as the Q2 ticker – what gives?</p>
+    <p class="normal">The problem <a id="_idIndexMarker358"/>is that pandas is aligning on the values of the index, and not on any other column like <code class="inlineCode">ticker</code>, which is what we are probably interested in. If we wanted <code class="inlineCode">pd.concat</code> to align by the <code class="inlineCode">ticker</code>, we could set that as the row index of the two <code class="inlineCode">pd.DataFrame</code> objects before concatenation:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">pd.concat([
+    df_q1.set_index("ticker"),
+    df_q2.set_index("ticker"),
+], keys=["q1", "q2"], axis=<span class="hljs-number">1</span>)
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">        q1                   …   q2
+        shares  low   high   …   low   high   close
+ticker
+AAPL    100     50    75     …   70    80     77
+MSFT    80      42    62     …   50    60     55
+AMZN    60      100   120    …   &lt;NA&gt;  &lt;NA&gt;   &lt;NA&gt;
+IBM     &lt;NA&gt;    &lt;NA&gt;  &lt;NA&gt;   …   60    70     64
+GE      &lt;NA&gt;    &lt;NA&gt;  &lt;NA&gt;   …   30    50     44
+5 rows × 7 columns
+</code></code></pre>
+    <p class="normal">One last thing we might want to control about the alignment behavior is how it treats labels that appear in at least one, but not all, of the objects being concatenated. By default, <code class="inlineCode">pd.concat</code> performs an “outer” join, which will take all of the index values (in our case, the <code class="inlineCode">ticker</code> symbols) and show them in the output, using a missing value indicator where applicable. Passing <code class="inlineCode">join="inner"</code> as an argument, by contrast, will only show index labels that appear in all of the objects being concatenated:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">pd.concat([
+    df_q1.set_index("ticker"),
+    df_q2.set_index("ticker"),
+], keys=["q1", "q2"], axis=<span class="hljs-number">1</span>, join="inner")
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">        q1                    …   q2
+        shares   low   high   …   low   high   close
+ticker
+AAPL    100      50    75     …   70    80     77
+MSFT    80       42    62     …   50    60     55
+2 rows × 7 columns
+</code></code></pre>
+    <h2 id="_idParaDest-204" class="heading-2">There’s more…</h2>
+    <p class="normal"><code class="inlineCode">pd.concat</code> is an expensive operation, and should never be called from within a Python loop. If you create a bunch of <code class="inlineCode">pd.DataFrame</code> objects within a loop and eventually do want to <a id="_idIndexMarker359"/>concatenate them together, you are better off storing them in a sequence first, only calling <code class="inlineCode">pd.concat</code> once after the sequence has been fully populated.</p>
+    <p class="normal">We can use the IPython <code class="inlineCode">%%time</code> magic function to profile the difference in approaches. Let’s start with the anti-pattern of using <code class="inlineCode">pd.concat</code> within a loop:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">%%time
+concatenated_dfs = df_q1
+<span class="hljs-keyword">for</span> i <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(<span class="hljs-number">1000</span>):
+    concatenated_dfs = pd.concat([concatenated_dfs, df_q1])
+<span class="hljs-built_in">print</span>(f"Final pd.DataFrame shape <span class="hljs-keyword">is</span> {concatenated_dfs.shape}")
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">Final pd.DataFrame shape is (3003, 4)
+CPU times: user 267 ms, sys: 0 ns, total: 267 ms
+Wall time: 287 ms
+</code></code></pre>
+    <p class="normal">This code will yield the equivalent result but follows the practice of appending to a Python list during the loop, and only calling <code class="inlineCode">pd.concat</code> once at the very end:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">%%time
+df = df_q1
+accumulated = [df_q1]
+<span class="hljs-keyword">for</span> i <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(<span class="hljs-number">1000</span>):
+    accumulated.append(df_q1)
+concatenated_dfs = pd.concat(accumulated)
+<span class="hljs-built_in">print</span>(f"Final pd.DataFrame shape <span class="hljs-keyword">is</span> {concatenated_dfs.shape}")
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">Final pd.DataFrame shape is (3003, 4)
+CPU times: user 28.4 ms, sys: 0 ns, total: 28.4 ms
+Wall time: 31 ms
+</code></code></pre>
+    <h1 id="_idParaDest-205" class="heading-1">Merging DataFrames with pd.merge</h1>
+    <p class="normal">Another common task in reshaping data is referred to as <em class="italic">merging</em>, or in some cases, <em class="italic">joining</em>, with the <a id="_idIndexMarker360"/>latter term being used frequently <a id="_idIndexMarker361"/>in database terminology. Where concatenation “stacks” objects on top of or next to one another, a <em class="italic">merge</em> works by finding a common key (or set of keys) between two entities and using that to blend other columns from the entities together:</p>
+    <figure class="mediaobject"><img src="../Images/B31091_07_03.png" alt="A diagram of a number  Description automatically generated"/></figure>
+    <p class="packt_figref">Figure 7.3: Merging two pd.DataFrame objects</p>
+    <p class="normal">The most commonly used method in pandas to perform merges is <code class="inlineCode">pd.merge</code>, whose functionality will be covered throughout this recipe. Another viable, though less commonly used, <code class="inlineCode">pd.DataFrame.join</code> method can be used as well, although knowing <code class="inlineCode">pd.merge</code> first is helpful before discussing that (we will cover <code class="inlineCode">pd.DataFrame.join</code> in the next recipe).</p>
+    <h2 id="_idParaDest-206" class="heading-2">How to do it</h2>
+    <p class="normal">Let’s continue along with the stock <code class="inlineCode">pd.DataFrame</code> objects we created in the <em class="italic">Concatenating pd.DataFrame objects</em> recipe:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">df_q1 = pd.DataFrame([
+    ["AAPL", <span class="hljs-number">100.</span>, <span class="hljs-number">50.</span>, <span class="hljs-number">75.</span>],
+    ["MSFT", <span class="hljs-number">80.</span>, <span class="hljs-number">42.</span>, <span class="hljs-number">62.</span>],
+    ["AMZN", <span class="hljs-number">60.</span>, <span class="hljs-number">100.</span>, <span class="hljs-number">120.</span>],
+], columns=["ticker", "shares", "low", "high"])
+df_q1 = df_q1.convert_dtypes(dtype_backend="numpy_nullable")
+df_q1
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">    ticker   shares   low   high
+0   AAPL     100      50    75
+1   MSFT     80       42    62
+2   AMZN     60       100   120
+</code></code></pre>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">df_q2 = pd.DataFrame([
+    ["AAPL", <span class="hljs-number">80.</span>, <span class="hljs-number">70.</span>, <span class="hljs-number">80.</span>, <span class="hljs-number">77.</span>],
+    ["MSFT", <span class="hljs-number">90.</span>, <span class="hljs-number">50.</span>, <span class="hljs-number">60.</span>, <span class="hljs-number">55.</span>],
+    ["IBM", <span class="hljs-number">100.</span>, <span class="hljs-number">60.</span>, <span class="hljs-number">70.</span>, <span class="hljs-number">64.</span>],
+    ["GE", <span class="hljs-number">42.</span>, <span class="hljs-number">30.</span>, <span class="hljs-number">50.</span>, <span class="hljs-number">44.</span>],
+], columns=["ticker", "shares", "low", "high", "close"])
+df_q2 = df_q2.convert_dtypes(dtype_backend="numpy_nullable")
+df_q2
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">    ticker   shares   low   high   close
+0   AAPL     80       70    80     77
+1   MSFT     90       50    60     55
+2   IBM      100      60    70     64
+3   GE       42       30    50     44
+</code></code></pre>
+    <p class="normal">In one <a id="_idIndexMarker362"/>of the examples in that recipe, we saw how <a id="_idIndexMarker363"/>you could use a combination of <code class="inlineCode">pd.concat</code> and <code class="inlineCode">pd.DataFrame.set_index</code> to merge our two <code class="inlineCode">pd.DataFrame</code> objects by the <code class="inlineCode">ticker</code> column:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">pd.concat([
+    df_q1.set_index("ticker"),
+    df_q2.set_index("ticker"),
+], keys=["q1", "q2"], axis=<span class="hljs-number">1</span>)
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">         q1                    …   q2
+         shares   low   high   …   low   high   close
+ticker
+AAPL     100      50    75     …   70    80     77
+MSFT     80       42    62     …   50    60     55
+AMZN     60       100   120    …   &lt;NA&gt;  &lt;NA&gt;   &lt;NA&gt;
+IBM      &lt;NA&gt;     &lt;NA&gt;  &lt;NA&gt;   …   60    70     64
+GE       &lt;NA&gt;     &lt;NA&gt;  &lt;NA&gt;   …   30    50     44
+5 rows × 7 columns
+</code></code></pre>
+    <p class="normal">With <code class="inlineCode">pd.merge</code>, you can express this much more succinctly by passing an argument to <code class="inlineCode">on=</code>, which clarifies the column(s) you would like pandas to use for alignment:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">pd.merge(df_q1, df_q2, on=["ticker"])
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">    ticker   shares_x   low_x   …   low_y   high_y   close
+0   AAPL     100        50      …   70      80       77
+1   MSFT     80         42      …   50      60       55
+2 rows × 8 columns
+</code></code></pre>
+    <p class="normal">As you <a id="_idIndexMarker364"/>can see, the result is not exactly the same, but we <a id="_idIndexMarker365"/>can get a little closer by toggling the merge behavior. By default, <code class="inlineCode">pd.merge</code> performs an <em class="italic">inner</em> merge; if we wanted a result more similar to our <code class="inlineCode">pd.concat</code> example, we could pass <code class="inlineCode">how="outer"</code>:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">pd.merge(df_q1, df_q2, on=["ticker"], how="outer")
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">    ticker   shares_x   low_x   …   low_y   high_y   close
+0   AAPL     100        50      …   70      80       77
+1   AMZN     60         100     …   &lt;NA&gt;    &lt;NA&gt;     &lt;NA&gt;
+2   GE       &lt;NA&gt;       &lt;NA&gt;    …   30      50       44
+3   IBM      &lt;NA&gt;       &lt;NA&gt;    …   60      70       64
+4   MSFT     80         42      …   50      60       55
+5 rows × 8 columns
+</code></code></pre>
+    <p class="normal">While <code class="inlineCode">pd.concat</code> only allows you to perform <em class="italic">inner</em> or <em class="italic">outer</em> merges, <code class="inlineCode">pd.merge</code> additionally supports <em class="italic">left</em> merges, which retain all data from the first <code class="inlineCode">pd.DataFrame</code>, merging in data from the second <code class="inlineCode">pd.DataFrame</code> as key fields can be matched:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">pd.merge(df_q1, df_q2, on=["ticker"], how="left")
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">    ticker   shares_x   low_x   …   low_y   high_y   close
+0   AAPL     100        50      …   70      80       77
+1   MSFT     80         42      …   50      60       55
+2   AMZN     60         100     …   &lt;NA&gt;    &lt;NA&gt;     &lt;NA&gt;
+3 rows × 8 columns
+</code></code></pre>
+    <p class="normal"><code class="inlineCode">how="right"</code> reverses that, ensuring that every row from the second <code class="inlineCode">pd.DataFrame</code> is represented in the output:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">pd.merge(df_q1, df_q2, on=["ticker"], how="right")
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">    ticker   shares_x   low_x   …   low_y   high_y   close
+0   AAPL     100        50      …   70      80       77
+1   MSFT     80         42      …   50      60       55
+2   IBM      &lt;NA&gt;       &lt;NA&gt;    …   60      70       64
+3   GE       &lt;NA&gt;       &lt;NA&gt;    …   30      50       44
+4 rows × 8 columns
+</code></code></pre>
+    <p class="normal">An additional <a id="_idIndexMarker366"/>feature when using <code class="inlineCode">how="outer"</code> is the <a id="_idIndexMarker367"/>ability to provide an <code class="inlineCode">indicator=</code> argument, which will tell you where each row in the resulting <code class="inlineCode">pd.DataFrame</code> was sourced from:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">pd.merge(df_q1, df_q2, on=["ticker"], how="outer", indicator=<span class="hljs-literal">True</span>)
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">    ticker   shares_x   low_x   …   high_y   close   _merge
+0   AAPL     100        50      …   80       77      both
+1   AMZN     60         100     …   &lt;NA&gt;     &lt;NA&gt;    left_only
+2   GE       &lt;NA&gt;       &lt;NA&gt;    …   50       44      right_only
+3   IBM      &lt;NA&gt;       &lt;NA&gt;    …   70       64      right_only
+4   MSFT     80         42      …   60       55      both
+5 rows × 9 columns
+</code></code></pre>
+    <p class="normal">A value of “both” means that the key(s) used to perform the merge were found in both <code class="inlineCode">pd.DataFrame</code> objects, which you can see is applicable to the <code class="inlineCode">AAPL</code> and <code class="inlineCode">MSFT</code> tickers. A value of <code class="inlineCode">left_only</code> means the key(s) only appeared in the left <code class="inlineCode">pd.DataFrame</code>, as is the case for <code class="inlineCode">AMZN</code>. <code class="inlineCode">right_only</code> highlights key(s) that only appeared in the right <code class="inlineCode">pd.DataFrame</code>, like <code class="inlineCode">GE</code> and <code class="inlineCode">IBM</code>.</p>
+    <p class="normal">Another difference between our <code class="inlineCode">pd.concat</code> output and what we get with <code class="inlineCode">pd.merge</code> is that the former generates a <code class="inlineCode">pd.MultiIndex</code> in the columns, essentially preventing any clashes from column labels that appear in both <code class="inlineCode">pd.DataFrame</code> objects. <code class="inlineCode">pd.merge</code>, by contrast, appends a suffix to columns that appear in both of the <code class="inlineCode">pd.DataFrame</code> objects to disambiguate. The column coming from the left <code class="inlineCode">pd.DataFrame</code> will be suffixed with <code class="inlineCode">_x</code>, whereas a suffix of <code class="inlineCode">_y</code> indicates that the column came from the right <code class="inlineCode">pd.DataFrame</code>.</p>
+    <p class="normal">For more control over this suffix, you can pass a tuple argument to <code class="inlineCode">suffixes=</code>. With our sample data, this argument can be used to easily identify Q1 versus Q2 data:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">pd.merge(
+    df_q1,
+    df_q2,
+    on=["ticker"],
+    how="outer",
+    suffixes=("_q1", "_q2"),
+)
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">    ticker   shares_q1   low_q1   …   low_q2   high_q2   close
+0   AAPL     100         50       …   70       80        77
+1   AMZN     60          100      …   &lt;NA&gt;     &lt;NA&gt;      &lt;NA&gt;
+2   GE       &lt;NA&gt;        &lt;NA&gt;     …   30       50        44
+3   IBM      &lt;NA&gt;        &lt;NA&gt;     …   60       70        64
+4   MSFT     80          42       …   50       60        55
+5 rows × 8 columns
+</code></code></pre>
+    <p class="normal">However, you should be aware that the suffixes are only applied if the column name <a id="_idIndexMarker368"/>appears in both <code class="inlineCode">pd.DataFrame</code> objects. If a <a id="_idIndexMarker369"/>column only appears in one but not both objects, no suffix will be applied:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">pd.merge(
+    df_q1[["ticker"]].assign(only_in_left=<span class="hljs-number">42</span>),
+    df_q2[["ticker"]].assign(only_in_right=<span class="hljs-number">555</span>),
+    on=["ticker"],
+    how="outer",
+    suffixes=("_q1", "_q2"),
+)
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">    ticker   only_in_left   only_in_right
+0   AAPL     42.0           555.0
+1   AMZN     42.0           NaN
+2   GE       NaN            555.0
+3   IBM      NaN            555.0
+4   MSFT     42.0           555.0
+</code></code></pre>
+    <p class="normal">If our key column(s) has different names in the two <code class="inlineCode">pd.DataFrame</code> objects, would that be a problem? Of course not! No need to take my word for it though – let’s just rename the <code class="inlineCode">ticker</code> column in one of our <code class="inlineCode">pd.DataFrame</code> objects to <code class="inlineCode">SYMBOL</code>:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">df_q2 = df_q2.rename(columns={"ticker": "SYMBOL"})
+df_q2
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">    SYMBOL   shares   low   high   close
+0   AAPL     80       70    80     77
+1   MSFT     90       50    60     55
+2   IBM      100      60    70     64
+3   GE       42       30    50     44
+</code></code></pre>
+    <p class="normal">With <code class="inlineCode">pd.merge</code>, the only thing that changes is that you now need to pass two different arguments to <code class="inlineCode">left_on=</code> and <code class="inlineCode">right_on=</code>, instead of just one argument to <code class="inlineCode">on=</code>:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">pd.merge(
+    df_q1,
+    df_q2,
+    left_on=["ticker"],
+    right_on=["SYMBOL"],
+    how="outer",
+    suffixes=("_q1", "_q2"),
+)
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">    ticker   shares_q1   low_q1   …   low_q2   high_q2   close
+0   AAPL     100         50       …   70       80        77
+1   AMZN     60          100      …   &lt;NA&gt;     &lt;NA&gt;      &lt;NA&gt;
+2   &lt;NA&gt;     &lt;NA&gt;        &lt;NA&gt;     …   30       50        44
+3   &lt;NA&gt;     &lt;NA&gt;        &lt;NA&gt;     …   60       70        64
+4   MSFT     80          42       …   50       60        55
+5 rows × 9 columns
+</code></code></pre>
+    <p class="normal">To finish <a id="_idIndexMarker370"/>off this recipe, let’s consider a case where <a id="_idIndexMarker371"/>there are multiple columns that should comprise our merge key. We can start down this path by creating one <code class="inlineCode">pd.DataFrame</code> that lists out the ticker, quarter, and low price:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">lows = pd.DataFrame([
+    ["AAPL", "Q1", <span class="hljs-number">50.</span>],
+    ["MSFT", "Q1", <span class="hljs-number">42.</span>],
+    ["AMZN", "Q1", <span class="hljs-number">100.</span>],
+    ["AAPL", "Q2", <span class="hljs-number">70.</span>],
+    ["MSFT", "Q2", <span class="hljs-number">50.</span>],
+    ["IBM", "Q2", <span class="hljs-number">60.</span>],
+    ["GE", "Q2", <span class="hljs-number">30.</span>],
+], columns=["ticker", "quarter", "low"])
+lows = lows.convert_dtypes(dtype_backend="numpy_nullable")
+lows
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">    ticker   quarter   low
+0   AAPL     Q1        50
+1   MSFT     Q1        42
+2   AMZN     Q1        100
+3   AAPL     Q2        70
+4   MSFT     Q2        50
+5   IBM      Q2        60
+6   GE       Q2        30
+</code></code></pre>
+    <p class="normal">A second <code class="inlineCode">pd.DataFrame</code> will <a id="_idIndexMarker372"/>also contain the ticker <a id="_idIndexMarker373"/>and quarter (albeit with different names), but will show the highs instead of the lows:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">highs = pd.DataFrame([
+    ["AAPL", "Q1", <span class="hljs-number">75.</span>],
+    ["MSFT", "Q1", <span class="hljs-number">62.</span>],
+    ["AMZN", "Q1", <span class="hljs-number">120.</span>],
+    ["AAPL", "Q2", <span class="hljs-number">80.</span>],
+    ["MSFT", "Q2", <span class="hljs-number">60.</span>],
+    ["IBM", "Q2", <span class="hljs-number">70.</span>],
+    ["GE", "Q2", <span class="hljs-number">50.</span>],
+], columns=["SYMBOL", "QTR", "high"])
+highs = highs.convert_dtypes(dtype_backend="numpy_nullable")
+highs
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">    SYMBOL   QTR   high
+0   AAPL     Q1    75
+1   MSFT     Q1    62
+2   AMZN     Q1    120
+3   AAPL     Q2    80
+4   MSFT     Q2    60
+5   IBM      Q2    70
+6   GE       Q2    50
+</code></code></pre>
+    <p class="normal">With the layout of these <code class="inlineCode">pd.DataFrame</code> objects, our key field now becomes the combination of the ticker and the quarter. By passing the appropriate labels as arguments to <code class="inlineCode">left_on=</code> and <code class="inlineCode">right_on=</code>, pandas is still able to perform this merge:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">pd.merge(
+    lows,
+    highs,
+    left_on=["ticker", "quarter"],
+    right_on=["SYMBOL", "QTR"],
+)
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">    ticker   quarter   low   SYMBOL   QTR   high
+0   AAPL     Q1        50    AAPL     Q1    75
+1   MSFT     Q1        42    MSFT     Q1    62
+2   AMZN     Q1        100   AMZN     Q1    120
+3   AAPL     Q2        70    AAPL     Q2    80
+4   MSFT     Q2        50    MSFT     Q2    60
+5   IBM      Q2        60    IBM      Q2    70
+6   GE       Q2        30    GE       Q2    50
+</code></code></pre>
+    <h2 id="_idParaDest-207" class="heading-2">There’s more…</h2>
+    <p class="normal">An extra <a id="_idIndexMarker374"/>consideration when trying to merge data <a id="_idIndexMarker375"/>is the uniqueness of the key(s) in both <code class="inlineCode">pd.DataFrame</code> objects. Having a poor or incorrect understanding of this can lead to very hard-to-detect errors appearing in your applications. Fortunately, <code class="inlineCode">pd.merge</code> can help detect these issues upfront.</p>
+    <p class="normal">To illustrate what we mean when we talk about uniqueness, highlight the issues it can cause, and show you how to solve them with pandas, let’s start with a small <code class="inlineCode">pd.DataFrame</code> that shows hypothetical sales by salesperson over time:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">sales = pd.DataFrame([
+    ["Jan", "John", <span class="hljs-number">10</span>],
+    ["Feb", "John", <span class="hljs-number">20</span>],
+    ["Mar", "John", <span class="hljs-number">30</span>],
+], columns=["month", "salesperson", "sales"])
+sales = sales.convert_dtypes(dtype_backend="numpy_nullable")
+sales
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">    month   salesperson   sales
+0   Jan     John          10
+1   Feb     John          20
+2   Mar     John          30
+</code></code></pre>
+    <p class="normal">Let’s also create a separate <code class="inlineCode">pd.DataFrame</code> that maps each salesperson to a particular region:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">regions = pd.DataFrame([
+    ["John", "Northeast"],
+    ["Jane", "Southwest"],
+], columns=["salesperson", "region"])
+regions = regions.convert_dtypes(dtype_backend="numpy_nullable")
+regions
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">    salesperson   region
+0   John          Northeast
+1   Jane          Southwest
+</code></code></pre>
+    <p class="normal">If you have ever worked at a small company or within a small department, chances are you’ve seen <a id="_idIndexMarker376"/>data sources built this way. As far as <a id="_idIndexMarker377"/>employees in that space are concerned, everyone knows who <code class="inlineCode">John</code> is, so they are content with the decision to lay out data in this fashion.</p>
+    <p class="normal">In the sales data, <code class="inlineCode">John</code> appears multiple times, but in the regions data, <code class="inlineCode">John</code> appears only once. Therefore, using <code class="inlineCode">salesperson</code> as the merge key, the relationship from sales to regions is many-to-one (<em class="italic">n</em>-to-1). Conversely, the relationship from regions to sales is one-to-many (1-to-<em class="italic">n</em>).</p>
+    <p class="normal">With these types of relationships, merges do not introduce any unexpected behavior. A <code class="inlineCode">pd.merge</code> between these two objects will simply display the multiple rows of sales data alongside the corresponding region information:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">pd.merge(sales, regions, on=["salesperson"])
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">    month   salesperson   sales   region
+0   Jan     John          10      Northeast
+1   Feb     John          20      Northeast
+2   Mar     John          30      Northeast
+</code></code></pre>
+    <p class="normal">If we were to try and sum the sales of this after the merge, we would still get the appropriate amount of <code class="inlineCode">60</code>:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">pd.merge(sales, regions, on=["salesperson"])["sales"].<span class="hljs-built_in">sum</span>()
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">60
+</code></code></pre>
+    <p class="normal">As the <a id="_idIndexMarker378"/>company or department grows, it becomes <a id="_idIndexMarker379"/>inevitable that another <code class="inlineCode">John</code> gets hired. To accommodate this, our <code class="inlineCode">regions</code>, <code class="inlineCode">pd.DataFrame</code> gets updated to add a new <code class="inlineCode">last_name</code> column, and add a new entry for <code class="inlineCode">John Newhire</code>:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">regions_orig = regions
+regions = pd.DataFrame([
+    ["John", "Smith", "Northeast"],
+    ["Jane", "Doe", "Southwest"],
+    ["John", "Newhire", "Southeast"],
+], columns=["salesperson", "last_name", "region"])
+regions = regions.convert_dtypes(dtype_backend="numpy_nullable")
+regions
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">    salesperson   last_name   region
+0   John          Smith       Northeast
+1   Jane          Doe         Southwest
+2   John          Newhire     Southeast
+</code></code></pre>
+    <p class="normal">Suddenly, the same <code class="inlineCode">pd.merge</code> we performed before yields a different result:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">pd.merge(sales, regions, on=["salesperson"])
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">    month   salesperson   sales   last_name   region
+0   Jan     John          10      Smith       Northeast
+1   Jan     John          10      Newhire     Southeast
+2   Feb     John          20      Smith       Northeast
+3   Feb     John          20      Newhire     Southeast
+4   Mar     John          30      Smith       Northeast
+5   Mar     John          30      Newhire     Southeast
+</code></code></pre>
+    <p class="normal">This is a definite programming mistake. If you were to try and sum the <code class="inlineCode">sales</code> column from the merged <code class="inlineCode">pd.DataFrame</code>, you would end up doubling the true amount of things that were actually sold. In sum, we only sold 60 units, but with the introduction of <code class="inlineCode">John Newhire</code> into our <code class="inlineCode">regions</code>, <code class="inlineCode">pd.DataFrame</code> suddenly changed the relationship between the two <code class="inlineCode">pd.DataFrame</code> objects to many-to-many (or <em class="italic">n</em>-to-<em class="italic">n</em>), which duplicates much of our data and yields the wrong number of sales:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">pd.merge(sales, regions, on=["salesperson"])["sales"].<span class="hljs-built_in">sum</span>()
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">120
+</code></code></pre>
+    <p class="normal">To catch these surprises upfront with pandas, you can provide a <code class="inlineCode">validate=</code> argument to <code class="inlineCode">pd.merge</code>, which establishes the expected relationship of the merge key between the two objects. A validation of <code class="inlineCode">many_to_one</code> with our original <code class="inlineCode">pd.DataFrame</code> objects would have been fine:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">pd.merge(sales, regions_orig, on=["salesperson"], validate="many_to_one")
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">    month   salesperson   sales   region
+0   Jan     John          10      Northeast
+1   Feb     John          20      Northeast
+2   Mar     John          30      Northeast
+</code></code></pre>
+    <p class="normal">Yet that <a id="_idIndexMarker380"/>same validation would have thrown <a id="_idIndexMarker381"/>an error when <code class="inlineCode">John Newhire</code> made his way into our merge:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">pd.merge(sales, regions, on=["salesperson"], validate="many_to_one")
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">MergeError: Merge keys are not unique in right dataset; not a many-to-one merge
+</code></code></pre>
+    <p class="normal">In this simplistic example, we could have avoided this issue by modeling our data differently upfront, by either using a natural key comprising multiple columns in our sales <code class="inlineCode">pd.DataFrame</code> or by opting for surrogate keys in both <code class="inlineCode">pd.DataFrame</code> objects. Because these examples were so small, we could have also visually identified that there was a problem with our structure.</p>
+    <p class="normal">In the real world, detecting issues like this is not so simple. You may be trying to merge thousands or millions of rows of data, so even if a large number of rows were affected by relationship issues, they could be easily overlooked. Attempting to detect issues like this by hand is akin to finding a needle in a haystack, so I strongly advise using this data validation feature to avoid surprises.</p>
+    <p class="normal">While a failure is less than ideal, in this case, you have <em class="italic">failed loudly</em> and can easily identify where your modeling assumptions went wrong. Without these checks, your users will <em class="italic">silently</em> see incorrect data, which is, more often than not, a worse outcome.</p>
+    <h1 id="_idParaDest-208" class="heading-1">Joining DataFrames with pd.DataFrame.join</h1>
+    <p class="normal">While <code class="inlineCode">pd.merge</code> is the most common approach for merging two different <code class="inlineCode">pd.DataFrame</code> objects, the <a id="_idIndexMarker382"/>lesser used yet functionally <a id="_idIndexMarker383"/>similar <code class="inlineCode">pd.DataFrame.join</code> method is another viable option. Stylistically, you can think of <code class="inlineCode">pd.DataFrame.join</code> as a shortcut for when you want to augment an existing <code class="inlineCode">pd.DataFrame</code> with a few more columns; by contrast, <code class="inlineCode">pd.merge</code> defaults to treating both <code class="inlineCode">pd.DataFrame</code> objects with equal importance.</p>
+    <h2 id="_idParaDest-209" class="heading-2">How to do it</h2>
+    <p class="normal">To drive home the point about <code class="inlineCode">pd.DataFrame.join</code> being a shortcut to augment an existing <code class="inlineCode">pd.DataFrame</code>, let’s imagine a sales table where the row index corresponds to a salesperson but uses a surrogate key instead of a natural key:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">sales = pd.DataFrame(
+    [[<span class="hljs-number">1000</span>], [<span class="hljs-number">2000</span>], [<span class="hljs-number">4000</span>]],
+    columns=["sales"],
+    index=pd.Index([<span class="hljs-number">42</span>, <span class="hljs-number">555</span>, <span class="hljs-number">9000</span>], name="salesperson_id")
+)
+sales = sales.convert_dtypes(dtype_backend="numpy_nullable")
+sales
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">        sales
+salesperson_id
+42      1000
+555     2000
+9000    4000
+</code></code></pre>
+    <p class="normal">Let’s also then consider a dedicated <code class="inlineCode">pd.DataFrame</code> that stores the metadata for some (but not all) of these salespeople:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">salesperson = pd.DataFrame([
+    ["John", "Smith"],
+    ["Jane", "Doe"],
+], columns=["first_name", "last_name"], index=pd.Index(
+    [<span class="hljs-number">555</span>, <span class="hljs-number">42</span>], name="salesperson_id"
+))
+salesperson = salesperson.convert_dtypes(dtype_backend="numpy_nullable")
+salesperson
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">        first_name   last_name
+salesperson_id
+555     John         Smith
+42      Jane         Doe
+</code></code></pre>
+    <p class="normal">Since the data we want to use to join these two <code class="inlineCode">pd.DataFrame</code> objects together is in the row index, you <a id="_idIndexMarker384"/>would have to write out <code class="inlineCode">left_index=True</code> and <code class="inlineCode">right_index=True</code> while calling <code class="inlineCode">pd.merge</code>. Also note that, because we <a id="_idIndexMarker385"/>have a <code class="inlineCode">salesperson_id</code> of <code class="inlineCode">9000</code> in our sales <code class="inlineCode">pd.DataFrame</code> but no corresponding entry in <code class="inlineCode">salesperson</code>, you would have to use <code class="inlineCode">how="left"</code> to make sure records are not lost during the merge:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">pd.merge(sales, salesperson, left_index=<span class="hljs-literal">True</span>, right_index=<span class="hljs-literal">True</span>, how="left")
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">        sales   first_name   last_name
+salesperson_id
+42      1000    Jane         Doe
+555     2000    John         Smith
+9000    4000    &lt;NA&gt;         &lt;NA&gt;
+</code></code></pre>
+    <p class="normal">That rather lengthy call to <code class="inlineCode">pd.merge</code> describes the default behavior of <code class="inlineCode">pd.DataFrame.join</code>, so you may find it easier just to use the latter:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">sales.join(salesperson)
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">        sales   first_name   last_name
+salesperson_id
+42      1000    Jane         Doe
+555     2000    John         Smith
+9000    4000    &lt;NA&gt;         &lt;NA&gt;
+</code></code></pre>
+    <p class="normal">While <code class="inlineCode">pd.DataFrame.join</code> defaults to a left join, you can also choose a different behavior through the argument to <code class="inlineCode">how=</code>:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">sales.join(salesperson, how="inner")
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">        sales   first_name   last_name
+salesperson_id
+42      1000    Jane         Doe
+555     2000    John         Smith
+</code></code></pre>
+    <p class="normal">Ultimately, there is no requirement to use <code class="inlineCode">pd.DataFrame.join</code> over <code class="inlineCode">pd.merge</code>. The former is simply a shortcut and a stylistic indication that the calling <code class="inlineCode">pd.DataFrame</code> (here, <code class="inlineCode">sales</code>) should not drop any records when being joined against another <code class="inlineCode">pd.DataFrame</code>, like <code class="inlineCode">salesperson</code>.</p>
+    <h1 id="_idParaDest-210" class="heading-1">Reshaping with pd.DataFrame.stack and pd.DataFrame.unstack</h1>
+    <p class="normal">Before we <a id="_idIndexMarker386"/>jump into the terms <em class="italic">stacking</em> and <em class="italic">unstacking</em>, let’s <a id="_idIndexMarker387"/>take a step back and compare two tables of data. Do you notice anything different about:</p>
+    <table id="table001-1" class="table-container">
+      <tbody>
+        <tr>
+          <td class="table-cell"/>
+          <td class="table-cell">
+            <p class="normal">a</p>
+          </td>
+          <td class="table-cell">
+            <p class="normal">b</p>
+          </td>
+          <td class="table-cell">
+            <p class="normal">c</p>
+          </td>
+        </tr>
+        <tr>
+          <td class="table-cell">
+            <p class="normal">x</p>
+          </td>
+          <td class="table-cell">
+            <p class="normal">1</p>
+          </td>
+          <td class="table-cell">
+            <p class="normal">2</p>
+          </td>
+          <td class="table-cell">
+            <p class="normal">3</p>
+          </td>
+        </tr>
+        <tr>
+          <td class="table-cell">
+            <p class="normal">y</p>
+          </td>
+          <td class="table-cell">
+            <p class="normal">4</p>
+          </td>
+          <td class="table-cell">
+            <p class="normal">5</p>
+          </td>
+          <td class="table-cell">
+            <p class="normal">6</p>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+    <p class="packt_figref">Table 7.1: A table in wide format </p>
+    <p class="normal">compared to:</p>
+    <table id="table002" class="table-container">
+      <tbody>
+        <tr>
+          <td class="table-cell">
+            <p class="normal">x</p>
+          </td>
+          <td class="table-cell">
+            <p class="normal">a</p>
+          </td>
+          <td class="table-cell">
+            <p class="normal">1</p>
+          </td>
+        </tr>
+        <tr>
+          <td class="table-cell">
+            <p class="normal">x</p>
+          </td>
+          <td class="table-cell">
+            <p class="normal">b</p>
+          </td>
+          <td class="table-cell">
+            <p class="normal">2</p>
+          </td>
+        </tr>
+        <tr>
+          <td class="table-cell">
+            <p class="normal">x</p>
+          </td>
+          <td class="table-cell">
+            <p class="normal">c</p>
+          </td>
+          <td class="table-cell">
+            <p class="normal">3</p>
+          </td>
+        </tr>
+        <tr>
+          <td class="table-cell">
+            <p class="normal">y</p>
+          </td>
+          <td class="table-cell">
+            <p class="normal">a</p>
+          </td>
+          <td class="table-cell">
+            <p class="normal">4</p>
+          </td>
+        </tr>
+        <tr>
+          <td class="table-cell">
+            <p class="normal">y</p>
+          </td>
+          <td class="table-cell">
+            <p class="normal">b</p>
+          </td>
+          <td class="table-cell">
+            <p class="normal">5</p>
+          </td>
+        </tr>
+        <tr>
+          <td class="table-cell">
+            <p class="normal">y</p>
+          </td>
+          <td class="table-cell">
+            <p class="normal">c</p>
+          </td>
+          <td class="table-cell">
+            <p class="normal">6</p>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+    <p class="packt_figref">Table 7.2: A table in long format </p>
+    <p class="normal">Of course, visually, the tables have different shapes, but the data contained in each is the same. The former table would commonly be referred to as a table in <em class="italic">wide</em> format, as it stores data strewn across different columns. By contrast, in the second table, which many would say is stored in the <em class="italic">long</em> format, new rows are used to represent the various bits of data.</p>
+    <p class="normal">Which format is better? The answer to this is <em class="italic">it depends</em> – namely, on your audience and/or the systems you interact with. An executive at your company may prefer to see data stored in the wide format, as it is easier to read at a glance. A columnar database would prefer the long format, as it can better optimize for millions and billions of rows than it could for an equal number of columns.</p>
+    <p class="normal">Knowing <a id="_idIndexMarker388"/>that there is no single way to store data, you will <a id="_idIndexMarker389"/>likely need to reshape data in and out of both of these formats, which brings us to the terms <em class="italic">stacking</em> and <em class="italic">unstacking</em>.</p>
+    <p class="normal"><em class="italic">Stacking</em> refers to the process of taking your columns and pushing them down into the rows, essentially, helping to move from a wide format into a long format:</p>
+    <figure class="mediaobject"><img src="../Images/B31091_07_04.png" alt=""/></figure>
+    <p class="packt_figref">Figure 7.4: Stacking a pd.DataFrame from wide to long format</p>
+    <p class="normal"><em class="italic">Unstacking</em> goes in the opposite direction, moving data that is stored in a long format into a wide format:</p>
+    <figure class="mediaobject"><img src="../Images/B31091_07_05.png" alt="A diagram of a number and a number  Description automatically generated with medium confidence"/></figure>
+    <p class="packt_figref">Figure 7.5: Unstacking a pd.DataFrame from long to wide format</p>
+    <p class="normal">In this recipe, we will walk you through the proper usage of the <code class="inlineCode">pd.DataFrame.stack</code> and <code class="inlineCode">pd.DataFrame.unstack</code> methods, which can be used for these reshaping purposes.</p>
+    <h2 id="_idParaDest-211" class="heading-2">How to do it</h2>
+    <p class="normal">Let’s <a id="_idIndexMarker390"/>start with the following <code class="inlineCode">pd.DataFrame</code>, which summarizes <a id="_idIndexMarker391"/>the amount of fruits being grown in different states:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">df = pd.DataFrame([
+    [<span class="hljs-number">12</span>, <span class="hljs-number">10</span>, <span class="hljs-number">40</span>],
+    [<span class="hljs-number">9</span>, <span class="hljs-number">7</span>, <span class="hljs-number">12</span>],
+    [<span class="hljs-number">0</span>, <span class="hljs-number">14</span>, <span class="hljs-number">190</span>]
+], columns=pd.Index(["Apple", "Orange", "Banana"], name="fruit"), index=pd.Index(
+    ["Texas", "Arizona", "Florida"], name="state"))
+df = df.convert_dtypes(dtype_backend="numpy_nullable")
+df
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">fruit   Apple   Orange  Banana
+state
+Texas   12      10      40
+Arizona 9       7       12
+Florida 0       14      190
+</code></code></pre>
+    <p class="normal">In data modeling terminology, we would consider this to be a “wide” table. Each row represents one state with the different numbers of each crop situated in its own column.</p>
+    <p class="normal">If we wanted to convert our table to “long” form, we would essentially want to see each <code class="inlineCode">state</code> <a id="_idIndexMarker392"/>and <code class="inlineCode">fruit</code> combination as a separate row. <code class="inlineCode">pd.DataFrame.stack</code> will help us do this, by taking our fruits out of the column index and <a id="_idIndexMarker393"/>forming a new <code class="inlineCode">pd.MultiIndex</code> in our rows, which contains both state and fruit:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">df.stack()
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">state     fruit
+Texas     Apple      12
+         Orange      10
+         Banana      40
+Arizona   Apple       9
+         Orange       7
+         Banana      12
+Florida   Apple       0
+         Orange      14
+         Banana     190
+dtype: Int64
+</code></code></pre>
+    <p class="normal">After a call to <code class="inlineCode">pd.DataFrame.stack</code>, many users will chain in a call to <code class="inlineCode">pd.Series.reset_index</code> with a <code class="inlineCode">name=</code> argument. This converts the <code class="inlineCode">pd.Series</code> with a <code class="inlineCode">pd.MultiIndex</code> created from the <code class="inlineCode">pd.DataFrame.stack</code> back into a <code class="inlineCode">pd.DataFrame</code> with meaningful column names:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">df.stack().reset_index(name="number_grown")
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">    state     fruit    number_grown
+0   Texas     Apple    12
+1   Texas     Orange   10
+2   Texas     Banana   40
+3   Arizona   Apple    9
+4   Arizona   Orange   7
+5   Arizona   Banana   12
+6   Florida   Apple    0
+7   Florida   Orange   14
+8   Florida   Banana   190
+</code></code></pre>
+    <p class="normal">This long form of storing data is preferred for storage by many databases and is also the expected shape of the <code class="inlineCode">pd.DataFrame</code> to be passed to libraries like Seaborn, which we showcased in the <em class="italic">Seaborn introduction</em> recipe back in <em class="chapterRef">Chapter 6</em>, <em class="italic">Visualization</em>.</p>
+    <p class="normal">However, sometimes, you may want to go in the opposite direction, converting your long <code class="inlineCode">pd.DataFrame</code> into a wider format. This can be particularly useful when wanting to summarize data in a compact area; utilizing both dimensions for display is more effective than asking your viewer to scroll through many lines of data.</p>
+    <p class="normal">To see <a id="_idIndexMarker394"/>this in action, let’s create a new <code class="inlineCode">pd.Series</code> from <a id="_idIndexMarker395"/>one of the <code class="inlineCode">pd.DataFrame.stack</code> calls we just made:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">stacked = df.stack()
+stacked
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">state    fruit
+Texas    Apple      12
+        Orange      10
+        Banana      40
+Arizona  Apple       9
+        Orange       7
+        Banana      12
+Florida  Apple       0
+        Orange      14
+        Banana     190
+dtype: Int64
+</code></code></pre>
+    <p class="normal">To go in the opposite direction and move one of our index levels from the rows to the columns, you simply need to make a call to <code class="inlineCode">pd.Series.unstack</code>:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">stacked.unstack()
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">fruit   Apple   Orange   Banana
+state
+Texas   12      10       40
+Arizona 9       7        12
+Florida 0       14       190
+</code></code></pre>
+    <p class="normal">By default, a call to <code class="inlineCode">pd.Series.unstack</code> moves the innermost level of the row index, which, in our case, was the <code class="inlineCode">fruit</code>. However, we could have passed <code class="inlineCode">level=0</code> to have it take the very first level instead of the innermost, in the case that we wanted to see the states summarized across the columns:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">stacked.unstack(level=<span class="hljs-number">0</span>)
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">state   Texas   Arizona   Florida
+fruit
+Apple   12      9         0
+Orange  10      7         14
+Banana  40      12        190
+</code></code></pre>
+    <p class="normal">Because <a id="_idIndexMarker396"/>our <code class="inlineCode">pd.MultiIndex</code> levels have names, we could <a id="_idIndexMarker397"/>also have referred to the level we wanted to be moved by name instead of by position:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">stacked.unstack(level="state")
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">state   Texas   Arizona   Florida
+fruit
+Apple   12      9         0
+Orange  10      7         14
+Banana  40      12        190
+</code></code></pre>
+    <h1 id="_idParaDest-212" class="heading-1">Reshaping with pd.DataFrame.melt</h1>
+    <p class="normal">In the <em class="italic">Reshaping with pd.DataFrame.stack and pd.DataFrame.unstack</em> recipe, we discovered that <a id="_idIndexMarker398"/>you could convert a wide <code class="inlineCode">pd.DataFrame</code> into long form by setting the appropriate row and column index(es) before calling <code class="inlineCode">pd.DataFrame.stack</code>. <code class="inlineCode">pd.TheDataFrame.melt</code> function also lets you convert your <code class="inlineCode">pd.DataFrame</code> from wide to long, but can do so without having to set the row and column index values in an intermediate step, while also offering more control over what other columns may or may not be included as part of the wide to long conversion.</p>
+    <h2 id="_idParaDest-213" class="heading-2">How to do it</h2>
+    <p class="normal">Let’s once again create a summary of the different fruits being grown in different states. However, unlike the <em class="italic">Reshaping with pd.DataFrame.stack and pd.DataFrame.unstack</em> recipe, we will not be setting the row index to the state values, and instead, just treating it as another column in our <code class="inlineCode">pd.DataFrame</code>:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">df = pd.DataFrame([
+    ["Texas", <span class="hljs-number">12</span>, <span class="hljs-number">10</span>, <span class="hljs-number">40</span>],
+    ["Arizona", <span class="hljs-number">9</span>, <span class="hljs-number">7</span>, <span class="hljs-number">12</span>],
+    ["Florida", <span class="hljs-number">0</span>, <span class="hljs-number">14</span>, <span class="hljs-number">190</span>]
+], columns=["state", "apple", "orange", "banana"])
+df = df.convert_dtypes(dtype_backend="numpy_nullable")
+df
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">    state    apple    orange    banana
+0   Texas    12       10        40
+1   Arizona  9        7         12
+2   Florida  0        14        190
+</code></code></pre>
+    <p class="normal">To convert <a id="_idIndexMarker399"/>to long format with <code class="inlineCode">pd.DataFrame.stack</code>, we would have to chain together a few calls to get back a <code class="inlineCode">pd.DataFrame</code> without a <code class="inlineCode">pd.MultiIndex</code>:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">df.set_index("state").stack().reset_index()
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">    state     level_1   0
+0   Texas     apple     12
+1   Texas     orange    10
+2   Texas     banana    40
+3   Arizona   apple     9
+4   Arizona   orange    7
+5   Arizona   banana    12
+6   Florida   apple     0
+7   Florida   orange    14
+8   Florida   banana    190
+</code></code></pre>
+    <p class="normal">The column name <code class="inlineCode">level_1</code> is created by default during our <code class="inlineCode">pd.DataFrame.stack</code> operation because the column index we start with is unnamed. We also see that we get an auto-generated column name of <code class="inlineCode">0</code> for the newly introduced values in our long format, so we would still need to chain in a rename to get us a more readable <code class="inlineCode">pd.DataFrame</code>:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">df.set_index("state").stack().reset_index().rename(columns={
+    "level_1": "fruit",
+    <span class="hljs-number">0</span>: "number_grown",
+})
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">    state    fruit    number_grown
+0   Texas    apple    12
+1   Texas    orange   10
+2   Texas    banana   40
+3   Arizona  apple    9
+4   Arizona  orange   7
+5   Arizona  banana   12
+6   Florida  apple    0
+7   Florida  orange   14
+8   Florida  banana   190
+</code></code></pre>
+    <p class="normal"><code class="inlineCode">pd.DataFrame.melt</code> gets us a lot closer to our desired <code class="inlineCode">pd.DataFrame</code>, simply by providing an <code class="inlineCode">id_vars=</code> argument <a id="_idIndexMarker400"/>that corresponds to the row index you would have used with <code class="inlineCode">pd.DataFrame.stack</code>:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">df.melt(id_vars=["state"])
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">    state     variable  value
+0   Texas     apple     12
+1   Arizona   apple     9
+2   Florida   apple     0
+3   Texas     orange    10
+4   Arizona   orange    7
+5   Florida   orange    14
+6   Texas     banana    40
+7   Arizona   banana    12
+8   Florida   banana    190
+</code></code></pre>
+    <p class="normal">With <code class="inlineCode">pd.DataFrame.melt</code>, the newly created column from our variables (here, the different fruits) is given the name <code class="inlineCode">variable</code>, and the value column is given the default name of <code class="inlineCode">value</code>. We can override these defaults through the use of the <code class="inlineCode">var_name=</code> and <code class="inlineCode">value_name=</code> arguments:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">df.melt(
+    id_vars=["state"],
+    var_name="fruit",
+    value_name="number_grown",
+)
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">    state     fruit   number_grown
+0   Texas     apple   12
+1   Arizona   apple   9
+2   Florida   apple   0
+3   Texas     orange  10
+4   Arizona   orange  7
+5   Florida   orange  14
+6   Texas     banana  40
+7   Arizona   banana  12
+8   Florida   banana  190
+</code></code></pre>
+    <p class="normal">As an added bonus, <code class="inlineCode">pd.DataFrame.melt</code> gives you an easy way to control which columns are included <a id="_idIndexMarker401"/>as part of the wide-to-long conversion. For instance, if we don’t care to include the <code class="inlineCode">banana</code> values in our newly formed long table, we could just pass the other columns of <code class="inlineCode">apple</code> and <code class="inlineCode">orange</code> as arguments to <code class="inlineCode">value_vars=</code>:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">df.melt(
+    id_vars=["state"],
+    var_name="fruit",
+    value_name="number_grown",
+    value_vars=["apple", "orange"],
+)
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">    state     fruit     number_grown
+0   Texas     apple     12
+1   Arizona   apple     9
+2   Florida   apple     0
+3   Texas     orange    10
+4   Arizona   orange    7
+5   Florida   orange    14
+</code></code></pre>
+    <h1 id="_idParaDest-214" class="heading-1">Reshaping with pd.wide_to_long</h1>
+    <p class="normal">So far, we have encountered two very viable ways of converting data from wide to long format, whether <a id="_idIndexMarker402"/>it be through the use of the <code class="inlineCode">pd.DataFrame.stack</code> method, introduced in our <em class="italic">Reshaping with pd.DataFrame.stack and pd.DataFrame.unstack</em> recipe, or through the use of the <code class="inlineCode">pd.DataFrame.melt</code>, as we saw in the <em class="italic">Reshaping with pd.DataFrame.melt</em> recipe.</p>
+    <p class="normal">If those aren’t enough, pandas offers the <code class="inlineCode">pd.wide_to_long</code> function, which can help with that conversion given that your columns follow a particular naming pattern, as we will see in this recipe.</p>
+    <h2 id="_idParaDest-215" class="heading-2">How to do it</h2>
+    <p class="normal">Let’s assume we have the following <code class="inlineCode">pd.DataFrame</code>, where we have one <code class="inlineCode">id</code> variable of <code class="inlineCode">widget</code> and four columns representing sales from a business quarter. Each column of sales begins with <code class="inlineCode">"quarter_"</code>:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">df = pd.DataFrame([
+    ["Widget <span class="hljs-number">1</span>", <span class="hljs-number">1</span>, <span class="hljs-number">2</span>, <span class="hljs-number">4</span>, <span class="hljs-number">8</span>],
+    ["Widget <span class="hljs-number">2</span>", <span class="hljs-number">16</span>, <span class="hljs-number">32</span>, <span class="hljs-number">64</span>, <span class="hljs-number">128</span>],
+], columns=["widget", "quarter_1", "quarter_2", "quarter_3", "quarter_4"])
+df = df.convert_dtypes(dtype_backend="numpy_nullable")
+df
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">    widget     quarter_1   quarter_2   quarter_3   quarter_4
+0   Widget 1   1           2           4           8
+1   Widget 2   16          32          64          128
+</code></code></pre>
+    <p class="normal">Going back to <a id="_idIndexMarker403"/>our example of <code class="inlineCode">pd.DataFrame.stack</code>, we could convert this from wide to long using the following methods:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">df.set_index("widget").stack().reset_index().rename(columns={
+    "level_1": "quarter",
+    <span class="hljs-number">0</span>: "quantity",
+})
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">    widget     quarter     quantity
+0   Widget 1   quarter_1   1
+1   Widget 1   quarter_2   2
+2   Widget 1   quarter_3   4
+3   Widget 1   quarter_4   8
+4   Widget 2   quarter_1   16
+5   Widget 2   quarter_2   32
+6   Widget 2   quarter_3   64
+7   Widget 2   quarter_4   128
+</code></code></pre>
+    <p class="normal">For a more succinct solution, we could use <code class="inlineCode">pd.DataFrame.melt</code>:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">df.melt(
+    id_vars=["widget"],
+    var_name="quarter",
+    value_name="quantity",
+)
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">    widget     quarter     quantity
+0   Widget 1   quarter_1   1
+1   Widget 2   quarter_1   16
+2   Widget 1   quarter_2   2
+3   Widget 2   quarter_2   32
+4   Widget 1   quarter_3   4
+5   Widget 2   quarter_3   64
+6   Widget 1   quarter_4   8
+7   Widget 2   quarter_4   128
+</code></code></pre>
+    <p class="normal">But there is a feature that <code class="inlineCode">pd.wide_to_long</code> offers that neither of these approaches handles directly – namely, to create a new variable out of the column labels that are being converted <a id="_idIndexMarker404"/>into variables. So far, we see the new <code class="inlineCode">quarter</code> values as <code class="inlineCode">quarter_1</code>, <code class="inlineCode">quarter_2</code>, <code class="inlineCode">quarter_3</code>, and <code class="inlineCode">quarter_4</code>, but <code class="inlineCode">pd.wide_to_long</code> can extract that string out of the newly created variables, more simply leaving you with the digits <code class="inlineCode">1</code>, <code class="inlineCode">2</code>, <code class="inlineCode">3</code>, and <code class="inlineCode">4</code>:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">pd.wide_to_long(
+    df,
+    i=["widget"],
+    stubnames="quarter_",
+    j="quarter"
+).reset_index().rename(columns={"quarter_": "quantity"})
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">    widget      quarter   quantity
+0   Widget 1    1         1
+1   Widget 2    1         16
+2   Widget 1    2         2
+3   Widget 2    2         32
+4   Widget 1    3         4
+5   Widget 2    3         64
+6   Widget 1    4         8
+7   Widget 2    4         128
+</code></code></pre>
+    <h1 id="_idParaDest-216" class="heading-1">Reshaping with pd.DataFrame.pivot and pd.pivot_table</h1>
+    <p class="normal">So <a id="_idIndexMarker405"/>far in <a id="_idIndexMarker406"/>this chapter, we have seen that <code class="inlineCode">pd.DataFrame.stack</code>, <code class="inlineCode">pd.DataFrame.melt</code>, and <code class="inlineCode">pd.wide_to_long</code> can all be used to help you convert your <code class="inlineCode">pd.DataFrame</code> from a wide to a long format. On the flip side, we have only seen <code class="inlineCode">pd.Series.unstack</code> helps us go from long to wide, but that method has the downside of requiring us to assign a proper row index before we can use it. With <code class="inlineCode">pd.DataFrame.pivot</code>, you can skip any intermediate steps and go directly from a long to a wide format.</p>
+    <p class="normal">Beyond <code class="inlineCode">pd.DataFrame.pivot</code>, pandas offers a <code class="inlineCode">pd.pivot_table</code> function, which can not only <a id="_idIndexMarker407"/>reshape from long to wide but allows you to perform <a id="_idIndexMarker408"/>aggregations as part of the reshape.</p>
+    <figure class="mediaobject"><img src="../Images/B31091_07_06.png" alt=""/></figure>
+    <p class="packt_figref">Figure 7.6: Using pd.pivot_table to reshape with sum aggregation</p>
+    <p class="normal">Effective use of <code class="inlineCode">pd.pivot_table</code> allows you to perform very complex calculations with a compact and concise syntax.</p>
+    <h2 id="_idParaDest-217" class="heading-2">How to do it</h2>
+    <p class="normal">In many of the preceding recipes, we have started with data in wide form and reshaped it to long form. For this recipe, let’s start with data that appears in long form from the outset. We are also going to add a new column for <code class="inlineCode">number_eaten</code> to showcase the aggregation capabilities when pivoting within pandas:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">df = pd.DataFrame([
+    ["Texas", "apple", <span class="hljs-number">12</span>, <span class="hljs-number">8</span>],
+    ["Arizona", "apple", <span class="hljs-number">9</span>, <span class="hljs-number">10</span>],
+    ["Florida", "apple", <span class="hljs-number">0</span>, <span class="hljs-number">6</span>],
+    ["Texas", "orange", <span class="hljs-number">10</span>, <span class="hljs-number">4</span>],
+    ["Arizona", "orange", <span class="hljs-number">7</span>, <span class="hljs-number">2</span>],
+    ["Florida", "orange", <span class="hljs-number">14</span>, <span class="hljs-number">3</span>],
+    ["Texas", "banana", <span class="hljs-number">40</span>, <span class="hljs-number">28</span>],
+    ["Arizona", "banana", <span class="hljs-number">12</span>, <span class="hljs-number">17</span>],
+    ["Florida", "banana", <span class="hljs-number">190</span>, <span class="hljs-number">42</span>],
+], columns=["state", "fruit", "number_grown", "number_eaten"])
+df = df.convert_dtypes(dtype_backend="numpy_nullable")
+df
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">    state     fruit     number_grown     number_eaten
+0   Texas     apple     12               8
+1   Arizona   apple     9                10
+2   Florida   apple     0                6
+3   Texas     orange    10               4
+4   Arizona   orange    7                2
+5   Florida   orange    14               3
+6   Texas     banana    40               28
+7   Arizona   banana    12               17
+8   Florida   banana    190              42
+</code></code></pre>
+    <p class="normal">As we <a id="_idIndexMarker409"/>learned back in the <em class="italic">Reshaping with pd.DataFrame.stack and pd.DataFrame.unstack</em> recipe, if we wanted to convert this from long <a id="_idIndexMarker410"/>format into wide, we could do so with the clever use of <code class="inlineCode">pd.DataFrame.set_index</code> paired with <code class="inlineCode">pd.DataFrame.unstack</code>:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">df.set_index(["state", "fruit"]).unstack()
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">        number_grown                    number_eaten
+fruit   apple   banana  orange  apple   banana  orange
+state
+Arizona 9       12      7       10      17      2
+Florida 0       190     14      6       42      3
+Texas   12      40      10      8       28      4
+</code></code></pre>
+    <p class="normal"><code class="inlineCode">pd.DataFrame.pivot</code> lets us tackle this in one method call. A basic usage of this method requires <code class="inlineCode">index=</code> and <code class="inlineCode">columns=</code> arguments, to dictate which column(s) should appear in the row and column indexes, respectively:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">df.pivot(index=["state"], columns=["fruit"])
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">        number_grown                    number_eaten
+fruit   apple   banana  orange  apple   banana  orange
+state
+Arizona 9       12      7       10      17      2
+Florida 0       190     14      6       42      3
+Texas   12      40      10      8       28      4
+</code></code></pre>
+    <p class="normal"><code class="inlineCode">pd.DataFrame.pivot</code> will take any column that is not specified as an argument to <code class="inlineCode">index=</code> or <code class="inlineCode">columns=</code>, and try to convert that column into the values of the resulting <code class="inlineCode">pd.DataFrame</code>. However, if you did not care for all of the remaining columns to be a part of the <a id="_idIndexMarker411"/>pivoted <code class="inlineCode">pd.DataFrame</code>, you could specify what you <a id="_idIndexMarker412"/>want to keep with the <code class="inlineCode">values=</code> argument. For example, if we only cared to pivot the <code class="inlineCode">number_grown</code> column and ignore the <code class="inlineCode">number_eaten</code> column, we could write this as:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">df.pivot(
+      index=["state"],
+      columns=["fruit"],
+      values=["number_grown"],
+  )
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">        number_grown
+fruit   apple   banana   orange
+state
+Arizona 9       12       7
+Florida 0       190      14
+Texas   12      40       10
+</code></code></pre>
+    <p class="normal">In the case where you only wanted to keep one value, the generated <code class="inlineCode">pd.MultiIndex</code> in the columns may seem superfluous. Fortunately, this can be dropped with a simple call to <code class="inlineCode">pd.DataFrame.droplevel</code>, where you indicate the <code class="inlineCode">axis=</code> where you would like to drop a level (specify <code class="inlineCode">1</code> for the columns) and the index level you would like to drop (here, <code class="inlineCode">0</code> represents the first level):</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">wide_df = df.pivot(
+    index=["state"],
+    columns=["fruit"],
+    values=["number_grown"],
+).droplevel(level=<span class="hljs-number">0</span>, axis=<span class="hljs-number">1</span>)
+wide_df
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">fruit   apple   banana   orange
+state
+Arizona 9       12       7
+Florida 0       190      14
+Texas   12      40       10
+</code></code></pre>
+    <p class="normal">While <code class="inlineCode">pd.DataFrame.pivot</code> is useful for reshaping, it can only help in the case that none of the <a id="_idIndexMarker413"/>values used to form your rows and columns are duplicated. To see this limitation, let’s work with a slightly modified <code class="inlineCode">pd.DataFrame</code> that shows <a id="_idIndexMarker414"/>how different fruits have been consumed or grown in different states and years:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">df = pd.DataFrame([
+    ["Texas", "apple", <span class="hljs-number">2023</span>, <span class="hljs-number">10</span>, <span class="hljs-number">6</span>],
+    ["Texas", "apple", <span class="hljs-number">2024</span>, <span class="hljs-number">2</span>, <span class="hljs-number">8</span>],
+    ["Arizona", "apple", <span class="hljs-number">2023</span>, <span class="hljs-number">3</span>, <span class="hljs-number">7</span>],
+    ["Arizona", "apple", <span class="hljs-number">2024</span>, <span class="hljs-number">6</span>, <span class="hljs-number">3</span>],
+    ["Texas", "orange", <span class="hljs-number">2023</span>, <span class="hljs-number">5</span>, <span class="hljs-number">2</span>],
+    ["Texas", "orange", <span class="hljs-number">2024</span>, <span class="hljs-number">5</span>, <span class="hljs-number">2</span>],
+    ["Arizona", "orange", <span class="hljs-number">2023</span>, <span class="hljs-number">7</span>, <span class="hljs-number">2</span>],
+], columns=["state", "fruit", "year", "number_grown", "number_eaten"])
+df = df.convert_dtypes(dtype_backend="numpy_nullable")
+df
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">    state      fruit    year    number_grown   number_eaten
+0   Texas      apple    2023    10             6
+1   Texas      apple    2024    2              8
+2   Arizona    apple    2023    3              7
+3   Arizona    apple    2024    6              3
+4   Texas      orange   2023    5              2
+5   Texas      orange   2024    5              2
+6   Arizona    orange   2023    7              2
+</code></code></pre>
+    <p class="normal">We would be able to still use <code class="inlineCode">pd.DataFrame.pivot</code> on this <code class="inlineCode">pd.DataFrame</code> if we placed <code class="inlineCode">state</code>, <code class="inlineCode">fruit</code>, and <code class="inlineCode">year</code> all in either the rows or the columns:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">df.pivot(
+    index=["state", "year"],
+    columns=["fruit"],
+    values=["number_grown", "number_eaten"]
+)
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">                number_grown            number_eaten
+        fruit   apple   orange  apple   orange
+state   year
+Arizona 2023    3       7       7       2
+        2024    6       NaN     3       NaN
+Texas   2023    10      5       6       2
+        2024    2       5       8       2
+</code></code></pre>
+    <p class="normal">But what <a id="_idIndexMarker415"/>if we didn’t want to see the <code class="inlineCode">year</code> as part of our <a id="_idIndexMarker416"/>output? Just removing it from our <code class="inlineCode">pd.DataFrame.pivot</code> arguments will raise an exception:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">df.pivot(
+    index=["state"],
+    columns=["fruit"],
+    values=["number_grown", "number_eaten"]
+)
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">ValueError: Index contains duplicate entries, cannot reshape
+</code></code></pre>
+    <p class="normal">For <code class="inlineCode">pd.pivot_table</code>, the lack of a <code class="inlineCode">year</code> column is no problem at all:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">pd.pivot_table(
+    df,
+    index=["state"],
+    columns=["fruit"],
+    values=["number_grown", "number_eaten"]
+)
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">        number_eaten            number_grown
+fruit   apple   orange  apple   orange
+state
+Arizona 5.0     2.0     4.5     7.0
+Texas   7.0     2.0     6.0     5.0
+</code></code></pre>
+    <p class="normal">This works because <code class="inlineCode">pd.pivot_table</code> aggregates the values while reshaping them into a wide form. Taking Arizona apples as an example, our input data showed that a whopping three were grown in the year 2023 before doubling to a magnificent six in 2024. In our call to <code class="inlineCode">pd.pivot_table</code>, this is shown as <code class="inlineCode">4.5</code>. By default, <code class="inlineCode">pd.pivot_table</code> will take the average of values you supply to it during a reshape.</p>
+    <p class="normal">You can, of course, control the aggregation function being used. In this particular case, we may be more interested in knowing how many fruits were grown in each state in total, rather than taking an average by year. By passing a different aggregation function as a parameter to <code class="inlineCode">aggfunc=</code>, you can easily get a summation instead:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">pd.pivot_table(
+    df,
+    index=["state"],
+    columns=["fruit"],
+    values=["number_grown", "number_eaten"],
+    aggfunc="<span class="hljs-built_in">sum</span>"
+)
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">        number_eaten            number_grown
+fruit   apple   orange  apple   orange
+state
+Arizona 10      2       9       7
+Texas   14      4       12      10
+</code></code></pre>
+    <p class="normal">For more <a id="_idIndexMarker417"/>advanced use cases, you can even provide a dictionary <a id="_idIndexMarker418"/>of values to <code class="inlineCode">aggfunc=</code>, where each key/value pair of the dictionary dictates the column and the type of aggregation(s) to be applied, respectively:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">pd.pivot_table(
+    df,
+    index=["state"],
+    columns=["fruit"],
+    values=["number_grown", "number_eaten"],
+    aggfunc={
+        "number_eaten": ["<span class="hljs-built_in">min</span>", "<span class="hljs-built_in">max</span>"],
+        "number_grown": ["<span class="hljs-built_in">sum</span>", "mean"],
+    },
+)
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">        number_eaten            …       number_grown
+        max             min     …       mean    sum
+fruit   apple   orange  apple   …       orange  apple   orange
+state
+Arizona 7       2       3       …       7.0     9       7
+Texas   8       2       6       …       5.0     12      10
+2 rows × 8 columns
+</code></code></pre>
+    <h1 id="_idParaDest-218" class="heading-1">Reshaping with pd.DataFrame.explode</h1>
+    <p class="normal">The world would be so simple if every piece of data fitted perfectly as a scalar into a two-dimensional <code class="inlineCode">pd.DataFrame</code>. Alas, life is not so simple. Especially when working with semi-structured <a id="_idIndexMarker419"/>sources of data like JSON, it is not uncommon to have individual items in your <code class="inlineCode">pd.DataFrame</code> contain non-scalar sequences like lists and tuples.</p>
+    <p class="normal">You may find it acceptable to leave data in that state, but other times, there is value to normalizing the data and potentially extracting out sequences contained within a column into individual elements.</p>
+    <figure class="mediaobject"><img src="../Images/B31091_07_07.png" alt=""/></figure>
+    <p class="packt_figref">Figure 7.7: Using pd.DataFrame.explode to extract list elements to individual rows</p>
+    <p class="normal">To that end, <code class="inlineCode">pd.DataFrame.explode</code> is the right tool for the job. It may not be a function you use every day, but when you eventually need to use it, you will be happy to have known about it. Attempting to replicate the same functionality outside of pandas can be error-prone and non-performant!</p>
+    <h2 id="_idParaDest-219" class="heading-2">How to do it</h2>
+    <p class="normal">Since we mentioned JSON as a good source for semi-structured data in the introduction to this recipe, let’s start by imagining that we have to interact with a REST API for an HR system. The HR system should tell us who each person is in the company, as well as who, if anyone, reports to them.</p>
+    <p class="normal">The hierarchy between employees is rather easy to represent in a semi-structured format like JSON, so the REST API might return something like:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code"><span class="hljs-attribute">[</span>
+<span class="hljs-attribute">    {</span>
+<span class="hljs-attribute">        "employee_id"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">1,</span>
+        <span class="hljs-attribute">"</span><span class="hljs-attribute">first_name"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"John",</span>
+        <span class="hljs-attribute">"last_name"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"Smith",</span>
+        <span class="hljs-attribute">"direct_reports"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">[2, 3]</span>
+    <span class="hljs-attribute">},</span>
+<span class="hljs-attribute">    {</span>
+<span class="hljs-attribute">        "employee_id"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">2,</span>
+        <span class="hljs-attribute">"</span><span class="hljs-attribute">first_name"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"Jane",</span>
+        <span class="hljs-attribute">"last_name"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"Doe",</span>
+        <span class="hljs-attribute">"direct_reports"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">[]</span>
+    <span class="hljs-attribute">},</span>
+<span class="hljs-attribute">    {</span>
+<span class="hljs-attribute">        "employee_id"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">3,</span>
+        <span class="hljs-attribute">"</span><span class="hljs-attribute">first_name"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"Joe",</span>
+        <span class="hljs-attribute">"last_name"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"Schmoe",</span>
+        <span class="hljs-attribute">"direct_reports"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">[]</span>
+    }
+]
+</code></code></pre>
+    <p class="normal">The pandas <a id="_idIndexMarker420"/>library will also let us load this data into a <code class="inlineCode">pd.DataFrame</code>, albeit with the <code class="inlineCode">direct_reports</code> column containing lists:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code"><span class="hljs-attribute">df = pd.DataFrame(</span>
+<span class="hljs-attribute">    [</span>
+<span class="hljs-attribute">        {</span>
+<span class="hljs-attribute">            "employee_id"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">1,</span>
+            <span class="hljs-attribute">"first_name"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"John",</span>
+            <span class="hljs-attribute">"last_name"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"Smith",</span>
+            <span class="hljs-attribute">"direct_reports"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">[2, 3]</span>
+        <span class="hljs-attribute">},</span>
+<span class="hljs-attribute">        {</span>
+<span class="hljs-attribute">            "employee_id"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">2,</span>
+            <span class="hljs-attribute">"first_name"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"Jane",</span>
+            <span class="hljs-attribute">"last_name"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"Doe",</span>
+            <span class="hljs-attribute">"direct_reports"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">[]</span>
+        <span class="hljs-attribute">},</span>
+<span class="hljs-attribute">        {</span>
+<span class="hljs-attribute">            "employee_id"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">3,</span>
+            <span class="hljs-attribute">"first_name"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"Joe",</span>
+            <span class="hljs-attribute">"last_name"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"Schmoe",</span>
+            <span class="hljs-attribute">"direct_reports"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">[]</span>
+        }
+    ]
+)
+df = df.convert_dtypes(dtype_backend="numpy_nullable")
+df
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">    employee_id   first_name   last_name   direct_reports
+0   1             John         Smith       [2, 3]
+1   2             Jane         Doe         []
+2   3             Joe          Schmoe      []
+</code></code></pre>
+    <p class="normal">With <code class="inlineCode">pd.DataFrame.explode</code>, you can unpack those <code class="inlineCode">direct_reports</code> into separate rows of the <code class="inlineCode">pd.DataFrame</code>:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">df.explode("direct_reports").convert_dtypes(dtype_backend="numpy_nullable")
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">    employee_id   first_name   last_name   direct_reports
+0   1             John         Smith       2
+0   1             John         Smith       3
+1   2             Jane         Doe         &lt;NA&gt;
+2   3             Joe          Schmoe      &lt;NA&gt;
+</code></code></pre>
+    <p class="normal">Building off of the knowledge we picked up about merging/joining data from our <em class="italic">Merging DataFrames with pd.merge</em> recipe, we can very easily take our exploded information and merge <a id="_idIndexMarker421"/>in the names of direct reports, yielding an easy summary of who works at the company and who, if anyone, reports to them:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">exploded = df.explode("direct_reports").convert_dtypes(
+    dtype_backend="numpy_nullable"
+)
+pd.merge(
+    exploded,
+    df.drop(columns=["direct_reports"]),
+    how="left",
+    left_on=["direct_reports"],
+    right_on=["employee_id"],
+    suffixes=("", "_direct_report"),
+)
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">   employee_id  first_name  last_name  …  employee_id_direct_report  first_name_direct_report  last_name_direct_report
+0   1        John     Smith    …  2       Jane           Doe
+1   1        John     Smith    …  3       Joe            Schmoe
+2   2        Jane     Doe      …  &lt;NA&gt;    &lt;NA&gt;           &lt;NA&gt;
+3   3        Joe      Schmoe   …  &lt;NA&gt;    &lt;NA&gt;           &lt;NA&gt;
+4 rows × 7 columns
+</code></code></pre>
+    <h2 id="_idParaDest-220" class="heading-2">There’s more…</h2>
+    <p class="normal">While we did not introduce it in our review of types in <em class="chapterRef">Chapter 3</em>, <em class="italic">Data Types</em>, PyArrow does offer a struct <a id="_idIndexMarker422"/>data type which, when used in a <code class="inlineCode">pd.Series</code>, exposes a <code class="inlineCode">pd.Series.struct.explode</code> method:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">dtype = pd.ArrowDtype(pa.struct([
+    ("int_col", pa.int64()),
+    ("str_col", pa.string()),
+    ("float_col", pa.float64()),
+]))
+ser = pd.Series([
+    {"int_col": <span class="hljs-number">42</span>, "str_col": "Hello, ", "float_col": <span class="hljs-number">3.14159</span>},
+    {"int_col": <span class="hljs-number">555</span>, "str_col": "world!", "float_col": <span class="hljs-number">3.14159</span>},
+], dtype=dtype)
+ser
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">0    {'int_col': 42, 'str_col': 'Hello, ', 'float_c...
+1    {'int_col': 555, 'str_col': 'world!', 'float_c...
+dtype: struct&lt;int_col: int64, str_col: string, float_col: double&gt;[pyarrow]
+</code></code></pre>
+    <p class="normal">Unlike <code class="inlineCode">pd.DataFrame.explode</code>, which generates new rows of data, <code class="inlineCode">pd.Series.struct.explode</code> generates new columns of data from its struct members:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">ser.struct.explode()
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">    int_col   str_col   float_col
+0   42        Hello,    3.14159
+1   555       world!    3.14159
+</code></code></pre>
+    <p class="normal">This could be particularly useful if you are dealing with a semi-structured data source like JSON. If you are able to fit nested data from such a source into the typed struct that PyArrow has to offer, <code class="inlineCode">pd.Series.struct.explode</code> can save you a significant amount of trouble when trying to unnest that data.</p>
+    <h1 id="_idParaDest-221" class="heading-1">Transposing with pd.DataFrame.T</h1>
+    <p class="normal">For the final <a id="_idIndexMarker423"/>recipe in this chapter, let’s explore one of the easier reshaping features of pandas. <em class="italic">Transposition</em> refers to the process of inverting your <code class="inlineCode">pd.DataFrame</code> so that the rows become the columns and the columns become the rows:</p>
+    <figure class="mediaobject"><img src="../Images/B31091_07_08.png" alt=""/></figure>
+    <p class="packt_figref">Figure 7.8: Transposing a pd.DataFrame</p>
+    <p class="normal">In this recipe, we will see how to transpose with the <code class="inlineCode">pd.DataFrame.T</code> method while discussing how this might be useful.</p>
+    <h2 id="_idParaDest-222" class="heading-2">How to do it</h2>
+    <p class="normal">Transposition in pandas is straightforward. Take any <code class="inlineCode">pd.DataFrame</code>:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">df = pd.DataFrame([
+    [<span class="hljs-number">1</span>, <span class="hljs-number">2</span>, <span class="hljs-number">3</span>],
+    [<span class="hljs-number">4</span>, <span class="hljs-number">5</span>, <span class="hljs-number">6</span>],
+], columns=<span class="hljs-built_in">list</span>("xyz"), index=<span class="hljs-built_in">list</span>("ab"))
+df
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">    x   y   z
+a   1   2   3
+b   4   5   6
+</code></code></pre>
+    <p class="normal">You can simply access the <code class="inlineCode">pd.DataFrame.T</code> attribute and watch as your rows become your columns and your columns become your rows:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">df.T
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">    a   b
+x   1   4
+y   2   5
+z   3   6
+</code></code></pre>
+    <p class="normal">There are an endless number of reasons why you may want to transpose, ranging from simply thinking <em class="italic">it looks better</em> in a given format to cases where you find it easier to select by a row index label instead of by a column index label.</p>
+    <p class="normal">However, one of <a id="_idIndexMarker424"/>the main use cases to transpose will be to get your <code class="inlineCode">pd.DataFrame</code> in an <em class="italic">optimal</em> format before applying functions. As we learned back in <em class="chapterRef">Chapter 5</em>, <em class="italic">Algorithms and How to Apply Them</em>, pandas has the ability to apply aggregations to each column:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">df.<span class="hljs-built_in">sum</span>()
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">x    5
+y    7
+z    9
+dtype: int64
+</code></code></pre>
+    <p class="normal">as well as to each row with the <code class="inlineCode">axis=1</code> argument:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">df.<span class="hljs-built_in">sum</span>(axis=<span class="hljs-number">1</span>)
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">a     6
+b    15
+dtype: int64
+</code></code></pre>
+    <p class="normal">Unfortunately, using the <code class="inlineCode">axis=1</code> argument can drastically reduce the performance of your applications. If you find yourself scattering a lot of <code class="inlineCode">axis=1</code> calls throughout your code, chances are you would be much better off transposing your data first and then applying functions with the default <code class="inlineCode">axis=0</code>.</p>
+    <p class="normal">To see the difference, let’s look at a <code class="inlineCode">pd.DataFrame</code> that is rather wide:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">np.random.seed(<span class="hljs-number">42</span>)
+df = pd.DataFrame(
+    np.random.randint(<span class="hljs-number">10</span>, size=(<span class="hljs-number">2</span>, <span class="hljs-number">10_000</span>)),
+    index=<span class="hljs-built_in">list</span>("ab"),
+)
+df
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">    0   1   2   …   9997   9998   9999
+a   6   3   7   …   2      9      4
+b   2   4   2   …   1      5      5
+2 rows × 10,000 columns
+</code></code></pre>
+    <p class="normal">Ultimately, we will get the same result, whether we sum the rows:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">df.<span class="hljs-built_in">sum</span>(axis=<span class="hljs-number">1</span>)
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">a    44972
+b    45097
+dtype: int64
+</code></code></pre>
+    <p class="normal">or transpose <a id="_idIndexMarker425"/>first, and then use the default summation of the columns:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">df.T.<span class="hljs-built_in">sum</span>()
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">a    44972
+b    45097
+dtype: int64
+</code></code></pre>
+    <p class="normal">However, if you were to repeatedly make calls using <code class="inlineCode">axis=1</code> as an argument, you would find that transposing first can save significant time.</p>
+    <p class="normal">To measure this, let’s use IPython and check how long it takes to perform our sum 100 times:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">import timeit
+def baseline_sum():
+   <span class="hljs-keyword">for</span> _ <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(<span class="hljs-number">100</span>):
+      df.<span class="hljs-built_in">sum</span>(axis=<span class="hljs-number">1</span>)
+timeit.timeit(baseline_sum, number=<span class="hljs-number">100</span>)
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">4.366703154002607
+</code></code></pre>
+    <p class="normal">Comparatively, transposing first and then performing the sum will be much faster:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">def transposed_sum():
+   transposed = df.T
+   <span class="hljs-keyword">for</span> _ <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(<span class="hljs-number">100</span>):
+      transposed.<span class="hljs-built_in">sum</span>()
+timeit.timeit(transposed_sum, number=<span class="hljs-number">100</span>)
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">0.7069798299999093
+</code></code></pre>
+    <p class="normal">Overall, using <code class="inlineCode">pd.DataFrame.T</code> to avoid subsequent calls with <code class="inlineCode">axis=1</code> is a highly encouraged practice.</p>
+    <h1 id="_idParaDest-223" class="heading-1">Join our community on Discord</h1>
+    <p class="normal">Join our community’s Discord space for discussions with the authors and other readers:</p>
+    <p class="normal"><a href="https://packt.link/pandas"><span class="url">https://packt.link/pandas</span></a></p>
+    <p class="normal"><img src="../Images/QR_Code5040900042138312.png" alt=""/></p>
+  </div>
+</body></html>

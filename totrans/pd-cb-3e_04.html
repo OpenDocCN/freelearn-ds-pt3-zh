@@ -1,0 +1,1262 @@
+<html><head></head><body>
+  <div id="_idContainer025" class="Basic-Text-Frame">
+    <h1 class="chapterNumber">4</h1>
+    <h1 id="_idParaDest-114" class="chapterTitle">The pandas I/O System</h1>
+    <p class="normal">So far, we have been creating our <code class="inlineCode">pd.Series</code> and <code class="inlineCode">pd.DataFrame</code> objects <em class="italic">inline</em> with data. While this is helpful for establishing a theoretical foundation, very rarely would a user do this in production code. Instead, users would use the pandas I/O functions to read/write data from/to various formats.</p>
+    <p class="normal">I/O, which is short for <strong class="keyWord">input/output</strong>, generally refers to the process of reading from and writing to common data formats like CSV, Microsoft Excel, JSON, etc. There is, of course, not just one format for data storage, and many of these options represent trade-offs between performance, storage size, third-party integration, accessibility, and/or ubiquity. Some formats assume well-structured, stringently defined data (SQL being arguably the most extreme), whereas other formats can be used to represent semi-structured data that is not restricted to being two-dimensional (JSON being great example).</p>
+    <p class="normal">The fact that pandas can interact with so many of these data formats is one of its greatest strengths, allowing pandas to be the proverbial Swiss army knife of data analysis tools. Whether you are interacting with SQL databases, a set of Microsoft Excel files, HTML web pages, or a REST API endpoint that transmits data via JSON, pandas is up to the task of helping you build a cohesive view of all of your data. For this reason, pandas is considered a popular tool in the domain of ETL.</p>
+    <p class="normal">We are going to cover the following recipes in this chapter:</p>
+    <ul>
+      <li class="bulletList">CSV – basic reading/writing</li>
+      <li class="bulletList">CSV – strategies for reading large files</li>
+      <li class="bulletList">Microsoft Excel – basic reading/writing</li>
+      <li class="bulletList">Microsoft Excel – finding tables in non-default locations</li>
+      <li class="bulletList">Microsoft Excel – hierarchical data</li>
+      <li class="bulletList">SQL using SQLAlchemy</li>
+      <li class="bulletList">SQL using ADBC</li>
+      <li class="bulletList">Apache Parquet</li>
+      <li class="bulletList">JSON</li>
+      <li class="bulletList">HTML</li>
+      <li class="bulletList">Pickle</li>
+      <li class="bulletList">Third party I/O libraries</li>
+    </ul>
+    <h1 id="_idParaDest-115" class="heading-1">CSV – basic reading/writing</h1>
+    <p class="normal">CSV, which stands for <em class="italic">comma-separated values</em>, is one of the most common formats for data exchange. While there is no <a id="_idIndexMarker151"/>official standard that defines what a CSV file is, most developers and users would loosely consider it to be a plain text file, where each line in the file represents a row of data, and within each row, there are <em class="italic">delimiters</em> between each field to<a id="_idIndexMarker152"/> indicate when one record ends and the next begins. The most commonly used <em class="italic">delimiter</em> is a comma (hence the name <em class="italic">comma-separated values</em>), but this is not a hard requirement; it is not uncommon to see CSV files that use a pipe (<code class="inlineCode">|</code>), tilde (<code class="inlineCode">~</code>), or backtick (<code class="inlineCode">`</code>) character as the delimiter. If the delimiter character is expected to appear within a given record, usually some type of quoting surrounds the individual record (or all records) to allow a proper interpretation.</p>
+    <p class="normal">For example, let’s assume a CSV file uses a pipe separator with the following contents:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">column1|column2
+a|b|c
+</code></code></pre>
+    <p class="normal">The first row would be read with only two columns of data, whereas the second row would contain three columns of data. Assuming we wanted the records <code class="inlineCode">["a|b", "c"]</code> to appear in the second row, proper quoting would be required:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">column1|column2
+<span class="hljs-string">"a|b"</span>|c
+</code></code></pre>
+    <p class="normal">The above rules are relatively simple and make it easy to write CSV files, but that in turn makes reading CSV files much more difficult. The CSV format provides no metadata (i.e., what delimiter, quoting rule, etc.), nor does it provide any information about the type of data being provided (i.e., what type of data should be located in column X). This puts the onus on CSV readers to figure this all out on their own, which adds performance overhead and can easily lead to a misinterpretation of data. Being a text-based format, CSV is also an inefficient way of storing data compared to binary formats like Apache Parquet. Some of this can be offset by compressing CSV files (at the cost of read/write performance), but generally, CSV rates as one of the worst formats for CPU efficiency, memory usage, and losslessness.</p>
+    <p class="normal">Despite these shortcomings and more, the CSV format has been around for a long time and won’t disappear any<a id="_idIndexMarker153"/> time soon, so it is beneficial to know how to read and write such files with pandas.</p>
+    <h2 id="_idParaDest-116" class="heading-2">How to do it</h2>
+    <p class="normal">Let’s start with a simple <code class="inlineCode">pd.DataFrame</code>. Building on our knowledge in <em class="chapterRef">Chapter 3,</em><em class="italic"> Data Types</em>, we know that the default types used by pandas are less than ideal, so we are going to use <code class="inlineCode">pd.DataFrame.convert_dtypes</code> with the <code class="inlineCode">dtype_backend="numpy_nullable"</code> argument to construct this and all of our <code class="inlineCode">pd.DataFrame</code> objects going forward.</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">df = pd.DataFrame([
+    [<span class="hljs-string">"Paul"</span>, <span class="hljs-string">"McCartney"</span>, <span class="hljs-number">1942</span>],
+    [<span class="hljs-string">"John"</span>, <span class="hljs-string">"Lennon"</span>, <span class="hljs-number">1940</span>],
+    [<span class="hljs-string">"</span><span class="hljs-string">Richard"</span>, <span class="hljs-string">"Starkey"</span>, <span class="hljs-number">1940</span>],
+    [<span class="hljs-string">"George"</span>, <span class="hljs-string">"Harrison"</span>, <span class="hljs-number">1943</span>],
+], columns=[<span class="hljs-string">"first"</span>, <span class="hljs-string">"last"</span>, <span class="hljs-string">"birth"</span>])
+df = df.convert_dtypes(dtype_backend=<span class="hljs-string">"numpy_nullable"</span>)
+df
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">        first   last       birth
+0       Paul    McCartney  1942
+1       John    Lennon     1940
+2       Richard Starkey    1940
+3       George  Harrison   1943
+</code></code></pre>
+    <p class="normal">To write this <code class="inlineCode">pd.DataFrame</code> out to a CSV file, we can use the <code class="inlineCode">pd.DataFrame.to_csv</code> method. Typically, the first argument you would provide is a filename, but in this example, we will use the <code class="inlineCode">io.StringIO</code> object instead. An <code class="inlineCode">io.StringIO</code> object acts like a file but does not save anything to your disk. Instead, it manages the file contents completely in memory, requiring no cleanup and leaving nothing behind on your filesystem:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code"><span class="hljs-keyword">import</span> io
+buf = io.StringIO()
+df.to_csv(buf)
+<span class="hljs-built_in">print</span>(buf.getvalue())
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">,first,last,birth
+0,Paul,McCartney,1942
+1,John,Lennon,1940
+2,Richard,Starkey,1940
+3,George,Harrison,1943
+</code></code></pre>
+    <p class="normal">Now that we have a “file” with CSV data, we can use the <code class="inlineCode">pd.read_csv</code> function to read this data back in. However, by <a id="_idIndexMarker154"/>default, I/O functions in pandas will use the same default data types that a <code class="inlineCode">pd.DataFrame</code> constructor would use. To avoid that, we can fortunately still use the <code class="inlineCode">dtype_backend="numpy_nullable"</code> argument with I/O read functions:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">buf.seek(<span class="hljs-number">0</span>)
+pd.read_csv(buf, dtype_backend=<span class="hljs-string">"numpy_nullable"</span>)
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">     Unnamed: 0   first    last       birth
+0    0            Paul     McCartney  1942
+1    1            John     Lennon     1940
+2    2            Richard  Starkey    1940
+3    3            George   Harrison   1943
+</code></code></pre>
+    <p class="normal">Interestingly, the <code class="inlineCode">pd.read_csv</code> result does not exactly match the <code class="inlineCode">pd.DataFrame</code> we started with, as it includes a newly added <code class="inlineCode">Unnamed: 0</code> column. When you call <code class="inlineCode">pd.DataFrame.to_csv</code>, it will write out both your row index and columns to the CSV file. The CSV format does not allow you to store any extra metadata to indicate which columns in the CSV file should map to the row index versus those that should represent a column in the <code class="inlineCode">pd.DataFrame</code>, so <code class="inlineCode">pd.read_csv</code> assumes everything to be a column.</p>
+    <p class="normal">You can rectify this situation by letting <code class="inlineCode">pd.read_csv</code> know that the first column of data in the CSV file should form the row index with an <code class="inlineCode">index_col=0</code> argument:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">buf.seek(<span class="hljs-number">0</span>)
+pd.read_csv(buf, dtype_backend=<span class="hljs-string">"numpy_nullable"</span>, index_col=<span class="hljs-number">0</span>)
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">      first    last       birth
+0     Paul     McCartney  1942
+1     John     Lennon     1940
+2     Richard  Starkey    1940
+3     George   Harrison   1943
+</code></code></pre>
+    <p class="normal">Alternatively, you could avoid writing the index in the first place with the <code class="inlineCode">index=False</code> argument of <code class="inlineCode">pd.DataFrame.to_csv</code>:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">buf = io.StringIO()
+df.to_csv(buf, index=<span class="hljs-literal">False</span>)
+<span class="hljs-built_in">print</span>(buf.getvalue())
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">first,last,birth
+Paul,McCartney,1942
+John,Lennon,1940
+Richard,Starkey,1940
+George,Harrison,1943
+</code></code></pre>
+    <h2 id="_idParaDest-117" class="heading-2">There’s more…</h2>
+    <p class="normal">As mentioned back at the beginning of this section, CSV files use quoting to prevent any confusion between the appearance of the <em class="italic">delimiter</em> within a field and its intended use – to indicate the start of a<a id="_idIndexMarker155"/> new record. Fortunately, pandas handles this rather sanely by default, which we can see with some new sample data:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">df = pd.DataFrame([
+    [<span class="hljs-string">"McCartney, Paul"</span>, <span class="hljs-number">1942</span>],
+    [<span class="hljs-string">"Lennon, John"</span>, <span class="hljs-number">1940</span>],
+    [<span class="hljs-string">"Starkey, Richard"</span>, <span class="hljs-number">1940</span>],
+    [<span class="hljs-string">"Harrison, George"</span>, <span class="hljs-number">1943</span>],
+], columns=[<span class="hljs-string">"name"</span>, <span class="hljs-string">"birth"</span>])
+df = df.convert_dtypes(dtype_backend=<span class="hljs-string">"numpy_nullable"</span>)
+df
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">     name               birth
+0    McCartney, Paul    1942
+1    Lennon, John       1940
+2    Starkey, Richard   1940
+3    Harrison, George   1943
+</code></code></pre>
+    <p class="normal">Now that we just have a <code class="inlineCode">name</code> column that contains a comma, you can see that pandas quotes the field to indicate that the usage of a comma is part of the data itself and not a new record:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">buf = io.StringIO()
+df.to_csv(buf, index=<span class="hljs-literal">False</span>)
+<span class="hljs-built_in">print</span>(buf.getvalue())
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">name,birth
+"McCartney, Paul",1942
+"Lennon, John",1940
+"Starkey, Richard",1940
+"Harrison, George",1943
+</code></code></pre>
+    <p class="normal">We could have alternatively<a id="_idIndexMarker156"/> decided upon the usage of a different <em class="italic">delimiter</em>, which can be toggled with the <code class="inlineCode">sep=</code> argument:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">buf = io.StringIO()
+df.to_csv(buf, index=<span class="hljs-literal">False</span>, sep=<span class="hljs-string">"|"</span>)
+<span class="hljs-built_in">print</span>(buf.getvalue())
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">name|birth
+McCartney, Paul|1942
+Lennon, John|1940
+Starkey, Richard|1940
+Harrison, George|1943
+</code></code></pre>
+    <p class="normal">We also mentioned that, while CSV files are naturally plain text, you can also compress them to save storage space. The easiest way to do this is to provide a filename argument with a common compression file extension, i.e., by saying <code class="inlineCode">df.to_csv("data.csv.zip")</code>. For more explicit control, you can use the <code class="inlineCode">compression=</code> argument.</p>
+    <p class="normal">To see this in action, let’s work with a larger <code class="inlineCode">pd.DataFrame</code>:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">df = pd.DataFrame({
+    <span class="hljs-string">"col1"</span>: [<span class="hljs-string">"a"</span>] * <span class="hljs-number">1_000</span>,
+    <span class="hljs-string">"col2"</span>: [<span class="hljs-string">"b"</span>] * <span class="hljs-number">1_000</span>,
+    <span class="hljs-string">"col3"</span>: [<span class="hljs-string">"c"</span>] * <span class="hljs-number">1_000</span>,
+})
+df = df.convert_dtypes(dtype_backend=<span class="hljs-string">"</span><span class="hljs-string">numpy_nullable"</span>)
+df.head()
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">       col1     col2    col3
+0      a        b       c
+1      a        b       c
+2      a        b       c
+3      a        b       c
+4      a        b       c
+</code></code></pre>
+    <p class="normal">Take note of the number of<a id="_idIndexMarker157"/> bytes used to write this out as a plain text CSV file:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">buf = io.StringIO()
+df.to_csv(buf, index=<span class="hljs-literal">False</span>)
+<span class="hljs-built_in">len</span>(buf.getvalue())
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">6015
+</code></code></pre>
+    <p class="normal">Using <code class="inlineCode">compression="gzip"</code>, we can produce a file with far less storage:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">buf = io.BytesIO()
+df.to_csv(buf, index=<span class="hljs-literal">False</span>, compression=<span class="hljs-string">"gzip"</span>)
+<span class="hljs-built_in">len</span>(buf.getvalue())
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">69
+</code></code></pre>
+    <p class="normal">The trade-off here is that while compressed files require less disk storage, they require more work from the CPU to compress or decompress the file contents.</p>
+    <h1 id="_idParaDest-118" class="heading-1">CSV – strategies for reading large files</h1>
+    <p class="normal">Handling large CSV files can be challenging, especially when they exhaust the memory of your computer. In many real-world data analysis scenarios, you might encounter datasets that are too large<a id="_idIndexMarker158"/> to be processed in a single-read operation. This can lead to performance bottlenecks and <code class="inlineCode">MemoryError</code> exceptions, making it difficult to proceed with your analysis. However, fear not! There are quite a few levers you can pull to more efficiently try and process files.</p>
+    <p class="normal">In this recipe, we will show you how you can use pandas to peek at parts of your CSV file to understand what data types are being inferred. With that understanding, we can instruct <code class="inlineCode">pd.read_csv</code> to use more efficient data types, yielding far more efficient memory usage.</p>
+    <h2 id="_idParaDest-119" class="heading-2">How to do it</h2>
+    <p class="normal">For this example, we will look at the <em class="italic">diamonds</em> dataset. This dataset is not actually all that big for modern computers, but let’s pretend that the file is a lot bigger than it is, or that the memory on our machine is <a id="_idIndexMarker159"/>limited to the point where a normal <code class="inlineCode">read_csv</code> call would yield a <code class="inlineCode">MemoryError</code>.</p>
+    <p class="normal">To start, we will look at the first 1,000 rows from the dataset to get an idea of what is in the file via <code class="inlineCode">nrows=1_000</code>.</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">df = pd.read_csv(<span class="hljs-string">"data/diamonds.csv"</span>, dtype_backend=<span class="hljs-string">"numpy_nullable"</span>, nrows=<span class="hljs-number">1_000</span>)
+df
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">   carat  cut      color  clarity  depth  table  price  x      y      z
+0  0.23   Ideal    E      SI2      61.5   55.0   326    3.95   3.98   2.43
+1  0.21   Premium  E      SI1      59.8   61.0   326    3.89   3.84   2.31
+2  0.23   Good     E      VS1      56.9   65.0   327    4.05   4.07   2.31
+3  0.29   Premium  I      VS2      62.4   58.0   334    4.2    4.23   2.63
+4  0.31   Good     J      SI2      63.3   58.0   335    4.34   4.35   2.75
+…  …      …        …      …        …      …      …      …      …      …
+995  0.54   Ideal    D    VVS2    61.4    52.0   2897   5.3    5.34   3.26
+996  0.72   Ideal    E    SI1     62.5    55.0   2897   5.69   5.74   3.57
+997  0.72   Good     F    VS1     59.4    61.0   2897   5.82   5.89   3.48
+998  0.74   Premium  D    VS2     61.8    58.0   2897   5.81   5.77   3.58
+999  1.12   Premium  J    SI2     60.6    59.0   2898   6.68   6.61   4.03
+1000 rows × 10 columns
+</code></code></pre>
+    <p class="normal">The <code class="inlineCode">pd.DataFrame.info</code> method <a id="_idIndexMarker160"/>should give us an idea of how much memory this subset uses:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">df.info()
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">&lt;class 'pandas.core.frame.DataFrame'&gt;
+RangeIndex: 1000 entries, 0 to 999
+Data columns (total 10 columns):
+#   Column   Non-Null Count  Dtype 
+---  ------   --------------  ----- 
+0   carat    1000 non-null   Float64
+1   cut      1000 non-null   string
+2   color    1000 non-null   string
+3   clarity  1000 non-null   string
+4   depth    1000 non-null   Float64
+5   table    1000 non-null   Float64
+6   price    1000 non-null   Int64 
+7   x        1000 non-null   Float64
+8   y        1000 non-null   Float64
+9   z        1000 non-null   Float64
+dtypes: Float64(6), Int64(1), string(3)
+memory usage: 85.1 KB
+</code></code></pre>
+    <p class="normal">The exact memory usage you see may depend on your version of pandas and operating system, but let’s assume that the <code class="inlineCode">pd.DataFrame</code> we are using requires around 85 KB of memory. If we had 1 billion rows instead of just 1,000, that would require 85 GB of memory just to store this <code class="inlineCode">pd.DataFrame</code>.</p>
+    <p class="normal">So how can we fix this situation? For starters, it is worth looking more closely at the data types that have been inferred. The <code class="inlineCode">price</code> column may be one that immediately catches our attention; this was inferred to be a <code class="inlineCode">pd.Int64Dtype()</code>, but chances are that we don’t need 64 bits to store this <a id="_idIndexMarker161"/>information. Summary statistics will be explored in more detail in <em class="chapterRef">Chapter 5</em>, <em class="italic">Algorithms and How to Apply Them</em> but for now, let’s just take a look at <code class="inlineCode">pd.Series.describe</code> to see what pandas can tell us about this column:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">df[<span class="hljs-string">"price"</span>].describe()
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">count       1000.0
+mean       2476.54
+std      839.57562
+min          326.0
+25%         2777.0
+50%         2818.0
+75%         2856.0
+max         2898.0
+Name: price, dtype: Float64
+</code></code></pre>
+    <p class="normal">The minimum value is 326 and the maximum is 2,898. Those values can both safely fit into <code class="inlineCode">pd.Int16Dtype()</code>, which would represent good memory savings compared to <code class="inlineCode">pd.Int64Dtype()</code>.</p>
+    <p class="normal">Let’s also take a look at some of the floating point types, starting with the <em class="italic">carat</em>:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">df[<span class="hljs-string">"carat"</span>].describe()
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">count      1000.0
+mean      0.68928
+std      0.195291
+min           0.2
+25%           0.7
+50%          0.71
+75%          0.79
+max          1.27
+Name: carat, dtype: Float64
+</code></code></pre>
+    <p class="normal">The values range from 0.2 to 1.27, and unless we expect to perform calculations with many decimal points, the 6 to 9 digits of decimal precision that a 32-bit floating point data type provides should be good enough to use here.</p>
+    <p class="normal">For this recipe, we are going to assume that 32-bit floating point types can be used across all of the other floating point types as well. One way to tell <code class="inlineCode">pd.read_csv</code> that we want to use smaller data types would be to use the <code class="inlineCode">dtype=</code> parameter, with a dictionary mapping column names to<a id="_idIndexMarker162"/> the desired types. Since our <code class="inlineCode">dtype=</code> parameter will cover all of the columns, we can also drop <code class="inlineCode">dtype_backend="numpy_nullable"</code>, as it would be superfluous:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">df2 = pd.read_csv(
+    <span class="hljs-string">"data/diamonds.csv"</span>,
+    nrows=<span class="hljs-number">1_000</span>,
+    dtype={
+        <span class="hljs-string">"carat"</span>: pd.Float32Dtype(),
+        <span class="hljs-string">"cut"</span>: pd.StringDtype(),
+        <span class="hljs-string">"color"</span>: pd.StringDtype(),
+        <span class="hljs-string">"clarity"</span>: pd.StringDtype(),
+        <span class="hljs-string">"depth"</span>: pd.Float32Dtype(),
+        <span class="hljs-string">"table"</span>: pd.Float32Dtype(),
+        <span class="hljs-string">"price"</span>: pd.Int16Dtype(),
+        <span class="hljs-string">"x"</span>: pd.Float32Dtype(),
+        <span class="hljs-string">"y"</span>: pd.Float32Dtype(),
+        <span class="hljs-string">"z"</span>: pd.Float32Dtype(),
+    }
+)
+df2.info()
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">&lt;class 'pandas.core.frame.DataFrame'&gt;
+RangeIndex: 1000 entries, 0 to 999
+Data columns (total 10 columns):
+#   Column   Non-Null Count  Dtype 
+---  ------   --------------  ----- 
+0   carat    1000 non-null   Float32
+1   cut      1000 non-null   string
+2   color    1000 non-null   string
+3   clarity  1000 non-null   string
+4   depth    1000 non-null   Float32
+5   table    1000 non-null   Float32
+6   price    1000 non-null   Int16 
+7   x        1000 non-null   Float32
+8   y        1000 non-null   Float32
+9   z        1000 non-null   Float32
+dtypes: Float32(6), Int16(1), string(3)
+memory usage: 55.8 KB
+</code></code></pre>
+    <p class="normal">These steps alone will probably yield a memory usage in the ballpark of 55 KB, which is not a bad reduction from the 85 KB we started with! For added safety, we can use the <code class="inlineCode">pd.DataFrame.describe()</code> method <a id="_idIndexMarker163"/>to get summary statistics and ensure that the two <code class="inlineCode">pd.DataFrame</code> objects are similar. If the numbers are the same for both <code class="inlineCode">pd.DataFrame</code> objects, it is a good sign that our conversions did not materially change our data:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">df.describe()
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">        carat    depth    table     price      x         y         z
+count   1000.0   1000.0	  1000.0    1000.0     1000.0    1000.0    1000.0
+mean    0.68928  61.7228  57.7347   2476.54    5.60594   5.59918   3.45753
+std     0.195291 1.758879 2.467946  839.57562  0.625173  0.611974  0.389819
+min     0.2      53.0     52.0      326.0      3.79      3.75      2.27
+25%<span class="hljs-con-meta"> </span>    0.7      60.9     56.0      2777.0     5.64      5.63      3.45
+50%<span class="hljs-con-meta"> </span>    0.71     61.8     57.0      2818.0     5.77      5.76      3.55
+75%<span class="hljs-con-meta"> </span>    0.79     62.6     59.0      2856.0     5.92      5.91      3.64
+max     1.27     69.5     70.0      2898.0     7.12      7.05      4.33
+</code></code></pre>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">df2.describe()
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">       carat    depth     table      price      x        y        z
+count  1000.0   1000.0    1000.0     1000.0     1000.0   1000.0   1000.0
+mean   0.68928  61.722801 57.734699  2476.54    5.60594  5.59918  3.45753
+std    0.195291 1.758879  2.467946   839.57562  0.625173 0.611974 0.389819
+min    0.2      53.0      52.0       326.0      3.79     3.75     2.27
+25%    0.7      60.900002 56.0       2777.0     5.64     5.63     3.45
+50%    0.71     61.799999 57.0       2818.0     5.77     5.76     3.55
+75%    0.79     62.599998 59.0       2856.0     5.92     5.91     3.64
+max    1.27     69.5      70.0       2898.0     7.12     7.05     4.33
+</code></code></pre>
+    <p class="normal">So far, things are looking good, but we can still do better. For starters, it looks like the <code class="inlineCode">cut</code> column has a relatively <a id="_idIndexMarker164"/>small amount of unique values:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">df2[<span class="hljs-string">"cut"</span>].unique()
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">&lt;StringArray&gt;
+['Ideal', 'Premium', 'Good', 'Very Good', 'Fair']
+Length: 5, dtype: string
+</code></code></pre>
+    <p class="normal">The same can be said about the <code class="inlineCode">color</code> column:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">df2[<span class="hljs-string">"color"</span>].unique()
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">&lt;StringArray&gt;
+['E', 'I', 'J', 'H', 'F', 'G', 'D']
+Length: 7, dtype: string
+</code></code></pre>
+    <p class="normal">As well as the <code class="inlineCode">clarity</code> column:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">df2[<span class="hljs-string">"clarity"</span>].unique()
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">&lt;StringArray&gt;
+['SI2', 'SI1', 'VS1', 'VS2', 'VVS2', 'VVS1', 'I1', 'IF']
+Length: 8, dtype: string
+</code></code></pre>
+    <p class="normal">Out of 1,000 rows sampled, there are only 5 distinct <code class="inlineCode">cut</code> values, 7 distinct <code class="inlineCode">color</code> values, and 8 distinct <code class="inlineCode">clarity</code> values. We consider these columns to have a <em class="italic">low cardinality</em>, i.e., the number of distinct values is very low relative to the number of rows.</p>
+    <p class="normal">This makes these columns a perfect candidate for the use of categorical types. However, I would advise against using <code class="inlineCode">pd.CategoricalDtype()</code> as an argument to <code class="inlineCode">dtype=</code>, as by default it uses <code class="inlineCode">np.nan</code> as a missing value indicator (for a refresher on this caveat, you may want to revisit the <em class="italic">Categorical types</em> recipe back in <em class="chapterRef">Chapter 3</em>, <em class="italic">Data Types</em>). Instead, the best approach to convert your strings to categorical types is to first read in your columns as <code class="inlineCode">pd.StringDtype()</code>, and then use <code class="inlineCode">pd.DataFrame.astype</code> on the appropriate column(s):</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">df3 = pd.read_csv(
+    <span class="hljs-string">"data/diamonds.csv"</span>,
+    nrows=<span class="hljs-number">1_000</span>,
+    dtype={
+        <span class="hljs-string">"carat"</span>: pd.Float32Dtype(),
+        <span class="hljs-string">"cut"</span>: pd.StringDtype(),
+        <span class="hljs-string">"color"</span>: pd.StringDtype(),
+        <span class="hljs-string">"clarity"</span>: pd.StringDtype(),
+        <span class="hljs-string">"depth"</span>: pd.Float32Dtype(),
+        <span class="hljs-string">"table"</span>: pd.Float32Dtype(),
+        <span class="hljs-string">"price"</span>: pd.Int16Dtype(),
+        <span class="hljs-string">"x"</span>: pd.Float32Dtype(),
+        <span class="hljs-string">"y"</span>: pd.Float32Dtype(),
+        <span class="hljs-string">"z"</span>: pd.Float32Dtype(),
+    }
+)
+cat_cols = [<span class="hljs-string">"cut"</span>, <span class="hljs-string">"color"</span>, <span class="hljs-string">"clarity"</span>]
+df3[cat_cols] = df3[cat_cols].astype(pd.CategoricalDtype())
+df3.info()
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">&lt;class 'pandas.core.frame.DataFrame'&gt;
+RangeIndex: 1000 entries, 0 to 999
+Data columns (total 10 columns):
+#   Column   Non-Null Count  Dtype  
+---  ------   --------------  -----  
+0   carat    1000 non-null   Float32
+1   cut      1000 non-null   category
+2   color    1000 non-null   category
+3   clarity  1000 non-null   category
+4   depth    1000 non-null   Float32
+5   table    1000 non-null   Float32
+6   price    1000 non-null   Int16  
+7   x        1000 non-null   Float32
+8   y        1000 non-null   Float32
+9   z        1000 non-null   Float32
+dtypes: Float32(6), Int16(1), category(3)
+memory usage: 36.2 KB
+</code></code></pre>
+    <p class="normal">To get even more savings, we <a id="_idIndexMarker165"/>may decide that there are columns in our CSV file that are just not worth reading at all. To allow pandas to skip this data and save even more memory, you can use the <code class="inlineCode">usecols=</code> parameter:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">dtypes = {  <span class="hljs-comment"># does not include x, y, or z</span>
+    <span class="hljs-string">"carat"</span>: pd.Float32Dtype(),
+    <span class="hljs-string">"cut"</span>: pd.StringDtype(),
+    <span class="hljs-string">"color"</span>: pd.StringDtype(),
+    <span class="hljs-string">"clarity"</span>: pd.StringDtype(),
+    <span class="hljs-string">"</span><span class="hljs-string">depth"</span>: pd.Float32Dtype(),
+    <span class="hljs-string">"table"</span>: pd.Float32Dtype(),
+    <span class="hljs-string">"price"</span>: pd.Int16Dtype(),
+}
+df4 = pd.read_csv(
+    <span class="hljs-string">"data/diamonds.csv"</span>,
+    nrows=<span class="hljs-number">1_000</span>,
+    dtype=dtypes,
+    usecols=dtypes.keys(),
+)
+cat_cols = [<span class="hljs-string">"cut"</span>, <span class="hljs-string">"color"</span>, <span class="hljs-string">"clarity"</span>]
+df4[cat_cols] = df4[cat_cols].astype(pd.CategoricalDtype())
+df4.info()
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">&lt;class 'pandas.core.frame.DataFrame'&gt;
+RangeIndex: 1000 entries, 0 to 999
+Data columns (total 7 columns):
+#   Column   Non-Null Count  Dtype  
+---  ------   --------------  -----  
+0   carat    1000 non-null   Float32
+1   cut      1000 non-null   category
+2   color    1000 non-null   category
+3   clarity  1000 non-null   category
+4   depth    1000 non-null   Float32
+5   table    1000 non-null   Float32
+6   price    1000 non-null   Int16  
+dtypes: Float32(3), Int16(1), category(3)
+memory usage: 21.5 KB
+</code></code></pre>
+    <p class="normal">If the preceding steps are not <a id="_idIndexMarker166"/>sufficient to create a small enough <code class="inlineCode">pd.DataFrame</code>, you might still be in luck. If you can process chunks of data at a time and do not need all of it in memory, you can use the <code class="inlineCode">chunksize=</code> parameter to control the size of the chunks you would like to read from a file:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">dtypes = {  <span class="hljs-comment"># does not include x, y, or z</span>
+    <span class="hljs-string">"carat"</span>: pd.Float32Dtype(),
+    <span class="hljs-string">"cut"</span>: pd.StringDtype(),
+    <span class="hljs-string">"color"</span>: pd.StringDtype(),
+    <span class="hljs-string">"clarity"</span>: pd.StringDtype(),
+    <span class="hljs-string">"depth"</span>: pd.Float32Dtype(),
+    <span class="hljs-string">"table"</span>: pd.Float32Dtype(),
+    <span class="hljs-string">"price"</span>: pd.Int16Dtype(),
+}
+df_iter = pd.read_csv(
+    <span class="hljs-string">"data/diamonds.csv"</span>,
+    nrows=<span class="hljs-number">1_000</span>,
+    dtype=dtypes,
+    usecols=dtypes.keys(),
+    chunksize=<span class="hljs-number">200</span>
+)
+<span class="hljs-keyword">for</span> df <span class="hljs-keyword">in</span> df_iter:
+    cat_cols = [<span class="hljs-string">"cut"</span>, <span class="hljs-string">"color"</span>, <span class="hljs-string">"clarity"</span>]
+    df[cat_cols] = df[cat_cols].astype(pd.CategoricalDtype())
+    <span class="hljs-built_in">print</span>(<span class="hljs-string">f"processed chunk of shape </span><span class="hljs-subst">{df.shape}</span><span class="hljs-string">"</span>)
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">processed chunk of shape (200, 7)
+processed chunk of shape (200, 7)
+processed chunk of shape (200, 7)
+processed chunk of shape (200, 7)
+processed chunk of shape (200, 7)
+</code></code></pre>
+    <h2 id="_idParaDest-120" class="heading-2">There’s more...</h2>
+    <p class="normal">The <code class="inlineCode">usecols</code> parameter<a id="_idIndexMarker167"/> introduced here can also accept a callable that, when evaluated against each column label encountered, should return <code class="inlineCode">True</code> if the column should be read and <code class="inlineCode">False</code> if it should be skipped. If we only wanted to read the <code class="inlineCode">carat</code>, <code class="inlineCode">cut</code>, <code class="inlineCode">color</code>, and <code class="inlineCode">clarity</code> columns, that might look something like:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code"><span class="hljs-keyword">def</span> <span class="hljs-title">startswith_c</span>(<span class="hljs-params">column_name: </span><span class="hljs-built_in">str</span>) -&gt; <span class="hljs-built_in">bool</span>:
+    <span class="hljs-keyword">return</span> column_name.startswith(<span class="hljs-string">"c"</span>)
+pd.read_csv(
+    <span class="hljs-string">"data/diamonds.csv"</span>,
+    dtype_backend=<span class="hljs-string">"numpy_nullable"</span>,
+    usecols=startswith_c,
+)
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">       carat   cut       color  clarity
+0      0.23    Ideal     E      SI2
+1      0.21    Premium   E      SI1
+2      0.23    Good      E      VS1
+3      0.29    Premium   I      VS2
+4      0.31    Good      J      SI2
+…      …       …         …      …
+53935  0.72    Ideal     D      SI1
+53936  0.72    Good      D      SI1
+53937  0.7     Very Good D      SI1
+53938  0.86    Premium   H      SI2
+53939  0.75    Ideal     D      SI2
+53940 rows × 4 columns
+</code></code></pre>
+    <h1 id="_idParaDest-121" class="heading-1">Microsoft Excel – basic reading/writing</h1>
+    <p class="normal">Microsoft Excel is an<a id="_idIndexMarker168"/> extremely popular tool for data analysis, given its ease of use and ubiquity. Microsoft Excel provides a rather powerful toolkit that can help to cleanse, transform, store, and visualize data, all without requiring any knowledge of programming languages. Many successful analysts may consider it to be the <em class="italic">only</em> tool they will ever need. Despite this, Microsoft Excel really struggles with performance and scalability and, when used as a storage medium, may even materially change your data in unexpected ways.</p>
+    <p class="normal">If you have used Microsoft Excel before and are now picking up pandas, you will find that pandas works as a complementary tool. With pandas, you will give up the point-and-click usability of Microsoft Excel, but you will easily unlock performance that takes you far beyond the limits of Microsoft Excel.</p>
+    <p class="normal">Before we jump into this recipe, it’s worth noting that Microsoft Excel support is not shipped as part of pandas, so you will need to install third-party package(s) for these recipes to work. While it is not the only choice, users are encouraged to opt for installing <code class="inlineCode">openpyxl</code>, as it works very well to read and write all of the various Microsoft Excel formats. If you do not have it already, <code class="inlineCode">openpyxl</code> can be installed via:</p>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">python -m pip install openpyxl
+</code></code></pre>
+    <h2 id="_idParaDest-122" class="heading-2">How to do it</h2>
+    <p class="normal">Let’s again start with a simple <code class="inlineCode">pd.DataFrame</code>:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">df = pd.DataFrame([
+    [<span class="hljs-string">"Paul"</span>, <span class="hljs-string">"McCartney"</span>, <span class="hljs-number">1942</span>],
+    [<span class="hljs-string">"John"</span>, <span class="hljs-string">"Lennon"</span>, <span class="hljs-number">1940</span>],
+    [<span class="hljs-string">"Richard"</span>, <span class="hljs-string">"Starkey"</span>, <span class="hljs-number">1940</span>],
+    [<span class="hljs-string">"George"</span>, <span class="hljs-string">"Harrison"</span>, <span class="hljs-number">1943</span>],
+], columns=[<span class="hljs-string">"first"</span>, <span class="hljs-string">"last"</span>, <span class="hljs-string">"birth"</span>])
+df = df.convert_dtypes(dtype_backend=<span class="hljs-string">"</span><span class="hljs-string">numpy_nullable"</span>)
+df
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">     first     last       birth
+0    Paul      McCartney  1942
+1    John      Lennon     1940
+2    Richard   Starkey    1940
+3    George    Harrison   1943
+</code></code></pre>
+    <p class="normal">You can use the <code class="inlineCode">pd.DataFrame.to_excel</code> method to write this to a file, with the first argument typically being a filename like <code class="inlineCode">myfile.xlsx</code>, but here, we will again use <code class="inlineCode">io.BytesIO</code>, which acts<a id="_idIndexMarker169"/> like a file but stores binary data in memory instead of on disk:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code"><span class="hljs-keyword">import</span> io
+buf = io.BytesIO()
+df.to_excel(buf)
+</code></code></pre>
+    <p class="normal">For reading, reach for the <code class="inlineCode">pd.read_excel</code> function. We will continue to use <code class="inlineCode">dtype_backend="numpy_nullable"</code> to prevent the default type inference that pandas performs:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">buf.seek(<span class="hljs-number">0</span>)
+pd.read_excel(buf, dtype_backend=<span class="hljs-string">"</span><span class="hljs-string">numpy_nullable"</span>)
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">     Unnamed: 0   first   last       birth
+0    0            Paul    McCartney  1942
+1    1            John    Lennon     1940
+2    2            Richard Starkey    1940
+3    3            George  Harrison   1943
+</code></code></pre>
+    <p class="normal">Many of the function parameters are shared with CSV. To get rid of the <code class="inlineCode">Unnamed: 0</code> column above, we can either specify the <code class="inlineCode">index_col=</code> argument:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">buf.seek(<span class="hljs-number">0</span>)
+pd.read_excel(buf, dtype_backend=<span class="hljs-string">"numpy_nullable"</span>, index_col=<span class="hljs-number">0</span>)
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">     first    last       birth
+0    Paul     McCartney  1942
+1    John     Lennon     1940
+2    Richard  Starkey    1940
+3    George   Harrison   1943
+</code></code></pre>
+    <p class="normal">Or choose to not write the index in the first place:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">buf = io.BytesIO()
+df.to_excel(buf, index=<span class="hljs-literal">False</span>)
+buf.seek(<span class="hljs-number">0</span>)
+pd.read_excel(buf, dtype_backend=<span class="hljs-string">"numpy_nullable"</span>)
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">     first     last       birth
+0    Paul      McCartney  1942
+1    John      Lennon     1940
+2    Richard   Starkey    1940
+3    George    Harrison   1943
+</code></code></pre>
+    <p class="normal">Data types can be<a id="_idIndexMarker170"/> controlled with the <code class="inlineCode">dtype=</code> argument:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">buf.seek(<span class="hljs-number">0</span>)
+dtypes = {
+    <span class="hljs-string">"first"</span>: pd.StringDtype(),
+    <span class="hljs-string">"last"</span>: pd.StringDtype(),
+    <span class="hljs-string">"birth"</span>: pd.Int16Dtype(),
+}
+df = pd.read_excel(buf, dtype=dtypes)
+df.dtypes
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">first    string[python]
+last     string[python]
+birth             Int16
+dtype: object
+</code></code></pre>
+    <h1 id="_idParaDest-123" class="heading-1">Microsoft Excel – finding tables in non-default locations</h1>
+    <p class="normal">In the previous recipe, Microsoft Excel – basic reading/writing, we used the Microsoft Excel I/O functions without thinking about <em class="italic">where</em> within the worksheet our data was. By default, pandas will read<a id="_idIndexMarker171"/> from / write to the first cell on the first sheet of data, but it is not uncommon to receive Microsoft Excel files where the data you want to read is located elsewhere within the document.</p>
+    <p class="normal">For this example, we have a Microsoft Excel workbook where the very first tab, <strong class="screenText">Sheet1</strong>, is used as a cover sheet:</p>
+    <figure class="mediaobject"><img src="../Images/B31091_04_01.png" alt="A screenshot of a computer  Description automatically generated"/></figure>
+    <p class="packt_figref">Figure 4.1: Workbook where Sheet1 contains no useful data</p>
+    <p class="normal">The second sheet is<a id="_idIndexMarker172"/> where we have useful information:</p>
+    <figure class="mediaobject"><img src="../Images/B31091_04_02.png" alt="A screenshot of a computer"/></figure>
+    <p class="packt_figref">Figure 4.2: Workbook where another sheet has relevant data</p>
+    <h2 id="_idParaDest-124" class="heading-2">How to do it</h2>
+    <p class="normal">To still be able to read this<a id="_idIndexMarker173"/> data, you can use a combination of the <code class="inlineCode">sheet_name=</code>, <code class="inlineCode">skiprows=</code>, and <code class="inlineCode">usecols=</code> arguments to <code class="inlineCode">pd.read_excel</code>:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">pd.read_excel(
+    <span class="hljs-string">"data/beatles.xlsx"</span>,
+    dtype_backend=<span class="hljs-string">"numpy_nullable"</span>,
+    sheet_name=<span class="hljs-string">"the_data"</span>,
+    skiprows=<span class="hljs-number">4</span>,
+    usecols=<span class="hljs-string">"C:E"</span>,
+)
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">     first     last       birth
+0    Paul      McCartney  1942
+1    John      Lennon     1940
+2    Richard   Starkey    1940
+3    George    Harrison   1943
+</code></code></pre>
+    <p class="normal">By passing <code class="inlineCode">sheet_name="the_data"</code>, the <code class="inlineCode">pd.read_excel</code> function is able to pinpoint the specific sheet within the Microsoft Excel file to start looking for data. Alternatively, we could have used <code class="inlineCode">sheet_name=1</code> to search by tab position. After locating the correct sheet, pandas looks at the <code class="inlineCode">skiprows=</code> argument and knows to ignore rows 1–4 on the worksheet. It then looks<a id="_idIndexMarker174"/> at the <code class="inlineCode">usecols=</code> argument to select only columns C–E.</p>
+    <h2 id="_idParaDest-125" class="heading-2">There’s more…</h2>
+    <p class="normal">Instead of <code class="inlineCode">usecols="C:E"</code>, we could have also provided the labels we wanted:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">pd.read_excel(
+    <span class="hljs-string">"data/beatles.xlsx"</span>,
+    dtype_backend=<span class="hljs-string">"numpy_nullable"</span>,
+    sheet_name=<span class="hljs-string">"the_data"</span>,
+    skiprows=<span class="hljs-number">4</span>,
+    usecols=[<span class="hljs-string">"first"</span>, <span class="hljs-string">"last"</span>, <span class="hljs-string">"birth"</span>],
+)
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">     first    last      birth
+0    Paul     McCartney 1942
+1    John     Lennon    1940
+2    Richard  Starkey   1940
+3    George   Harrison  1943
+</code></code></pre>
+    <p class="normal">Passing such an argument to <code class="inlineCode">usecols=</code> was a requirement when working with the CSV format to select particular columns from<a id="_idIndexMarker175"/> a file. However, pandas provides special behavior when reading Microsoft Excel files to allow strings like <code class="inlineCode">"C:E"</code> or <code class="inlineCode">"C,D,E"</code> to refer to columns.</p>
+    <h1 id="_idParaDest-126" class="heading-1">Microsoft Excel – hierarchical data</h1>
+    <p class="normal">One of the major tasks with data <a id="_idIndexMarker176"/>analysis is to take very detailed information and aggregate it into a summary that is easy to digest. Rather than having to sift through thousands of orders, most executives at a company just want to know, “What have my sales looked like in the last X quarters?”</p>
+    <p class="normal">With Microsoft Excel, users will commonly summarize this information in a view like the one shown in <em class="italic">Figure 4.3</em>, which represents a hierarchy of <code class="inlineCode">Region</code>/<code class="inlineCode">Sub-Region</code> along the rows and <code class="inlineCode">Year</code>/<code class="inlineCode">Quarter</code> along the columns:</p>
+    <figure class="mediaobject"><img src="../Images/B31091_04_03.png" alt="A screenshot of a spreadsheet"/></figure>
+    <p class="packt_figref">Figure 4.3: Workbook with hierarchical data – sales by Region and Quarter</p>
+    <p class="normal">While this summary does not seem too far-fetched, many analysis tools struggle to properly present this type of information. Taking a traditional SQL database as an example, there is no direct way to represent this <code class="inlineCode">Year</code>/<code class="inlineCode">Quarter</code> hierarchy in a table – your only option would be to concatenate all of the hierarchy fields together and produce columns like <code class="inlineCode">2024</code>/<code class="inlineCode">Q1</code>, <code class="inlineCode">2024</code>/<code class="inlineCode">Q2</code>, <code class="inlineCode">2025</code>/<code class="inlineCode">Q1</code> and <code class="inlineCode">2025</code>/<code class="inlineCode">Q2</code>. While that makes it easy to select any individual column, you<a id="_idIndexMarker177"/> lose the ability to easily select things like “all of 2024 sales” without additional effort.</p>
+    <p class="normal">Fortunately, pandas can handle this a lot more sanely than a SQL database can, directly supporting such hierarchical relationships in both the row and column index. If you recall <em class="chapterRef">Chapter 2</em>, <em class="italic">Selection and Assignment</em>, we introduced the <code class="inlineCode">pd.MultiIndex</code>; being able to maintain those relationships allows users to efficiently select from any and all levels of the hierarchies.</p>
+    <h2 id="_idParaDest-127" class="heading-2">How to do it</h2>
+    <p class="normal">Upon closer inspection of <em class="italic">Figure 4.3</em>, you will see that rows 1 and 2 contain the labels <code class="inlineCode">Year</code> and <code class="inlineCode">Quarter</code>, which can form the levels of the <code class="inlineCode">pd.MultiIndex</code> that we want in the columns of our <code class="inlineCode">pd.DataFrame</code>. Microsoft Excel uses 1-based numbering of each row, so rows <code class="inlineCode">[1, 2]</code> translated to Python would actually be <code class="inlineCode">[0, 1]</code>; we will use this as our <code class="inlineCode">header=</code> argument to establish that we want the first two rows to form our column <code class="inlineCode">pd.MultiIndex</code>.</p>
+    <p class="normal">Switching our focus to columns A and B in Microsoft Excel, we can now see the labels <code class="inlineCode">Region</code> and <code class="inlineCode">Sub-Region</code>, which will help us shape the <code class="inlineCode">pd.MultiIndex</code> in our rows. Back in the <em class="italic">CSV – basic reading/writing</em> section, we introduced the <code class="inlineCode">index_col=</code> argument, which can be used to tell <a id="_idIndexMarker178"/>pandas which column(s) of data should actually be used to generate the row index. Columns A and B from the Microsoft Excel file represent the first and second columns, so we can once again use <code class="inlineCode">[0, 1]</code> to let pandas know our intent:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">df = pd.read_excel(
+    <span class="hljs-string">"data/hierarchical.xlsx"</span>,
+    dtype_backend=<span class="hljs-string">"numpy_nullable"</span>,
+    index_col=[<span class="hljs-number">0</span>, <span class="hljs-number">1</span>],
+    header=[<span class="hljs-number">0</span>, <span class="hljs-number">1</span>],
+)
+df
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">        Year    2024            2025
+        Quarter Q1      Q2      Q1      Q2
+Region  Sub-Region
+America East    1       2       4       8
+        West    16      32      64      128
+        South   256     512     1024    4096
+Europe  West    8192    16384   32768   65536
+        East    131072  262144  524288  1048576
+</code></code></pre>
+    <p class="normal">Voila! We have successfully read in the data and maintained the hierarchical nature of the rows and columns, which lets us use all of the native pandas functionality to select from this data, and even answer questions like, “What does the Q2 performance look like year over year for every East Sub-Region?”</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">df.loc[(<span class="hljs-built_in">slice</span>(<span class="hljs-literal">None</span>), <span class="hljs-string">"East"</span>), (<span class="hljs-built_in">slice</span>(<span class="hljs-literal">None</span>), <span class="hljs-string">"Q2"</span>)]
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">        Year    2024    2025
+        Quarter Q2      Q2
+Region  Sub-Region
+America East    2       8
+Europe  East    262144  1048576
+</code></code></pre>
+    <h1 id="_idParaDest-128" class="heading-1">SQL using SQLAlchemy</h1>
+    <p class="normal">The pandas library provides robust capabilities for interacting with SQL databases, allowing you to perform data analysis directly on data stored in relational databases.</p>
+    <p class="normal">There are, of course, countless <a id="_idIndexMarker179"/>databases that exist (and more are coming!), each with its own features, authentication schemes, dialects, and quirks. To interact with <a id="_idIndexMarker180"/>them, pandas relies on another great Python library, SQLAlchemy, which at its core acts as a bridge between Python and the database world. In theory, pandas can work with any database that SQLAlchemy can connect to.</p>
+    <p class="normal">To get started, you should first install SQLAlchemy into your environment:</p>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">python -m pip install sqlalchemy
+</code></code></pre>
+    <p class="normal">SQLAlchemy supports all major databases, like MySQL, PostgreSQL, MS SQL Server, etc., but setting up and properly configuring those databases is an effort in its own right, which cannot be covered within the scope of this book. To make things as simple as possible, we will focus on using SQLite as our database, as it requires no setup and can operate entirely within memory on your computer. Once you feel comfortable experimenting with SQLite, you only need to change the credentials you use to point to your target database; otherwise, all of the functionality remains the same.</p>
+    <h2 id="_idParaDest-129" class="heading-2">How to do it</h2>
+    <p class="normal">The first thing we need to do is create a SQLAlchemy engine, using <code class="inlineCode">sa.create_engine</code>. The argument to this function is a URL and will be dependent upon the database you are trying to connect to (see the SQLAlchemy docs for more info). For these examples, we are going to use SQLite in memory:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code"><span class="hljs-keyword">import</span> sqlalchemy <span class="hljs-keyword">as</span> sa
+engine = sa.create_engine(<span class="hljs-string">"sqlite:///:memory:"</span>)
+</code></code></pre>
+    <p class="normal">With the <code class="inlineCode">pd.DataFrame.to_sql</code> method, you can take an existing <code class="inlineCode">pd.DataFrame</code> and write it to a database table. The first argument is the name of the table you would like to create, with the second argument being an engine/connectable:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">df = pd.DataFrame([
+    [<span class="hljs-string">"dog"</span>, <span class="hljs-number">4</span>],
+    [<span class="hljs-string">"cat"</span>, <span class="hljs-number">4</span>],
+], columns=[<span class="hljs-string">"</span><span class="hljs-string">animal"</span>, <span class="hljs-string">"num_legs"</span>])
+df = df.convert_dtypes(dtype_backend=<span class="hljs-string">"numpy_nullable"</span>)
+df.to_sql(<span class="hljs-string">"table_name"</span>, engine, index=<span class="hljs-literal">False</span>)
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">2
+</code></code></pre>
+    <p class="normal">The <code class="inlineCode">pd.read_sql</code> function<a id="_idIndexMarker181"/> can be used to go in the opposite direction and read from<a id="_idIndexMarker182"/> a database table:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">pd.read_sql(<span class="hljs-string">"table_name"</span>, engine, dtype_backend=<span class="hljs-string">"numpy_nullable"</span>)
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">     animal    num_legs
+0    dog       4
+1    cat       4
+</code></code></pre>
+    <p class="normal">Alternatively, if you wanted something different than just a copy of the table, you could pass a SQL query to <code class="inlineCode">pd.read_sql</code>:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">pd.read_sql(
+    <span class="hljs-string">"SELECT SUM(num_legs) AS total_legs FROM table_name"</span>,
+    engine,
+    dtype_backend=<span class="hljs-string">"numpy_nullable"</span>
+)
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">      total_legs
+0     8
+</code></code></pre>
+    <p class="normal">When a table already exists in a database, trying to write to the same table again will raise an error. You can pass <code class="inlineCode">if_exists="replace"</code> to override this behavior and replace the table:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">df = pd.DataFrame([
+    [<span class="hljs-string">"dog"</span>, <span class="hljs-number">4</span>],
+    [<span class="hljs-string">"cat"</span>, <span class="hljs-number">4</span>],
+    [<span class="hljs-string">"human"</span>, <span class="hljs-number">2</span>],
+], columns=[<span class="hljs-string">"animal"</span>, <span class="hljs-string">"num_legs"</span>])
+df = df.convert_dtypes(dtype_backend=<span class="hljs-string">"numpy_nullable"</span>)
+df.to_sql(<span class="hljs-string">"table_name"</span>, engine, index=<span class="hljs-literal">False</span>, if_exists=<span class="hljs-string">"replace"</span>)
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">3
+</code></code></pre>
+    <p class="normal">You can also use <code class="inlineCode">if_exists="append"</code> to add data to a table:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">new_data = pd.DataFrame([[<span class="hljs-string">"centipede"</span>, <span class="hljs-number">100</span>]], columns=[<span class="hljs-string">"animal"</span>, <span class="hljs-string">"num_legs"</span>])
+new_data.to_sql(<span class="hljs-string">"table_name"</span>, engine, index=<span class="hljs-literal">False</span>, if_exists=<span class="hljs-string">"append"</span>)
+pd.read_sql(<span class="hljs-string">"table_name"</span>, engine, dtype_backend=<span class="hljs-string">"numpy_nullable"</span>)
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">     animal     num_legs
+0    dog        4
+1    cat        4
+2    human      2
+3    centipede  100
+</code></code></pre>
+    <p class="normal">The bulk of the heavy lifting is done behind the scenes by the SQLAlchemy engine, which is constructed using a URL of the<a id="_idIndexMarker183"/> form <code class="inlineCode">dialect+driver://username:password@host:port/database</code>. Not all of the fields in that URL are required – the string will depend largely on the <a id="_idIndexMarker184"/>database you are using and how it is configured.</p>
+    <p class="normal">In our specific example, <code class="inlineCode">sa.create_engine("sqlite:///:memory:")</code> creates and connects to a SQLite database in the memory space of our computer. This feature is specific to SQLite; instead of <code class="inlineCode">:memory:</code>, we could have also passed a path to a file on our computer like <code class="inlineCode">sa.create_engine("sqlite:///tmp/adatabase.sql")</code>.</p>
+    <p class="normal">For more information on SQLAlchemy URLs and to get an idea of drivers to pair with other databases, see the SQLAlchemy Backend-Specific URLs documentation.</p>
+    <h1 id="_idParaDest-130" class="heading-1">SQL using ADBC</h1>
+    <p class="normal">While using SQLAlchemy to connect to databases is a viable option and has helped users of pandas for many years, a new technology has emerged out of the Apache Arrow project that can help scale<a id="_idIndexMarker185"/> your SQL interactions even further. This new technology is called <strong class="keyWord">Arrow Database Connectivity</strong>, or <strong class="keyWord">ADBC</strong> for short. Starting in version 2.2, pandas added support for using ADBC drivers to interact <a id="_idIndexMarker186"/>with databases.</p>
+    <p class="normal">Using ADBC will offer better performance and type safety when interacting with SQL databases than the aforementioned SQLAlchemy-based approach can. The trade-off is that SQLAlchemy has support for far more databases, so depending on your database, it may be the only option. ADBC maintains a record of its Driver Implementation Status; I would advise looking there first for a stable driver implementation for the database you are using before falling back on SQLAlchemy.</p>
+    <p class="normal">Much like in the previous section, we will use SQLite for our database, given its ease of use to set up and configure. Make sure to install the appropriate ADBC Python package for SQLite:</p>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">python -m pip install adbc-driver-sqlite
+</code></code></pre>
+    <h2 id="_idParaDest-131" class="heading-2">How to do it</h2>
+    <p class="normal">Let’s start by<a id="_idIndexMarker187"/> importing the <code class="inlineCode">dbapi</code> object from our SQLite ADBC<a id="_idIndexMarker188"/> driver and creating some sample data:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code"><span class="hljs-keyword">from</span> adbc_driver_sqlite <span class="hljs-keyword">import</span> dbapi
+df = pd.DataFrame([
+    [<span class="hljs-string">"dog"</span>, <span class="hljs-number">4</span>],
+    [<span class="hljs-string">"cat"</span>, <span class="hljs-number">4</span>],
+    [<span class="hljs-string">"human"</span>, <span class="hljs-number">2</span>],
+], columns=[<span class="hljs-string">"animal"</span>, <span class="hljs-string">"num_legs"</span>])
+df = df.convert_dtypes(dtype_backend=<span class="hljs-string">"numpy_nullable"</span>)
+df
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">      animal   num_legs
+0     dog      4
+1     cat      4
+2     human    2
+</code></code></pre>
+    <p class="normal">The term <code class="inlineCode">dbapi</code> is taken from the Python Database API Specification defined in PEP-249, which standardizes how Python modules and libraries should be used to interact with databases. Calling the <code class="inlineCode">.connect</code> method with credentials is the standardized way to open up a database connection in Python. Once again, we will use an in-memory SQLite application via <code class="inlineCode">dbapi.connect("file::memory:")</code>.</p>
+    <p class="normal">By using the <code class="inlineCode">with ... as:</code> syntax to use a context manager in Python, we can connect to a database and assign it to a variable, letting Python automatically clean up the connection when the block is finished. While the connection is open within our block, we can use <code class="inlineCode">pd.DataFrame.to_sql</code> / <code class="inlineCode">pd.read_sql</code> to write to and read from the database, respectively:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code"><span class="hljs-keyword">with</span> dbapi.connect(<span class="hljs-string">"file::memory:"</span>) <span class="hljs-keyword">as</span> conn:
+    df.to_sql(<span class="hljs-string">"table_name"</span>, conn, index=<span class="hljs-literal">False</span>, if_exists=<span class="hljs-string">"replace"</span>)
+    df = pd.read_sql(
+        <span class="hljs-string">"SELECT * FROM table_name"</span>,
+        conn,
+        dtype_backend=<span class="hljs-string">"numpy_nullable"</span>,
+    )
+df
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">     animal    num_legs
+0    dog       4
+1    cat       4
+2    human     2
+</code></code></pre>
+    <p class="normal">For smaller datasets, you <a id="_idIndexMarker189"/>may not see much of a difference, but the performance gains of ADBC will be<a id="_idIndexMarker190"/> drastic with larger datasets. Let’s compare the time to write a 10,000 by 10 <code class="inlineCode">pd.DataFrame</code> using SQLAlchemy:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code"><span class="hljs-keyword">import </span>timeit
+<span class="hljs-keyword">import</span> sqlalchemy <span class="hljs-keyword">as</span> sa
+np.random.seed(<span class="hljs-number">42</span>)
+df = pd.DataFrame(
+    np.random.randn(<span class="hljs-number">10_000</span>, <span class="hljs-number">10</span>),
+    columns=<span class="hljs-built_in">list</span>(<span class="hljs-string">"abcdefghij"</span>)
+)
+<span class="hljs-keyword">with</span> sa.create_engine(<span class="hljs-string">"sqlite:///:memory:"</span>).connect() <span class="hljs-keyword">as</span> conn:
+    func = lambda: df.to_sql(<span class="hljs-string">"test_table"</span>, conn, if_exists=<span class="hljs-string">"replace"</span>)
+    print(timeit.timeit(func, number=<span class="hljs-number">100</span>))
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">4.898935955003253
+</code></code></pre>
+    <p class="normal">To equivalent code using ADBC:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code"><span class="hljs-keyword">from</span> adbc_driver_sqlite <span class="hljs-keyword">import</span> dbapi
+<span class="hljs-keyword">with</span> dbapi.connect(<span class="hljs-string">"file::memory:"</span>) <span class="hljs-keyword">as</span> conn:
+    func = lambda: df.to_sql(<span class="hljs-string">"test_table"</span>, conn, if_exists=<span class="hljs-string">"replace"</span>)
+    print(timeit.timeit(func, number=<span class="hljs-number">100</span>))
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">0.7935214300014195
+</code></code></pre>
+    <p class="normal">Your results will vary, depending on your data and database, but generally, ADBC should perform much faster.</p>
+    <h2 id="_idParaDest-132" class="heading-2">There’s more…</h2>
+    <p class="normal">To understand what ADBC does and why it matters, it is first worth a quick history lesson in database standards and how they have evolved. Back in the 1990s, the <strong class="keyWord">Open Database Connectivity</strong> (<strong class="keyWord">ODBC</strong>) and <strong class="keyWord">Java Database Connectivity</strong> (<strong class="keyWord">JDBC</strong>) standards were introduced, which helped standardize how different clients could talk to various databases. Before the introduction of these standards, if you developed an application that needed to work with two or more different databases, your application would have to speak <a id="_idIndexMarker191"/>the exact language that each database understood to interact with it.</p>
+    <p class="normal">Imagine then that<a id="_idIndexMarker192"/> this application wanted to just get a listing of tables available in each database. A PostgreSQL database stores this information in a table called <code class="inlineCode">pg_catalog.pg_tables</code>, whereas a SQLite database stores this in a <code class="inlineCode">sqlite_schema</code> table where <code class="inlineCode">type='table'</code>. The application would need to be developed with this particular information, and then it would need to be re-released every time a database changed how it stored this information, or if an application wanted to support a new database.</p>
+    <p class="normal">With a standard like ODBC, the application instead just needs to communicate with a driver, letting the driver know that it wants all of the tables in the system. This shifts the onus of properly interacting with a database from the application itself to the driver, giving the application a layer of abstraction. As new databases or versions are released, the application itself no longer needs to change; it simply works with a new ODBC/JDBC driver and continues to work. SQLAlchemy, in fact, is just like this theoretical application; it interacts with databases through either ODBC/JDBC drivers, rather than trying to manage the endless array of database interactions on its own.</p>
+    <p class="normal">While these standards are fantastic for many purposes, it is worth noting that databases were very different in the 1990s than they are today. Many of the problems that these standards tried to solve were aimed at row-oriented databases, which were prevalent at the time. Column-oriented databases arrived more than a decade later, and they have since come to dominate the analytics landscape. Unfortunately, without a column-oriented standard for transferring data, many of these databases had to retrofit a design that made them ODBC/JDBC-compatible. This allowed them to work with the countless database client tools in existence today but required a trade-off in performance in efficiency.</p>
+    <p class="normal">ADBC is the column-oriented specification that solves this problem. The pandas library, and many similar offerings in the space, are explicitly (or at least very close to) being column-oriented in their designs. When interacting with columnar databases like BigQuery, Redshift, or Snowflake, having a column-oriented driver to exchange information can lead to orders of magnitude better performance. Even if you aren’t interacting with a column-oriented database, the ADBC driver is so finely optimized toward analytics with Apache Arrow that it <em class="italic">still</em> would be an upgrade over any ODBC/JDBC driver that SQLAlchemy would use.</p>
+    <p class="normal">For users wanting to know more<a id="_idIndexMarker193"/> about ADBC, I recommend viewing my talk from PyData NYC 2023, titled Faster SQL with pandas and Apache Arrow, on YouTube (<a href="https://youtu.be/XhnfybpWOgA?si=RBrM7UUvpNFyct0L"><span class="url">https://youtu.be/XhnfybpWOgA?si=RBrM7UUvpNFyct0L</span></a>).</p>
+    <h1 id="_idParaDest-133" class="heading-1">Apache Parquet</h1>
+    <p class="normal">As far as a generic storage format for a <code class="inlineCode">pd.DataFrame</code> goes, Apache Parquet is the best option. Apache Parquet <a id="_idIndexMarker194"/>allows:</p>
+    <ul>
+      <li class="bulletList">Metadata storage – this allows the format to track data types, among other features</li>
+      <li class="bulletList">Partitioning – not everything needs to be in one file</li>
+      <li class="bulletList">Query support – Parquet files can be queried on disk, so you don’t have to bring all data into memory</li>
+      <li class="bulletList">Parallelization – reading data can be parallelized for higher throughput</li>
+      <li class="bulletList">Compactness – data is compressed and stored in a highly efficient manner</li>
+    </ul>
+    <p class="normal">Unless you are working with legacy systems, the Apache Parquet format should replace the use of CSV files in your workflows, from persisting data locally and sharing with other team members to exchanging data across systems.</p>
+    <h2 id="_idParaDest-134" class="heading-2">How to do it</h2>
+    <p class="normal">The API to read/write Apache Parquet is consistent with all other pandas APIs we have seen so far; for<a id="_idIndexMarker195"/> reading, there is <code class="inlineCode">pd.read_parquet</code>, and for writing, there is a <code class="inlineCode">pd.DataFrame.to_parquet</code> method.</p>
+    <p class="normal">Let’s start with some sample data and an <code class="inlineCode">io.BytesIO</code> object:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code"><span class="hljs-keyword">import</span> io
+buf = io.BytesIO()
+df = pd.DataFrame([
+    [<span class="hljs-string">"Paul"</span>, <span class="hljs-string">"McCartney"</span>, <span class="hljs-number">1942</span>],
+    [<span class="hljs-string">"John"</span>, <span class="hljs-string">"Lennon"</span>, <span class="hljs-number">1940</span>],
+    [<span class="hljs-string">"Richard"</span>, <span class="hljs-string">"Starkey"</span>, <span class="hljs-number">1940</span>],
+    [<span class="hljs-string">"George"</span>, <span class="hljs-string">"Harrison"</span>, <span class="hljs-number">1943</span>],
+], columns=[<span class="hljs-string">"first"</span>, <span class="hljs-string">"last"</span>, <span class="hljs-string">"birth"</span>])
+df = df.convert_dtypes(dtype_backend=<span class="hljs-string">"numpy_nullable"</span>)
+df
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">      first    last       birth
+0     Paul     McCartney  1942
+1     John     Lennon     1940
+2     Richard  Starkey    1940
+3     George   Harrison   1943
+</code></code></pre>
+    <p class="normal">This is how you would write to a file handle:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">df.to_parquet(buf, index=<span class="hljs-literal">False</span>)
+</code></code></pre>
+    <p class="normal">And here is how you would read from a file handle. Note that we are intentionally not providing <code class="inlineCode">dtype_backend="numpy_nullable"</code>:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">buf.seek(<span class="hljs-number">0</span>)
+pd.read_parquet(buf)
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">      first    last       birth
+0     Paul     McCartney  1942
+1     John     Lennon     1940
+2     Richard  Starkey    1940
+3     George   Harrison   1943
+</code></code></pre>
+    <p class="normal">Why don’t we need the <code class="inlineCode">dtype_backend=</code> argument with <code class="inlineCode">pd.read_parquet</code>? Unlike a format like CSV, which only stores data, the Apache Parquet format stores both data and metadata. Within the metadata, Apache Parquet is able to keep track of the data types in use, so whatever<a id="_idIndexMarker196"/> data type you write should be exactly what you get back.</p>
+    <p class="normal">You can test this by changing the data type of the <code class="inlineCode">birth</code> column to a different type:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">df[<span class="hljs-string">"birth"</span>] = df[<span class="hljs-string">"birth"</span>].astype(pd.UInt16Dtype())
+df.dtypes
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">first    string[python]
+last     string[python]
+birth            UInt16
+dtype: object
+</code></code></pre>
+    <p class="normal">Roundtripping this through the Apache Parquet format will give you back the same data type you started with:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">buf = io.BytesIO()
+df.to_parquet(buf, index=<span class="hljs-literal">False</span>)
+buf.seek(<span class="hljs-number">0</span>)
+pd.read_parquet(buf).dtypes
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">first    string[python]
+last     string[python]
+birth            UInt16
+dtype: object
+</code></code></pre>
+    <p class="normal">Of course, if you want to be extra-defensive, there is no harm in using <code class="inlineCode">dtype_backend="numpy_nullable"</code> here as well. We intentionally left it out at the start to showcase the power of the Apache Parquet format, but if you are receiving files from other sources and developers<a id="_idIndexMarker197"/> that don’t use the type system we recommended in <em class="chapterRef">Chapter 3</em>, <em class="italic">Data Types</em>, it may be helpful to make sure you work with the best types pandas has to offer:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">suboptimal_df = pd.DataFrame([
+    [<span class="hljs-number">0</span>, <span class="hljs-string">"foo"</span>],
+    [<span class="hljs-number">1</span>, <span class="hljs-string">"bar"</span>],
+    [<span class="hljs-number">2</span>, <span class="hljs-string">"baz"</span>],
+], columns=[<span class="hljs-string">"int_col"</span>, <span class="hljs-string">"str_col"</span>])
+buf = io.BytesIO()
+suboptimal_df.to_parquet(buf, index=<span class="hljs-literal">False</span>)
+buf.seek(<span class="hljs-number">0</span>)
+pd.read_parquet(buf, dtype_backend=<span class="hljs-string">"numpy_nullable"</span>).dtypes
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">int_col             Int64
+str_col    string[python]
+dtype: object
+</code></code></pre>
+    <p class="normal">Another great feature of the Apache Parquet format is that it supports <em class="italic">partitioning</em>, which loosens the requirement that all your data is located in a single file. By being able to split data across different directories and files, partitioning allows users an easy way to organize their content, while also making it easier for a program to optimize which files it may or may not have to read to solve an analytical query.</p>
+    <p class="normal">There are many ways to partition your data each with practical space/time trade-offs. For demonstration purposes, we are going to assume the use of <em class="italic">time-based partitioning</em>, whereby individual files are generated for different time periods. With that in mind, let’s work with the following data layout, where we create different directories for each year and, within each year, create individual files for every quarter of sales:</p>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">Partitions
+ 2022/
+   q1_sales.parquet
+   q2_sales.parquet
+ 2023/
+   q1_sales.parquet
+   q2_sales.parquet
+</code></code></pre>
+    <p class="normal">Each of the sample Apache Parquet files distributed with this book has already been created with the pandas extension types we recommended in <em class="chapterRef">Chapter 3</em>, <em class="italic">Data Types</em> so the <code class="inlineCode">pd.read_parquet</code> calls we<a id="_idIndexMarker198"/> make intentionally do not include the <code class="inlineCode">dtype_backend="numpy_nullable"</code> argument. Within any file, you will see that we store information about the <code class="inlineCode">year</code>, <code class="inlineCode">quarter</code>, <code class="inlineCode">region</code>, and overall <code class="inlineCode">sales</code> that were counted:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">pd.read_parquet(
+    <span class="hljs-string">"data/partitions/2022/q1_sales.parquet"</span>,
+)
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">      year   quarter   region   sales
+0     2022   Q1        America  1
+1     2022   Q1        Europe   2
+</code></code></pre>
+    <p class="normal">If we wanted to see all of this data together, a brute-force approach would involve looping over each file and accumulating the results. However, with the Apache Parquet format, pandas can natively and effectively handle this. Instead of passing individual file names to <code class="inlineCode">pd.read_parquet</code>, it simply passes the path to the directory:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">pd.read_parquet(<span class="hljs-string">"data/partitions/"</span>)
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">     year    quarter  region    sales
+0    2022    Q1       America   1
+1    2022    Q1       Europe    2
+2    2022    Q2       America   4
+3    2022    Q2       Europe    8
+4    2023    Q1       America   16
+5    2023    Q1       Europe    32
+6    2023    Q2       America   64
+7    2023    Q2       Europe    128
+</code></code></pre>
+    <p class="normal">Because our sample data is so small, we have no problem reading all of the data into a <code class="inlineCode">pd.DataFrame</code> first and then working with it from there. However, in production deployments, you may end up working with Apache Parquet files that measure in gigabytes or terabytes’ worth of storage. Attempting to read all of that data into a <code class="inlineCode">pd.DataFrame</code> may throw a <code class="inlineCode">MemoryError</code>.</p>
+    <p class="normal">Fortunately, the Apache Parquet format gives you the capability to filter records on the fly as files are read. From<a id="_idIndexMarker199"/> pandas, you can enable this functionality with <code class="inlineCode">pd.read_parquet</code> by passing a <code class="inlineCode">filters=</code> argument. The argument should be a list, where each list element is a tuple, which itself contains three elements:</p>
+    <ul>
+      <li class="bulletList">Column Name</li>
+      <li class="bulletList">Logical Operator</li>
+      <li class="bulletList">Value</li>
+    </ul>
+    <p class="normal">For example, if we only wanted to read in data where our <code class="inlineCode">region</code> column is equal to the value <code class="inlineCode">Europe</code>, we could write this as:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">pd.read_parquet(
+    <span class="hljs-string">"data/partitions/"</span>,
+    filters=[(<span class="hljs-string">"region"</span>, <span class="hljs-string">"=="</span>, <span class="hljs-string">"Europe"</span>)],
+)
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">     year    quarter   region   sales
+0    2022    Q1        Europe   2
+1    2022    Q2        Europe   8
+2    2023    Q1        Europe   32
+3    2023    Q2        Europe   128
+</code></code></pre>
+    <h1 id="_idParaDest-135" class="heading-1">JSON</h1>
+    <p class="normal"><strong class="keyWord">JavaScript Object Notation</strong> (<strong class="keyWord">JSON</strong>) is a common format used to transfer data over the internet. The JSON <a id="_idIndexMarker200"/>specification can be found at <a href="https://www.json.org/json-en.html"><span class="url">https://www.json.org</span></a>. Despite the <a id="_idIndexMarker201"/>name, it does not require JavaScript to read or create.</p>
+    <p class="normal">The Python standard library ships with the <code class="inlineCode">json</code> library, which can serialize and deserialize Python objects to/from JSON:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code"><span class="hljs-keyword">import</span> json
+beatles = {
+    <span class="hljs-string">"first"</span>: [<span class="hljs-string">"Paul"</span>, <span class="hljs-string">"John"</span>, <span class="hljs-string">"Richard"</span>, <span class="hljs-string">"George"</span>,],
+    <span class="hljs-string">"last"</span>: [<span class="hljs-string">"McCartney"</span>, <span class="hljs-string">"Lennon"</span>, <span class="hljs-string">"</span><span class="hljs-string">Starkey"</span>, <span class="hljs-string">"Harrison"</span>,],
+    <span class="hljs-string">"birth"</span>: [<span class="hljs-number">1942</span>, <span class="hljs-number">1940</span>, <span class="hljs-number">1940</span>, <span class="hljs-number">1943</span>],
+}
+serialized = json.dumps(beatles)
+<span class="hljs-built_in">print</span>(<span class="hljs-string">f"serialized values are: </span><span class="hljs-subst">{serialized}</span><span class="hljs-string">"</span>)
+deserialized = json.loads(serialized)
+<span class="hljs-built_in">print</span>(<span class="hljs-string">f"deserialized values are: </span><span class="hljs-subst">{deserialized}</span><span class="hljs-string">"</span>)
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">serialized values are: {"first": ["Paul", "John", "Richard", "George"], "last": ["McCartney", "Lennon", "Starkey", "Harrison"], "birth": [1942, 1940, 1940, 1943]}
+deserialized values are: {'first': ['Paul', 'John', 'Richard', 'George'], 'last': ['McCartney', 'Lennon', 'Starkey', 'Harrison'], 'birth': [1942, 1940, 1940, 1943]}
+</code></code></pre>
+    <p class="normal">However, the standard library <a id="_idIndexMarker202"/>does not know how to deal with pandas objects, so pandas provides its own set of I/O functions specifically for JSON.</p>
+    <h2 id="_idParaDest-136" class="heading-2">How to do it</h2>
+    <p class="normal">In the simplest form, <code class="inlineCode">pd.read_json</code> can be used to read JSON data:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code"><span class="hljs-keyword">import</span> io
+data = io.StringIO(serialized)
+pd.read_json(data, dtype_backend=<span class="hljs-string">"numpy_nullable"</span>)
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">     first    last       birth
+0    Paul     McCartney  1942
+1    John     Lennon     1940
+2    Richard  Starkey    1940
+3    George   Harrison   1943
+</code></code></pre>
+    <p class="normal">And the <code class="inlineCode">pd.DataFrame.to_json</code> method can be used for writing:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">df = pd.DataFrame(beatles)
+<span class="hljs-built_in">print</span>(df.to_json())
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">{"first":{"0":"Paul","1":"John","2":"Richard","3":"George"},"last":{"0":"McCartney","1":"Lennon","2":"Starkey","3":"Harrison"},"birth":{"0":1942,"1":1940,"2":1940,"3":1943}}
+</code></code></pre>
+    <p class="normal">However, in practice, there are endless ways to represent tabular data in JSON. Some users may want to see each row of the <code class="inlineCode">pd.DataFrame</code> represented as a JSON array, whereas other users may want to see each column shown as an array. Others may want to see the row index, column index, and data listed as separate JSON objects, whereas others may not care about seeing the row or column labels at all.</p>
+    <p class="normal">For these use cases and more, pandas allows you to pass an argument to <code class="inlineCode">orient=</code>, whose value dictates<a id="_idIndexMarker203"/> the layout of the JSON to be read or written:</p>
+    <ul>
+      <li class="bulletList"><code class="inlineCode">columns</code> (default): Produces JSON objects, where the key is a column label and the value is another object that maps the row label to a data point.</li>
+      <li class="bulletList"><code class="inlineCode">records</code>: Each row of the <code class="inlineCode">pd.DataFrame</code> is represented as a JSON array, containing objects that map column names to a data point.</li>
+      <li class="bulletList"><code class="inlineCode">split</code>: Maps to <code class="inlineCode">{"columns": […], "index": […], "data": […]}</code>. Columns/index values are arrays of labels, and data contains arrays of arrays.</li>
+      <li class="bulletList"><code class="inlineCode">index</code>: Similar to columns, except that the usage of row and column labels as keys is reversed.</li>
+      <li class="bulletList"><code class="inlineCode">values</code>: Maps the data of a <code class="inlineCode">pd.DataFrame</code> to an array of arrays. Row/column labels are dropped.</li>
+      <li class="bulletList"><code class="inlineCode">table</code>: Adheres to the JSON Table Schema.</li>
+    </ul>
+    <p class="normal">JSON is a <em class="italic">lossy</em> format for exchanging data, so each of the orients above is a trade-off between loss, verbosity, and end user requirements. <code class="inlineCode">orient="table"</code> would be the least lossy and produce the<a id="_idIndexMarker204"/> largest payload, whereas <code class="inlineCode">orient="values"</code> falls completely on the other end of that spectrum.</p>
+    <p class="normal">To highlight the differences in each of these orients, let’s begin with a rather simple <code class="inlineCode">pd.DataFrame</code>:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">df = pd.DataFrame(beatles, index=[<span class="hljs-string">"row 0"</span>, <span class="hljs-string">"row 1"</span>, <span class="hljs-string">"row 2"</span>, <span class="hljs-string">"row 3"</span>])
+df = df.convert_dtypes(dtype_backend=<span class="hljs-string">"numpy_nullable"</span>)
+df
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">       first    last       birth
+row 0  Paul     McCartney  1942
+row 1  John     Lennon     1940
+row 2  Richard  Starkey    1940
+row 3  George   Harrison   1943
+</code></code></pre>
+    <p class="normal">Passing <code class="inlineCode">orient="columns"</code> will produce data using the pattern of <code class="inlineCode">{"column":{"row": value, "row": value, ...}, ...}</code>:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">serialized = df.to_json(orient=<span class="hljs-string">"columns"</span>)
+<span class="hljs-built_in">print</span>(<span class="hljs-string">f'Length of orient="columns": </span><span class="hljs-subst">{</span><span class="hljs-built_in">len</span><span class="hljs-subst">(serialized)}</span><span class="hljs-string">'</span>)
+serialized[:<span class="hljs-number">100</span>]
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">Length of orient="columns": 221
+{"first":{"row 0":"Paul","row 1":"John","row 2":"Richard","row 3":"George"},"last":{"row 0":"McCartn
+</code></code></pre>
+    <p class="normal">This is a rather verbose way of storing the data, as it will repeat the row index labels for every column. On the plus<a id="_idIndexMarker205"/> side, pandas can do a reasonably good job of reconstructing the proper <code class="inlineCode">pd.DataFrame</code> from this <code class="inlineCode">orient</code>:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">pd.read_json(
+    io.StringIO(serialized),
+    orient=<span class="hljs-string">"</span><span class="hljs-string">columns"</span>,
+    dtype_backend=<span class="hljs-string">"numpy_nullable"</span>
+)
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">       first    last       birth
+row 0  Paul     McCartney  1942
+row 1  John     Lennon     1940
+row 2  Richard  Starkey    1940
+row 3  George   Harrison   1943
+</code></code></pre>
+    <p class="normal">With <code class="inlineCode">orient="records"</code>, you end up with each row of the <code class="inlineCode">pd.DataFrame</code> being represented without its row<a id="_idIndexMarker206"/> index label, yielding a pattern of <code class="inlineCode">[{"col": value, "col": value, ...}, ...]</code>:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">serialized = df.to_json(orient=<span class="hljs-string">"records"</span>)
+<span class="hljs-built_in">print</span>(<span class="hljs-string">f'Length of orient="records": </span><span class="hljs-subst">{</span><span class="hljs-built_in">len</span><span class="hljs-subst">(serialized)}</span><span class="hljs-string">'</span>)
+serialized[:<span class="hljs-number">100</span>]
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">Length of orient="records": 196
+[{"first":"Paul","last":"McCartney","birth":1942},{"first":"John","last":"Lennon","birth":1940},{"fi
+</code></code></pre>
+    <p class="normal">While this representation is more compact than <code class="inlineCode">orient="columns"</code>, it does not store any row labels, so on reconstruction, you will get back a <code class="inlineCode">pd.DataFrame</code> with a newly generated <code class="inlineCode">pd.RangeIndex</code>:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">pd.read_json(
+    io.StringIO(serialized),
+    orient=<span class="hljs-string">"orient"</span>,
+    dtype_backend=<span class="hljs-string">"numpy_nullable"</span>
+)
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">      first    last       birth
+0     Paul     McCartney  1942
+1     John     Lennon     1940
+2     Richard  Starkey    1940
+3     George   Harrison   1943
+</code></code></pre>
+    <p class="normal">With <code class="inlineCode">orient="split"</code>, the<a id="_idIndexMarker207"/> row index labels, column index labels, and data are all stored separately:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">serialized = df.to_json(orient=<span class="hljs-string">"split"</span>)
+<span class="hljs-built_in">print</span>(<span class="hljs-string">f'Length of orient="split": </span><span class="hljs-subst">{</span><span class="hljs-built_in">len</span><span class="hljs-subst">(serialized)}</span><span class="hljs-string">'</span>)
+serialized[:<span class="hljs-number">100</span>]
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">Length of orient="split": 190
+{"columns":["first","last","birth"],"index":["row 0","row 1","row 2","row 3"],"data":[["Paul","McCar
+</code></code></pre>
+    <p class="normal">This format uses a relatively lesser amount of characters than <code class="inlineCode">orient="columns"</code>, and you can still recreate a <code class="inlineCode">pd.DataFrame</code> reasonably well, since it mirrors how you would build a <code class="inlineCode">pd.DataFrame</code> using <a id="_idIndexMarker208"/>the constructor (with arguments like <code class="inlineCode">pd.DataFrame(data, index=index, columns=columns)</code>):</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">pd.read_json(
+    io.StringIO(serialized),
+    orient=<span class="hljs-string">"split"</span>,
+    dtype_backend=<span class="hljs-string">"numpy_nullable"</span>,
+)
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">       first    last       birth
+row 0  Paul     McCartney  1942
+row 1  John     Lennon     1940
+row 2  Richard  Starkey    1940
+row 3  George   Harrison   1943
+</code></code></pre>
+    <p class="normal">While this is a good format when roundtripping a <code class="inlineCode">pd.DataFrame</code>, the odds of coming across this JSON format “in the wild” are much lower as compared to other formats.</p>
+    <p class="normal"><code class="inlineCode">orient="index"</code> is very similar to <code class="inlineCode">orient="columns"</code>, but it reverses the roles of the row and column labels:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">serialized = df.to_json(orient=<span class="hljs-string">"index"</span>)
+<span class="hljs-built_in">print</span>(<span class="hljs-string">f'Length of orient="index": </span><span class="hljs-subst">{</span><span class="hljs-built_in">len</span><span class="hljs-subst">(serialized)}</span><span class="hljs-string">'</span>)
+serialized[:<span class="hljs-number">100</span>]
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">Length of orient="index": 228
+{"row 0":{"first":"Paul","last":"McCartney","birth":1942},"row 1":{"first":"John","last":"Lennon","b
+</code></code></pre>
+    <p class="normal">Once again, you can <a id="_idIndexMarker209"/>recreate your <code class="inlineCode">pd.DataFrame</code> reasonably well:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">pd.read_json(
+    io.StringIO(serialized),
+    orient=<span class="hljs-string">"index"</span>,
+    dtype_backend=<span class="hljs-string">"numpy_nullable"</span>,
+)
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">       first    last       birth
+row 0  Paul     McCartney  1942
+row 1  John     Lennon     1940
+row 2  Richard  Starkey    1940
+row 3  George   Harrison   1943
+</code></code></pre>
+    <p class="normal">Generally, <code class="inlineCode">orient="index"</code> will take up more space than <code class="inlineCode">orient="columns"</code>, since most <code class="inlineCode">pd.DataFrame</code> objects use column labels that are more verbose than index labels. I would only advise using this format in the possibly rare instances where your column labels are less verbose, or if you have strict formatting requirements imposed by another system.</p>
+    <p class="normal">For the most minimalistic<a id="_idIndexMarker210"/> representation, you can opt for <code class="inlineCode">orient="values"</code>. With this <code class="inlineCode">orient</code>, neither row nor column labels are preserved:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">serialized = df.to_json(orient=<span class="hljs-string">"values"</span>)
+<span class="hljs-built_in">print</span>(<span class="hljs-string">f'Length of orient="values": </span><span class="hljs-subst">{</span><span class="hljs-built_in">len</span><span class="hljs-subst">(serialized)}</span><span class="hljs-string">'</span>)
+serialized[:<span class="hljs-number">100</span>]
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">Length of orient="values": 104
+[["Paul","McCartney",1942],["John","Lennon",1940],["Richard","Starkey",1940],["George","Harrison",19
+</code></code></pre>
+    <p class="normal">Of course, since they are not represented in the JSON data, you will not maintain row/column labels when reading with <code class="inlineCode">orient="values"</code>:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">pd.read_json(
+    io.StringIO(serialized),
+    orient=<span class="hljs-string">"values"</span>,
+    dtype_backend=<span class="hljs-string">"numpy_nullable"</span>,
+)
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">     0        1          2
+0    Paul     McCartney  1942
+1    John     Lennon     1940
+2    Richard  Starkey    1940
+3    George   Harrison   1943
+</code></code></pre>
+    <p class="normal">Finally, we have <code class="inlineCode">orient="table"</code>. This will be the most verbose out of all of the outputs, but it is the only one backed by an actual standard, which is called the JSON Table Schema:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">serialized = df.to_json(orient=<span class="hljs-string">"table"</span>)
+<span class="hljs-built_in">print</span>(<span class="hljs-string">f'Length of orient="table": </span><span class="hljs-subst">{</span><span class="hljs-built_in">len</span><span class="hljs-subst">(serialized)}</span><span class="hljs-string">'</span>)
+serialized[:<span class="hljs-number">100</span>]
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">Length of orient="table": 524
+{"schema":{"fields":[{"name":"index","type":"string"},{"name":"first","type":"any","extDtype":"strin
+</code></code></pre>
+    <p class="normal">The Table Schema is <a id="_idIndexMarker211"/>more verbose because it stores metadata about the data being serialized, similar to what we saw with the Apache Parquet format (although with fewer features than Apache Parquet). With all of the other <code class="inlineCode">orient=</code> arguments, pandas would have to infer the type of data as it is being read, but the JSON Table Format preserves that information for you. As such, you don’t even need the <code class="inlineCode">dtype_backend="numpy_nullable"</code> argument, assuming you used the pandas extension types to begin with:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">df[<span class="hljs-string">"birth"</span>] = df[<span class="hljs-string">"birth"</span>].astype(pd.UInt16Dtype())
+serialized = df.to_json(orient=<span class="hljs-string">"</span><span class="hljs-string">table"</span>)
+pd.read_json(
+    io.StringIO(serialized),
+    orient=<span class="hljs-string">"table"</span>,
+).dtypes
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">first    string[python]
+last     string[python]
+birth            UInt16
+dtype: object
+</code></code></pre>
+    <h2 id="_idParaDest-137" class="heading-2">There’s more...</h2>
+    <p class="normal">When attempting to read JSON, you may find that none of the above formats can still sufficiently express what you are trying to accomplish. Fortunately, there is still <code class="inlineCode">pd.json_normalize</code>, which can act as a workhorse function to convert your JSON data into a tabular format.</p>
+    <p class="normal">Imagine working with the following JSON data from a theoretical REST API with pagination:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">data = {
+    <span class="hljs-string">"records"</span>: [{
+        <span class="hljs-string">"name"</span>: <span class="hljs-string">"human"</span>,
+        <span class="hljs-string">"characteristics"</span>: {
+            <span class="hljs-string">"num_leg"</span>: <span class="hljs-number">2</span>,
+            <span class="hljs-string">"num_eyes"</span>: <span class="hljs-number">2</span>
+        }
+    }, {
+        <span class="hljs-string">"name"</span>: <span class="hljs-string">"dog"</span>,
+        <span class="hljs-string">"characteristics"</span>: {
+            <span class="hljs-string">"num_leg"</span>: <span class="hljs-number">4</span>,
+            <span class="hljs-string">"num_eyes"</span>: <span class="hljs-number">2</span>
+        }
+    }, {
+        <span class="hljs-string">"</span><span class="hljs-string">name"</span>: <span class="hljs-string">"horseshoe crab"</span>,
+        <span class="hljs-string">"characteristics"</span>: {
+            <span class="hljs-string">"num_leg"</span>: <span class="hljs-number">10</span>,
+            <span class="hljs-string">"num_eyes"</span>: <span class="hljs-number">10</span>
+        }
+    }],
+    <span class="hljs-string">"type"</span>: <span class="hljs-string">"animal"</span>,
+    <span class="hljs-string">"pagination"</span>: {
+        <span class="hljs-string">"</span><span class="hljs-string">next"</span>: <span class="hljs-string">"23978sdlkusdf97234u2io"</span>,
+        <span class="hljs-string">"has_more"</span>: <span class="hljs-number">1</span>
+    }
+}
+</code></code></pre>
+    <p class="normal">While the <code class="inlineCode">"pagination"</code> key is useful for navigating the API, it is of little reporting value to us and can trip up the JSON serializers. What we actually care about is the array associated with the <code class="inlineCode">"records"</code> key. You can direct <code class="inlineCode">pd.json_normalize</code> to look at this data exclusively, using the <code class="inlineCode">record_path=</code> argument. Please note that <code class="inlineCode">pd.json_normalize</code> is not a true I/O function, since<a id="_idIndexMarker212"/> it deals with Python objects and not file handles, so it has no <code class="inlineCode">dtype_backend=</code> argument; instead, we will chain in a <code class="inlineCode">pd.DataFrame.convert_dtypes</code> call to get the desired pandas extension types:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">pd.json_normalize(
+    data,
+    record_path=<span class="hljs-string">"records"</span>
+).convert_dtypes(dtype_backend=<span class="hljs-string">"numpy_nullable"</span>)
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">    name            characteristics.num_leg  characteristics.num_eyes
+0   human           2                        2
+1   dog             4                        2
+2   horseshoe crab  10                       10
+</code></code></pre>
+    <p class="normal">By providing the <code class="inlineCode">record_path=</code> argument, we were able to ignore the undesired <code class="inlineCode">"pagination"</code> key, but unfortunately, we now have the side effect of dropping the <code class="inlineCode">"type"</code> key, which contained valuable <a id="_idIndexMarker213"/>metadata about each record. To preserve this information, you can use the <code class="inlineCode">meta=</code> argument:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">pd.json_normalize(
+    data,
+    record_path=<span class="hljs-string">"records"</span>,
+    meta=<span class="hljs-string">"type"</span>
+).convert_dtypes(dtype_backend=<span class="hljs-string">"numpy_nullable"</span>)
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">    name    characteristics.num_leg  characteristics.num_eyes  type
+0   human   2                        2                         animal
+1   dog     4                        2                         animal
+2   horseshoe     crab    10                       10                        animal
+</code></code></pre>
+    <h1 id="_idParaDest-138" class="heading-1">HTML</h1>
+    <p class="normal">You can use pandas to<a id="_idIndexMarker214"/> read HTML tables from websites. This makes it easy to ingest tables such as those found on Wikipedia.</p>
+    <p class="normal">In this recipe, we will scrape tables from the Wikipedia entry for <em class="italic">The Beatles Discography</em> (<a href="https://en.wikipedia.org/wiki/The_Beatles_discography"><span class="url">https://en.wikipedia.org/wiki/The_Beatles_discography</span></a>). In particular, we want to scrape the table in the image that was on Wikipedia in 2024:</p>
+    <figure class="mediaobject"><img src="../Images/B31091_04_04.png" alt="A screenshot of a chart"/></figure>
+    <p class="packt_figref">Figure 4.4: Wikipedia page for The Beatles Discography</p>
+    <p class="normal">Before attempting to <a id="_idIndexMarker215"/>read HTML, users will need to install a third-party library. For the examples in this section, we will use <code class="inlineCode">lxml</code>:</p>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">python -m pip install lxml
+</code></code></pre>
+    <h2 id="_idParaDest-139" class="heading-2">How to do it</h2>
+    <p class="normal"><code class="inlineCode">pd.read_html</code> allows you to read a table from a website:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">url = <span class="hljs-string">"https://en.wikipedia.org/wiki/The_Beatles_discography"</span>
+dfs = pd.read_html(url, dtype_backend=<span class="hljs-string">"numpy_nullable"</span>)
+<span class="hljs-built_in">len</span>(dfs)
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">60
+</code></code></pre>
+    <p class="normal">Contrary to the other I/O methods we have seen so far, <code class="inlineCode">pd.read_html</code> doesn’t return a <code class="inlineCode">pd.DataFrame</code> but, instead, returns a list of <code class="inlineCode">pd.DataFrame</code> objects. Let’s see what the first list element looks like:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">dfs[0]
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">    The Beatles discography   The Beatles discography.1
+0   The Beatles in 1965       The Beatles in 1965
+1   Studio albums             12 (UK), 17 (US)
+2   Live albums               5
+3   Compilation albums        51
+4   Video albums              22
+5   Music videos              53
+6   EPs                       36
+7   Singles                   63
+8   Mash-ups                  2
+9   Box sets                  17
+</code></code></pre>
+    <p class="normal">The preceding table is a summary of the count of studio albums, live albums, compilation albums, and so on. This is <a id="_idIndexMarker216"/>not the table we wanted. We could loop through each of the tables that <code class="inlineCode">pd.read_html</code> created, or we could give it a hint to find a specific table.</p>
+    <p class="normal">One way of getting the table we want would be to leverage the <code class="inlineCode">attrs=</code> argument of <code class="inlineCode">pd.read_html</code>. This parameter accepts a dictionary mapping HTML attributes to values. Because an <code class="inlineCode">id</code> attribute in HTML is supposed to be unique within a document, trying to find a table with <code class="inlineCode">attrs={"id": ...}</code> is usually a safe approach. Let’s see if we can get that to work here.</p>
+    <p class="normal">Use your web browser to inspect the HTML of the web page (if you are unsure how to do this, search online for terms like <em class="italic">Firefox inspector</em>, <em class="italic">Safari Web Inspector</em>, or <em class="italic">Google Chrome DevTools</em>; the terminology is unfortunately not standardized). Look for any <code class="inlineCode">id</code> fields, unique strings, or attributes of the table element that help us identify the table we are after.</p>
+    <p class="normal">Here is a portion of the raw HTML:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">&lt;table class=<span class="hljs-string">"wikipedia plainrowheaders"</span> style=<span class="hljs-string">"text-align:center;"</span>&gt;
+  &lt;caption&gt;List of studio albums, with selected chart positions and certification
+  &lt;/caption&gt;
+  &lt;tbody&gt;
+    &lt;tr&gt;
+      &lt;th rowspan=<span class="hljs-string">"2"</span> scope=<span class="hljs-string">"col"</span> style=<span class="hljs-string">"width:20em;"</span>&gt;Title&lt;/th&gt;
+      &lt;th rowspan=<span class="hljs-string">"2"</span> scope=<span class="hljs-string">"col"</span> style=<span class="hljs-string">"width:20em;"</span>&gt;Album details&lt;sup id=<span class="hljs-string">"cite_ref-8"</span> class=<span class="hljs-string">"reference"</span>&gt;&lt;a href=<span class="hljs-string">"#cite_note-8"</span>&gt;[A]&lt;/a&gt;&lt;/sup&gt;&lt;/th&gt;
+      ...
+    &lt;/tr&gt;
+  &lt;/tbody&gt;
+</code></code></pre>
+    <p class="normal">Unfortunately, the table we are looking for does <em class="italic">not</em> have an <code class="inlineCode">id</code> attribute. We could try using either the <code class="inlineCode">class</code> or <code class="inlineCode">style</code> attributes we see in the HTML snippet above, but chances are those won’t be unique.</p>
+    <p class="normal">Another parameter we can try is <code class="inlineCode">match=</code>, which can be a string or a regular expression and matches against the table contents. In the <code class="inlineCode">&lt;caption&gt;</code> tag of the above HTML, you will see the text <code class="inlineCode">"List of studio albums"</code>; let’s try that as an argument. To help readability, we are just going to look at each Album and its performance in the UK, AUS, and CAN:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">url = <span class="hljs-string">"https://en.wikipedia.org/wiki/The_Beatles_discography"</span>
+dfs = pd.read_html(
+    url,
+    <span class="hljs-keyword">match</span>=<span class="hljs-string">r"List of studio albums"</span>,
+    dtype_backend=<span class="hljs-string">"numpy_nullable"</span>,
+)
+<span class="hljs-built_in">print</span>(<span class="hljs-string">f"Number of tables returned was: </span><span class="hljs-subst">{</span><span class="hljs-built_in">len</span><span class="hljs-subst">(dfs)}</span><span class="hljs-string">"</span>)
+dfs[<span class="hljs-number">0</span>].filter(regex=r<span class="hljs-string">"Title|UK|AUS|CAN"</span>).head()
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">                      Title                  Peak chart positions
+                      Title       UK [8][9]   AUS [10]    CAN [11]
+0          Please Please Me               1          —          —
+1       With the Beatles[B]               1          —          —
+2        A Hard Day's Night               1          1          —
+3          Beatles for Sale               1          1          —
+4                     Help!               1          1          —
+</code></code></pre>
+    <p class="normal">While we are able to<a id="_idIndexMarker217"/> now find the table, the column names are less than ideal. If you look closely at the Wikipedia table, you will notice that it partially creates a hierarchy between the <code class="inlineCode">Peak chart positions</code> text and the name of countries below it, which pandas turns into a <code class="inlineCode">pd.MultiIndex</code>. To make our table easier to read, we can pass <code class="inlineCode">header=1</code> to ignore the <a id="_idIndexMarker218"/>very first level of the generated <code class="inlineCode">pd.MultiIndex</code>:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">url = <span class="hljs-string">"</span><span class="hljs-string">https://en.wikipedia.org/wiki/The_Beatles_discography"</span>
+dfs = pd.read_html(
+    url,
+    <span class="hljs-keyword">match</span>=<span class="hljs-string">"List of studio albums"</span>,
+    header=<span class="hljs-number">1</span>,
+    dtype_backend=<span class="hljs-string">"numpy_nullable"</span>,
+)
+dfs[<span class="hljs-number">0</span>].filter(regex=r<span class="hljs-string">"Title|UK|AUS|CAN"</span>).head()
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">                      Title      UK [8][9]   AUS [10]   CAN [11]
+0          Please Please Me              1         —           —
+1       With the Beatles[B]              1         —           —
+2        A Hard Day's Night              1         1           —
+3          Beatles for Sale              1         1           —
+4                     Help!              1         1           —
+</code></code></pre>
+    <p class="normal">As we look closer at the data, we can see that Wikipedia uses <code class="inlineCode">—</code> to represent missing values. If we pass this as an argument to the <code class="inlineCode">na_values=</code> parameter of <code class="inlineCode">pd.read_html</code>, we will see the <code class="inlineCode">=—=</code> values converted to missing values:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">url = <span class="hljs-string">"https://en.wikipedia.org/wiki/The_Beatles_discography"</span>
+dfs = pd.read_html(
+    url,
+    <span class="hljs-keyword">match</span>=<span class="hljs-string">"List of studio albums"</span>,
+    header=<span class="hljs-number">1</span>,
+    na_values=[<span class="hljs-string">"—"</span>],
+    dtype_backend=<span class="hljs-string">"numpy_nullable"</span>,
+)
+dfs[<span class="hljs-number">0</span>].filter(regex=r<span class="hljs-string">"Title|UK|AUS|CAN"</span>).head()
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">        Title                 UK [8][9]   AUS [10]   CAN [11]
+0       Please Please Me              1       &lt;NA&gt;       &lt;NA&gt;
+1       With the Beatles[B]           1       &lt;NA&gt;       &lt;NA&gt;
+2       A Hard Day's Night            1          1       &lt;NA&gt;
+3       Beatles for Sale              1          1       &lt;NA&gt;
+4       Help!                         1          1       &lt;NA&gt;
+</code></code></pre>
+    <h1 id="_idParaDest-140" class="heading-1">Pickle</h1>
+    <p class="normal">The pickle format is Python’s built-in serialization format. Pickle files typically end with a <code class="inlineCode">.pkl</code> extension.</p>
+    <p class="normal">Unlike other formats encountered so far, the pickle format should not be used to transfer data across machines. The main<a id="_idIndexMarker219"/> use case is for saving pandas objects <em class="italic">that themselves contain Python objects</em> to your own machine, returning to them at a later point in time. If you are unsure if you should be using this format or not, I would advise trying the Apache Parquet format first, which covers a wider array of use cases.</p>
+    <p class="normal"><strong class="keyWord">Do not load pickle files from untrusted sources</strong>. I would generally only advise using pickle for your own analyses; do not share data or expect to receive data from others in the pickle format.</p>
+    <h2 id="_idParaDest-141" class="heading-2">How to do it</h2>
+    <p class="normal">To highlight that the pickle format should really only be used when your pandas objects contain Python objects, let’s imagine we decided to store our Beatles data as a <code class="inlineCode">pd.Series</code> of <code class="inlineCode">namedtuple</code> types. It is a fair question as to <em class="italic">why</em> you would do this in the first place, as it would be better<a id="_idIndexMarker220"/> represented as a <code class="inlineCode">pd.DataFrame</code>… but questions aside, it is valid to do so:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code"><span class="hljs-keyword">from</span> collections <span class="hljs-keyword">import</span> namedtuple
+Member = namedtuple(<span class="hljs-string">"Member"</span>, [<span class="hljs-string">"</span><span class="hljs-string">first"</span>, <span class="hljs-string">"last"</span>, <span class="hljs-string">"birth"</span>])
+ser = pd.Series([
+    Member(<span class="hljs-string">"Paul"</span>, <span class="hljs-string">"McCartney"</span>, <span class="hljs-number">1942</span>),
+    Member(<span class="hljs-string">"John"</span>, <span class="hljs-string">"Lennon"</span>, <span class="hljs-number">1940</span>),
+    Member(<span class="hljs-string">"Richard"</span>, <span class="hljs-string">"</span><span class="hljs-string">Starkey"</span>, <span class="hljs-number">1940</span>),
+    Member(<span class="hljs-string">"George"</span>, <span class="hljs-string">"Harrison"</span>, <span class="hljs-number">1943</span>),
+])
+ser
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">0     (Paul, McCartney, 1942)
+1        (John, Lennon, 1940)
+2    (Richard, Starkey, 1940)
+3    (George, Harrison, 1943)
+dtype: object
+</code></code></pre>
+    <p class="normal">None of the other I/O methods we have discussed in this chapter would be able to faithfully represent a <code class="inlineCode">namedtuple</code>, which is purely a Python construct. <code class="inlineCode">pd.Series.to_pickle</code>, however, has no problem writing this out:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code"><span class="hljs-keyword">import</span> io
+buf = io.BytesIO()
+ser.to_pickle(buf)
+</code></code></pre>
+    <p class="normal">When you call <code class="inlineCode">pd.read_pickle</code>, you will get the exact representation you started with returned:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">buf.seek(<span class="hljs-number">0</span>)
+ser = pd.read_pickle(buf)
+ser
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">0     (Paul, McCartney, 1942)
+1        (John, Lennon, 1940)
+2    (Richard, Starkey, 1940)
+3    (George, Harrison, 1943)
+dtype: object
+</code></code></pre>
+    <p class="normal">You can further validate this by inspecting an individual element:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">ser.iloc[<span class="hljs-number">0</span>]
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">Member(first='Paul', last='McCartney', birth=1942)
+</code></code></pre>
+    <p class="normal">Once again, it is worth stressing that the Apache Parquet format should be preferred to pickle, only using this as <a id="_idIndexMarker221"/>a last resort when Python-specific objects within your <code class="inlineCode">pd.Series</code> or <code class="inlineCode">pd.DataFrame</code> need to be roundtripped. Be sure to <strong class="keyWord">never load pickle files from untrusted sources</strong>; unless you created the pickle file yourself, I would highly advise against trying to process it.</p>
+    <h1 id="_idParaDest-142" class="heading-1">Third-party I/O libraries</h1>
+    <p class="normal">While pandas covers an impressive amount of formats it cannot hope to cover <em class="italic">every</em> important format out there. Third-party libraries exist to cover that gap.</p>
+    <p class="normal">Here are a few you may be<a id="_idIndexMarker222"/> interested in – the details of how they work are outside the scope of this book, but they all generally follow the pattern of having read functions that return <code class="inlineCode">pd.DataFrame</code> objects and write methods that accept a <code class="inlineCode">pd.DataFrame</code> argument:</p>
+    <ul>
+      <li class="bulletList">pandas-gbq allows you to exchange data with Google BigQuery</li>
+      <li class="bulletList">AWS SDK for pandas works with Redshift and the AWS ecosystem at large</li>
+      <li class="bulletList">Snowflake Connector for Python helps exchange with Snowflake databases</li>
+      <li class="bulletList">pantab lets you move <code class="inlineCode">pd.DataFrame</code> objects in and out of Tableau’s Hyper database format (note: I am also the author of pantab)</li>
+    </ul>
+    <h1 id="_idParaDest-143" class="heading-1">Join our community on Discord</h1>
+    <p class="normal">Join our community’s Discord space for discussions with the authors and other readers:</p>
+    <p class="normal"><a href="https://packt.link/pandas"><span class="url">https://packt.link/pandas</span></a></p>
+    <p class="normal"><img src="../Images/QR_Code5040900042138312.png" alt=""/></p>
+  </div>
+</body></html>

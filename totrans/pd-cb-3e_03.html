@@ -1,0 +1,1096 @@
+<html><head></head><body>
+  <div id="_idContainer019" class="Basic-Text-Frame">
+    <h1 class="chapterNumber">3</h1>
+    <h1 id="_idParaDest-78" class="chapterTitle">Data Types</h1>
+    <p class="normal">The data type of a <code class="inlineCode">pd.Series</code> allows you to dictate what kind of elements may or may not be stored. Data types are important for ensuring data quality, as well as enabling high-performance algorithms in your code. If you have a data background working with databases, you more than likely are already familiar with data types and their benefits; you will find types like <code class="inlineCode">TEXT</code>, <code class="inlineCode">INTEGER</code>, and <code class="inlineCode">DOUBLE PRECISION</code> in pandas just like you do in a database, albeit under different names.</p>
+    <p class="normal">Unlike a database, however, pandas offers multiple implementations of how a <code class="inlineCode">TEXT</code>, <code class="inlineCode">INTEGER</code>, and <code class="inlineCode">DOUBLE PRECISION</code> type can work. Unfortunately, this means, as an end user, that you should at least have some understanding of how the different data types are implemented to make the best choice for your application.</p>
+    <p class="normal">A quick history lesson on types in pandas can help explain this usability quirk. Originally, pandas was built on top of the NumPy type system. This worked for quite a while but had major shortcomings. For starters, the NumPy types pandas built on top of did not support missing values, so pandas created a Frankenstein’s monster of methods to support those. NumPy, being focused on <em class="italic">numerical</em> computations, also did not offer a first-class string data type, leading to very poor string handling in pandas.</p>
+    <p class="normal">Work to move past the NumPy type system started with pandas version 0.23, which introduced new data types built directly into pandas that were still implemented using NumPy but could actually handle missing values. In version 1.0, pandas implemented its own string data type. At the time, these were called <code class="inlineCode">numpy_nullable</code> data types, but over time, they have become referred to as pandas extension types.</p>
+    <p class="normal">While all of this was going on, Wes McKinney, the original creator of pandas, was working on the Apache Arrow project. Fully explaining the Arrow project is beyond the scope of this book, but one of the major things it helps with is to define a set of standardized data types that can be used from different tools and programming languages. Those data types also draw inspiration from databases; if using a database has already been a part of your analytics journey, then the Arrow types will likely be very familiar to you. Starting with version 2.0, pandas allows you to use Arrow for your data types.</p>
+    <p class="normal">Despite support for pandas extension and Arrow data types, the default types from pandas were never changed, and in most cases still use NumPy. In the author’s opinion, this is very unfortunate; this chapter will introduce a rather opinionated take on how to best manage the type landscape, with the general guidance of the following:</p>
+    <ul>
+      <li class="bulletList">Use pandas extension types, when available</li>
+      <li class="bulletList">Use Arrow data types, when pandas extension types do not suffice</li>
+      <li class="bulletList">Use NumPy-backed data types</li>
+    </ul>
+    <p class="normal">This guidance may be controversial and can be scrutinized in extreme examples, but, for someone just starting with pandas, I believe this prioritization gives users the best balance of usability and performance, without requiring a deep understanding of how pandas works behind the scenes.</p>
+    <p class="normal">The general layout of this chapter will introduce the pandas extension system for general use, before diving into the Arrow-type system for more advanced use cases. As we walk through these types, we will also highlight any special behavior that can be unlocked using <em class="italic">accessors</em>. Finally, we will talk about the historical NumPy-backed data types and take a deep dive into some of their fatal flaws, which I hope will convince you as to why you should limit your use of these types.</p>
+    <p class="normal">We are going to cover the following recipes in this chapter:</p>
+    <ul>
+      <li class="bulletList">Integral types</li>
+      <li class="bulletList">Floating point types</li>
+      <li class="bulletList">Boolean types</li>
+      <li class="bulletList">String types</li>
+      <li class="bulletList">Missing value handling</li>
+      <li class="bulletList">Categorical types</li>
+      <li class="bulletList">Temporal types – datetime</li>
+      <li class="bulletList">Temporal types – timedelta</li>
+      <li class="bulletList">Temporal PyArrow types</li>
+      <li class="bulletList">PyArrow List types</li>
+      <li class="bulletList">PyArrow decimal types</li>
+      <li class="bulletList">NumPy type system, the object type, and pitfalls</li>
+    </ul>
+    <h1 id="_idParaDest-79" class="heading-1">Integral types</h1>
+    <p class="normal">Integral types are the most<a id="_idIndexMarker086"/> basic type category. Much like the <code class="inlineCode">int</code> type in Python or the <code class="inlineCode">INTEGER</code> data type in a database, these can only represent whole numbers. Despite this limitation, integers are useful in a wide variety of applications, including but not limited to arithmetic, indexing, counting, and enumeration.</p>
+    <p class="normal">Integral types are heavily optimized for performance, tracing all the way from pandas down to the hardware on your computer. The integral types offered by pandas are significantly faster than the <code class="inlineCode">int</code> type offered by the Python standard library, and proper usage of integral types is often a key enabler to high-performance, scalable reporting.</p>
+    <h2 id="_idParaDest-80" class="heading-2">How to do it</h2>
+    <p class="normal">Any valid sequence of integers can be passed as an argument to the <code class="inlineCode">pd.Series</code> constructor. Paired with the <code class="inlineCode">dtype=pd.Int64Dtype()</code> argument you will end up with a 64-bit integer data type:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">pd.Series(<span class="hljs-built_in">range</span>(<span class="hljs-number">3</span>), dtype=pd.Int64Dtype())
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">0    0
+1    1
+2    2
+dtype: Int64
+</code></code></pre>
+    <p class="normal">When storage and compute resources are not a concern, users often opt for 64-bit integers, but we could have also picked a smaller data type in our example:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">pd.Series(<span class="hljs-built_in">range</span>(<span class="hljs-number">3</span>), dtype=pd.Int8Dtype())
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">0    0
+1    1
+2    2
+dtype: Int8
+</code></code></pre>
+    <p class="normal">With respect to missing values, pandas uses the <code class="inlineCode">pd.NA</code> sentinel as its indicator, much like a database uses <code class="inlineCode">NULL</code>:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">pd.Series([<span class="hljs-number">1</span>, pd.NA, <span class="hljs-number">2</span>], dtype=pd.Int64Dtype())
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">0       1
+1    &lt;NA&gt;
+2       2
+dtype: Int64
+</code></code></pre>
+    <p class="normal">As a convenience, the <code class="inlineCode">pd.Series</code> constructor will convert Python <code class="inlineCode">None</code> values into <code class="inlineCode">pd.NA</code> for you:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">pd.Series([<span class="hljs-number">1</span>, <span class="hljs-literal">None</span>, <span class="hljs-number">2</span>], dtype=pd.Int64Dtype())
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">0       1
+1    &lt;NA&gt;
+2       2
+dtype: Int64
+</code></code></pre>
+    <h2 id="_idParaDest-81" class="heading-2">There’s more…</h2>
+    <p class="normal">For users new to scientific computing, it is important to know that unlike Python’s <code class="inlineCode">int</code>, which has no <a id="_idIndexMarker087"/>theoretical size limit, integers in pandas have lower and upper bounds. These limits are determined by the <em class="italic">width</em> and <em class="italic">signedness</em> of the integer.</p>
+    <p class="normal">In most computing environments, users have integer widths of 8, 16, 32, and 64. Signedness can be either <em class="italic">signed</em> (i.e., the number can be positive or negative) or <em class="italic">unsigned</em> (i.e., the number must not be negative). Limits for each integral type are summarized in the following table:</p>
+    <table id="table001" class="table-container">
+      <thead>
+        <tr>
+          <td class="table-cell">
+            <p class="normal"><strong class="keyWord">Type</strong></p>
+          </td>
+          <td class="table-cell">
+            <p class="normal"><strong class="keyWord">Lower Bound</strong></p>
+          </td>
+          <td class="table-cell">
+            <p class="normal"><strong class="keyWord">Upper Bound</strong></p>
+          </td>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="table-cell">
+            <p class="normal">8-bit width, signed</p>
+          </td>
+          <td class="table-cell">
+            <p class="normal">-128</p>
+          </td>
+          <td class="table-cell">
+            <p class="normal">127</p>
+          </td>
+        </tr>
+        <tr>
+          <td class="table-cell">
+            <p class="normal">8-bit width, unsigned</p>
+          </td>
+          <td class="table-cell">
+            <p class="normal">0</p>
+          </td>
+          <td class="table-cell">
+            <p class="normal">255</p>
+          </td>
+        </tr>
+        <tr>
+          <td class="table-cell">
+            <p class="normal">16-bit width, signed</p>
+          </td>
+          <td class="table-cell">
+            <p class="normal">-32769</p>
+          </td>
+          <td class="table-cell">
+            <p class="normal">32767</p>
+          </td>
+        </tr>
+        <tr>
+          <td class="table-cell">
+            <p class="normal">16-bit width, unsigned</p>
+          </td>
+          <td class="table-cell">
+            <p class="normal">0</p>
+          </td>
+          <td class="table-cell">
+            <p class="normal">65535</p>
+          </td>
+        </tr>
+        <tr>
+          <td class="table-cell">
+            <p class="normal">32-bit width, signed</p>
+          </td>
+          <td class="table-cell">
+            <p class="normal">-2147483648</p>
+          </td>
+          <td class="table-cell">
+            <p class="normal">2147483647</p>
+          </td>
+        </tr>
+        <tr>
+          <td class="table-cell">
+            <p class="normal">32-bit width, unsigned</p>
+          </td>
+          <td class="table-cell">
+            <p class="normal">0</p>
+          </td>
+          <td class="table-cell">
+            <p class="normal">4294967295</p>
+          </td>
+        </tr>
+        <tr>
+          <td class="table-cell">
+            <p class="normal">64-bit width, signed</p>
+          </td>
+          <td class="table-cell">
+            <p class="normal">-(2**63)</p>
+          </td>
+          <td class="table-cell">
+            <p class="normal">2**63-1</p>
+          </td>
+        </tr>
+        <tr>
+          <td class="table-cell">
+            <p class="normal">64-bit width, unsigned</p>
+          </td>
+          <td class="table-cell">
+            <p class="normal">0</p>
+          </td>
+          <td class="table-cell">
+            <p class="normal">2**64-1</p>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+    <p class="packt_figref">Table 3.1: Integral limits per signedness and width</p>
+    <p class="normal">The trade-off in these types is capacity versus memory usage – a 64-bit integral type requires 8x as much memory as an 8-bit integral type. Whether or not this is an issue depends entirely on the size of your dataset and the system on which you perform your analysis.</p>
+    <p class="normal">Within the pandas extension type system, the <code class="inlineCode">dtype=</code> argument for each of these follows the <code class="inlineCode">pd.IntXXDtype()</code> form for signed integers and <code class="inlineCode">pd.UIntXXDtype()</code> for<a id="_idIndexMarker088"/> unsigned integers, where <code class="inlineCode">XX</code> refers to the bit width:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">pd.Series(<span class="hljs-built_in">range</span>(<span class="hljs-number">555</span>, <span class="hljs-number">558</span>), dtype=pd.Int16Dtype())
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">0    555
+1    556
+2    557
+dtype: Int16
+</code></code></pre>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">pd.Series(<span class="hljs-built_in">range</span>(<span class="hljs-number">3</span>), dtype=pd.UInt8Dtype())
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">0    0
+1    1
+2    2
+dtype: UInt8
+</code></code></pre>
+    <h1 id="_idParaDest-82" class="heading-1">Floating point types</h1>
+    <p class="normal">Floating point <a id="_idIndexMarker089"/>types allow you to represent real numbers, not just integers. This allows you to work with a continuous and <em class="italic">theoretically</em> infinite set of values within your computations. It may come as no surprise that floating point calculations show up in almost every scientific computation, macro-financial analysis, machine learning algorithm, and so on.</p>
+    <p class="normal">The emphasis on the word <em class="italic">theoretically</em>, however, is intentional and very important to understand. Floating point types still have boundaries, with real limitations being imposed by your computer hardware. In essence, the notion of being able to represent any number is an illusion. Floating point types are liable to lose precision and introduce rounding errors, especially as you work with more extreme values. As such, floating point types are not suitable when you need absolute precision (for that, you will want to reference the PyArrow decimal types introduced later in this chapter).</p>
+    <p class="normal">Despite those limitations, it is rare that you actually would need absolute precision, so floating point types are the most commonly used data type to represent fractional numbers in general.</p>
+    <h2 id="_idParaDest-83" class="heading-2">How to do it</h2>
+    <p class="normal">To construct floating point data, use <code class="inlineCode">dtype=pd.Float64Dtype()</code>:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">pd.Series([<span class="hljs-number">3.14</span>, <span class="hljs-number">.333333333</span>, -<span class="hljs-number">123.456</span>], dtype=pd.Float64Dtype())
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">0        3.14
+1    0.333333
+2    -123.456
+dtype: Float64
+</code></code></pre>
+    <p class="normal">Much like we saw with the integral types, the missing value indicator is <code class="inlineCode">pd.NA</code>. The Python object <code class="inlineCode">None</code> will be implicitly converted to this as a convenience:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">pd.Series([<span class="hljs-number">3.14</span>, <span class="hljs-literal">None</span>, pd.NA], dtype=pd.Float64Dtype())
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">0    3.14
+1    &lt;NA&gt;
+2    &lt;NA&gt;
+dtype: Float64
+</code></code></pre>
+    <h2 id="_idParaDest-84" class="heading-2">There’s more…</h2>
+    <p class="normal">By nature of their design, floating point values are <em class="italic">inexact</em>, and arithmetic with floating point values is slower than with integers. A deep dive into floating point arithmetic is beyond the scope of this book, but those interested can find much more information in the Python documentation.</p>
+    <p class="normal">Python has a built-in <code class="inlineCode">float</code> type that is somewhat of a misnomer because it is actually an IEEE 754 <code class="inlineCode">double</code>. That standard and other languages like C/C++ have distinct <code class="inlineCode">float</code> and <code class="inlineCode">double</code> types, with the former occupying 32 bits and the latter occupying 64 bits. To disambiguate these widths but stay consistent with Python terminology, pandas offers <code class="inlineCode">pd.Float64Dtype()</code> (which some may consider a <code class="inlineCode">double</code>) and <code class="inlineCode">pd.Float32Dtype()</code> (which some may consider a <code class="inlineCode">float</code>).</p>
+    <p class="normal">Generally, unless your system is constrained on resources, users are recommended to use 64-bit floating point types. The odds of losing precision with 32-bit floating point types are much higher than with their respective 64-bit counterparts. In fact, 32-bit floats only offer between 6 and 9 decimal digits of precision, so the following expression will likely return <code class="inlineCode">True</code> for equality comparison, even though we as humans can very clearly see the numbers are not the same:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">ser1 <span class="hljs-punctuation">=</span> pd.Series<span class="hljs-punctuation">(</span>[<span class="hljs-number">1</span>_000_000.<span class="hljs-number">123</span>]<span class="hljs-punctuation">,</span> dtype<span class="hljs-punctuation">=</span>pd.Float32Dtype<span class="hljs-punctuation">())</span>
+ser2 <span class="hljs-punctuation">=</span> pd.Series<span class="hljs-punctuation">(</span>[<span class="hljs-number">1</span>_000_000.<span class="hljs-number">124</span>]<span class="hljs-punctuation">,</span> dtype<span class="hljs-punctuation">=</span>pd.Float32Dtype<span class="hljs-punctuation">())</span>
+ser1.eq<span class="hljs-punctuation">(</span>ser2<span class="hljs-punctuation">)</span>
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">0    True
+dtype: boolean
+</code></code></pre>
+    <p class="normal">With a 64-bit floating<a id="_idIndexMarker090"/> point, you would at least get between 15 and 17 decimal digits of precision, so the values at which rounding errors occur are much more extreme.</p>
+    <h1 id="_idParaDest-85" class="heading-1">Boolean types</h1>
+    <p class="normal">A Boolean type <a id="_idIndexMarker091"/>represents a value that is either <code class="inlineCode">True</code> or <code class="inlineCode">False</code>. Boolean data types are useful to simply answer questions with a yes/no style of response and are also widely used in machine learning algorithms to convert categorical values into 1s and 0s (for <code class="inlineCode">True</code> and <code class="inlineCode">False</code>, respectively) that a computer can more easily digest (see also the <em class="italic">One-hot encoding with pd.get_dummies</em> recipe in <em class="chapterRef">Chapter 5</em>, <em class="italic">Algorithms and How to Apply Them</em>).</p>
+    <h2 id="_idParaDest-86" class="heading-2">How to do it</h2>
+    <p class="normal">For Boolean, the appropriate <code class="inlineCode">dtype=</code> argument is <code class="inlineCode">pd.BooleanDtype</code>:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">pd.Series([<span class="hljs-literal">True</span>, <span class="hljs-literal">False</span>, <span class="hljs-literal">True</span>], dtype=pd.BooleanDtype())
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">0     True
+1    False
+2     True
+dtype: boolean
+</code></code></pre>
+    <p class="normal">The pandas library will take care of implicitly converting values to their Boolean representation for you. Often, 0 and 1 are used in place of <code class="inlineCode">False</code> and <code class="inlineCode">True</code>, respectively:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">pd.Series([<span class="hljs-number">1</span>, <span class="hljs-number">0</span>, <span class="hljs-number">1</span>], dtype=pd.BooleanDtype())
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">0     True
+1    False
+2     True
+dtype: boolean
+</code></code></pre>
+    <p class="normal">Once again, <code class="inlineCode">pd.NA</code> is the canonical missing indicator, although pandas will implicitly convert <code class="inlineCode">None</code> to a<a id="_idIndexMarker092"/> missing value:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">pd.Series([<span class="hljs-number">1</span>, pd.NA, <span class="hljs-literal">None</span>], dtype=pd.BooleanDtype())
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">0    True
+1    &lt;NA&gt;
+2    &lt;NA&gt;
+dtype: boolean
+</code></code></pre>
+    <h1 id="_idParaDest-87" class="heading-1">String types</h1>
+    <p class="normal">The string data type is <a id="_idIndexMarker093"/>the appropriate choice for any data that represents text. Unless you are working in a purely scientific domain, chances are that strings will be prevalent throughout the data that you use.</p>
+    <p class="normal">In this recipe, we will highlight some of the additional features pandas provides when working with string data, most notably through the <code class="inlineCode">pd.Series.str</code> accessor. This accessor helps to change cases, extract substrings, match patterns, and more.</p>
+    <p class="normal">As a technical note, before we jump into the recipe, strings starting in pandas 3.0 will be significantly overhauled behind the scenes, enabling an implementation that is more type-correct, much faster, and requires far less memory than what was available in the pandas 2.x series. To make this possible in 3.0 and beyond, users are highly encouraged to install PyArrow alongside their pandas installation. For users looking for an authoritative reference on the why and how of strings in pandas 3.0, you may reference the PDEP-14 dedicated string data type.</p>
+    <h2 id="_idParaDest-88" class="heading-2">How to do it</h2>
+    <p class="normal">String data should be constructed with <code class="inlineCode">dtype=pd.StringDtype()</code>:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">pd.Series([<span class="hljs-string">"foo"</span>, <span class="hljs-string">"bar"</span>, <span class="hljs-string">"baz"</span>], dtype=pd.StringDtype())
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">0    foo
+1    bar
+2    baz
+dtype: string
+</code></code></pre>
+    <p class="normal">You have probably picked up by now that <code class="inlineCode">pd.NA</code> is the missing indicator to use, but pandas will<a id="_idIndexMarker094"/> convert <code class="inlineCode">None</code> implicitly for you:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">pd.Series([<span class="hljs-string">"foo"</span>, pd.NA, <span class="hljs-literal">None</span>], dtype=pd.StringDtype())
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">0     foo
+1    &lt;NA&gt;
+2    &lt;NA&gt;
+dtype: string
+</code></code></pre>
+    <p class="normal">When working with a <code class="inlineCode">pd.Series</code> containing string data, pandas will create what it refers to as the string <em class="italic">accessor</em> to help you unlock new methods that are tailored to strings. The string accessor is used via <code class="inlineCode">pd.Series.str</code>, and helps you do things like report back the length of each string via <code class="inlineCode">pd.Series.str.len</code>:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">ser = pd.Series([<span class="hljs-string">"xx"</span>, <span class="hljs-string">"YyY"</span>, <span class="hljs-string">"zZzZ"</span>], dtype=pd.StringDtype())
+ser.<span class="hljs-built_in">str</span>.<span class="hljs-built_in">len</span>()
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">0    2
+1    3
+2    4
+dtype: Int64
+</code></code></pre>
+    <p class="normal">It may also be used to force everything to a particular case, like uppercase:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">ser.<span class="hljs-built_in">str</span>.upper()
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">0      XX
+1     YYY
+2    ZZZZ
+dtype: string
+</code></code></pre>
+    <p class="normal">It may also be used to force everything to lowercase:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">ser.<span class="hljs-built_in">str</span>.lower()
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">0      xx
+1     yyy
+2    zzzz
+dtype: string
+</code></code></pre>
+    <p class="normal">And even “title case” (i.e., the first letter only is capitalized, with everything else lower):</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">ser.<span class="hljs-built_in">str</span>.title()
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">0      Xx
+1     Yyy
+2    Zzzz
+dtype: string
+</code></code></pre>
+    <p class="normal"><code class="inlineCode">pd.Series.str.contains</code> can<a id="_idIndexMarker095"/> be used to check for simple string containment:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">ser = pd.Series([<span class="hljs-string">"foo"</span>, <span class="hljs-string">"bar"</span>, <span class="hljs-string">"baz"</span>], dtype=pd.StringDtype())
+ser.<span class="hljs-built_in">str</span>.contains(<span class="hljs-string">"o"</span>)
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">0     True
+1    False
+2    False
+dtype: boolean
+</code></code></pre>
+    <p class="normal">But it also has the flexibility to test for regular expressions with <code class="inlineCode">regex=True</code>, akin to how <code class="inlineCode">re.search</code> works <a id="_idIndexMarker096"/>in the standard library. The <code class="inlineCode">case=False</code> argument will also turn the matching into a case-insensitive comparison:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">ser.<span class="hljs-built_in">str</span>.contains(<span class="hljs-string">r"^ba[rz]$"</span>, <span class="hljs-keyword">case</span>=<span class="hljs-literal">False</span>, regex=<span class="hljs-literal">True</span>)
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">0    False
+1     True
+2     True
+dtype: boolean
+</code></code></pre>
+    <h1 id="_idParaDest-89" class="heading-1">Missing value handling</h1>
+    <p class="normal">Before we continue<a id="_idIndexMarker097"/> with more data types, we must step back and talk about how pandas handles missing values. So far, things have been simple (we have only seen <code class="inlineCode">pd.NA</code>), but as we explore more types we will see that the way pandas handles missing values is inconsistent, owing mostly to the history of how the library was developed. While it would be great to wave a magic wand and make any inconsistencies go away, in reality, they have existed and will continue to exist in production code bases for years to come. Having a high-level understanding of that evolution will help you write better pandas code, and hopefully convert the unaware to using the idioms we preach in this book.</p>
+    <h2 id="_idParaDest-90" class="heading-2">How to do it</h2>
+    <p class="normal">The pandas library was originally built on top of NumPy, whose default data types do not support missing values. As such, pandas had to build its own missing value handling solution from scratch, and, for better or worse, decided that using the <code class="inlineCode">np.nan</code> sentinel, which represents “not a number,” was useful enough to build off of.</p>
+    <p class="normal"><code class="inlineCode">np.nan</code> itself is an implementation of the IEEE 754 standard’s “not a number” sentinel, a specification that only really had to do with floating point arithmetic. There is no such thing as “not a number” for integral data, which is why pandas implicitly converts a <code class="inlineCode">pd.Series</code> like this:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">ser = pd.Series(<span class="hljs-built_in">range</span>(<span class="hljs-number">3</span>))
+ser
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">0    0
+1    1
+2    2
+dtype: int64
+</code></code></pre>
+    <p class="normal">To a floating point data type after assigning a missing value:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">ser.iloc[<span class="hljs-number">1</span>] = <span class="hljs-literal">None</span>
+ser
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">0    0.0
+1    NaN
+2    2.0
+dtype: float64
+</code></code></pre>
+    <p class="normal">As we discussed back in the <em class="italic">Floating point types</em> recipe, floating point values are slower than their integral counterparts. While integers can be expressed with 8- and 16-bit widths, floating point types require 32 bits at a minimum. Even if you are using 32-bit width integers, using a 32-bit floating point value may not be viable without loss of precision, and with 64-bit integers, conversion simply may just have to lose precision. Generally, with a conversion from integral to floating point types, you have to sacrifice some combination of performance, memory usage, and/or precision, so such conversions are not ideal.</p>
+    <p class="normal">Of course, pandas offers more than just integral and floating point types, so other types had to have custom missing value solutions attached to them. The default Boolean type gets converted to an <code class="inlineCode">object</code> type, whose pitfalls will be explored in a recipe toward the end of this chapter. For datetime types, which we will discuss soon, pandas had to create a different <code class="inlineCode">pd.NaT</code> sentinel altogether, as <code class="inlineCode">np.nan</code> was technically not a feasible value to use for that data type. In essence, each data type in pandas could have its own indicator and implicit casting rules, which are hard to explain for beginners and seasoned pandas developers <a id="_idIndexMarker098"/>alike.</p>
+    <p class="normal">The pandas library tried to solve these issues with the introduction of the <em class="italic">pandas extension types</em> back in the 0.24 release, and as we have seen with the recipes introduced so far, they do a good job of using just <code class="inlineCode">pd.NA</code> without any implicit type conversion when missing values appear. However, the <em class="italic">pandas extension types</em> were introduced as opt-in types instead of being the default, so the custom solutions pandas developed to deal with missing values are still prevalent in code. Without having ever rectified these inconsistencies, it is unfortunately up to the user to understand the data types they choose and how different data types handle missing values.</p>
+    <p class="normal">Despite the inconsistencies, pandas fortunately offers a <code class="inlineCode">pd.isna</code> function that can tell you whether an element in your array is missing or not. This works with the default data types:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">pd.isna(pd.Series([<span class="hljs-number">1</span>, np.nan, <span class="hljs-number">2</span>]))
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">0    False
+1     True
+2    False
+dtype: bool
+</code></code></pre>
+    <p class="normal">It works just as well as it works with the <em class="italic">pandas extension types</em>:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">pd.isna(pd.Series([<span class="hljs-number">1</span>, pd.NA, <span class="hljs-number">2</span>], dtype=pd.Int64Dtype()))
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">0    False
+1     True
+2    False
+dtype: bool
+</code></code></pre>
+    <h2 id="_idParaDest-91" class="heading-2">There’s more…</h2>
+    <p class="normal">Users should be aware that comparisons with <code class="inlineCode">np.nan</code> and <code class="inlineCode">pd.NA</code> do not behave in the same manner. For instance, <code class="inlineCode">np.nan == np.nan</code> returns <code class="inlineCode">False</code>, whereas <code class="inlineCode">pd.NA == pd.NA</code> returns <code class="inlineCode">pd.NA</code>. The <a id="_idIndexMarker099"/>former comparison is dictated by the terms of IEEE 757, whereas the <code class="inlineCode">pd.NA</code> sentinel follows Kleene logic.</p>
+    <p class="normal">The way <code class="inlineCode">pd.NA</code> works allows for much more expressive masking/selection in pandas. For instance, if you wanted to create a Boolean mask that also had missing values and use that to select values, <code class="inlineCode">pd.BooleanDtype</code> allows you to do so, and naturally will only select records where the mask is <code class="inlineCode">True</code>:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">ser = pd.Series(<span class="hljs-built_in">range</span>(<span class="hljs-number">3</span>), dtype=pd.Int64Dtype())
+mask = pd.Series([<span class="hljs-literal">True</span>, pd.NA, <span class="hljs-literal">False</span>], dtype=pd.BooleanDtype())
+ser[mask]
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">0    0
+dtype: Int64
+</code></code></pre>
+    <p class="normal">The equivalent operation without the Boolean extension type will raise an error:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">mask = pd.Series([<span class="hljs-literal">True</span>, <span class="hljs-literal">None</span>, <span class="hljs-literal">False</span>])
+ser[mask]
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">ValueError: Cannot mask with non-boolean array containing NA / NaN values
+</code></code></pre>
+    <p class="normal">So, in code that does not use <code class="inlineCode">pd.BooleanDtype</code>, you will likely see a lot of method calls that replace “missing” values with <code class="inlineCode">False</code>, and use <code class="inlineCode">pd.Series.astype</code> to try and cast back to a Boolean data type after the fill:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">mask = pd.Series([<span class="hljs-literal">True</span>, <span class="hljs-literal">None</span>, <span class="hljs-literal">False</span>])
+mask = mask.fillna(<span class="hljs-literal">False</span>).astype(<span class="hljs-built_in">bool</span>)
+ser[mask]
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">/tmp/ipykernel_45649/2987852505.py:2: FutureWarning: Downcasting object dtype arrays on .fillna, .ffill, .bfill is deprecated and will change in a future version. Call result.infer_objects(copy=False) instead. To opt-in to the future behavior, set `pd.set_option('future.no_silent_downcasting', True)`
+ mask = mask.fillna(False).astype(bool)
+0    0
+dtype: Int64
+</code></code></pre>
+    <p class="normal">This is needlessly complex and inefficient. Using <code class="inlineCode">pd.BooleanDtype</code> expresses the intent of your operations<a id="_idIndexMarker100"/> much more succinctly, letting you worry less about the nuances of pandas.</p>
+    <h1 id="_idParaDest-92" class="heading-1">Categorical types</h1>
+    <p class="normal">The main point<a id="_idIndexMarker101"/> of the categorical data type is to define an acceptable set of domain values that your <code class="inlineCode">pd.Series</code> can contain. The <em class="italic">CSV - strategies for reading large files</em> recipe in <em class="chapterRef">Chapter 4</em>, <em class="italic">The pandas I/O System</em>, will show you an example where this can result in significant memory savings, but generally, the use case here is to have pandas convert string values like <code class="inlineCode">foo</code>, <code class="inlineCode">bar</code>, and <code class="inlineCode">baz</code> into codes <code class="inlineCode">0</code>, <code class="inlineCode">1</code>, and <code class="inlineCode">2</code>, respectively, which can be much more efficiently stored.</p>
+    <h2 id="_idParaDest-93" class="heading-2">How to do it</h2>
+    <p class="normal">So far, we have always opted for <code class="inlineCode">pd.XXDtype()</code> as the <code class="inlineCode">dtype=</code> argument, which still <em class="italic">could</em> work in the case of categorical data types, but unfortunately does not handle missing values consistently (see <em class="italic">There’s more…</em> for a deeper dive into this). Instead, we have to opt for one of two alternative approaches to creating a <code class="inlineCode">pd.CategoricalDtype</code> with the <code class="inlineCode">pd.NA</code> missing value indicator.</p>
+    <p class="normal">With either approach, you will want to start with a <code class="inlineCode">pd.Series</code> of data using <code class="inlineCode">pd.StringDtype</code>:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">values = [<span class="hljs-string">"</span><span class="hljs-string">foo"</span>, <span class="hljs-string">"bar"</span>, <span class="hljs-string">"baz"</span>]
+values_ser = pd.Series(values, dtype=pd.StringDtype())
+</code></code></pre>
+    <p class="normal">From there, you may use <code class="inlineCode">pd.DataFrame.astype</code> to cast this to categorical:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">ser = values_ser.astype(pd.CategoricalDtype())
+ser
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">0    foo
+1    bar
+2    baz
+dtype: category
+Categories (3, string): [bar, baz, foo]
+</code></code></pre>
+    <p class="normal">Or, if you need more control over the behavior of the categorical type, you may construct a <code class="inlineCode">pd.CategoricalDtype</code> from your <code class="inlineCode">pd.Series</code> of values and subsequently use that as the <code class="inlineCode">dtype=</code> argument:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">cat = pd.CategoricalDtype(values_ser)
+ser = pd.Series(values, dtype=cat)
+ser
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">0    foo
+1    bar
+2    baz
+dtype: category
+Categories (3, string): [foo, bar, baz]
+</code></code></pre>
+    <p class="normal">Both approaches <a id="_idIndexMarker102"/>get you to the same place, although the second approach trades some verbosity in constructing the <code class="inlineCode">pd.CategoricalDtype</code> for finer-grained control over its behavior, as you will see throughout the remainder of this recipe.</p>
+    <p class="normal">Regardless of the approach you take, you should note that the values used at the time you construct your categorical <code class="inlineCode">pd.Series</code> define the set of acceptable domain values that can be used. Given that we created our categorical type with values of <code class="inlineCode">["foo", "bar", "baz"]</code>, subsequent assignment using any of these values is not a problem:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">ser.iloc[<span class="hljs-number">2</span>] = <span class="hljs-string">"foo"</span>
+ser
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">0    foo
+1    bar
+2    foo
+dtype: category
+Categories (3, string): [foo, bar, baz]
+</code></code></pre>
+    <p class="normal">However, assigning a value outside of that domain will raise an error:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">ser.iloc[<span class="hljs-number">2</span>] = <span class="hljs-string">"qux"</span>
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">TypeError: Cannot setitem on a Categorical with a new category (qux), set the categories first
+</code></code></pre>
+    <p class="normal">When explicitly constructing a <code class="inlineCode">pd.CategoricalDtype</code>, you can assign a non-lexicographical order to your values via the <code class="inlineCode">ordered=</code> argument. This is invaluable when working with <em class="italic">ordinal</em> data whose values are not naturally sorted the way you want by a computer algorithm.</p>
+    <p class="normal">As a practical example, let’s consider the use case of clothing sizes. Naturally, small clothing is smaller than medium clothing, which is smaller than large clothing, and so on. By constructing <code class="inlineCode">pd.CategoricalDtype</code> with the desired sizes in order and using <code class="inlineCode">ordered=True</code>, pandas makes it very<a id="_idIndexMarker103"/> natural to compare sizes:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">shirt_sizes = pd.Series([<span class="hljs-string">"S"</span>, <span class="hljs-string">"M"</span>, <span class="hljs-string">"L"</span>, <span class="hljs-string">"XL"</span>], dtype=pd.StringDtype())
+cat = pd.CategoricalDtype(shirt_sizes, ordered=<span class="hljs-literal">True</span>)
+ser = pd.Series([<span class="hljs-string">"XL"</span>, <span class="hljs-string">"L"</span>, <span class="hljs-string">"S"</span>, <span class="hljs-string">"L"</span>, <span class="hljs-string">"S"</span>, <span class="hljs-string">"M"</span>], dtype=cat)
+ser &lt; <span class="hljs-string">"L"</span>
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">0    False
+1    False
+2     True
+3    False
+4     True
+5     True
+dtype: bool
+</code></code></pre>
+    <p class="normal">So, how does pandas make this so easy and efficient? The pandas library exposes a categorical accessor <code class="inlineCode">pd.Series.cat</code>, which allows you to understand this more deeply. To dive further into this, let’s first create a <code class="inlineCode">pd.Series</code> of categorical data where a given category is used more than once:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">accepted_values = pd.Series([<span class="hljs-string">"foo"</span>, <span class="hljs-string">"bar"</span>], dtype=pd.StringDtype())
+cat = pd.CategoricalDtype(accepted_values)
+ser = pd.Series([<span class="hljs-string">"foo"</span>, <span class="hljs-string">"bar"</span>, <span class="hljs-string">"foo"</span>], dtype=cat)
+ser
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">0    foo
+1    bar
+2    foo
+dtype: category
+Categories (2, string): [foo, bar]
+</code></code></pre>
+    <p class="normal">If you inspect <code class="inlineCode">pd.Series.cat.codes</code>, you will see a like-sized <code class="inlineCode">pd.Series</code>, but the value <code class="inlineCode">foo</code> is replaced with the number <code class="inlineCode">0</code>, and the value <code class="inlineCode">bar</code> is replaced with the value <code class="inlineCode">1</code>:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">ser.cat.codes
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">0    0
+1    1
+2    0
+dtype: int8
+</code></code></pre>
+    <p class="normal">Separately, <code class="inlineCode">pd.Series.cat.categories</code> will <a id="_idIndexMarker104"/>contain the values of each category, in order:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">ser.cat.categories
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">Index(['foo', 'bar'], dtype='string')
+</code></code></pre>
+    <p class="normal">Sparing some details around the internals, you can think of pandas as creating a dictionary of the form <code class="inlineCode">{0: "foo", 1: "bar"}</code>. While it internally stores a <code class="inlineCode">pd.Series</code> with values of <code class="inlineCode">[0, 1, 0]</code>, when it comes time to display or access the values in any way, those values are used like keys in a dictionary to access the true value the end user would like to use. For this reason, you will often see the categorical data type described as a <code class="inlineCode">dictionary</code> type (Apache Arrow, for one, uses the term dictionary).</p>
+    <p class="normal">So, why bother? The process of <em class="italic">encoding</em> the labels into very small integer lookup values can have a significant impact on memory usage. Note the difference in memory usage between a normal string type:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">pd.Series([<span class="hljs-string">"foo"</span>, <span class="hljs-string">"bar"</span>, <span class="hljs-string">"</span><span class="hljs-string">baz"</span>] * <span class="hljs-number">100</span>, dtype=pd.StringDtype()).memory_usage()
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">2528
+</code></code></pre>
+    <p class="normal">As compared to the equivalent categorical type, as follows:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">pd.Series([<span class="hljs-string">"foo"</span>, <span class="hljs-string">"bar"</span>, <span class="hljs-string">"baz"</span>] * <span class="hljs-number">100</span>, dtype=cat).memory_usage()
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">552
+</code></code></pre>
+    <p class="normal">Your numbers may or may not exactly match the output of <code class="inlineCode">.memory_usage()</code>, but you should at the very least see a rather drastic reduction when using the categorical data type.</p>
+    <h2 id="_idParaDest-94" class="heading-2">There’s more…</h2>
+    <p class="normal">If using <code class="inlineCode">dtype=pd.CategoricalDtype()</code> works directly, why would users not want to use that? Unfortunately, there is a rather large gap in the pandas API that prevents missing values from <a id="_idIndexMarker105"/>propagating with categorical types, which can unexpectedly introduce the <code class="inlineCode">np.nan</code> missing value indicator we cautioned against using in the <em class="italic">Missing value handling</em> recipe. This can lead to very surprising behavior, even if you think you are properly using the <code class="inlineCode">pd.NA</code> sentinel:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">pd.Series([<span class="hljs-string">"foo"</span>, <span class="hljs-string">"bar"</span>, pd.NA], dtype=pd.CategoricalDtype())
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">0    foo
+1    bar
+2    NaN
+dtype: category
+Categories (2, object): ['bar', 'foo']
+</code></code></pre>
+    <p class="normal">Notice in the preceding example that we tried to supply <code class="inlineCode">pd.NA</code> but <em class="italic">still</em> got an <code class="inlineCode">np.nan</code> in return? The explicit construction of a <code class="inlineCode">pd.CategoricalDtype</code> from a <code class="inlineCode">pd.Series</code> with <code class="inlineCode">dtype=pd.StringDtype()</code> helps us avoid this very surprising behavior:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">values = pd.Series([<span class="hljs-string">"foo"</span>, <span class="hljs-string">"bar"</span>], dtype=pd.StringDtype())
+cat = pd.CategoricalDtype(values)
+pd.Series([<span class="hljs-string">"foo"</span>, <span class="hljs-string">"bar"</span>, pd.NA], dtype=cat)
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">0     foo
+1     bar
+2    &lt;NA&gt;
+dtype: category
+Categories (2, string): [foo, bar]
+</code></code></pre>
+    <p class="normal">If you find this behavior confusing or troublesome, trust that you are not alone. The light at the end of the tunnel may be PDEP-16, which aims to make <code class="inlineCode">pd.NA</code> exclusively work as the missing value indicator. This would mean that you could safely use the <code class="inlineCode">pd.CategoricalDtype()</code> constructor directly and follow all the same patterns you saw up until this point.</p>
+    <p class="normal">Unfortunately, this book was released around the time of the pandas 3.0 release and before PDEP-16 had been officially accepted, so it is hard to see into the future and advise when these inconsistencies in the API will go away. If you are reading this book a few years after <a id="_idIndexMarker106"/>publication, be sure to check back on the status of PDEP-16, as it may change the proper way to construct categorical data (alongside other data types).</p>
+    <h1 id="_idParaDest-95" class="heading-1">Temporal types – datetime</h1>
+    <p class="normal">The term <em class="italic">temporal</em> generally <a id="_idIndexMarker107"/>encompasses data types that concern <a id="_idIndexMarker108"/>themselves with dates and times, both in absolute terms as well as when measuring the duration between two different points in time. Temporal types are a key enabler for time-series-based analyses, which can be invaluable for trend detection and forecasting models. In fact, pandas was initially written at a capital management firm before being open sourced. Much of the time-series handling that was built into pandas has been influenced by real-world reporting needs from financial and economic industries.</p>
+    <p class="normal">While the <em class="italic">Categorical types</em> section started to show some inconsistencies in the pandas type system API, temporal types take things a bit further. It would be reasonable to expect <code class="inlineCode">pd.DatetimeDtype()</code> to exist as a constructor, but that is unfortunately not the case, at least as of writing. Additionally, and as mentioned in the <em class="italic">Missing value handling</em> recipe, temporal types, which were implemented before the pandas type extension system, use a different missing value indicator of <code class="inlineCode">pd.NaT</code> (i.e., “not a time”).</p>
+    <p class="normal">Despite these issues, pandas offers a mind-boggling amount of advanced functionality for dealing with temporal data. <em class="chapterRef">Chapter 9</em>, <em class="italic">Temporal Data Types and Algorithms</em>, will dive further into the applications of these data types; for now, we will just give a quick overview.</p>
+    <h2 id="_idParaDest-96" class="heading-2">How to do it</h2>
+    <p class="normal">Unlike many database systems that offer separate <code class="inlineCode">DATE</code> and <code class="inlineCode">DATETIME</code> or <code class="inlineCode">TIMESTAMP</code> data types, pandas just has a single “datetime” type, which can be constructed via the <code class="inlineCode">dtype=</code> argument of the <code class="inlineCode">"datetime64[&lt;unit&gt;]"</code> form.</p>
+    <p class="normal">Through much of the history of pandas, <code class="inlineCode">ns</code> was the only accepted value for <code class="inlineCode">&lt;unit&gt;</code>, so, let’s start with that for now (but check <em class="italic">There’s more…</em> for a more detailed explanation of the different values):</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">ser = pd.Series([
+    <span class="hljs-string">"2024-01-01 00:00:00"</span>,
+    <span class="hljs-string">"2024-01-02 00:00:01"</span>,
+    <span class="hljs-string">"2024-01-03 00:00:02"</span>
+], dtype=<span class="hljs-string">"datetime64[ns]"</span>)
+ser
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">0   2024-01-01 00:00:00
+1   2024-01-02 00:00:01
+2   2024-01-03 00:00:02
+dtype: datetime64[ns]
+</code></code></pre>
+    <p class="normal">You can also <a id="_idIndexMarker109"/>construct a <code class="inlineCode">pd.Series</code> of this data type using string arguments<a id="_idIndexMarker110"/> without time components:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">ser = pd.Series([
+    <span class="hljs-string">"2024-01-01"</span>,
+    <span class="hljs-string">"2024-01-02"</span>,
+    <span class="hljs-string">"2024-01-03"</span>
+], dtype=<span class="hljs-string">"datetime64[ns]"</span>)
+ser
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">0   2024-01-01
+1   2024-01-02
+2   2024-01-03
+dtype: datetime64[ns]
+</code></code></pre>
+    <p class="normal">The output of the preceding construction is slightly misleading; although the timestamps are not displayed, pandas still internally stores these values as datetimes, not dates. This might be problematic because there is no way to prevent subsequent timestamps from being stored in that <code class="inlineCode">pd.Series</code>:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">ser.iloc[<span class="hljs-number">1</span>] = <span class="hljs-string">"</span><span class="hljs-string">2024-01-04 00:00:42"</span>
+ser
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">0   2024-01-01 00:00:00
+1   2024-01-04 00:00:42
+2   2024-01-03 00:00:00
+dtype: datetime64[ns]
+</code></code></pre>
+    <p class="normal">If preserving dates is important, be sure to read the <em class="italic">Temporal PyArrow types</em> recipe later in this chapter.</p>
+    <p class="normal">Much like we saw back with string types, a <code class="inlineCode">pd.Series</code> containing datetime data gets an <em class="italic">accessor</em>, which unlocks features to fluidly deal with dates and times. In this case, the accessor is <code class="inlineCode">pd.Series.dt</code>.</p>
+    <p class="normal">We can use this accessor to determine the year of each element in our <code class="inlineCode">pd.Series</code>:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">ser.dt.year
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">0    2024
+1    2024
+2    2024
+dtype: int32
+</code></code></pre>
+    <p class="normal"><code class="inlineCode">pd.Series.dt.month</code> will<a id="_idIndexMarker111"/> yield the <a id="_idIndexMarker112"/>month:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">ser.dt.month
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">0    1
+1    1
+2    1
+dtype: int32
+</code></code></pre>
+    <p class="normal"><code class="inlineCode">pd.Series.dt.day</code> extracts the day of the month that the date falls on:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">ser.dt.day
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">0    1
+1    4
+2    3
+dtype: int32
+</code></code></pre>
+    <p class="normal">There is also a <code class="inlineCode">pd.Series.dt.day_of_week</code> function, which will tell you the day of the week a date falls on. Monday starts at <code class="inlineCode">0</code>, going up to <code class="inlineCode">6</code>, meaning Sunday:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">ser.dt.day_of_week
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">0    0
+1    3
+2    2
+dtype: int32
+</code></code></pre>
+    <p class="normal">If you’ve worked with timestamps before (especially in global organizations), another thing you may question is what time these values represent. 2024-01-03 00:00:00 in New York City does not happen simultaneously with 2024-01-03 00:00:00 in London, nor in Shanghai. So, how can we get a <em class="italic">true</em> representation of time?</p>
+    <p class="normal">The timestamps we have seen before are considered <em class="italic">timezone-naive</em>, (i.e., they do not clearly represent a single point in time anywhere on Earth). By contrast, you can make your timestamps <em class="italic">timezone-aware</em> by specifying a timezone as part of the <code class="inlineCode">dtype=</code> argument.</p>
+    <p class="normal">Strangely enough, pandas does have a <code class="inlineCode">pd.DatetimeTZDtype()</code>, so we can use that along with a <code class="inlineCode">tz=</code> argument to specify the time zone in which our events are assumed to occur. For example, to<a id="_idIndexMarker113"/> make<a id="_idIndexMarker114"/> your timestamps represent UTC, you would do the following:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">pd.Series([
+    <span class="hljs-string">"2024-01-01 00:00:01"</span>,
+    <span class="hljs-string">"2024-01-02 00:00:01"</span>,
+    <span class="hljs-string">"2024-01-03 00:00:01"</span>
+], dtype=pd.DatetimeTZDtype(tz=<span class="hljs-string">"UTC"</span>))
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">0   2024-01-01 00:00:01+00:00
+1   2024-01-02 00:00:01+00:00
+2   2024-01-03 00:00:01+00:00
+dtype: datetime64[ns, UTC]
+</code></code></pre>
+    <p class="normal">The string UTC represents an <strong class="keyWord">Internet Assigned Numbers Authority</strong> (<strong class="keyWord">IANA</strong>) timezone identifier. You can use any of those identifiers as the <code class="inlineCode">tz=</code> argument, like <code class="inlineCode">America/New_York</code>:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">pd.Series([
+    <span class="hljs-string">"</span><span class="hljs-string">2024-01-01 00:00:01"</span>,
+    <span class="hljs-string">"2024-01-02 00:00:01"</span>,
+    <span class="hljs-string">"2024-01-03 00:00:01"</span>
+], dtype=pd.DatetimeTZDtype(tz=<span class="hljs-string">"America/New_York"</span>))
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">0   2024-01-01 00:00:01-05:00
+1   2024-01-02 00:00:01-05:00
+2   2024-01-03 00:00:01-05:00
+dtype: datetime64[ns, America/New_York]
+</code></code></pre>
+    <p class="normal">In case you did not want to use a timezone identifier, you could alternatively specify a UTC offset:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">pd.Series([
+    <span class="hljs-string">"2024-01-01 00:00:01"</span>,
+    <span class="hljs-string">"2024-01-02 00:00:01"</span>,
+    <span class="hljs-string">"2024-01-03 00:00:01"</span>
+], dtype=pd.DatetimeTZDtype(tz=<span class="hljs-string">"-05:00"</span>))
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">0   2024-01-01 00:00:01-05:00
+1   2024-01-02 00:00:01-05:00
+2   2024-01-03 00:00:01-05:00
+dtype: datetime64[ns, UTC-05:00]
+</code></code></pre>
+    <p class="normal">The <code class="inlineCode">pd.Series.dt</code> accessor we introduced in this recipe also has some nice features for working with timezones. For instance, if you are working with data that technically has no timezone <a id="_idIndexMarker115"/>associated <a id="_idIndexMarker116"/>with it, but you know in fact that the times represent US eastern time values, <code class="inlineCode">pd.Series.dt.tz_localize</code> can help you express that:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">ser_no_tz = pd.Series([
+    <span class="hljs-string">"2024-01-01 00:00:00"</span>,
+    <span class="hljs-string">"2024-01-01 00:01:10"</span>,
+    <span class="hljs-string">"2024-01-01 00:02:42"</span>
+], dtype=<span class="hljs-string">"datetime64[ns]"</span>)
+ser_et = ser_no_tz.dt.tz_localize(<span class="hljs-string">"America/New_York"</span>)
+ser_et
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">0   2024-01-01 00:00:00-05:00
+1   2024-01-01 00:01:10-05:00
+2   2024-01-01 00:02:42-05:00
+dtype: datetime64[ns, America/New_York]
+</code></code></pre>
+    <p class="normal">You can also use <code class="inlineCode">pd.Series.dt.tz_convert</code> to translate times into another timezone:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">ser_pt = ser_et.dt.tz_convert(<span class="hljs-string">"America/Los_Angeles"</span>)
+ser_pt
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">0   2023-12-31 21:00:00-08:00
+1   2023-12-31 21:01:10-08:00
+2   2023-12-31 21:02:42-08:00
+dtype: datetime64[ns, America/Los_Angeles]
+</code></code></pre>
+    <p class="normal">You could even set all of your datetime data to midnight of whichever timezone it is in using <code class="inlineCode">pd.Series.dt.normalize</code>. This can be useful if you don’t really care about the time component of your datetimes at all, and just want to treat them as dates, even though pandas does not offer a first-class <code class="inlineCode">DATE</code> type:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">ser_pt.dt.normalize()
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">0   2023-12-31 00:00:00-08:00
+1   2023-12-31 00:00:00-08:00
+2   2023-12-31 00:00:00-08:00
+dtype: datetime64[ns, America/Los_Angeles]
+</code></code></pre>
+    <p class="normal">While we have so far pointed out many great features of pandas when working with datetime data, we should also take a look at one of the not-so-great aspects. Back in <em class="italic">Missing value handling</em>, we talked about how <code class="inlineCode">np.nan</code> was historically used as a missing value indicator in <a id="_idIndexMarker117"/>pandas, even though more modern data types use <code class="inlineCode">pd.NA</code>. With <a id="_idIndexMarker118"/>datetime data types, there is even yet another missing value indicator of <code class="inlineCode">pd.NaT</code>:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">ser = pd.Series([
+    <span class="hljs-string">"2024-01-01"</span>,
+    <span class="hljs-literal">None</span>,
+    <span class="hljs-string">"2024-01-03"</span>
+], dtype=<span class="hljs-string">"datetime64[ns]"</span>)
+ser
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">0   2024-01-01
+1          NaT
+2   2024-01-03
+dtype: datetime64[ns]
+</code></code></pre>
+    <p class="normal">Again, this difference owes to the history that temporal types were offered before pandas introduced its extension types, and progress to move to one consistent missing value indicator has not fully occurred. Fortunately, functions like <code class="inlineCode">pd.isna</code> will still correctly identify <code class="inlineCode">pd.NaT</code> as a missing value:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">pd.isna(ser)
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">0    False
+1     True
+2    False
+dtype: bool
+</code></code></pre>
+    <h2 id="_idParaDest-97" class="heading-2">There’s more…</h2>
+    <p class="normal">The historical <code class="inlineCode">ns</code> precision to pandas limited timestamps to a range that started slightly before 1677-09-21 and would go up to slightly after 2264-04-11. Attempting to assign a datetime value outside of those bounds would raise an <code class="inlineCode">OutOfBoundsDatetime</code> exception:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">pd.Series([
+    <span class="hljs-string">"</span><span class="hljs-string">1500-01-01 00:00:01"</span>,
+    <span class="hljs-string">"2500-01-01 00:00:01"</span>,
+], dtype=<span class="hljs-string">"datetime64[ns]"</span>)
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">OutOfBoundsDatetime: Out of bounds nanosecond timestamp: 1500-01-01 00:00:01, at position 0
+</code></code></pre>
+    <p class="normal">Starting with the 3.0 series of pandas, you could specify lower precisions like <code class="inlineCode">s</code>, <code class="inlineCode">ms</code>, or <code class="inlineCode">us</code> to extend<a id="_idIndexMarker119"/> your <a id="_idIndexMarker120"/>range beyond those windows:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">pd.Series([
+    <span class="hljs-string">"1500-01-01 00:00:01"</span>,
+    <span class="hljs-string">"2500-01-01 00:00:01"</span>,
+], dtype=<span class="hljs-string">"datetime64[us]"</span>)
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">0   1500-01-01 00:00:01
+1   2500-01-01 00:00:01
+dtype: datetime64[us]
+</code></code></pre>
+    <h1 id="_idParaDest-98" class="heading-1">Temporal types – timedelta</h1>
+    <p class="normal">Timedeltas are <a id="_idIndexMarker121"/>useful for measuring the <em class="italic">duration</em> between two points in <a id="_idIndexMarker122"/>time. This can be used to measure things like “on average, how much time passed between events X and Y,” which can be helpful to monitor and predict the turnaround time of certain processes and/or systems within your organization. Additionally, timedeltas can be used to manipulate your datetimes, making it easy to “add X number of days” or “subtract Y number of seconds” from your datetimes, all without having to dive into the minutiae of how your datetime objects are stored internally.</p>
+    <h2 id="_idParaDest-99" class="heading-2">How to do it</h2>
+    <p class="normal">So far, we have introduced each data type by constructing it directly. However, the use cases where you would construct a timedelta <code class="inlineCode">pd.Series</code> by hand are exceedingly rare. More commonly, you will come across this type as the result of an expression that subtracts two datetimes from one another:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">ser = pd.Series([
+    <span class="hljs-string">"2024-01-01"</span>,
+    <span class="hljs-string">"2024-01-02"</span>,
+    <span class="hljs-string">"2024-01-03"</span>
+], dtype=<span class="hljs-string">"datetime64[ns]"</span>)
+ser - pd.Timestamp(<span class="hljs-string">"2023-12-31 12:00:00"</span>)
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">0   0 days 12:00:00
+1   1 days 12:00:00
+2   2 days 12:00:00
+dtype: timedelta64[ns]
+</code></code></pre>
+    <p class="normal">Within pandas, there<a id="_idIndexMarker123"/> is also the <code class="inlineCode">pd.Timedelta</code> scalar, which can be used in expressions to add or subtract a duration to datetimes. For instance, the following code shows you how to add 3 days to every datetime in a <code class="inlineCode">pd.Series</code>:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">ser + pd.Timedelta(<span class="hljs-string">"3 days"</span>)
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">0   2024-01-04
+1   2024-01-05
+2   2024-01-06
+dtype: datetime64[ns]
+</code></code></pre>
+    <h2 id="_idParaDest-100" class="heading-2">There’s more…</h2>
+    <p class="normal">While not a common pattern, if you ever needed to manually construct a <code class="inlineCode">pd.Series</code> of timedelta objects, you could do so using <code class="inlineCode">dtype="timedelta[ns]"</code>:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">pd.Series([
+    <span class="hljs-string">"-1 days"</span>,
+    <span class="hljs-string">"</span><span class="hljs-string">6 hours"</span>,
+    <span class="hljs-string">"42 minutes"</span>,
+    <span class="hljs-string">"12 seconds"</span>,
+    <span class="hljs-string">"8 milliseconds"</span>,
+    <span class="hljs-string">"4 microseconds"</span>,
+    <span class="hljs-string">"300 nanoseconds"</span>,
+], dtype=<span class="hljs-string">"timedelta64[ns]"</span>)
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">0           -1 days +00:00:00
+1             0 days 06:00:00
+2             0 days 00:42:00
+3             0 days 00:00:12
+4      0 days 00:00:00.008000
+5      0 days 00:00:00.000004
+6   0 days 00:00:00.000000300
+dtype: timedelta64[ns]
+</code></code></pre>
+    <p class="normal">What if we tried to create a timedelta of months? Let’s see:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">pd.Series([
+    <span class="hljs-string">"1 months"</span>,
+], dtype=<span class="hljs-string">"timedelta64[ns]"</span>)
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">ValueError: invalid unit abbreviation: months
+</code></code></pre>
+    <p class="normal">The reason pandas does not allow this is that timedelta represents a consistently measurable <em class="italic">duration</em>. While<a id="_idIndexMarker124"/> there are always 1,000 nanoseconds in a<a id="_idIndexMarker125"/> microsecond, 1,000 microseconds in a millisecond, 1,000 milliseconds in a second, and so on, the number of days in a month is not consistent, ranging from 28-31. Saying two events occurred <em class="italic">one month apart</em> does not appease the rather strict requirements of a timedelta to measure a finite duration of time passed between two points.</p>
+    <p class="normal">If you need the ability to move dates by the calendar rather than by a finite duration, you can still use the <code class="inlineCode">pd.DateOffset</code> object we will introduce in <em class="chapterRef">Chapter 9</em>, <em class="italic">Temporal Data Types and Algorithms</em>. While this does not have an associated data type to introduce in this chapter, the object itself can be a great complement or augmentation of the timedelta <a id="_idIndexMarker126"/>type, for <a id="_idIndexMarker127"/>analyses that don’t strictly think of time as a finite duration.</p>
+    <h1 id="_idParaDest-101" class="heading-1">Temporal PyArrow types</h1>
+    <p class="normal">At this point, we <a id="_idIndexMarker128"/>have reviewed many of the “first-class” data types built into pandas, while highlighting some rough edges and inconsistencies that plague them. Despite those issues, the types baked into pandas can take you a long way in your data journey.</p>
+    <p class="normal">But there are still cases where the pandas types are not suitable, with a common case being interoperability with databases. Most databases have distinct <code class="inlineCode">DATE</code> and <code class="inlineCode">DATETIME</code> types, so the fact that pandas only offers a <code class="inlineCode">DATETIME</code> type can be disappointing to users fluent in SQL.</p>
+    <p class="normal">Fortunately, the Apache Arrow project defines a true <code class="inlineCode">DATE</code> type. Starting in version 2.0, pandas users can start leveraging Arrow types exposed through the PyArrow library.</p>
+    <h2 id="_idParaDest-102" class="heading-2">How to do it</h2>
+    <p class="normal">To construct PyArrow types in pandas directly, you will always provide a <code class="inlineCode">dtype=</code> argument of the <code class="inlineCode">pd.ArrowDtype(XXX)</code> form, replacing <code class="inlineCode">XXX</code> with the appropriate PyArrow type. The DATE type in PyArrow is called <code class="inlineCode">pa.date32()</code>:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">ser = pd.Series([
+    <span class="hljs-string">"2024-01-01"</span>,
+    <span class="hljs-string">"2024-01-02"</span>,
+    <span class="hljs-string">"2024-01-03"</span>,
+], dtype=pd.ArrowDtype(pa.date32()))
+ser
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">0    2024-01-01
+1    2024-01-02
+2    2024-01-03
+dtype: date32[day][pyarrow]
+</code></code></pre>
+    <p class="normal">The <code class="inlineCode">pa.date32()</code> type can express a wider range of dates without having to toggle the precision:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">ser = pd.Series([
+    <span class="hljs-string">"9999-12-29"</span>,
+    <span class="hljs-string">"9999-12-30"</span>,
+    <span class="hljs-string">"9999-12-31"</span>,
+], dtype=pd.ArrowDtype(pa.date32()))
+ser
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">0    9999-12-29
+1    9999-12-30
+2    9999-12-31
+dtype: date32[day][pyarrow]
+</code></code></pre>
+    <p class="normal">The PyArrow library offers a timestamp type; however, the functionality is nearly identical to the datetime type you have already seen, so I would advise sticking with the datetime type <a id="_idIndexMarker129"/>built into pandas.</p>
+    <h1 id="_idParaDest-103" class="heading-1">PyArrow List types</h1>
+    <p class="normal">Life would be so simple if <a id="_idIndexMarker130"/>every bit of data you came across fit nicely and squarely in a single location of <code class="inlineCode">pd.DataFrame</code>, but inevitably you will run into issues where that is not the case. For a second, let’s imagine trying to analyze the employees that work at a company:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">df = pd.DataFrame({
+    <span class="hljs-string">"name"</span>: [<span class="hljs-string">"</span><span class="hljs-string">Alice"</span>, <span class="hljs-string">"Bob"</span>, <span class="hljs-string">"Janice"</span>, <span class="hljs-string">"Jim"</span>, <span class="hljs-string">"Michael"</span>],
+    <span class="hljs-string">"years_exp"</span>: [<span class="hljs-number">10</span>, <span class="hljs-number">2</span>, <span class="hljs-number">4</span>, <span class="hljs-number">8</span>, <span class="hljs-number">6</span>],
+})
+df
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">     name      years_exp
+0    Alice     10
+1    Bob       2
+2    Janice    4
+3    Jim       8
+4    Michael   6
+</code></code></pre>
+    <p class="normal">This type of data is pretty easy to work with – you could easily add up or take the average number of years that each employee has of experience. But what if we also wanted to know that Bob and Michael reported to Alice while Janice reported to Jim?</p>
+    <p class="normal">Our picturesque view of the world has suddenly come crashing down – how could we possibly express this in <code class="inlineCode">pd.DataFrame</code>? If you are coming from a Microsoft Excel or SQL background, you may be tempted to think that you need to create a separate <code class="inlineCode">pd.DataFrame</code> that holds the direct reports information. In pandas, we can express this more naturally using the PyArrow <code class="inlineCode">pa.list_()</code> data type.</p>
+    <h2 id="_idParaDest-104" class="heading-2">How to do it</h2>
+    <p class="normal">When working with a <code class="inlineCode">pa.list_()</code> type, you must <em class="italic">parametrize</em> it with the data type of elements it will contain. In our case, we want our list to contain values like <code class="inlineCode">Bob</code> and <code class="inlineCode">Janice</code>, so we will <a id="_idIndexMarker131"/>parametrize our <code class="inlineCode">pa.list_()</code> type with the <code class="inlineCode">pa.string()</code> type:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">ser = pd.Series([
+    [<span class="hljs-string">"Bob"</span>, <span class="hljs-string">"Michael"</span>],
+    <span class="hljs-literal">None</span>,
+    <span class="hljs-literal">None</span>,
+    [<span class="hljs-string">"Janice"</span>],
+    <span class="hljs-literal">None</span>,
+], dtype=pd.ArrowDtype(pa.list_(pa.string())))
+df[<span class="hljs-string">"direct_reports"</span>] = ser
+df
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">     name      years_exp    direct_reports
+0    Alice     10           ['Bob' 'Michael']
+1    Bob       2            &lt;NA&gt;
+2    Janice    4            &lt;NA&gt;
+3    Jim       8            ['Janice']
+4    Michael   6            &lt;NA&gt;
+</code></code></pre>
+    <h2 id="_idParaDest-105" class="heading-2">There’s more…</h2>
+    <p class="normal">When working with a <code class="inlineCode">pd.Series</code> that has a PyArrow list type, you can unlock more features of the <code class="inlineCode">pd.Series</code> by using the <code class="inlineCode">.list</code> accessor. For instance, to see how many items a list contains, you can call <code class="inlineCode">ser.list.len()</code>:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">ser.<span class="hljs-built_in">list</span>.<span class="hljs-built_in">len</span>()
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">0       2
+1    &lt;NA&gt;
+2    &lt;NA&gt;
+3       1
+4    &lt;NA&gt;
+dtype: int32[pyarrow]
+</code></code></pre>
+    <p class="normal">You can access the list item at a given position using the <code class="inlineCode">.list[]</code> syntax:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">ser.<span class="hljs-built_in">list</span>[<span class="hljs-number">0</span>]
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">0       Bob
+1      &lt;NA&gt;
+2      &lt;NA&gt;
+3    Janice
+4      &lt;NA&gt;
+dtype: string[pyarrow]
+</code></code></pre>
+    <p class="normal">There’s also a <code class="inlineCode">.list.flatten</code> accessor, which<a id="_idIndexMarker132"/> could help you identify all of the employees who report to someone:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">ser.<span class="hljs-built_in">list</span>.flatten()
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">0        Bob
+1    Michael
+2     Janice
+dtype: string[pyarrow]
+</code></code></pre>
+    <h1 id="_idParaDest-106" class="heading-1">PyArrow decimal types</h1>
+    <p class="normal">When we looked <a id="_idIndexMarker133"/>at the <em class="italic">Floating point types</em> recipe earlier in this chapter, one of the important things we mentioned was that floating types are <em class="italic">inexact</em>. Most users of computer software can go their entire lives without knowing this fact, and in many cases, the lack of precision may be an acceptable trade-off to get the performance offered by floating point types. However, in some domains, it is <strong class="keyWord">critical</strong> to have extremely precise computations.</p>
+    <p class="normal">As a simplistic example, let’s assume that a movie recommender system used floating point arithmetic to calculate the rating for a given movie as 4.3334 out of 5 stars when it <em class="italic">really</em> should have been 4.33337. Even if that rounding error was repeated a million times, it probably wouldn’t have a largely negative effect on civilization. On the flip side, a financial system that processes billions of transactions per day would find this rounding error to be unacceptable. Over time, that rounding error would accumulate into a rather large number in its own right.</p>
+    <p class="normal">Decimal data types are the solution to these problems. By giving up some performance that you would get with floating point calculations, decimal values allow you to achieve more precise calculations.</p>
+    <h2 id="_idParaDest-107" class="heading-2">How to do it</h2>
+    <p class="normal">The <code class="inlineCode">pa.decimal128()</code> data type requires two arguments that define the <em class="italic">precision</em> and <em class="italic">scale</em> of the numbers you wish to represent. The precision dictates how many decimal digits can safely be stored, with the scale representing how many of those decimal digits may appear after a decimal point.</p>
+    <p class="normal">For example, with a <em class="italic">precision</em> of 5 and a <em class="italic">scale</em> of 2, you would be able to accurately represent numbers between -999.99 and 999.99, whereas a precision of 5 with a scale of 0 gives you a <a id="_idIndexMarker134"/>range of -99999 to 99999. In practice, the precision you choose will be much higher.</p>
+    <p class="normal">Here’s an example of how to represent this in a <code class="inlineCode">pd.Series</code>:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">pd.Series([
+    <span class="hljs-string">"123456789.123456789"</span>,
+    <span class="hljs-string">"-987654321.987654321"</span>,
+    <span class="hljs-string">"99999999.9999999999"</span>,
+], dtype=pd.ArrowDtype(pa.decimal128(<span class="hljs-number">19</span>, <span class="hljs-number">10</span>)))
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">0     123456789.1234567890
+1    -987654321.9876543210
+2      99999999.9999999999
+dtype: decimal128(19, 10)[pyarrow]
+</code></code></pre>
+    <p class="normal">Pay special attention to the fact that we provided our data as strings. If we had tried to provide that as floating point data to begin with, we would have immediately seen a loss in precision:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">pd.Series([
+    <span class="hljs-number">123456789.123456789</span>,
+    -<span class="hljs-number">987654321.987654321</span>,
+    <span class="hljs-number">99999999.9999999999</span>,
+], dtype=pd.ArrowDtype(pa.decimal128(<span class="hljs-number">19</span>, <span class="hljs-number">10</span>)))
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">0     123456789.1234567910
+1    -987654321.9876543283
+2     100000000.0000000000
+dtype: decimal128(19, 10)[pyarrow]
+</code></code></pre>
+    <p class="normal">This happens because Python itself uses floating point storage for real numbers by default, so the rounding error happens the moment the language runtime tries to interpret the numbers you have provided. Depending on your platform, you may even find that <code class="inlineCode">99999999.9999999999 == 100000000.0</code> returns <code class="inlineCode">True</code>. To a human reader, that is obviously not true, but the limits of computer storage prevent the language from being able to discern that.</p>
+    <p class="normal">Python’s solution to this issue is the <code class="inlineCode">decimal</code> module, which ensures rounding errors do not occur:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code"><span class="hljs-keyword">import</span> decimal
+decimal.Decimal(<span class="hljs-string">"99999999.9999999999"</span>) == decimal.Decimal(<span class="hljs-string">"100000000.0"</span>)
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">False
+</code></code></pre>
+    <p class="normal">While still giving <a id="_idIndexMarker135"/>you proper arithmetic, as follows:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">decimal.Decimal(<span class="hljs-string">"99999999.9999999999"</span>) + decimal.Decimal(<span class="hljs-string">"100000000.0"</span>)
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">Decimal('199999999.9999999999')
+</code></code></pre>
+    <p class="normal"><code class="inlineCode">decimal.Decimal</code> objects are also valid arguments when constructing the PyArrow decimal type:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">pd.Series([
+    decimal.Decimal(<span class="hljs-string">"123456789.123456789"</span>),
+    decimal.Decimal(<span class="hljs-string">"-987654321.987654321"</span>),
+    decimal.Decimal(<span class="hljs-string">"99999999.9999999999"</span>),
+], dtype=pd.ArrowDtype(pa.decimal128(<span class="hljs-number">19</span>, <span class="hljs-number">10</span>)))
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">0     123456789.1234567890
+1    -987654321.9876543210
+2      99999999.9999999999
+dtype: decimal128(19, 10)[pyarrow]
+</code></code></pre>
+    <h2 id="_idParaDest-108" class="heading-2">There’s more…</h2>
+    <p class="normal">The <code class="inlineCode">pa.decimal128</code> data type can only support up to 38 significant decimal digits. If you need more than that, the Arrow ecosystem also provides a <code class="inlineCode">pa.decimal256</code> data type:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">ser = pd.Series([
+    <span class="hljs-string">"123456789123456789123456789123456789.123456789"</span>
+], dtype=pd.ArrowDtype(pa.decimal256(<span class="hljs-number">76</span>, <span class="hljs-number">10</span>)))
+ser
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">0    123456789123456789123456789123456789.1234567890
+dtype: decimal256(76, 10)[pyarrow]
+</code></code></pre>
+    <p class="normal">Just be aware that this <a id="_idIndexMarker136"/>will consume twice as much memory as the <code class="inlineCode">pa.decimal128</code> data type, with potentially even slower calculation times.</p>
+    <h1 id="_idParaDest-109" class="heading-1">NumPy type system, the object type, and pitfalls</h1>
+    <p class="normal">As mentioned<a id="_idIndexMarker137"/> back in <a id="_idIndexMarker138"/>the introduction to this chapter, at least in the 2.x and 3.x series, pandas still defaults to types that are sub-optimal for general data analysis. You will undoubtedly come across them in code from peer or online snippets, however, so understanding how they work, their pitfalls, and how to avoid them will be important for years to come.</p>
+    <h2 id="_idParaDest-110" class="heading-2">How to do it</h2>
+    <p class="normal">Let’s look at the default construction of a <code class="inlineCode">pd.Series</code> from a sequence of integers:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">pd.Series<span class="hljs-punctuation">(</span>[<span class="hljs-number">0</span><span class="hljs-punctuation">,</span> <span class="hljs-number">1</span><span class="hljs-punctuation">,</span> <span class="hljs-number">2</span>]<span class="hljs-punctuation">)</span>
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">0    0
+1    1
+2    2
+dtype: int64
+</code></code></pre>
+    <p class="normal">From this argument, pandas gave us back a <code class="inlineCode">pd.Series</code> with an <code class="inlineCode">int64</code> data type. That seems normal, so what is the big deal? Well, let’s go ahead and see what happens when you introduce missing values:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">pd.Series<span class="hljs-punctuation">(</span>[<span class="hljs-number">0</span><span class="hljs-punctuation">,</span> None<span class="hljs-punctuation">,</span> <span class="hljs-number">2</span>]<span class="hljs-punctuation">)</span>
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">0    0.0
+1    NaN
+2    2.0
+dtype: float64
+</code></code></pre>
+    <p class="normal">Huh? We provided integer data but now we got back a floating point type. Surely specifying the <code class="inlineCode">dtype=</code> argument will help us fix this:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">pd.Series<span class="hljs-punctuation">(</span>[<span class="hljs-number">0</span><span class="hljs-punctuation">,</span> None<span class="hljs-punctuation">,</span> <span class="hljs-number">2</span>]<span class="hljs-punctuation">,</span> dtype<span class="hljs-punctuation">=</span>int<span class="hljs-punctuation">)</span>
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">TypeError: int() argument must be a string, a bytes-like object or a number, not 'NoneType'
+</code></code></pre>
+    <p class="normal">Try as hard as you might, you simply <em class="italic">cannot</em> mix missing values with the NumPy integer data type, which pandas returns by default. A common solution to this pattern is to start filling missing values <a id="_idIndexMarker139"/>with<a id="_idIndexMarker140"/> another value like <code class="inlineCode">0</code> before casting back to an actual integer data type with <code class="inlineCode">pd.Series.astype</code>:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">ser <span class="hljs-punctuation">=</span> pd.Series<span class="hljs-punctuation">(</span>[<span class="hljs-number">0</span><span class="hljs-punctuation">,</span> None<span class="hljs-punctuation">,</span> <span class="hljs-number">2</span>]<span class="hljs-punctuation">)</span>
+ser.fillna<span class="hljs-punctuation">(</span><span class="hljs-number">0</span><span class="hljs-punctuation">)</span>.astype<span class="hljs-punctuation">(</span>int<span class="hljs-punctuation">)</span>
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">0    0
+1    0
+2    2
+dtype: int64
+</code></code></pre>
+    <p class="normal">That solves the problem of getting us to a proper integer type, but it had to change the data to get us there. Whether this matters is a context-dependent issue; some users may be OK with treating missing values as 0 if all they wanted to do was <em class="italic">sum</em> the column, but that same user might not be happy with the new <em class="italic">count</em> and <em class="italic">average</em> that gets produced by that data.</p>
+    <p class="normal">Note the difference between this <code class="inlineCode">fillna</code> approach and using the pandas extension types introduced at the start of this chapter:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">pd.Series<span class="hljs-punctuation">(</span>[<span class="hljs-number">0</span><span class="hljs-punctuation">,</span> None<span class="hljs-punctuation">,</span> <span class="hljs-number">2</span>]<span class="hljs-punctuation">)</span>.fillna<span class="hljs-punctuation">(</span><span class="hljs-number">0</span><span class="hljs-punctuation">)</span>.astype<span class="hljs-punctuation">(</span>int<span class="hljs-punctuation">)</span>.mean<span class="hljs-punctuation">()</span>
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">0.6666666666666666
+</code></code></pre>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">pd.Series<span class="hljs-punctuation">(</span>[<span class="hljs-number">0</span><span class="hljs-punctuation">,</span> None<span class="hljs-punctuation">,</span> <span class="hljs-number">2</span>]<span class="hljs-punctuation">,</span> dtype<span class="hljs-punctuation">=</span>pd.Int64Dtype<span class="hljs-punctuation">())</span>.mean<span class="hljs-punctuation">()</span>
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">1.0
+</code></code></pre>
+    <p class="normal">Not only do we get different results, but the approach where we do not use <code class="inlineCode">dtype=pd.Int64Dtype()</code> takes longer to compute:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">import timeit
+func = lambda: pd.Series([<span class="hljs-number">0</span>, None, <span class="hljs-number">2</span>]).fillna(<span class="hljs-number">0</span>).astype(int).mean()
+timeit.timeit(func, number=<span class="hljs-number">10</span>_<span class="hljs-number">000</span>)
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">0.9819313539992436
+</code></code></pre>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">func = lambda: pd.Series([<span class="hljs-number">0</span>, None, <span class="hljs-number">2</span>], dtype=pd.Int64Dtype()).mean()
+timeit.timeit(func, number=<span class="hljs-number">10</span>_<span class="hljs-number">000</span>)
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">0.6182142379984725
+</code></code></pre>
+    <p class="normal">This is perhaps not surprising when you consider the number of steps you had to go through to just get integers instead of floats.</p>
+    <p class="normal">When you look at the historical Boolean data type in pandas, things get even stranger. Let’s once again start with the seemingly sane base case:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">pd.Series<span class="hljs-punctuation">(</span>[True<span class="hljs-punctuation">,</span> False]<span class="hljs-punctuation">)</span>
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">0     True
+1    False
+dtype: bool
+</code></code></pre>
+    <p class="normal">Let’s throw a wrench into things with a missing value:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">pd.Series<span class="hljs-punctuation">(</span>[True<span class="hljs-punctuation">,</span> False<span class="hljs-punctuation">,</span> None]<span class="hljs-punctuation">)</span>
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">0     True
+1    False
+2     None
+dtype: object
+</code></code></pre>
+    <p class="normal">This is the first<a id="_idIndexMarker141"/> time we<a id="_idIndexMarker142"/> have seen the <code class="inlineCode">object</code> data type. Sparing some technical details, you should trust that the <code class="inlineCode">object</code> data type is one of the worst data types to use in pandas. Essentially <em class="italic">anything</em> goes with an <code class="inlineCode">object</code> data type; it completely disallows the type system from enforcing anything about your data. Even though we just want to store <code class="inlineCode">True=/=False</code> values where some may be missing, really any valid value can now be placed alongside those values:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">pd.Series<span class="hljs-punctuation">(</span>[True<span class="hljs-punctuation">,</span> False<span class="hljs-punctuation">,</span> None<span class="hljs-punctuation">,</span> <span class="hljs-string">"one of these things"</span><span class="hljs-punctuation">,</span> [<span class="hljs-string">"is not like"</span>]<span class="hljs-punctuation">,</span> [<span class="hljs-string">"the other"</span>]]<span class="hljs-punctuation">)</span>
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">0                   True
+1                  False
+2                   None
+3    one of these things
+4          [is not like]
+5            [the other]
+dtype: object
+</code></code></pre>
+    <p class="normal">All of this nonsense can be avoided by using <code class="inlineCode">pd.BooleanDtype</code>:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">pd.Series<span class="hljs-punctuation">(</span>[True<span class="hljs-punctuation">,</span> False<span class="hljs-punctuation">,</span> None]<span class="hljs-punctuation">,</span> dtype<span class="hljs-punctuation">=</span>pd.BooleanDtype<span class="hljs-punctuation">())</span>
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">0     True
+1    False
+2     &lt;NA&gt;
+dtype: boolean
+</code></code></pre>
+    <p class="normal">Another rather unfortunate fact of the default pandas implementation (at least in the 2.x series) is that the <code class="inlineCode">object</code> data type is used for strings:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">pd.Series<span class="hljs-punctuation">(</span>[<span class="hljs-string">"foo"</span><span class="hljs-punctuation">,</span> <span class="hljs-string">"bar"</span><span class="hljs-punctuation">,</span> <span class="hljs-string">"baz"</span>]<span class="hljs-punctuation">)</span>
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">0    foo
+1    bar
+2    baz
+dtype: object
+</code></code></pre>
+    <p class="normal">Once again, there is nothing there that strictly enforces we have string data:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">ser <span class="hljs-punctuation">=</span> pd.Series<span class="hljs-punctuation">(</span>[<span class="hljs-string">"foo"</span><span class="hljs-punctuation">,</span> <span class="hljs-string">"bar"</span><span class="hljs-punctuation">,</span> <span class="hljs-string">"baz"</span>]<span class="hljs-punctuation">)</span>
+ser.iloc[<span class="hljs-number">2</span>] <span class="hljs-punctuation">=</span> <span class="hljs-number">42</span>
+ser
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">0    foo
+1    bar
+2     42
+dtype: object
+</code></code></pre>
+    <p class="normal">With <code class="inlineCode">pd.StringDtype()</code>, that type of assignment would raise an error:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">ser <span class="hljs-punctuation">=</span> pd.Series<span class="hljs-punctuation">(</span>[<span class="hljs-string">"foo"</span><span class="hljs-punctuation">,</span> <span class="hljs-string">"bar"</span><span class="hljs-punctuation">,</span> <span class="hljs-string">"baz"</span>]<span class="hljs-punctuation">,</span> dtype<span class="hljs-punctuation">=</span>pd.StringDtype<span class="hljs-punctuation">())</span>
+ser.iloc[<span class="hljs-number">2</span>] <span class="hljs-punctuation">=</span> <span class="hljs-number">42</span>
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">TypeError: Cannot set non-string value '42' into a StringArray.
+</code></code></pre>
+    <h2 id="_idParaDest-111" class="heading-2">There’s more…</h2>
+    <p class="normal">We have talked at <a id="_idIndexMarker143"/>length <a id="_idIndexMarker144"/>in this recipe about how the lack of type enforcement with the <code class="inlineCode">object</code> data type is a problem. On the flip side, there are some use cases where having that flexibility can be helpful, especially when interacting with Python objects where you cannot make assertions about the data up front:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">alist <span class="hljs-punctuation">=</span> [<span class="hljs-number">42</span><span class="hljs-punctuation">,</span> <span class="hljs-string">"foo"</span><span class="hljs-punctuation">,</span> [<span class="hljs-string">"sub"</span><span class="hljs-punctuation">,</span> <span class="hljs-string">"list"</span>]<span class="hljs-punctuation">,</span> {<span class="hljs-string">"key"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"value"</span>}]
+ser <span class="hljs-punctuation">=</span> pd.Series<span class="hljs-punctuation">(</span>alist<span class="hljs-punctuation">)</span>
+ser
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">0                  42
+1                 foo
+2         [sub, list]
+3    {'key': 'value'}
+dtype: object
+</code></code></pre>
+    <p class="normal">If you have worked with a tool like Microsoft Excel in the past, the idea that you can put any value anywhere in almost any format may not seem that novel. On the flip side, if your experience is more based on using SQL databases, the idea that you could just load <em class="italic">any</em> data may be a foreign concept.</p>
+    <p class="normal">In the realm of data processing, there are two major approaches: <strong class="keyWord">extract, transform, load</strong> (<strong class="keyWord">ETL</strong>) and <strong class="keyWord">extract, load, transform</strong> (<strong class="keyWord">ELT</strong>). ETL requires you to <em class="italic">transform</em> your data before you <a id="_idIndexMarker145"/>can <a id="_idIndexMarker146"/>load it into a data analysis tool, meaning all of the cleansing has to be done upfront in another tool. </p>
+    <p class="normal">The ELT approach allows you to just load the data first and deal with cleaning it up later; the <code class="inlineCode">object</code> data type enables you to use the ELT approach in pandas, should you so choose.</p>
+    <p class="normal">With that said, I would generally advise that you strictly use the <code class="inlineCode">object</code> data type as a <code class="inlineCode">staging</code> data type before transforming it into a more concrete type. By avoiding the <code class="inlineCode">object</code> data type, you will achieve much higher performance, have a better understanding of your data, and be able to write cleaner code.</p>
+    <p class="normal">As a final note in this chapter, it is <a id="_idIndexMarker147"/>pretty <a id="_idIndexMarker148"/>easy to control data types when you work with a <code class="inlineCode">pd.Series</code> constructor directly with the <code class="inlineCode">dtype=</code> argument. While the <code class="inlineCode">pd.DataFrame</code> also has a <code class="inlineCode">dtype=</code> argument, it does not allow you to specify types per column, meaning you usually will end up with the historical NumPy data types when creating a <code class="inlineCode">pd.DataFrame</code>:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">df <span class="hljs-punctuation">=</span> pd.DataFrame<span class="hljs-punctuation">(</span>[
+    [<span class="hljs-string">"foo"</span><span class="hljs-punctuation">,</span> <span class="hljs-number">1</span><span class="hljs-punctuation">,</span> <span class="hljs-number">123.45</span>]<span class="hljs-punctuation">,</span>
+    [<span class="hljs-string">"bar"</span><span class="hljs-punctuation">,</span> <span class="hljs-number">2</span><span class="hljs-punctuation">,</span> <span class="hljs-number">333.33</span>]<span class="hljs-punctuation">,</span>
+    [<span class="hljs-string">"baz"</span><span class="hljs-punctuation">,</span> <span class="hljs-number">3</span><span class="hljs-punctuation">,</span> <span class="hljs-number">999.99</span>]<span class="hljs-punctuation">,</span>
+]<span class="hljs-punctuation">,</span> columns<span class="hljs-punctuation">=</span>list<span class="hljs-punctuation">(</span><span class="hljs-string">"abc"</span><span class="hljs-punctuation">))</span>
+df
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">    a     b   c
+0   foo   1   123.45
+1   bar   2   333.33
+2   baz   3   999.99
+</code></code></pre>
+    <p class="normal">Checking <code class="inlineCode">pd.DataFrame.dtypes</code> will help us confirm this:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">df.dtypes
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">a     object
+b      int64
+c    float64
+dtype: object
+</code></code></pre>
+    <p class="normal">To get us into using the more desirable pandas extension types, we could either explicitly use the <code class="inlineCode">pd.DataFrame.astype</code> method:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">df.astype<span class="hljs-punctuation">(</span>{
+    <span class="hljs-string">"a"</span><span class="hljs-punctuation">:</span> pd.StringDtype<span class="hljs-punctuation">(),</span>
+    <span class="hljs-string">"b"</span><span class="hljs-punctuation">:</span> pd.Int64Dtype<span class="hljs-punctuation">(),</span>
+    <span class="hljs-string">"c"</span><span class="hljs-punctuation">:</span> pd.Float64Dtype<span class="hljs-punctuation">(),</span>
+}<span class="hljs-punctuation">)</span>.dtypes
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">a    string[python]
+b             Int64
+c           Float64
+dtype: object
+</code></code></pre>
+    <p class="normal">Or, we could use the <code class="inlineCode">pd.DataFrame.convert_dtypes</code> method with <code class="inlineCode">dtype_backend="numpy_nullable"</code>:</p>
+    <pre class="programlisting code"><code class="hljs-code"><code class="hljs-code">df.convert_dtypes<span class="hljs-punctuation">(</span>dtype_backend<span class="hljs-punctuation">=</span><span class="hljs-string">"numpy_nullable"</span><span class="hljs-punctuation">)</span>.dtypes
+</code></code></pre>
+    <pre class="programlisting con"><code class="hljs-con"><code class="hljs-con">a    string[python]
+b             Int64
+c           Float64
+dtype: object
+</code></code></pre>
+    <p class="normal">The term <code class="inlineCode">numpy_nullable</code> is a bit of a misnomer at this point in the history of pandas, but, as we mentioned back<a id="_idIndexMarker149"/> in <a id="_idIndexMarker150"/>the introduction, it was the original name for what later became referred to as the pandas extension type system.</p>
+    <h1 id="_idParaDest-112" class="heading-1">Join our community on Discord</h1>
+    <p class="normal">Join our community’s Discord space for discussions with the authors and other readers:</p>
+    <p class="normal"><a href="https://packt.link/pandas"><span class="url">https://packt.link/pandas</span></a></p>
+    <p class="normal"><img src="../Images/QR_Code5040900042138312.png" alt=""/></p>
+    <h1 id="_idParaDest-113" class="heading-1">Leave a Review! </h1>
+    <p class="normal">Thank you for purchasing this book from Packt Publishing—we hope you enjoy it! Your feedback is invaluable and helps us improve and grow. Once you’ve completed reading it, please take a moment to leave an Amazon review; it will only take a minute, but it makes a big difference for readers like you.</p>
+    <p class="normal">Scan the QR code below to receive a free ebook of your choice.</p>
+    <p class="normal"><a href="Chapter_3.xhtml"><span class="url">https://packt.link/NzOWQ</span></a></p>
+    <p class="normal"><img src="../Images/QR_Code1474021820358918656.png" alt=""/></p>
+  </div>
+</body></html>

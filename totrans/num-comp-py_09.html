@@ -1,0 +1,394 @@
+<html><head></head><body>
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Adding Interactivity and Animating Plots</h1>
+                </header>
+            
+            <article>
+                
+<p class="mce-root">As a book focusing on the use of Matplotlib through elaborate examples, we opted to defer or simplify our discussion of the internals. For those of you who want to understand the nuts and bolts that make Matplotlib tick, you are advised to read <em>Mastering matplotlib</em> by Duncan M. McGreggor. At some point during our Matplotlib journey, it becomes inevitable for us to discuss more about backends, which turn plotting commands to graphics. These backends can be broadly classified as non-interactive or interactive. We will give examples that are pertinent to each backend class.</p>
+<p class="mce-root">Matplotlib was not designed as an animation package from the get-go, thus it will appear sluggish in some advanced usages. For animation-centric applications, PyGame is a very good alternative (<a href="https://www.pygame.org">https://www.pygame.org</a>); it supports OpenGL- and Direct3D-accelerated graphics for the ultimate speed in animating objects. Nevertheless, Matplotlib has acceptable performance most of the time, and we will guide you through the steps to create animations that are more engaging than static plots.</p>
+<p class="mce-root">The examples in this chapter will be based on unemployment rates and earnings by educational attainment (2016), available from <kbd>data.gov</kbd> and curated by the Bureau of Labor Statistics, U.S. Department of Labor. Here is the outline of this chapter:</p>
+<ul>
+<li class="mce-root">Scraping information from websites</li>
+<li class="mce-root">Non-interactive backends</li>
+<li class="mce-root">Interactive backends: Tkinter, Jupyter, and Plot.ly</li>
+<li class="mce-root">Creating an animated plot</li>
+<li class="mce-root">Exporting an animation as a video</li>
+</ul>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Scraping information from websites</h1>
+                </header>
+            
+            <article>
+                
+<p class="mce-root">Governments or jurisdictions around the world are increasingly embracing the importance of open data, which aims to increase citizen involvement and informs about decision making, making policies more open to public scrutiny. Some examples of open data initiatives around the world include <kbd>data.gov</kbd> (United States of America), <kbd>data.gov.uk</kbd> (United Kingdom), and <kbd>data.gov.hk</kbd> (Hong Kong).</p>
+<p class="mce-root">These data portals often provide Application Programming Interfaces (APIs; see <a href="7daeb59b-3e8e-4a33-9437-2839c6ed47e4.xhtml" target="_blank">Chapter 7</a>, <em>Visualizing Online Data</em>, for more details) for programmatic access to data. However, APIs are not available for some datasets; hence, we resort to good old web scraping techniques to extract information from websites.</p>
+<p class="mce-root">BeautifulSoup (<a href="https://www.crummy.com/software/BeautifulSoup/">https://www.crummy.com/software/BeautifulSoup/</a>) is an incredibly useful package used to scrape information from websites. Basically, everything marked with an HTML tag can be scraped with this wonderful package, from text, links, tables, and styles, to images. Scrapy is also a good package for web scraping, but it is more like a framework for writing powerful web crawlers. So, if you just need to fetch a table from a page, BeautifulSoup offers simpler procedures.</p>
+<p class="mce-root">We are going to use BeautifulSoup version 4.6 throughout this chapter. To install BeautifulSoup 4, we can once again rely on PyPI:</p>
+<pre class="mce-root"><strong>pip install beautifulsoup4</strong></pre>
+<p class="mce-root">The data on USA unemployment rates and earnings by educational attainment (2016) is available at <a href="https://www.bls.gov/emp/ep_table_001.htm">https://www.bls.gov/emp/ep_table_001.htm</a>. Currently, BeautifulSoup does not handle HTML requests. So we need to use the <kbd>urllib.request</kbd> or <kbd>requests</kbd> package to fetch a web page for us. Of the two options, the <kbd>requests</kbd> package is probably easier to use, due to its higher-level HTTP client interface. If <kbd>requests</kbd> is not available on your system, you can install it through PyPI:</p>
+<pre class="mce-root"><strong>pip install requests</strong></pre>
+<p class="mce-root">Let's take a look at the web page before we write the web scraping code. If we use the Google Chrome browser to visit the Bureau of Labor Statistics website, we can inspect the HTML code corresponding to the table we need by right-clicking:</p>
+<div class="mce-root CDPAlignCenter CDPAlign"><img class="image-border" src="assets/9361cdab-a87a-426c-9a2e-8528e99a4a8e.png" style="width:55.92em;height:35.08em;"/></div>
+<p>A pop-up window for code inspection will be shown, which allows us to read the code for each of the elements on the page.</p>
+<div class="CDPAlignCenter CDPAlign"><img class="image-border" src="assets/bb44dc05-1da5-461e-8b1f-40c989b5beec.png" style="width:51.75em;height:43.25em;"/></div>
+<p class="mce-root">More specifically, we can see that the column names are defined in the <kbd>&lt;thead&gt;...&lt;/thead&gt;</kbd> section, while the table content is defined in the <kbd>&lt;tbody&gt;...&lt;/tbody&gt;</kbd> section.</p>
+<p class="mce-root">In order to instruct BeautifulSoup to scrape the information we need, we need to give clear directions to it. We can right-click on the relevant section in the code inspection window and copy the unique identifier in the format of the CSS selector.</p>
+<div class="mce-root CDPAlignCenter CDPAlign"><img class="image-border" src="assets/68310554-690c-47c0-8ff6-dfe7d929a683.png" style="width:49.08em;height:41.08em;"/></div>
+<div class="packt_infobox"><strong>Cascading Style Sheets</strong> (<strong>CSS</strong>) selectors were originally designed for applying element-specific styles to a website. For more information, visit the following page: <a href="https://www.w3schools.com/cssref/css_selectors.asp">https://www.w3schools.com/cssref/css_selectors.asp</a>.</div>
+<p class="mce-root">Let's try to get the CSS selectors for <kbd>thead</kbd> and <kbd>tbody</kbd>, and use the <kbd>BeautifulSoup.select()</kbd> method to scrape the respective HTML code:</p>
+<pre class="mce-root">import requests<br/>from bs4 import BeautifulSoup<br/><br/><br/># Specify the url<br/>url = "https://www.bls.gov/emp/ep_table_001.htm"<br/><br/># Query the website and get the html response<br/>response = requests.get(url)<br/><br/># Parse the returned html using BeautifulSoup<br/>bs = BeautifulSoup(response.text)<br/><br/># Select the table header by CSS selector<br/>thead = bs.select("#bodytext &gt; table &gt; thead")[0]<br/><br/># Select the table body by CSS selector<br/>tbody = bs.select("#bodytext &gt; table &gt; tbody")[0]<br/><br/># Make sure the code works<br/>print(thead)</pre>
+<p>We see the following output from the previous code:</p>
+<pre>&lt;thead&gt; &lt;tr&gt; &lt;th scope="col"&gt;&lt;p align="center" valign="top"&gt;&lt;strong&gt;Educational attainment&lt;/strong&gt;&lt;/p&gt;&lt;/th&gt; &lt;th scope="col"&gt;&lt;p align="center" valign="top"&gt;Unemployment rate (%)&lt;/p&gt;&lt;/th&gt; &lt;th scope="col"&gt;&lt;p align="center" valign="top"&gt;Median usual weekly earnings ($)&lt;/p&gt;&lt;/th&gt; &lt;/tr&gt; &lt;/thead&gt;</pre>
+<p>Next, we are going to find all instances of <kbd>&lt;th&gt;...&lt;/th&gt;</kbd> in <kbd>&lt;thead&gt;...&lt;/thead&gt;</kbd>, which contains the name of each column. We will build a dictionary of lists with headers as keys to hold the data:</p>
+<pre class="mce-root"># Get the column names<br/>headers = []<br/><br/># Find all header columns in &lt;thead&gt; as specified by &lt;th&gt; html tags<br/>for col in thead.find_all('th'):<br/>    headers.append(col.text.strip())<br/><br/># Dictionary of lists for storing parsed data<br/>data = {header:[] for header in headers}</pre>
+<p>Finally, we parse the remaining rows (<kbd>&lt;tr&gt;...&lt;/tr&gt;</kbd>) from the body (<kbd>&lt;tbody&gt;...&lt;/tbody&gt;</kbd>) of the table and convert the data into a pandas DataFrame:</p>
+<pre class="mce-root">import pandas as pd<br/><br/><br/># Parse the rows in table body<br/>for row in tbody.find_all('tr'):<br/>    # Find all columns in a row as specified by &lt;th&gt; or &lt;td&gt; html tags<br/>    cols = row.find_all(['th','td'])<br/> <br/>    # enumerate() allows us to loop over an iterable, <br/>    # and return each item preceded by a counter<br/>    for i, col in enumerate(cols):<br/>        # Strip white space around the text<br/>        value = col.text.strip()<br/> <br/>        # Try to convert the columns to float, except the first column<br/>        if i &gt; 0:<br/>            value = float(value.replace(',','')) # Remove all commas in <br/>            # string<br/> <br/>        # Append the float number to the dict of lists<br/>        data[headers[i]].append(value)<br/><br/># Create a dataframe from the parsed dictionary<br/>df = pd.DataFrame(data)<br/><br/># Show an excerpt of parsed data<br/>df.head()</pre>
+<div>
+<div>
+<div>
+<div>
+<div class="container">
+<div class="cell code_cell rendered selected">
+<div class="output_wrapper">
+<div class="output">
+<div class="output_area">
+<div class="output_subarea output_html rendered_html output_result">
+<div>
+<table style="border-collapse: collapse;width: 50%" class="dataframe" border="1">
+<tbody>
+<tr>
+<td>
+<p> </p>
+</td>
+<td><strong>Educational attainment</strong></td>
+<td><strong>Median usual weekly earnings ($)</strong></td>
+<td><strong>Unemployment rate (%)</strong></td>
+</tr>
+<tr>
+<td><strong>0</strong></td>
+<td>Doctoral degree</td>
+<td>1664.0</td>
+<td>1.6</td>
+</tr>
+<tr>
+<td><strong>1</strong></td>
+<td>Professional degree</td>
+<td>1745.0</td>
+<td>1.6</td>
+</tr>
+<tr>
+<td><strong>2</strong></td>
+<td>Master's degree</td>
+<td>1380.0</td>
+<td>2.4</td>
+</tr>
+<tr>
+<td><strong>3</strong></td>
+<td>Bachelor's degree</td>
+<td>1156.0</td>
+<td>2.7</td>
+</tr>
+<tr>
+<td><strong>4</strong></td>
+<td>Associate's degree</td>
+<td>819.0</td>
+<td>3.6</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<p>We have now fetched the HTML table and formatted it as a structured pandas DataFrame.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Non-interactive backends</h1>
+                </header>
+            
+            <article>
+                
+<p class="mce-root">The code for plotting graphs is considered the frontend in Matplotlib terminology. We first mentioned backends in <a href="bf358e3c-35c4-47c5-9683-7378dfa01c4e.xhtml" target="_blank">Chapter 6</a>, <em>Hello Plotting World!</em>, when we were talking about output formats. In reality, Matplotlib backends differ much more than just in the support of graphical formats. Backends handle so many things behind the scenes! And that determines the support for plotting capabilities. For example, LaTeX text layout is only supported by AGG, PDF, PGF, and PS backends.</p>
+<p class="mce-root">We have been using non-interactive backends so far, which include AGG, Cairo, GDK, PDF, PGF, PS, and SVG. Most of these backends work without extra dependencies, yet Cairo and GDK would require the Cairo graphics library or GIMP Drawing Kit, respectively, to work.</p>
+<p class="mce-root">Non-interactive backends can be further classified into two groups--vector and raster. Vector graphics describe images in terms of points, paths, and shapes that are calculated using mathematical formulas. A vector graphic will always appear smooth, irrespective of scale and its size is usually much smaller than its raster counterpart. PDF, PGF, PS, and SVG backends belong to the "vector" group.</p>
+<p class="mce-root">Raster graphics describe images in terms of a finite number of tiny color blocks (pixels). So, if we zoom in enough, we start to see a blurry image, or in other words, pixelation. By increasing the resolution or <strong>Dots Per Inch</strong> (<strong>DPI</strong>) of the image, we are less likely to observe pixelation. AGG, Cairo, and GDK belong to this group of backends. This table summarizes the key functionalities and differences among the non-interactive backends:</p>
+<table style="border-collapse: collapse;width: 50%" border="1">
+<tbody>
+<tr>
+<td><strong>Backend</strong></td>
+<td><strong>Vector/Raster</strong></td>
+<td><strong>Output formats</strong></td>
+</tr>
+<tr>
+<td>Agg</td>
+<td>Raster</td>
+<td>PNG</td>
+</tr>
+<tr>
+<td>Cairo</td>
+<td>Vector/Raster</td>
+<td>PDF, PNG, PS, or SVG</td>
+</tr>
+<tr>
+<td>PDF</td>
+<td>Vector</td>
+<td>PDF</td>
+</tr>
+<tr>
+<td>PGF</td>
+<td>Vector</td>
+<td>PDF or PGF</td>
+</tr>
+<tr>
+<td>PS</td>
+<td>Vector</td>
+<td>PS</td>
+</tr>
+<tr>
+<td>SVG</td>
+<td>Vector</td>
+<td>SVG</td>
+</tr>
+<tr>
+<td>GDK (<span>Deprecated in Matplotlib 2.0</span>)</td>
+<td>Raster</td>
+<td>PNG, JPEG, or TIFF</td>
+</tr>
+</tbody>
+</table>
+<p class="mce-root">Normally, we don't need to manually select a backend, as the default choice would work great for most tasks. On the other hand, we can specify a backend through the <kbd>matplotlib.use()</kbd> method before importing <kbd>matplotlib.pyplot</kbd>:</p>
+<pre class="mce-root">import matplotlib<br/>matplotlib.use('SVG') # Change to SVG backend<br/>import matplotlib.pyplot as plt<br/>import textwrap # Standard library for text wraping<br/><br/><br/># Create a figure<br/>fig, ax = plt.subplots(figsize=(6,7))<br/><br/># Create a list of x ticks positions<br/>ind = range(df.shape[0])<br/><br/># Plot a bar chart of median usual weekly earnings by educational<br/># attainments<br/>rects = ax.barh(ind, df["Median usual weekly earnings ($)"], height=0.5)<br/><br/># Set the x-axis label<br/>ax.set_xlabel('Median weekly earnings (USD)')<br/><br/># Label the x ticks<br/># The tick labels are a bit too long, let's wrap them in 15-char lines<br/>ylabels=[textwrap.fill(label,15) for label in df["Educational attainment"]]<br/>ax.set_yticks(ind)<br/>ax.set_yticklabels(ylabels)<br/><br/># Give extra margin at the bottom to display the tick labels<br/>fig.subplots_adjust(left=0.3)<br/><br/># Save the figure in SVG format<br/>plt.savefig("test.svg")</pre>
+<div class="CDPAlignCenter CDPAlign"><img class="image-border" src="assets/3e69075d-cffe-4138-80be-7f00b8b55f89.png" style="width:40.67em;height:47.50em;"/></div>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Interactive backends</h1>
+                </header>
+            
+            <article>
+                
+<p class="mce-root">Matplotlib can build interactive figures that are far more engaging for readers. Sometimes, a plot might be overwhelmed with graphical elements, making it hard to discern individual data points. On other occasions, some data points may appear so similar that it becomes hard to spot the differences with the naked eye. An interactive plot can address these two scenarios by allowing us to zoom in, zoom out, pan, and explore the plot in the way we want.</p>
+<p class="mce-root">Through the use of interactive backends, plots in Matplotlib can be embedded in Graphical User Interface (GUI) applications. By default, Matplotlib supports the pairing of the Agg raster graphics renderer with a wide variety of GUI toolkits, including wxWidgets (Wx), GIMP Toolkit (GTK+), Qt, and Tkinter (Tk). As Tkinter is the de facto standard GUI for Python, which is built on top of Tcl/Tk, we can create an interactive plot just by calling <kbd>plt.show()</kbd> in a standalone Python script.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Tkinter-based backend </h1>
+                </header>
+            
+            <article>
+                
+<p class="mce-root">Let's try to copy the following code to a separate text file and name it <kbd>chapter6_gui.py</kbd>. After that, type <kbd>python chapter6_gui.py</kbd> in your terminal (Mac/Linux) or Command Prompt (Windows). If you are unsure about how to open a terminal or Command Prompt, refer to <a href="bf358e3c-35c4-47c5-9683-7378dfa01c4e.xhtml" target="_blank">Chapter 6</a>, <em>Hello Plotting World!</em>, for more details:</p>
+<pre class="mce-root">import matplotlib<br/>import matplotlib.pyplot as plt<br/>import textwrap # Standard library for text wraping<br/>import requests<br/>import pandas as pd<br/>from bs4 import BeautifulSoup<br/><br/><br/># Specify the url<br/>url = "https://www.bls.gov/emp/ep_table_001.htm"<br/><br/># Query the website and get the html response<br/>response = requests.get(url)<br/><br/># Parse the returned html using BeautifulSoup<br/>bs = BeautifulSoup(response.text)<br/><br/># Select the table header by CSS selector<br/>thead = bs.select("#bodytext &gt; table &gt; thead")[0]<br/><br/># Select the table body by CSS selector<br/>tbody = bs.select("#bodytext &gt; table &gt; tbody")[0]<br/><br/># Get the column names<br/>headers = []<br/><br/># Find all header columns in &lt;thead&gt; as specified by &lt;th&gt; html tags<br/>for col in thead.find_all('th'):<br/>    headers.append(col.text.strip())<br/><br/># Dictionary of lists for storing parsed data<br/>data = {header:[] for header in headers}<br/><br/># Parse the rows in table body<br/>for row in tbody.find_all('tr'):<br/>    # Find all columns in a row as specified by &lt;th&gt; or &lt;td&gt; html tags<br/>    cols = row.find_all(['th','td'])<br/> <br/>    # enumerate() allows us to loop over an iterable, <br/>    # and return each item preceded by a counter<br/>    for i, col in enumerate(cols):<br/>        # Strip white space around the text<br/>        value = col.text.strip()<br/> <br/>        # Try to convert the columns to float, except the first column<br/>        if i &gt; 0:<br/>            value = float(value.replace(',','')) # Remove all commas in <br/>            # string<br/> <br/>        # Append the float number to the dict of lists<br/>        data[headers[i]].append(value)<br/><br/># Create a dataframe from the parsed dictionary<br/>df = pd.DataFrame(data)<br/><br/># Create a figure<br/>fig, ax = plt.subplots(figsize=(6,7))<br/><br/># Create a list of x ticks positions<br/>ind = range(df.shape[0])<br/><br/># Plot a bar chart of median usual weekly earnings by educational<br/># attainments<br/>rects = ax.barh(ind, df["Median usual weekly earnings ($)"], height=0.5)<br/><br/># Set the x-axis label<br/>ax.set_xlabel('Median weekly earnings (USD)')<br/><br/># Label the x ticks<br/># The tick labels are a bit too long, let's wrap them in 15-char lines<br/>ylabels=[textwrap.fill(label,15) for label in df["Educational attainment"]]<br/>ax.set_yticks(ind)<br/>ax.set_yticklabels(ylabels)<br/><br/># Give extra margin at the bottom to display the tick labels<br/>fig.subplots_adjust(left=0.3)<br/><br/># Show the figure in a GUI<br/>plt.show()</pre>
+<p class="mce-root">We see a pop-up window similar to the following. We can pan, zoom to selection, configure subplot margins, save, and go back and forth between different views by clicking on the buttons on the bottom toolbar. If we put our mouse over the plot, we can also observe the exact coordinates in the bottom-right corner. This feature is extremely useful for dissecting data points that are close to each other.</p>
+<div class="mce-root CDPAlignCenter CDPAlign"><img class="image-border" src="assets/520c0399-4fbd-4784-a3ed-3190e96dd92d.jpg" style="width:24.00em;height:33.33em;"/></div>
+<p>Next, we are going to extend the application by adding a radio button widget on top of the figure, such that we can switch between the display of weekly earnings or unemployment rates. The radio button can be found in <kbd>matplotlib.widgets</kbd>, and we are going to attach a data updating function to the <kbd>.on_clicked()</kbd> event of the button. You can paste the following code right before the <kbd>plt.show()</kbd> line in the previous code example (<kbd>chapter6_gui.py</kbd>). Let's see how it works:</p>
+<pre class="mce-root"># Import Matplotlib radio button widget<br/>from matplotlib.widgets import RadioButtons<br/><br/># Create axes for holding the radio selectors.<br/># supply [left, bottom, width, height] in normalized (0, 1) units<br/>bax = plt.axes([0.3, 0.9, 0.4, 0.1])<br/>radio = RadioButtons(bax, ('Weekly earnings', 'Unemployment rate'))<br/><br/># Define the function for updating the displayed values<br/># when the radio button is clicked<br/>def radiofunc(label):<br/>    # Select columns from dataframe, and change axis label depending on<br/>    # selection<br/>    if label == 'Weekly earnings':<br/>        data = df["Median usual weekly earnings ($)"]<br/>        ax.set_xlabel('Median weekly earnings (USD)')<br/>    elif label == 'Unemployment rate':<br/>        data = df["Unemployment rate (%)"]<br/>        ax.set_xlabel('Unemployment rate (%)')<br/><br/>    # Update the bar heights<br/>    for i, rect in enumerate(rects):<br/>        rect.set_width(data[i])<br/><br/>    # Rescale the x-axis range<br/>    ax.set_xlim(xmin=0, xmax=data.max()*1.1)<br/><br/>    # Redraw the figure<br/>    plt.draw()<br/> <br/># Attach radiofunc to the on_clicked event of the radio button<br/>radio.on_clicked(radiofunc)</pre>
+<div class="CDPAlignCenter CDPAlign"><img class="image-border" src="assets/3f5d8413-3324-4c26-ac5a-3e9cad6c263a.png" style="width:31.83em;height:40.58em;"/></div>
+<p>You will be welcomed by a new radio selector box at the top of the figure. Try switching between the two states and see if the figure is updated accordingly. The complete code is also available as <kbd>chapter6_tkinter.py</kbd> in our code repository.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Interactive backend for Jupyter Notebook </h1>
+                </header>
+            
+            <article>
+                
+<p class="mce-root">Before we conclude this section, we are going to introduce two more interactive backends that are rarely covered by books. Starting with Matplotlib 1.4, there is an interactive backend specifically designed for Jupyter Notebook. To invoke that, we simply need to paste <kbd>%matplotlib notebook</kbd> at the start of our notebook. We are going to adapt one of the earlier examples in this chapter to use this backend:</p>
+<pre class="mce-root"># Import the interactive backend for Jupyter notebook<br/>%matplotlib notebook<br/>import matplotlib<br/>import matplotlib.pyplot as plt<br/>import textwrap<br/><br/><br/>fig, ax = plt.subplots(figsize=(6,7))<br/>ind = range(df.shape[0])<br/>rects = ax.barh(ind, df["Median usual weekly earnings ($)"], height=0.5)<br/>ax.set_xlabel('Median weekly earnings (USD)')<br/>ylabels=[textwrap.fill(label,15) for label in df["Educational attainment"]]<br/>ax.set_yticks(ind)<br/>ax.set_yticklabels(ylabels)<br/>fig.subplots_adjust(left=0.3)<br/><br/># Show the figure using interactive notebook backend<br/>plt.show()</pre>
+<p>You will see an interactive interface coming up, with buttons similar to a Tkinter-based application:</p>
+<div class="CDPAlignCenter CDPAlign"><img class="image-border" src="assets/8b955965-8ea6-4b84-a397-f2532b6446f4.png" style="width:31.33em;height:39.58em;"/></div>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Plot.ly-based backend</h1>
+                </header>
+            
+            <article>
+                
+<p class="mce-root">Lastly, we will talk about Plot.ly, which is a D3.js-based interactive graphing library with many programming language bindings, including Python. Plot.ly has quickly gained traction in the area of online data analytics due to its powerful data dashboard, high performance, and detailed documentation. For more information, please visit Plot.ly's website (<a href="https://plot.ly">https://plot.ly</a>).</p>
+<p class="mce-root">Plot.ly offers easy transformation of Matplotlib figures into online interactive charts through its Python bindings. To install Plotly.py, we can use PyPI:</p>
+<pre class="mce-root"><strong>pip install plotly</strong></pre>
+<p class="mce-root">Let us show you a quick example of integrating Matplotlib with Plot.ly:</p>
+<pre class="mce-root">import matplotlib.pyplot as plt<br/>import numpy as np<br/>import plotly.plotly as py<br/>from plotly.offline import init_notebook_mode, enable_mpl_offline, iplot_mpl<br/><br/><br/># Plot offline in Jupyter Notebooks, not required for standalone script<br/># Note: Must be called before any plotting actions<br/>init_notebook_mode()<br/><br/># Convert mpl plots to locally hosted HTML documents, not required if you<br/># are a registered plot.ly user and have a API key<br/>enable_mpl_offline()<br/><br/># Create two subplots with shared x-axis<br/>fig, axarr = plt.subplots(2, sharex=True)<br/><br/># The code for generating "df" is skipped for brevity, please refer to the<br/># "Tkinter-based backend" section for details of generating "df"<br/>ind = np.arange(df.shape[0]) # the x locations for the groups<br/>width = 0.35<br/><br/># Plot a bar chart of the weekly earnings in the first axes<br/>axarr[0].bar(ind, df["Median usual weekly earnings ($)"], width)<br/><br/># Plot a bar chart of the unemployment rate in the second axes<br/>axarr[1].bar(ind, df["Unemployment rate (%)"], width)<br/><br/># Set the ticks and labels<br/>axarr[1].set_xticks(ind)<br/># Reduce verbosity of labels by removing " degree"<br/>axarr[1].set_xticklabels([value.replace(" degree","") for value in df["Educational attainment"]])<br/><br/># Offline Interactive plot using plot.ly<br/># Note: import and use plotly.offline.plot_mpl instead for standalone<br/># Python scripts<br/>iplot_mpl(fig)</pre>
+<div class="CDPAlignCenter CDPAlign"><img class="image-border" src="assets/9c10384f-e542-4c5b-895d-c0e9ff2d5288.png" style="width:46.83em;height:38.75em;"/></div>
+<p class="mce-root">You may be greeted by the following error message when you run the preceding Plot.ly example:</p>
+<pre class="mce-root">IOPub data rate exceeded. The notebook server will temporarily stop sending output to the client in order to avoid crashing it.<br/>To change this limit, set the config variable<br/>--NotebookApp.iopub_data_rate_limit.</pre>
+<p class="mce-root">To circumvent this error, you can relaunch Jupyter Notebook by setting a higher <kbd>iopub_data_rate_limit</kbd>:</p>
+<pre class="mce-root"><strong>jupyter notebook --NotebookApp.iopub_data_rate_limit=1.0e10</strong></pre>
+<div class="mce-root packt_tip">You may also notice that the tick labels cannot be displayed properly, despite clear specifications in the code. This issue is also reported on the official GitHub page (<a href="https://github.com/plotly/plotly.py/issues/735">https://github.com/plotly/plotly.py/issues/735</a>). Unfortunately, there is no fix for this issue to date.</div>
+<p class="mce-root">We admit that there are numerous materials online that describe the integration of Matplotlib plots in different GUI applications. Due to page limits, we are not going to go through each of these backends here. For readers who want to read more about these interactive backends, Alexandre Devert has written an excellent chapter (<em>Chapter 8, User Interface</em>) in <em>matplotlib Plotting Cookbook</em>. In <em>Chapter 8, User Interface</em> of that book, Alexandre has provided recipes for creating GUI applications using wxWidgets, GTK, and Pyglet as well.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Creating animated plots</h1>
+                </header>
+            
+            <article>
+                
+<p class="mce-root">As explained at the start of this chapter, Matplotlib was not originally designed for making animations, and there are GPU-accelerated Python animation packages that may be more suitable for such a task (such as PyGame). However, since we are already familiar with Matplotlib, it is quite easy to adapt existing plots to animations.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Installation of FFmpeg</h1>
+                </header>
+            
+            <article>
+                
+<p class="mce-root">Before we start making animations, we need to install either FFmpeg, avconv, MEncoder, or ImageMagick on our system. These additional dependencies are not bundled with Matplotlib, and so we need to install them separately. We are going to walk you through the steps of installing FFmpeg.</p>
+<p class="mce-root">For Debian-based Linux users, FFmpeg can be installed by issuing the following command in the terminal:</p>
+<pre class="mce-root"><strong>sudo apt-get install ffmpeg</strong></pre>
+<div class="packt_infobox">FFmpeg may not be available on Ubuntu 14.04 or earlier. To install FFmpeg on Ubuntu 14.04, please follow the steps below: 
+<p> </p>
+<p><kbd><strong>sudo add-apt-repository ppa:mc3man/trusty-media</strong></kbd></p>
+<p>Press <em>Enter</em> to confirm the addition of the repository.</p>
+<p><kbd><strong>Also note that with apt-get a sudo apt-get dist-upgrade is needed for initial setup &amp; with some package upgrades</strong></kbd><br/>
+<kbd><strong>More info: https://launchpad.net/~mc3man/+archive/ubuntu/trusty-media</strong></kbd><br/>
+<kbd><strong>Press [ENTER] to continue or ctrl-c to cancel adding it</strong></kbd></p>
+<p>Update and upgrade a few packages before installing FFmpeg.</p>
+<p><kbd><strong>sudo apt-get update</strong></kbd><br/>
+<kbd><strong>sudo apt-get dist-upgrade</strong></kbd></p>
+<p>Finally, proceed with the normal procedure of installing FFmpeg via <kbd>apt-get</kbd>:<br/>
+<kbd><strong>sudo apt-get install ffmpeg</strong></kbd></p>
+</div>
+<p class="mce-root">For Mac users, Homebrew (<a href="https://brew.sh/">https://brew.sh/</a>) is the simplest way to search and install the FFmpeg package. For those who don't have Homebrew, you can paste the following code in your terminal to install it:</p>
+<pre class="mce-root"><strong>/usr/bin/ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"</strong></pre>
+<p class="mce-root">After that, we can install FFmpeg by issuing the following command in the terminal app:</p>
+<pre class="mce-root"><strong>brew install ffmpeg</strong></pre>
+<div class="mce-root packt_infobox">Alternatively, you may install FFmpeg by copying the binaries (<a href="https://evermeet.cx/ffmpeg/">https://evermeet.cx/ffmpeg/</a>) to the system path (for example, <kbd>/usr/local/bin</kbd>). Readers may visit the following page for more details: <a href="http://www.renevolution.com/ffmpeg/2013/03/16/how-to-install-ffmpeg-on-mac-os-x.html">http://www.renevolution.com/ffmpeg/2013/03/16/how-to-install-ffmpeg-on-mac-os-x.html</a></div>
+<p class="mce-root">The installation steps for Windows users are quite a bit more involved, as we need to download the executable ourselves, followed by adding the executable to the system path. Therefore, we have prepared a series of screen captures to guide you through the process. </p>
+<p class="mce-root"/>
+<p class="mce-root">First, we need to obtain a prebuilt binary from <a href="http://ffmpeg.zeranoe.com/builds/">http://ffmpeg.zeranoe.com/builds/</a>. Choose the CPU architecture that matches with your system, and select the latest release and static linked libraries.</p>
+<div class="CDPAlignCenter CDPAlign"><img class="image-border" src="assets/8ba57f3f-8638-460c-a285-5b0840821f3b.png" style="width:38.42em;height:21.50em;"/></div>
+<p class="mce-root">Next, we need to extract the downloaded ZIP file to the <kbd>C</kbd> drive as <kbd>c:\ffmpeg</kbd>, and add the folder <kbd>c:\ffmpeg\bin</kbd> to the <kbd>Path</kbd> variable. To do this, go to <span class="packt_screen">Control Panel</span> and click on the <span class="packt_screen">System and Security</span> link, followed by clicking on <span class="packt_screen">System</span>. In the <span class="packt_screen">System</span> window, click on the <span class="packt_screen">Advanced system settings</span> link to the left:</p>
+<div class="mce-root CDPAlignCenter CDPAlign"><img class="image-border" src="assets/983a0265-de22-4ced-8403-fd3b0437b8d1.png" style="width:41.08em;height:19.42em;"/></div>
+<p class="mce-root">In the pop-up <span class="packt_screen">System Properties</span> window, click on the <span class="packt_screen">Environmental Variables…</span> button:</p>
+<div class="mce-root CDPAlignCenter CDPAlign"><img class="image-border" src="assets/c47667f5-d7d4-497e-97d2-a08497cafc96.png" style="width:34.50em;height:39.25em;"/></div>
+<p class="mce-root">Select the <span class="packt_screen">Path</span> entry, and click on the <span class="packt_screen">Edit…</span> button:</p>
+<div class="CDPAlignCenter CDPAlign"><img class="image-border" src="assets/bff4d62b-e28a-42a9-bab1-4ace578e1fcd.png" style="width:42.42em;height:46.67em;"/></div>
+<p><span>In the <span class="packt_screen">Edit environmental variable</span> window, create a new entry that shows </span><kbd>c:\ffmpeg\bin</kbd><span>. Click on <span class="packt_screen">OK</span> in all pop-up windows to save your changes. Restart Command Prompt and Jupyter Notebook and </span>you are good to go.</p>
+<div class="CDPAlignCenter CDPAlign"><img class="image-border" src="assets/8742e3c3-9731-41fa-a5c1-9dc777763a84.png" style="width:36.50em;height:40.08em;"/></div>
+<div class="packt_infobox">Visit Wikihow (<a href="http://www.wikihow.com/Install-FFmpeg-on-Windows">http://www.wikihow.com/Install-FFmpeg-on-Windows</a>) for instructions on installing FFmpeg on Windows 7.</div>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Creating animations</h1>
+                </header>
+            
+            <article>
+                
+<p class="mce-root">Matplotlib provides two main interfaces for creating animations: <kbd>TimedAnimation</kbd> and <kbd>FuncAnimation</kbd>. <kbd>TimedAnimation</kbd> is useful for creating time-based animations, while <kbd>FuncAnimation</kbd> can be used to create animations according to a custom-defined function. Given the much higher level of flexibility offered by <kbd>FuncAnimation</kbd>, we will only explore the use of <kbd>FuncAnimation</kbd> in this section. Readers can refer to the official documentation (<a href="https://matplotlib.org/api/animation_api.html">https://matplotlib.org/api/animation_api.html</a>) for more information about <kbd>TimedAnimation</kbd>.</p>
+<p class="mce-root"><kbd>FuncAnimation</kbd> works by<span> repeatedly calling a function that changes the properties of Matplotlib objects in each frame. </span>In the following example, we've simulated the change in median weekly earnings by assuming a 5% annual increase. We are going to create a custom function--animate--which returns Matplotlib Artist objects that are changed in each frame. This function will be supplied to <kbd>animation.FuncAnimation()</kbd> together with a few more extra parameters:</p>
+<pre class="mce-root">import textwrap <br/>import matplotlib.pyplot as plt<br/>import random<br/># Matplotlib animation module<br/>from matplotlib import animation<br/># Used for generating HTML video embed code<br/>from IPython.display import HTML<br/><br/><br/># Adapted from previous example, codes that are modified are commented<br/>fig, ax = plt.subplots(figsize=(6,7))<br/>ind = range(df.shape[0])<br/>rects = ax.barh(ind, df["Median usual weekly earnings ($)"], height=0.5)<br/>ax.set_xlabel('Median weekly earnings (USD)')<br/>ylabels=[textwrap.fill(label,15) for label in df["Educational attainment"]]<br/>ax.set_yticks(ind)<br/>ax.set_yticklabels(ylabels)<br/>fig.subplots_adjust(left=0.3)<br/><br/># Change the x-axis range<br/>ax.set_xlim(0,7600)</pre>
+<pre class="mce-root"># Add a text annotation to show the current year<br/>title = ax.text(0.5,1.05, "Median weekly earnings (USD) in 2016", <br/>                bbox={'facecolor':'w', 'alpha':0.5, 'pad':5},<br/>                transform=ax.transAxes, ha="center")<br/><br/># Animation related stuff<br/>n=30 #Number of frames<br/><br/># Function for animating Matplotlib objects<br/>def animate(frame):<br/>    # Simulate 5% annual pay rise <br/>    data = df["Median usual weekly earnings ($)"] * (1.05 ** frame)<br/><br/>    # Update the bar heights<br/>    for i, rect in enumerate(rects):<br/>        rect.set_width(data[i])<br/> <br/>    # Update the title<br/>    title.set_text("Median weekly earnings (USD) in {}".format(2016+frame))<br/> <br/>    return rects, title<br/><br/># Call the animator. Re-draw only the changed parts when blit=True. <br/># Redraw all elements when blit=False<br/>anim=animation.FuncAnimation(fig, animate, blit=False, frames=n)<br/><br/># Save the animation in MPEG-4 format<br/>anim.save('test.mp4')<br/><br/># OR--Embed the video in Jupyter notebook<br/>HTML(anim.to_html5_video())</pre>
+<p>Here is the screen capture of one of the video frames:</p>
+<div class="CDPAlignCenter CDPAlign"><img class="image-border" src="assets/15792b24-dce1-43c8-9640-3d4cc8dc3580.png" style="width:23.83em;height:28.75em;"/></div>
+<p>In this example, we output the animation in the form of MPEG-4-encoded videos. The video can also be embedded in Jupyter Notebook in the form of an H.264-encoded video. All you need to do is call the <kbd>Animation.to_html5_video()</kbd> method and supply the returned object to <kbd>IPython.display.HTML</kbd>. Video encoding and HTML5 code generation will happen automatically behind the scenes.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Summary</h1>
+                </header>
+            
+            <article>
+                
+<p>In this chapter, you further enriched your techniques for obtaining online data through the use of the BeautifulSoup web scraping library. You successfully learned the different ways of creating interactive figures and animations. These techniques will pave the way for you to create intuitive and engaging visualizations in more advanced applications.</p>
+
+
+            </article>
+
+            
+        </section>
+    </body></html>

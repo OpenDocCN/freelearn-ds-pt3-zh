@@ -1,0 +1,1543 @@
+<html><head></head><body>
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Tree-Based Machine Learning Models</h1>
+                </header>
+            
+            <article>
+                
+<p>The goal of tree-based methods is to segment the feature space into a number of simple rectangular regions, to subsequently make a prediction for a given observation based on either mean or mode (mean for regression and mode for classification, to be precise) of the training observations in the region to which it belongs. Unlike most other classifiers, models produced by decision trees are easy to interpret. In this chapter, we will be covering the following decision tree-based models on HR data examples for predicting whether a given employee will leave the organization in the near future or not. In this chapter, we will learn the following topics:</p>
+<ul>
+<li>Decision trees - simple model and model with class weight tuning</li>
+<li>Bagging (bootstrap aggregation)</li>
+<li>Random Forest - basic random forest and application of grid search on hyperparameter tuning</li>
+<li>Boosting (AdaBoost, gradient boost, extreme gradient boost - XGBoost)</li>
+<li>Ensemble of ensembles (with heterogeneous and homogeneous models)</li>
+</ul>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Introducing decision tree classifiers</h1>
+                </header>
+            
+            <article>
+                
+<p>Decision tree classifiers produce rules in simple English sentences, which can easily be interpreted and presented to senior management without any editing. Decision trees can be applied to either classification or regression problems. Based on features in data, decision tree models learn a series of questions to infer the class labels of samples.</p>
+<p>In the following figure, simple recursive decision rules have been asked by a programmer himself to do relevant actions. The actions would be based on the provided answers for each question, whether yes or no.</p>
+<div class="packt_figure CDPAlignCenter CDPAlign"><img class=" image-border" src="assets/0e2511d1-0a30-4f0b-83cb-9b5822697197.png" style="width:46.50em;height:31.58em;"/></div>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Terminology used in decision trees</h1>
+                </header>
+            
+            <article>
+                
+<p>Decision Trees do not have much machinery as compared with logistic regression. Here we have a few metrics to study. We will majorly focus on impurity measures; decision trees split variables recursively based on set impurity criteria until they reach some stopping criteria (minimum observations per terminal node, minimum observations for split at any node, and so on):</p>
+<ul>
+<li><strong>Entropy:</strong> Entropy came from information theory and is the measure of impurity in data. If the sample is completely homogeneous, the entropy is zero, and if the sample is equally divided, it has entropy of one. In decision trees, the predictor with most heterogeneousness will be considered nearest to the root node to classify the given data into classes in a greedy mode. We will cover this topic in more depth in this chapter:</li>
+</ul>
+<div style="padding-left: 150px" class="mce-root CDPAlignLeft CDPAlign"><img src="assets/c53d01d9-81b5-4d64-8d55-96510a38f5b3.jpg" style="width:28.17em;height:2.25em;"/></div>
+<p style="padding-left: 90px">Where n = number of classes. Entropy is maximum in the middle, with a value of <em>1</em> and minimum at the extremes with a value of <em>0</em>. The low value of entropy is desirable, as it will segregate classes better.</p>
+<ul>
+<li><strong>Information Gain:</strong> Information gain is the expected reduction in entropy caused by partitioning the examples according to a given attribute. The idea is to start with mixed classes and to continue partitioning until each node reaches its observations of purest class. At every stage, the variable with maximum information gain is chosen in a greedy fashion.</li>
+</ul>
+<p style="padding-left: 90px" class="CDPAlignCenter CDPAlign"><em>Information Gain = Entropy of Parent - sum (weighted % * Entropy of Child)</em></p>
+<p style="padding-left: 90px" class="CDPAlignCenter CDPAlign"><em>Weighted % = Number of observations in particular child/sum (observations in all child nodes)</em></p>
+<ul>
+<li><strong>Gini:</strong> Gini impurity is a measure of misclassification, which applies in a multi-class classifier context. Gini works similar to entropy, except Gini is quicker to calculate:</li>
+</ul>
+<div style="padding-left: 240px" class="CDPAlignLeft CDPAlign"><img src="assets/17db81ae-57f3-4898-9b29-6b92262d8793.jpg" style="width:9.83em;height:3.58em;"/></div>
+<p style="padding-left: 90px">Where <em>i = Number of classes</em>. The similarity between Gini and entropy is shown in the following figure:</p>
+<div class="packt_figure CDPAlignCenter CDPAlign"><img class=" image-border" src="assets/65f8a2ff-dbcb-45b3-9f21-0f6fc05025bf.png" style="width:31.67em;height:29.00em;"/></div>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Decision tree working methodology from first principles</h1>
+                </header>
+            
+            <article>
+                
+<p>In the following example, the response variable has only two classes: whether to play tennis or not. But the following table has been compiled based on various conditions recorded on various days. Now, our task is to find out which output the variables are resulting in most significantly: YES or NO.</p>
+<p class="mce-root"/>
+<ol>
+<li>This example comes under the Classification tree:</li>
+</ol>
+<table style="border-collapse: collapse;width: 50%" border="1">
+<tbody>
+<tr>
+<td>
+<p><strong>Day</strong></p>
+</td>
+<td>
+<p><strong>Outlook</strong></p>
+</td>
+<td>
+<p><strong>Temperature</strong></p>
+</td>
+<td>
+<p><strong>Humidity</strong></p>
+</td>
+<td>
+<p><strong>Wind</strong></p>
+</td>
+<td>
+<p><strong>Play tennis</strong></p>
+</td>
+</tr>
+<tr>
+<td>
+<p>D1</p>
+</td>
+<td>
+<p>Sunny</p>
+</td>
+<td>
+<p>Hot</p>
+</td>
+<td>
+<p>High</p>
+</td>
+<td>
+<p>Weak</p>
+</td>
+<td>
+<p>No</p>
+</td>
+</tr>
+<tr>
+<td>
+<p>D2</p>
+</td>
+<td>
+<p>Sunny</p>
+</td>
+<td>
+<p>Hot</p>
+</td>
+<td>
+<p>High</p>
+</td>
+<td>
+<p>Strong</p>
+</td>
+<td>
+<p>No</p>
+</td>
+</tr>
+<tr>
+<td>
+<p>D3</p>
+</td>
+<td>
+<p>Overcast</p>
+</td>
+<td>
+<p>Hot</p>
+</td>
+<td>
+<p>High</p>
+</td>
+<td>
+<p>Weak</p>
+</td>
+<td>
+<p>Yes</p>
+</td>
+</tr>
+<tr>
+<td>
+<p>D4</p>
+</td>
+<td>
+<p>Rain</p>
+</td>
+<td>
+<p>Mild</p>
+</td>
+<td>
+<p>High</p>
+</td>
+<td>
+<p>Weak</p>
+</td>
+<td>
+<p>Yes</p>
+</td>
+</tr>
+<tr>
+<td>
+<p>D5</p>
+</td>
+<td>
+<p>Rain</p>
+</td>
+<td>
+<p>Cool</p>
+</td>
+<td>
+<p>Normal</p>
+</td>
+<td>
+<p>Weak</p>
+</td>
+<td>
+<p>Yes</p>
+</td>
+</tr>
+<tr>
+<td>
+<p>D6</p>
+</td>
+<td>
+<p>Rain</p>
+</td>
+<td>
+<p>Cool</p>
+</td>
+<td>
+<p>Normal</p>
+</td>
+<td>
+<p>Strong</p>
+</td>
+<td>
+<p>No</p>
+</td>
+</tr>
+<tr>
+<td>
+<p>D7</p>
+</td>
+<td>
+<p>Overcast</p>
+</td>
+<td>
+<p>Cool</p>
+</td>
+<td>
+<p>Normal</p>
+</td>
+<td>
+<p>Strong</p>
+</td>
+<td>
+<p>Yes</p>
+</td>
+</tr>
+<tr>
+<td>
+<p>D8</p>
+</td>
+<td>
+<p>Sunny</p>
+</td>
+<td>
+<p>Mild</p>
+</td>
+<td>
+<p>High</p>
+</td>
+<td>
+<p>Weak</p>
+</td>
+<td>
+<p>No</p>
+</td>
+</tr>
+<tr>
+<td>
+<p>D9</p>
+</td>
+<td>
+<p>Sunny</p>
+</td>
+<td>
+<p>Cool</p>
+</td>
+<td>
+<p>Normal</p>
+</td>
+<td>
+<p>Weak</p>
+</td>
+<td>
+<p>Yes</p>
+</td>
+</tr>
+<tr>
+<td>
+<p>D10</p>
+</td>
+<td>
+<p>Rain</p>
+</td>
+<td>
+<p>Mild</p>
+</td>
+<td>
+<p>Normal</p>
+</td>
+<td>
+<p>Weak</p>
+</td>
+<td>
+<p>Yes</p>
+</td>
+</tr>
+<tr>
+<td>
+<p>D11</p>
+</td>
+<td>
+<p>Sunny</p>
+</td>
+<td>
+<p>Mild</p>
+</td>
+<td>
+<p>Normal</p>
+</td>
+<td>
+<p>Strong</p>
+</td>
+<td>
+<p>Yes</p>
+</td>
+</tr>
+<tr>
+<td>
+<p>D12</p>
+</td>
+<td>
+<p>Overcast</p>
+</td>
+<td>
+<p>Mild</p>
+</td>
+<td>
+<p>High</p>
+</td>
+<td>
+<p>Strong</p>
+</td>
+<td>
+<p>Yes</p>
+</td>
+</tr>
+<tr>
+<td>
+<p>D13</p>
+</td>
+<td>
+<p>Overcast</p>
+</td>
+<td>
+<p>Hot</p>
+</td>
+<td>
+<p>Normal</p>
+</td>
+<td>
+<p>Weak</p>
+</td>
+<td>
+<p>Yes</p>
+</td>
+</tr>
+<tr>
+<td>
+<p>D14</p>
+</td>
+<td>
+<p>Rain</p>
+</td>
+<td>
+<p>Mild</p>
+</td>
+<td>
+<p>High</p>
+</td>
+<td>
+<p>Strong</p>
+</td>
+<td>
+<p>No</p>
+</td>
+</tr>
+</tbody>
+</table>
+<ol start="2">
+<li>Taking the Humidity variable as an example to classify the Play Tennis field:
+<ul>
+<li><strong>CHAID:</strong> Humidity has two categories and our expected values should be evenly distributed in order to calculate how distinguishing the variable is:</li>
+</ul>
+</li>
+</ol>
+<div style="padding-left: 90px" class="mce-root CDPAlignLeft CDPAlign"><img src="assets/0853cd9c-7533-48da-88b5-4ad9287d3272.jpg" style="width:36.00em;height:8.58em;"/></div>
+<p>Calculating <em>x<sup>2</sup></em> (Chi-square) value:</p>
+<div style="padding-left: 120px" class="CDPAlignLeft CDPAlign"><img src="assets/46a70084-0231-46b4-a8d7-bb2497f161fa.jpg" style="width:28.58em;height:4.08em;"/></div>
+<p class="mce-root CDPAlignCenter CDPAlign"><em>Calculating degrees of freedom = (r-1) * (c-1)</em></p>
+<p>Where r = number of row components/number of variable categories, C = number of response variables.</p>
+<p>Here, there are two row categories (High and Normal) and two column categories (No and Yes).</p>
+<p>Hence = <em>(2-1) * (2-1) = 1</em></p>
+<p>p-value for Chi-square 2.8 with 1 d.f = 0.0942</p>
+<p>p-value can be obtained with the following Excel formulae: <em>= CHIDIST (2.8, 1) = 0.0942</em></p>
+<p>In a similar way, we will calculate the <em>p-value</em> for all variables and select the best variable with a low p-value.</p>
+<ul>
+<li><strong>ENTROPY</strong>:</li>
+</ul>
+<p style="padding-left: 90px" class="mce-root CDPAlignLeft CDPAlign">Entropy = - Σ p * log <sub>2</sub> p</p>
+<div class="CDPAlignCenter CDPAlign"><img class="image-border" src="assets/2d60403c-6574-4fec-9eb5-760ca7cc1add.png" style="width:21.92em;height:18.75em;"/></div>
+<p style="padding-left: 120px" class="CDPAlignLeft CDPAlign"><img src="assets/b78a09fc-92e5-4213-a650-2b0faab40b9b.jpg" style="width:26.00em;height:4.75em;"/></p>
+<div class="mce-root CDPAlignLeft CDPAlign packt_tip"><img src="assets/78599af8-1208-4e50-a737-4cefced3788c.jpg" style="width:19.75em;height:2.33em;"/></div>
+<div style="padding-left: 120px" class="CDPAlignLeft CDPAlign"><img src="assets/ad1509db-8136-49bf-805c-7f39fbad70a9.jpg" style="width:26.17em;height:3.92em;"/></div>
+<div style="padding-left: 120px" class="CDPAlignLeft CDPAlign"><img src="assets/282a23e5-2e0e-4b69-a044-e12f4cb82e38.jpg" style="width:28.92em;height:4.33em;"/></div>
+<div style="padding-left: 90px" class="CDPAlignLeft CDPAlign"><img src="assets/1c2922a8-38c8-4b82-b30b-e150ca90fd9f.jpg" style="width:39.00em;height:5.08em;"/></div>
+<p>In a similar way, we will calculate <em>information gain</em> for all variables and select the best variable with the <em>highest information gain.</em></p>
+<ul>
+<li><strong>GINI</strong>:</li>
+</ul>
+<p style="padding-left: 90px" class="mce-root CDPAlignLeft CDPAlign"><em>Gini = 1- Σp<sup>2</sup></em></p>
+<div class="CDPAlignCenter CDPAlign"><img class="image-border" src="assets/e8dad0ee-8f1a-44b2-8464-e17aa9dfcd66.png" style="width:17.25em;height:14.75em;"/></div>
+<p style="padding-left: 150px" class="CDPAlignLeft CDPAlign"><img src="assets/da771f33-f6a8-44cf-9684-5e8a42a8407b.jpg" style="width:18.42em;height:2.75em;"/></p>
+<p style="padding-left: 120px" class="CDPAlignLeft CDPAlign"><img src="assets/786732ae-2efc-4ae4-a84a-c7a9f4fcdb8e.jpg" style="width:20.58em;height:2.50em;"/></p>
+<p style="padding-left: 90px" class="CDPAlignLeft CDPAlign"><img src="assets/02ac841a-7b0b-4b73-82c4-d6ec41a5c7d7.jpg" style="width:29.75em;height:2.50em;"/></p>
+<p>In a similar way, we will calculate <em>Expected Gini</em> for all variables and select the best with the <em>lowest expected value</em><strong>.</strong></p>
+<p>For the purpose of a better understanding, we will also do similar calculations for the Wind variable:</p>
+<ul>
+<li><strong>CHAID:</strong> Wind has two categories and our expected values should be evenly distributed in order to calculate how distinguishing the variable is:</li>
+</ul>
+<div style="padding-left: 90px" class="mce-root CDPAlignLeft CDPAlign"><img src="assets/771f6483-31db-49ab-b694-294ac635db7d.jpg" style="width:34.67em;height:7.25em;"/></div>
+<div style="padding-left: 150px" class="mce-root CDPAlignLeft CDPAlign"><img src="assets/499cc86e-2728-4d27-833e-9f95e49d385e.jpg" style="width:23.58em;height:2.92em;"/></div>
+<div style="padding-left: 180px" class="CDPAlignLeft CDPAlign"><img src="assets/1859ff9c-69c4-4515-a8c3-a8a3d5a16c80.jpg" style="width:8.58em;height:1.50em;"/></div>
+<ul>
+<li><strong>ENTROPY</strong>: </li>
+</ul>
+<div class="CDPAlignCenter CDPAlign"><img class="image-border" src="assets/8a213ea5-6d1a-49d6-968b-ae26b41ff13a.png" style="width:16.50em;height:14.08em;"/></div>
+<div style="padding-left: 120px" class="CDPAlignLeft CDPAlign"><img src="assets/09b3a3a8-b83b-4048-ae99-1c15c46cdde5.jpg" style="width:26.00em;height:3.75em;"/></div>
+<div style="padding-left: 90px" class="CDPAlignLeft CDPAlign"><img src="assets/5856ac10-a258-4e0f-a058-bee5ed73bd2e.jpg" style="width:33.75em;height:2.42em;"/></div>
+<div style="padding-left: 60px" class="CDPAlignLeft CDPAlign"><img src="assets/39bac9cf-cbe4-4815-892a-c1e1b9e0e9ec.jpg" style="width:37.25em;height:4.92em;"/></div>
+<ul>
+<li><strong>GINI</strong>:</li>
+</ul>
+<p style="padding-left: 150px" class="CDPAlignLeft CDPAlign"><img src="assets/8646761f-f269-446b-acc8-63511d734c7c.jpg" style="width:17.67em;height:2.42em;"/></p>
+<p style="padding-left: 150px" class="CDPAlignLeft CDPAlign"><img src="assets/ed77db34-70a2-434a-a6c2-a09158776786.jpg" style="width:18.75em;height:2.50em;"/></p>
+<p style="padding-left: 150px" class="CDPAlignLeft CDPAlign"><img src="assets/7e42d1c1-3b19-41e2-8258-1ef9531d2b8f.jpg" style="width:26.67em;height:2.50em;"/></p>
+<p>Now we will compare both variables for all three metrics so that we can understand them better.</p>
+<table style="border-collapse: collapse;width: 50%" class="table" border="1">
+<tbody>
+<tr>
+<td>
+<p>Variables</p>
+</td>
+<td>
+<p>CHAID<br/>
+(p-value)</p>
+</td>
+<td>
+<p>Entropy<br/>
+information gain</p>
+</td>
+<td>
+<p>Gini<br/>
+expected value</p>
+</td>
+</tr>
+<tr>
+<td>
+<p>Humidity</p>
+</td>
+<td>
+<p>0.0942</p>
+</td>
+<td>
+<p>0.1518</p>
+</td>
+<td>
+<p>0.3669</p>
+</td>
+</tr>
+<tr>
+<td>
+<p>Wind</p>
+</td>
+<td>
+<p>0.2733</p>
+</td>
+<td>
+<p>0.0482</p>
+</td>
+<td>
+<p>0.4285</p>
+</td>
+</tr>
+<tr>
+<td>
+<p>Better</p>
+</td>
+<td>
+<p>Low value</p>
+</td>
+<td>
+<p>High value</p>
+</td>
+<td>
+<p>Low value</p>
+</td>
+</tr>
+</tbody>
+</table>
+<p> </p>
+<p>For all three calculations, Humidity is proven to be a better classifier than Wind. Hence, we can confirm that all methods convey a similar story.</p>
+<p class="mce-root"/>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Comparison between logistic regression and decision trees</h1>
+                </header>
+            
+            <article>
+                
+<p>Before we dive into the coding details of decision trees, here, we will quickly compare the differences between logistic regression and decision trees, so that we will know which model is better and in what way.</p>
+<table style="border-collapse: collapse;width: 100%" class="MsoTableGrid" border="1">
+<tbody>
+<tr>
+<td>
+<p>Logistic regression</p>
+</td>
+<td>
+<p>Decision trees</p>
+</td>
+</tr>
+<tr>
+<td>
+<p>Logistic regression model looks like an equation between independent variables with respect to its dependent variable.</p>
+</td>
+<td>
+<p>Tree classifiers produce rules in simple English sentences, which can be easily explained to senior management.</p>
+</td>
+</tr>
+<tr>
+<td>
+<p>Logistic regression is a parametric model, in which the model is defined by having parameters multiplied by independent variables to predict the dependent variable.</p>
+</td>
+<td>
+<p>Decision Trees are a non-parametric model, in which no pre-assumed parameter exists. Implicitly performs variable screening or feature selection.</p>
+</td>
+</tr>
+<tr>
+<td>
+<p>Assumptions are made on response (or dependent) variable, with binomial or Bernoulli distribution.</p>
+</td>
+<td>
+<p>No assumptions are made on the underlying distribution of the data.</p>
+</td>
+</tr>
+<tr>
+<td>
+<p>Shape of the model is predefined (logistic curve).</p>
+</td>
+<td>
+<p>Shape of the model is not predefined; model fits in best possible classification based on the data instead.</p>
+</td>
+</tr>
+<tr>
+<td>
+<p>Provides very good results when independent variables are continuous in nature, and also linearity holds true.</p>
+</td>
+<td>
+<p>Provides best results when most of the variables are categorical in nature.</p>
+</td>
+</tr>
+<tr>
+<td>
+<p>Difficult to find complex interactions among variables (non-linear relationships between variables).</p>
+</td>
+<td>
+<p>Non-linear relationships between parameters do not affect tree performance. Often uncover complex interactions. Trees can handle numerical data with highly skewed or multi-modal, as well as categorical predictors with either ordinal or non-ordinal structure.</p>
+</td>
+</tr>
+<tr>
+<td>
+<p>Outliers and missing values deteriorate the performance of logistic regression.</p>
+</td>
+<td>
+<p>Outliners and missing values are dealt with grace in decision trees.</p>
+</td>
+</tr>
+</tbody>
+</table>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Comparison of error components across various styles of models</h1>
+                </header>
+            
+            <article>
+                
+<p>Errors need to be evaluated in order to measure the effectiveness of the model in order to improve the model's performance further by tuning various knobs. Error components consist of a bias component, variance component, and pure white noise:</p>
+<div style="padding-left: 120px" class="CDPAlignLeft CDPAlign"><img src="assets/38da4c33-d21a-4098-bd1c-13e9b1274166.jpg" style="width:26.75em;height:1.92em;"/></div>
+<p>Out of the following three regions:</p>
+<ul>
+<li>The first region has high bias and low variance error components. In this region, models are very robust in nature, such as linear regression or logistic regression.</li>
+<li>Whereas the third region has high variance and low bias error components, in this region models are very wiggly and vary greatly in nature, similar to decision trees, but due to the great amount of variability in the nature of their shape, these models tend to overfit on training data and produce less accuracy on test data.</li>
+<li>Last but not least, the middle region, also called the second region, is the ideal sweet spot, in which both bias and variance components are moderate, causing it to create the lowest total errors.</li>
+</ul>
+<div class="packt_figure CDPAlignCenter CDPAlign"><img class="image-border" src="assets/b1e7525f-15f4-4e4f-8600-07c0646be1b1.png" style="width:28.67em;height:23.33em;"/></div>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Remedial actions to push the model towards the ideal region</h1>
+                </header>
+            
+            <article>
+                
+<p>Models with either high bias or high variance error components do not produce the ideal fit. Hence, some makeovers are required to do so. In the following diagram, the various methods applied are shown in detail. In the case of linear regression, there would be a high bias component, meaning the model is not flexible enough to fit some non-linearities in data. One turnaround is to break the single line into small linear pieces and fit them into the region by constraining them at knots, also called <strong>Linear Spline</strong>. Whereas decision trees have a high variance problem, meaning even a slight change in <em>X</em> values leads to large changes in its corresponding <em>Y</em> values, this issue can be resolved by performing an ensemble of the decision trees:</p>
+<div class="packt_figure CDPAlignCenter CDPAlign"><img class="image-border" src="assets/f13d344e-600a-4c0c-b8dd-b354271975f8.png" style="width:32.83em;height:31.00em;"/></div>
+<p>In practice, implementing splines would be a difficult and not so popular method, due to the involvement of the many equations a practitioner has to keep tabs on, in addition to checking the linearity assumption and other diagnostic KPIs (p-values, AIC, multi-collinearity, and so on) of each separate equation. Instead, performing ensemble on decision trees is most popular in the data science community, similar to bagging, random forest, and boosting, which we will be covering in depth in later parts of this chapter. Ensemble techniques tackle variance problems by aggregating the results from highly variable individual classifiers such as decision trees.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">HR attrition data example</h1>
+                </header>
+            
+            <article>
+                
+<p>In this section, we will be using IBM Watson's HR Attrition data (the data has been utilized in the book after taking prior permission from the data administrator) shared in Kaggle datasets under open source license agreement <a href="https://www.kaggle.com/pavansubhasht/ibm-hr-analytics-attrition-dataset">https://www.kaggle.com/pavansubhasht/ibm-hr-analytics-attrition-dataset</a> to predict whether employees would attrite or not based on independent explanatory variables:</p>
+<pre><strong>&gt;&gt;&gt; import pandas as pd 
+&gt;&gt;&gt; hrattr_data = pd.read_csv("WA_Fn-UseC_-HR-Employee-Attrition.csv") 
+ 
+&gt;&gt;&gt; print (hrattr_data.head())</strong> </pre>
+<p>There are about 1470 observations and 35 variables in this data, the top five rows are shown here for a quick glance of the variables:</p>
+<div class="mce-root CDPAlignCenter CDPAlign"><img class="image-border" src="assets/0c3e832c-2172-439c-809a-5e3b39697062.png" style="width:52.92em;height:5.50em;"/></div>
+<div class="mce-root CDPAlignCenter CDPAlign"><img class="image-border" src="assets/a5fced1b-56eb-4b4d-a8e5-a49da3e29e3f.png" style="width:52.92em;height:5.50em;"/></div>
+<div class="mce-root CDPAlignCenter CDPAlign"><img class="image-border" src="assets/51cfc8bd-f18c-4cca-8a57-b2a87239a318.png" style="width:53.83em;height:6.08em;"/></div>
+<p>The following code is used to convert Yes or No categories into 1 and 0 for modeling purposes, as scikit-learn does not fit the model on character/categorical variables directly, hence dummy coding is required to be performed for utilizing the variables in models:</p>
+<pre><strong>&gt;&gt;&gt; hrattr_data['Attrition_ind'] = 0 
+&gt;&gt;&gt; hrattr_data.loc[hrattr_data['Attrition'] =='Yes', 'Attrition_ind'] = 1</strong> </pre>
+<p>Dummy variables are created for all seven categorical variables (shown here in alphabetical order), which are <kbd>Business Travel</kbd>, <kbd>Department</kbd>, <kbd>Education Field</kbd>, <kbd>Gender</kbd>, <kbd>Job Role</kbd>, <kbd>Marital Status</kbd>, and <kbd>Overtime</kbd>. We have ignored four variables from the analysis, as they do not change across the observations, which are <kbd>Employee count</kbd>, <kbd>Employee number</kbd>, <kbd>Over18</kbd>, and <kbd>Standard Hours</kbd>:</p>
+<pre><strong>&gt;&gt;&gt; dummy_busnstrvl = pd.get_dummies(hrattr_data['BusinessTravel'], prefix='busns_trvl') 
+&gt;&gt;&gt; dummy_dept = pd.get_dummies(hrattr_data['Department'], prefix='dept') 
+&gt;&gt;&gt; dummy_edufield = pd.get_dummies(hrattr_data['EducationField'], prefix='edufield') 
+&gt;&gt;&gt; dummy_gender = pd.get_dummies(hrattr_data['Gender'], prefix='gend') 
+&gt;&gt;&gt; dummy_jobrole = pd.get_dummies(hrattr_data['JobRole'], prefix='jobrole') 
+&gt;&gt;&gt; dummy_maritstat = pd.get_dummies(hrattr_data['MaritalStatus'], prefix='maritalstat')  
+&gt;&gt;&gt; dummy_overtime = pd.get_dummies(hrattr_data['OverTime'], prefix='overtime') </strong> </pre>
+<p>Continuous variables are separated and will be combined with the created dummy variables later:</p>
+<pre><strong>&gt;&gt;&gt; continuous_columns = ['Age','DailyRate','DistanceFromHome', 'Education', 'EnvironmentSatisfaction','HourlyRate','JobInvolvement','JobLevel','JobSatisfaction', 'MonthlyIncome', 'MonthlyRate', 'NumCompaniesWorked','PercentSalaryHike',  'PerformanceRating', 'RelationshipSatisfaction','StockOptionLevel', 'TotalWorkingYears', 'TrainingTimesLastYear','WorkLifeBalance', 'YearsAtCompany', 'YearsInCurrentRole', 'YearsSinceLastPromotion','YearsWithCurrManager'] 
+ 
+&gt;&gt;&gt; hrattr_continuous = hrattr_data[continuous_columns]</strong> </pre>
+<p>In the following step, both derived dummy variables from categorical variables and straight continuous variables are combined:</p>
+<pre><strong>&gt;&gt;&gt; hrattr_data_new = pd.concat([dummy_busnstrvl, dummy_dept, dummy_edufield, dummy_gender, dummy_jobrole, dummy_maritstat, dummy_overtime, hrattr_continuous, hrattr_data['Attrition_ind']],axis=1)</strong> </pre>
+<div class="packt_infobox">Here, we have not removed one extra derived dummy variable for each categorical variable due to the reason that multi-collinearity does not create a problem in decision trees as it does in either logistic or linear regression, hence we can simply utilize all the derived variables in the rest of the chapter, as all the models utilize decision trees as an underlying model, even after performing ensembles of it.</div>
+<p>Once basic data has been prepared, it needs to be split by 70-30 for training and testing purposes:</p>
+<pre><strong># Train and Test split 
+&gt;&gt;&gt; from sklearn.model_selection import train_test_split 
+&gt;&gt;&gt; x_train,x_test,y_train,y_test = train_test_split( hrattr_data_new.drop (['Attrition_ind'], axis=1),hrattr_data_new['Attrition_ind'],   train_size = 0.7, random_state=42)</strong> </pre>
+<p>R Code for Data Preprocessing on HR Attrition Data:</p>
+<pre><strong>hrattr_data = read.csv("WA_Fn-UseC_-HR-Employee-Attrition.csv")   
+str(hrattr_data);summary(hrattr_data)   
+hrattr_data$Attrition_ind = 0;   
+hrattr_data$Attrition_ind[   hrattr_data$Attrition=="Yes"]=1   
+hrattr_data$Attrition_ind=   as.factor(hrattr_data$Attrition_ind)   
+   
+remove_cols = c("EmployeeCount","EmployeeNumber","Over18",   "StandardHours","Attrition")   
+hrattr_data_new =   hrattr_data[,!(names(hrattr_data) %in% remove_cols)]   
+   
+set.seed(123)   
+numrow = nrow(hrattr_data_new)   
+trnind = sample(1:numrow,size =   as.integer(0.7*numrow))   
+train_data =   hrattr_data_new[trnind,]   
+test_data = hrattr_data_new[-trnind,]  </strong> 
+<strong>   
+# Code for calculating   precision, recall for 0 and 1 categories and # at overall level which   will be used in all the classifiers in # later sections   
+frac_trzero =   (table(train_data$Attrition_ind)[[1]])/nrow(train_data)   
+frac_trone =   (table(train_data$Attrition_ind)[[2]])/nrow(train_data)   
+   
+frac_tszero =   (table(test_data$Attrition_ind)[[1]])/nrow(test_data)   
+frac_tsone = (table(test_data$Attrition_ind)[[2]])/nrow(test_data)   
+   
+prec_zero &lt;-   function(act,pred){  tble = table(act,pred)   
+return( round(   tble[1,1]/(tble[1,1]+tble[2,1]),4))}   
+   
+prec_one &lt;-   function(act,pred){ tble = table(act,pred)   
+return( round(   tble[2,2]/(tble[2,2]+tble[1,2]),4))}   
+   
+recl_zero &lt;-   function(act,pred){tble = table(act,pred)   
+return( round(   tble[1,1]/(tble[1,1]+tble[1,2]),4))}   
+   
+recl_one &lt;-   function(act,pred){ tble = table(act,pred)   
+return( round(   tble[2,2]/(tble[2,2]+tble[2,1]),4))}   
+   
+accrcy &lt;-   function(act,pred){ tble = table(act,pred)   
+return(   round((tble[1,1]+tble[2,2])/sum(tble),4))}  </strong> </pre>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Decision tree classifier</h1>
+                </header>
+            
+            <article>
+                
+<p>The <kbd>DecisionTtreeClassifier</kbd> from scikit-learn has been utilized for modeling purposes, which is available in the <kbd>tree</kbd> submodule:</p>
+<pre><strong># Decision Tree Classifier 
+&gt;&gt;&gt; from sklearn.tree import DecisionTreeClassifier</strong> </pre>
+<p>The parameters selected for the DT classifier are in the following code with splitting criterion as Gini, Maximum depth as 5, the minimum number of observations required for qualifying split is 2, and the minimum samples that should be present in the terminal node is 1:</p>
+<pre> &gt;&gt;&gt; dt_fit = DecisionTreeClassifier(criterion="gini", <strong>max_depth=5,min_samples_split=2,  min_samples_leaf=1,random_state=42) 
+&gt;&gt;&gt; dt_fit.fit(x_train,y_train) 
+ 
+&gt;&gt;&gt; print ("\nDecision Tree - Train Confusion  Matrix\n\n", pd.crosstab(y_train, dt_fit.predict(x_train),rownames = ["Actuall"],colnames = ["Predicted"]))    
+&gt;&gt;&gt; from sklearn.metrics import accuracy_score, classification_report    
+&gt;&gt;&gt; print ("\nDecision Tree - Train accuracy\n\n",round(accuracy_score (y_train, dt_fit.predict(x_train)),3)) 
+&gt;&gt;&gt; print ("\nDecision Tree - Train Classification Report\n", classification_report(y_train, dt_fit.predict(x_train))) 
+ 
+&gt;&gt;&gt; print ("\n\nDecision Tree - Test Confusion Matrix\n\n",pd.crosstab(y_test, dt_fit.predict(x_test),rownames = ["Actuall"],colnames = ["Predicted"])) 
+&gt;&gt;&gt; print ("\nDecision Tree - Test accuracy",round(accuracy_score(y_test, dt_fit.predict(x_test)),3)) 
+&gt;&gt;&gt; print ("\nDecision Tree - Test Classification Report\n", classification_report( y_test, dt_fit.predict(x_test)))</strong> </pre>
+<div class="mce-root CDPAlignCenter CDPAlign"><img class="image-border" src="assets/038fabe1-a81c-4dff-8be0-040bbd1e4e2b.png" style="width:26.00em;height:37.33em;"/></div>
+<p>By carefully observing the results, we can infer that, even though the test accuracy is high (84.6%), the precision and recall of one category (<em>Attrition = Yes</em>) is low (<em>precision = 0.39</em> and <em>recall = 0.20</em>). This could be a serious issue when management tries to use this model to provide some extra benefits proactively to the employees with a high chance of attrition prior to actual attrition, as this model is unable to identify the real employees who will be leaving. Hence, we need to look for other modifications; one way is to control the model by using class weights. By utilizing class weights, we can increase the importance of a particular class at the cost of an increase in other errors.</p>
+<p>For example, by increasing class weight to category <em>1</em>, we can identify more employees with the characteristics of actual attrition, but by doing so, we will mark some of the non-potential churner employees as potential attriters (which should be acceptable).</p>
+<p>Another classic example of the important use of class weights is, in banking scenarios. When giving loans, it is better to reject some good applications than accepting bad loans. Hence, even in this case, it is a better idea to use higher weight to defaulters over non-defaulters:</p>
+<p>R Code for Decision Tree Classifier Applied on HR Attrition Data:</p>
+<pre><strong># Decision Trees using C5.0   package   
+library(C50)   
+dtree_fit = C5.0(train_data[-31],train_data$Attrition_ind,costs   = NULL,control = C5.0Control(minCases = 1))   
+summary(dtree_fit)   
+tr_y_pred = predict(dtree_fit,   train_data,type = "class")   
+ts_y_pred =   predict(dtree_fit,test_data,type = "class")   
+tr_y_act =   train_data$Attrition_ind;ts_y_act = test_data$Attrition_ind   
+   
+tr_tble =   table(tr_y_act,tr_y_pred)   
+print(paste("Train   Confusion Matrix"))   
+print(tr_tble)   
+tr_acc =   accrcy(tr_y_act,tr_y_pred)   
+trprec_zero =   prec_zero(tr_y_act,tr_y_pred);    
+trrecl_zero =   recl_zero(tr_y_act,tr_y_pred)   
+trprec_one =   prec_one(tr_y_act,tr_y_pred);    
+trrecl_one =   recl_one(tr_y_act,tr_y_pred)   
+trprec_ovll = trprec_zero *frac_trzero   + trprec_one*frac_trone   
+trrecl_ovll = trrecl_zero   *frac_trzero + trrecl_one*frac_trone   
+   
+print(paste("Decision Tree   Train accuracy:",tr_acc))   
+print(paste("Decision Tree   - Train Classification Report"))   
+print(paste("Zero_Precision",trprec_zero,"Zero_Recall",trrecl_zero))   
+print(paste("One_Precision",trprec_one,"One_Recall",trrecl_one))   
+print(paste("Overall_Precision",round(trprec_ovll,4),"Overall_Recall",   
+round(trrecl_ovll,4)))  </strong> 
+<strong>   
+ts_tble =   table(ts_y_act,ts_y_pred)   
+print(paste("Test   Confusion Matrix"))   
+print(ts_tble)   
+   
+ts_acc =   accrcy(ts_y_act,ts_y_pred)   
+tsprec_zero =   prec_zero(ts_y_act,ts_y_pred); tsrecl_zero = recl_zero(ts_y_act,ts_y_pred)   
+tsprec_one =   prec_one(ts_y_act,ts_y_pred); tsrecl_one = recl_one(ts_y_act,ts_y_pred)   
+   
+tsprec_ovll = tsprec_zero *frac_tszero   + tsprec_one*frac_tsone   
+tsrecl_ovll = tsrecl_zero   *frac_tszero + tsrecl_one*frac_tsone   
+   
+print(paste("Decision Tree   Test accuracy:",ts_acc))   
+print(paste("Decision Tree   - Test Classification Report"))   
+print(paste("Zero_Precision",tsprec_zero,"Zero_Recall",tsrecl_zero))   
+print(paste("One_Precision",tsprec_one,"One_Recall",tsrecl_one))   
+print(paste("Overall_Precision",round(tsprec_ovll,4),   
+"Overall_Recall",round(tsrecl_ovll,4)))   
+</strong></pre>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Tuning class weights in decision tree classifier</h1>
+                </header>
+            
+            <article>
+                
+<p>In the following code, class weights are tuned to see the performance change in decision trees with the same parameters. A dummy DataFrame is created to save all the results of various precision-recall details of combinations:</p>
+<pre><strong>&gt;&gt;&gt; dummyarray = np.empty((6,10))</strong><br/><strong>&gt;&gt;&gt; dt_wttune = pd.DataFrame(dummyarray)</strong></pre>
+<p>Metrics to be considered for capture are weight for zero and one category (for example, if the weight for zero category given is 0.2, then automatically, weight for the one should be 0.8, as total weight should be equal to 1), training and testing accuracy, precision for zero category, one category, and overall. Similarly, recall for zero category, one category, and overall are also calculated:</p>
+<pre><strong>&gt;&gt;&gt; dt_wttune.columns = ["zero_wght","one_wght","tr_accuracy", "tst_accuracy", "prec_zero","prec_one", "prec_ovll", "recl_zero","recl_one","recl_ovll"]</strong> </pre>
+<p>Weights for the zero category are verified from 0.01 to 0.5, as we know we do not want to explore cases where the zero category will be given higher weightage than one category:</p>
+<pre><strong>&gt;&gt;&gt; zero_clwghts = [0.01,0.1,0.2,0.3,0.4,0.5] 
+ 
+&gt;&gt;&gt; for i in range(len(zero_clwghts)): 
+...    clwght = {0:zero_clwghts[i],1:1.0-zero_clwghts[i]} 
+...    dt_fit = DecisionTreeClassifier(criterion="gini",  max_depth=5,               ... min_samples_split=2, min_samples_leaf=1,random_state=42,class_weight = clwght) 
+...    dt_fit.fit(x_train,y_train) 
+...    dt_wttune.loc[i, 'zero_wght'] = clwght[0]        
+...    dt_wttune.loc[i, 'one_wght'] = clwght[1]      
+...    dt_wttune.loc[i, 'tr_accuracy'] = round(accuracy_score(y_train, dt_fit.predict( x_train)),3)     
+...    dt_wttune.loc[i, 'tst_accuracy'] = round(accuracy_score(y_test,dt_fit.predict( x_test)),3)     
+         
+...    clf_sp = classification_report(y_test,dt_fit.predict(x_test)).split() 
+...    dt_wttune.loc[i, 'prec_zero'] = float(clf_sp[5])    
+...    dt_wttune.loc[i, 'prec_one'] = float(clf_sp[10])    
+...    dt_wttune.loc[i, 'prec_ovll'] = float(clf_sp[17])    
+     
+...    dt_wttune.loc[i, 'recl_zero'] = float(clf_sp[6])    
+...    dt_wttune.loc[i, 'recl_one'] = float(clf_sp[11])    
+...    dt_wttune.loc[i, 'recl_ovll'] = float(clf_sp[18]) 
+...    print ("\nClass Weights",clwght,"Train accuracy:",round(accuracy_score( y_train,dt_fit.predict(x_train)),3),"Test accuracy:",round(accuracy_score(y_test, dt_fit.predict(x_test)),3)) 
+...    print ("Test Confusion Matrix\n\n",pd.crosstab(y_test,dt_fit.predict( x_test),rownames = ["Actuall"],colnames = ["Predicted"]))   </strong></pre>
+<div class="packt_figure CDPAlignCenter CDPAlign"><img class="image-border" src="assets/6d71e76b-50e7-4fcb-93b3-7eacb2a96bc0.png" style="width:34.50em;height:47.83em;"/></div>
+<p>From the preceding screenshot, we can see that at class weight values of 0.3 (for zero) and 0.7 (for one) it is identifying a higher number of attriters (25 out of 61) without compromising test accuracy 83.9% using decision trees methodology:</p>
+<p>R Code for Decision Tree Classifier with class weights Applied on HR Attrition Data:</p>
+<pre><strong>#Decision Trees using C5.0   package - Error Costs   
+library(C50)   
+class_zero_wgt =   c(0.01,0.1,0.2,0.3,0.4,0.5)   
+   
+for (cwt in class_zero_wgt){   
+  cwtz = cwt   
+  cwto = 1-cwtz   
+  cstvr = cwto/cwtz     
+  error_cost &lt;- matrix(c(0,   1, cstvr, 0), nrow = 2)     
+  dtree_fit = C5.0(train_data[-31],train_data$Attrition_ind, </strong><br/><strong>  costs = error_cost,control = C5.0Control(  minCases =   1))   
+  summary(dtree_fit)     
+  tr_y_pred =   predict(dtree_fit, train_data,type = "class")   
+  ts_y_pred =   predict(dtree_fit,test_data,type = "class")   
+     
+  tr_y_act =   train_data$Attrition_ind;   
+  ts_y_act =   test_data$Attrition_ind   
+  tr_acc =   accrcy(tr_y_act,tr_y_pred)   
+  ts_acc =   accrcy(ts_y_act,ts_y_pred)     
+     
+  print(paste("Class   weights","{0:",cwtz,"1:",cwto,"}",   
+              "Decision   Tree Train accuracy:",tr_acc,   
+              "Decision   Tree Test accuracy:",ts_acc))   
+  ts_tble =   table(ts_y_act,ts_y_pred)   
+  print(paste("Test   Confusion Matrix"))   
+  print(ts_tble)    
+}  </strong> </pre>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Bagging classifier</h1>
+                </header>
+            
+            <article>
+                
+<p>As we have discussed already, decision trees suffer from high variance, which means if we split the training data into two random parts separately and fit two decision trees for each sample, the rules obtained would be very different. Whereas low variance and high bias models, such as linear or logistic regression, will produce similar results across both samples. Bagging refers to bootstrap aggregation (repeated sampling with replacement and perform aggregation of results to be precise), which is a general purpose methodology to reduce the variance of models. In this case, they are decision trees.</p>
+<p>Aggregation reduces the variance, for example, when we have n independent observations <em>x<sub>1</sub>, x<sub>2 </sub>,..., x<sub>n</sub></em> each with variance <em>σ<sup>2</sup></em> and the variance of the mean <em>x̅</em> of the observations is given by <em>σ<sup>2</sup>/n</em>, which illustrates by averaging a set of observations that it reduces variance. Here, we are reducing variance by taking many samples from training data (also known as bootstrapping), building a separate decision tree on each sample separately, averaging the predictions for regression, and calculating mode for classification problems in order to obtain a single low-variance model that will have both low bias and low variance:</p>
+<div style="padding-left: 30px" class="CDPAlignLeft CDPAlign"><img src="assets/a0e4f294-1efc-45f2-bcfa-d32a18f025d0.jpg" style="width:34.58em;height:1.67em;"/></div>
+<div style="padding-left: 210px" class="CDPAlignLeft CDPAlign"><img src="assets/5b837eae-9191-42fa-ae93-57220340d1da.jpg" style="width:11.58em;height:4.33em;"/></div>
+<p>In a bagging procedure, rows are sampled while selecting all the columns/variables (whereas, in a random forest, both rows and columns would be sampled, which we will cover in the next section) and fitting individual trees for each sample. In the following diagram, two colors (pink and blue) represent two samples, and for each sample, a few rows are sampled, but all the columns (variables) are selected every time. One issue that exists due to the selection of all columns is that most of the trees will describe the same story, in which the most important variable will appear initially in the split, and this repeats in all the trees, which will not produce de-correlated trees, so we may not get better performance when applying variance reduction. This issue will be avoided in random forest (we will cover this in the next section of the chapter), in which we will sample both rows and columns as well:</p>
+<div class="packt_figure CDPAlignCenter CDPAlign"><img class="image-border" src="assets/a3dd53ad-e3cd-45c5-81a2-dfe75cec6ffe.png" style="width:24.42em;height:15.50em;"/></div>
+<p class="mce-root"/>
+<p>In the following code, the same HR data has been used to fit the bagging classifier in order to compare the results apple to apple with respect to decision trees:</p>
+<pre><strong># Bagging Classifier </strong><br/><strong>&gt;&gt;&gt; from sklearn.tree import DecisionTreeClassifier</strong><br/><strong>&gt;&gt;&gt; from sklearn.ensemble import BaggingClassifier</strong></pre>
+<p>The base classifier used here is Decision Trees with the same parameter setting that we used in the decision tree example:</p>
+<pre><strong>&gt;&gt;&gt; dt_fit = DecisionTreeClassifier(criterion="gini", max_depth=5,min_samples_split=2, min_samples_leaf=1,random_state=42,class_weight = {0:0.3,1:0.7})</strong> </pre>
+<p>Parameters used in bagging are, <kbd>n_estimators</kbd> to represent the number of individual decision trees used as 5,000, maximum samples and features selected are 0.67 and 1.0 respectively, which means it will select 2/3<sup>rd</sup> of observations for each tree and all the features. For further details, please refer to the scikit-learn manual <a href="http://scikit-learn.org/stable/modules/generated/sklearn.ensemble.BaggingClassifier.html">http://scikit-learn.org/stable/modules/generated/sklearn.ensemble.BaggingClassifier.html</a>:</p>
+<pre><strong>&gt;&gt;&gt; bag_fit = BaggingClassifier(base_estimator= dt_fit,n_estimators=5000, max_samples=0.67, 
+...              max_features=1.0,bootstrap=True, 
+...              bootstrap_features=False, n_jobs=-1,random_state=42) 
+ 
+&gt;&gt;&gt; bag_fit.fit(x_train, y_train) 
+ 
+&gt;&gt;&gt; print ("\nBagging - Train Confusion Matrix\n\n",pd.crosstab(y_train, bag_fit.predict(x_train),rownames = ["Actuall"],colnames = ["Predicted"]))       
+&gt;&gt;&gt; print ("\nBagging- Train accuracy",round(accuracy_score(y_train, bag_fit.predict(x_train)),3))  
+&gt;&gt;&gt; print ("\nBagging  - Train Classification Report\n",classification_report(y_train, bag_fit.predict(x_train))) 
+ 
+&gt;&gt;&gt; print ("\n\nBagging - Test Confusion Matrix\n\n",pd.crosstab(y_test, bag_fit.predict(x_test),rownames = ["Actuall"],colnames = ["Predicted"]))       
+&gt;&gt;&gt; print ("\nBagging - Test accuracy",round(accuracy_score(y_test, bag_fit.predict(x_test)),3)) 
+&gt;&gt;&gt; print ("\nBagging - Test Classification Report\n",classification_report(y_test, bag_fit.predict(x_test)))</strong></pre>
+<p class="mce-root"/>
+<div class="packt_figure CDPAlignCenter CDPAlign"><img class="image-border" src="assets/9e97501c-06fe-4fc4-b346-0e0fa32889c6.png" style="width:25.67em;height:37.00em;"/></div>
+<p>After analyzing the results from bagging, the test accuracy obtained was 87.3%, whereas for decision tree it was 84.6%. Comparing the number of actual attrited employees identified, there were 13 in bagging, whereas in decision tree there were 12, but the number of 0 classified as 1 significantly reduced to 8 compared with 19 in DT. Overall, bagging improves performance over the single tree:</p>
+<p>R Code for Bagging Classifier Applied on HR Attrition Data:</p>
+<pre><strong># Bagging Classifier - using   Random forest package but all variables selected   
+library(randomForest)   
+set.seed(43)   
+rf_fit = randomForest(Attrition_ind~.,data   = train_data,mtry=30,maxnodes= 64,classwt = c(0.3,0.7), ntree=5000,nodesize =   1)   
+tr_y_pred = predict(rf_fit,data   = train_data,type = "response")   
+ts_y_pred =   predict(rf_fit,newdata = test_data,type = "response")   
+tr_y_act = train_data$Attrition_ind;ts_y_act   = test_data$Attrition_ind   
+   
+tr_tble =   table(tr_y_act,tr_y_pred)   
+print(paste("Train   Confusion Matrix"))   
+print(tr_tble)   
+tr_acc =   accrcy(tr_y_act,tr_y_pred)   
+trprec_zero =   prec_zero(tr_y_act,tr_y_pred); trrecl_zero = recl_zero(tr_y_act,tr_y_pred)   
+trprec_one =   prec_one(tr_y_act,tr_y_pred);    
+trrecl_one =   recl_one(tr_y_act,tr_y_pred)   
+trprec_ovll = trprec_zero   *frac_trzero + trprec_one*frac_trone   
+trrecl_ovll = trrecl_zero   *frac_trzero + trrecl_one*frac_trone   
+print(paste("Random Forest   Train accuracy:",tr_acc))   
+print(paste("Random Forest   - Train Classification Report"))  </strong> 
+<strong>print(paste("Zero_Precision",trprec_zero,"Zero_Recall",trrecl_zero))   
+print(paste("One_Precision",trprec_one,"One_Recall",trrecl_one))   
+print(paste("Overall_Precision",round(trprec_ovll,4),"Overall_Recall",   
+round(trrecl_ovll,4)))   
+   
+ts_tble =   table(ts_y_act,ts_y_pred)   
+print(paste("Test   Confusion Matrix"))   
+print(ts_tble)   
+ts_acc =   accrcy(ts_y_act,ts_y_pred)   
+tsprec_zero =   prec_zero(ts_y_act,ts_y_pred); tsrecl_zero = recl_zero(ts_y_act,ts_y_pred)   
+tsprec_one =   prec_one(ts_y_act,ts_y_pred);    
+tsrecl_one =   recl_one(ts_y_act,ts_y_pred)   
+tsprec_ovll = tsprec_zero   *frac_tszero + tsprec_one*frac_tsone   
+tsrecl_ovll = tsrecl_zero   *frac_tszero + tsrecl_one*frac_tsone   
+print(paste("Random Forest   Test accuracy:",ts_acc))   
+print(paste("Random Forest   - Test Classification Report"))   
+print(paste("Zero_Precision",tsprec_zero,"Zero_Recall",tsrecl_zero))   
+print(paste("One_Precision",tsprec_one,"One_Recall",tsrecl_one))   
+print(paste("Overall_Precision",round(tsprec_ovll,4),"Overall_Recall",   
+round(tsrecl_ovll,4)))   </strong></pre>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Random forest classifier</h1>
+                </header>
+            
+            <article>
+                
+<p>Random forests provide an improvement over bagging by doing a small tweak that utilizes de-correlated trees. In bagging, we build a number of decision trees on bootstrapped samples from training data, but the one big drawback with the bagging technique is that it selects all the variables. By doing so, in each decision tree, the order of candidate/variable chosen to split remains more or less the same for all the individual trees, which look correlated with each other. Variance reduction on correlated individual entities does not work effectively while aggregating them.</p>
+<p>In random forest, during bootstrapping (repeated sampling with replacement), samples were drawn from training data; not just simply the second and third observations randomly selected, similar to bagging, but it also selects the few predictors/columns out of all predictors (m predictors out of total p predictors).</p>
+<p>The thumb rule for variable selection of m variables out of total variables <em>p</em> is <em>m = sqrt(p)</em> for classification and <em>m = p/3</em> for regression problems randomly to avoid correlation among the individual trees. By doing so, significant improvement in the accuracy can be achieved. This ability of RF makes it one of the favorite algorithms used by the data science community, as a winning recipe across various competitions or even for solving practical problems in various industries.</p>
+<p>In the following diagram, different colors represent different bootstrap samples. In the first sample, the 1<sup>st</sup>, 3<sup>rd</sup>, 4<sup>th,</sup> and 7<sup>th</sup> columns are selected, whereas, in the second bootstrap sample, the 2<sup>nd</sup>, 3<sup>rd</sup>, 4<sup>th,</sup> and 5<sup>th</sup> columns are selected respectively. In this way, any columns can be selected at random, whether they are adjacent to each other or not. Though the thumb rules of <em>sqrt (p)</em> or <em>p/3</em> are given, readers are encouraged to tune the number of predictors to be selected:</p>
+<div class="packt_figure CDPAlignCenter CDPAlign"><img class="image-border" src="assets/2f1f70f5-eeea-43f7-9e8b-4751f7cd44e9.png" style="width:33.92em;height:21.50em;"/></div>
+<p>The sample plot shows the impact of a test error change while changing the parameters selected, and it is apparent that a <em>m = sqrt(p)</em> scenario gives better performance on test data compared with <em>m =p</em> (we can call this scenario bagging):</p>
+<div class="packt_figure CDPAlignCenter CDPAlign"><img class="image-border" src="assets/2ab1c7e8-50f3-451c-b1cc-d21901c3ceb6.png" style="width:33.17em;height:26.83em;"/></div>
+<p>Random forest classifier has been utilized from the <kbd>scikit-learn</kbd> package here for illustration purposes:</p>
+<pre><strong># Random Forest Classifier 
+&gt;&gt;&gt; from sklearn.ensemble import RandomForestClassifier</strong> </pre>
+<p>The parameters used in random forest are: <kbd>n_estimators</kbd> representing the number of individual decision trees used is 5000, maximum features selected are <em>auto</em>, which means it will select <em>sqrt(p)</em> for classification and <em>p/3</em> for regression automatically. Here is the straightforward classification problem though. Minimum samples per leaf provide the minimum number of observations required in the terminal node:</p>
+<pre><strong>&gt;&gt;&gt; rf_fit = RandomForestClassifier(n_estimators=5000,criterion="gini", max_depth=5, min_samples_split=2,bootstrap=True,max_features='auto',random_state=42, min_samples_leaf=1,class_weight = {0:0.3,1:0.7}) 
+&gt;&gt;&gt; rf_fit.fit(x_train,y_train)        
+ 
+&gt;&gt;&gt; print ("\nRandom Forest - Train Confusion Matrix\n\n",pd.crosstab(y_train, rf_fit.predict(x_train),rownames = ["Actuall"],colnames = ["Predicted"]))       
+&gt;&gt;&gt; print ("\nRandom Forest - Train accuracy",round(accuracy_score(y_train, rf_fit.predict(x_train)),3)) 
+&gt;&gt;&gt; print ("\nRandom Forest  - Train Classification Report\n",classification_report( y_train, rf_fit.predict(x_train))) 
+ 
+&gt;&gt;&gt; print ("\n\nRandom Forest - Test Confusion Matrix\n\n",pd.crosstab(y_test, rf_fit.predict(x_test),rownames = ["Actuall"],colnames = ["Predicted"]))       
+&gt;&gt;&gt; print ("\nRandom Forest - Test accuracy",round(accuracy_score(y_test, rf_fit.predict(x_test)),3)) 
+&gt;&gt;&gt; print ("\nRandom Forest - Test Classification Report\n",classification_report( y_test, rf_fit.predict(x_test)))</strong> </pre>
+<div class="mce-root CDPAlignCenter CDPAlign"><img class="image-border" src="assets/e668098b-6e9d-45f6-90be-9fc73710f1a1.png" style="width:26.50em;height:39.33em;"/></div>
+<p>Random forest classifier produced 87.8% test accuracy compared with bagging 87.3%, and also identifies 14 actually attrited employees in contrast with bagging, for which 13 attrited employees have been identified:</p>
+<pre><strong># Plot of Variable importance by mean decrease in gini 
+&gt;&gt;&gt; model_ranks = pd.Series(rf_fit.feature_importances_,index=x_train.columns, name='Importance').sort_values(ascending=False, inplace=False) 
+&gt;&gt;&gt; model_ranks.index.name = 'Variables' 
+&gt;&gt;&gt; top_features = model_ranks.iloc[:31].sort_values(ascending=True,inplace=False) 
+&gt;&gt;&gt; import matplotlib.pyplot as plt 
+&gt;&gt;&gt; plt.figure(figsize=(20,10)) 
+&gt;&gt;&gt; ax = top_features.plot(kind='barh') 
+&gt;&gt;&gt; _ = ax.set_title("Variable Importance Plot") 
+&gt;&gt;&gt; _ = ax.set_xlabel('Mean decrease in Variance') 
+&gt;&gt;&gt; _ = ax.set_yticklabels(top_features.index, fontsize=13)</strong> </pre>
+<div class="packt_figure CDPAlignCenter CDPAlign"><img class="image-border" src="assets/dcd3b9c0-2961-4cb9-acdc-e29dc119fcaa.png" style="width:50.25em;height:27.67em;"/></div>
+<p>From the variable importance plot, it seems that the monthly income variable seems to be most significant, followed by overtime, total working years, stock option levels, years at company, and so on. This provides us with some insight into what are major contributing factors that determine whether the employee will remain with the company or leave the organization:</p>
+<p>R Code for Random Forest Classifier Applied on HR Attrition Data:</p>
+<pre><strong># Random Forest   
+library(randomForest)   
+set.seed(43)   
+rf_fit =   randomForest(Attrition_ind~.,data = train_data,mtry=6, maxnodes= 64,classwt =   c(0.3,0.7),ntree=5000,nodesize = 1)   
+tr_y_pred = predict(rf_fit,data   = train_data,type = "response")   
+ts_y_pred =   predict(rf_fit,newdata = test_data,type = "response")   
+tr_y_act =   train_data$Attrition_ind;ts_y_act = test_data$Attrition_ind   
+tr_tble =   table(tr_y_act,tr_y_pred)   
+print(paste("Train   Confusion Matrix"))   
+print(tr_tble)   
+tr_acc =   accrcy(tr_y_act,tr_y_pred)   
+trprec_zero = prec_zero(tr_y_act,tr_y_pred);   trrecl_zero = recl_zero(tr_y_act,tr_y_pred)   
+trprec_one =   prec_one(tr_y_act,tr_y_pred); trrecl_one = recl_one(tr_y_act,tr_y_pred)   
+trprec_ovll = trprec_zero   *frac_trzero + trprec_one*frac_trone   
+trrecl_ovll = trrecl_zero   *frac_trzero + trrecl_one*frac_trone   
+  </strong> 
+<strong>print(paste("Random Forest   Train accuracy:",tr_acc))   
+print(paste("Random Forest   - Train Classification Report"))   
+print(paste("Zero_Precision",trprec_zero,"Zero_Recall",trrecl_zero))   
+print(paste("One_Precision",trprec_one,"One_Recall",trrecl_one))   
+print(paste("Overall_Precision",round(trprec_ovll,4),"Overall_Recall",round(trrecl_ovll,4)))   
+ts_tble =   table(ts_y_act,ts_y_pred)   
+print(paste("Test   Confusion Matrix"))   
+print(ts_tble)   
+ts_acc =   accrcy(ts_y_act,ts_y_pred)   
+tsprec_zero = prec_zero(ts_y_act,ts_y_pred);   tsrecl_zero = recl_zero(ts_y_act,ts_y_pred)   
+tsprec_one =   prec_one(ts_y_act,ts_y_pred); tsrecl_one = recl_one(ts_y_act,ts_y_pred)   
+tsprec_ovll = tsprec_zero   *frac_tszero + tsprec_one*frac_tsone   
+tsrecl_ovll = tsrecl_zero   *frac_tszero + tsrecl_one*frac_tsone   
+   
+print(paste("Random Forest   Test accuracy:",ts_acc))   
+print(paste("Random Forest   - Test Classification Report"))   
+print(paste("Zero_Precision",tsprec_zero,"Zero_Recall",tsrecl_zero))   
+print(paste("One_Precision",tsprec_one,"One_Recall",tsrecl_one))   
+print(paste("Overall_Precision",round(tsprec_ovll,4),"Overall_Recall",round(tsrecl_ovll,4)))  </strong> </pre>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Random forest classifier - grid search</h1>
+                </header>
+            
+            <article>
+                
+<p>Tuning parameters in a machine learning model play a critical role. Here, we are showing a grid search example on how to tune a random forest model:</p>
+<pre><strong># Random Forest Classifier - Grid Search 
+&gt;&gt;&gt; from sklearn.pipeline import Pipeline 
+&gt;&gt;&gt; from sklearn.model_selection import train_test_split,GridSearchCV 
+ 
+&gt;&gt;&gt; pipeline = Pipeline([ ('clf',RandomForestClassifier(criterion='gini',class_weight = {0:0.3,1:0.7}))])</strong> </pre>
+<p>Tuning parameters are similar to random forest parameters apart from verifying all the combinations using the pipeline function. The number of combinations to be evaluated will be <em>(3 x 3 x 2 x 2) *5 =36*5 = 180</em> combinations. Here 5 is used in the end, due to the cross-validation of five-fold:</p>
+<pre><strong>&gt;&gt;&gt; parameters = { 
+...         'clf__n_estimators':(2000,3000,5000), 
+...         'clf__max_depth':(5,15,30), 
+...         'clf__min_samples_split':(2,3), 
+...         'clf__min_samples_leaf':(1,2)  } </strong><br/><br/><strong>&gt;&gt;&gt; grid_search = GridSearchCV(pipeline,parameters,n_jobs=-1,cv=5,verbose=1, scoring='accuracy') 
+&gt;&gt;&gt; grid_search.fit(x_train,y_train) </strong><br/><br/><strong>&gt;&gt;&gt; print ('Best Training score: %0.3f' % grid_search.best_score_) 
+&gt;&gt;&gt; print ('Best parameters set:') 
+&gt;&gt;&gt; best_parameters = grid_search.best_estimator_.get_params()  
+&gt;&gt;&gt; for param_name in sorted(parameters.keys()): 
+...     print ('\t%s: %r' % (param_name, best_parameters[param_name])) 
+ 
+&gt;&gt;&gt; predictions = grid_search.predict(x_test) 
+ 
+&gt;&gt;&gt; print ("Testing accuracy:",round(accuracy_score(y_test, predictions),4)) 
+&gt;&gt;&gt; print ("\nComplete report of Testing data\n",classification_report(y_test, predictions)) 
+</strong></pre>
+<p class="mce-root"/>
+<p class="mce-root"/>
+<pre><strong>&gt;&gt;&gt; print ("\n\nRandom Forest Grid Search- Test Confusion Matrix\n\n",pd.crosstab( y_test, predictions,rownames = ["Actuall"],colnames = ["Predicted"]))   </strong>   </pre>
+<div class="mce-root CDPAlignCenter CDPAlign"><img class="image-border" src="assets/544ea2c9-c18a-45a9-80bf-246993602bf0.png" style="width:38.58em;height:33.67em;"/></div>
+<p>In the preceding results, grid search seems to not provide many advantages compared with the already explored random forest result. But, practically, most of the times, it will provide better and more robust results compared with a simple exploration of models. However, by carefully evaluating many different combinations, it will eventually discover the best parameters combination:</p>
+<p class="mce-root">R Code for random forest classifier with grid search applied on HR attrition data:</p>
+<pre class="mce-root"><strong># Grid Search - Random Forest   
+library(e1071)   
+library(randomForest)   
+rf_grid =   tune(randomForest,Attrition_ind~.,data = train_data,classwt =   c(0.3,0.7),ranges = list( mtry = c(5,6),   
+  maxnodes = c(32,64), ntree =   c(3000,5000), nodesize = c(1,2)   
+),   
+tunecontrol =   tune.control(cross = 5) )   
+print(paste("Best   parameter from Grid Search"))   
+print(summary(rf_grid))   
+best_model = rf_grid$best.model   
+tr_y_pred=predict(best_model,data   = train_data,type ="response")   
+ts_y_pred=predict(best_model,newdata   = test_data,type= "response")   
+   
+tr_y_act =   train_data$Attrition_ind;   
+ts_y_act= test_data$Attrition_ind   
+   
+tr_tble =   table(tr_y_act,tr_y_pred)   
+print(paste("Random Forest   Grid search Train Confusion Matrix"))   
+print(tr_tble)   
+tr_acc =   accrcy(tr_y_act,tr_y_pred)   
+trprec_zero =   prec_zero(tr_y_act,tr_y_pred); trrecl_zero = recl_zero(tr_y_act,tr_y_pred)   
+trprec_one =   prec_one(tr_y_act,tr_y_pred); trrecl_one = recl_one(tr_y_act,tr_y_pred)   
+trprec_ovll = trprec_zero   *frac_trzero + trprec_one*frac_trone   
+trrecl_ovll = trrecl_zero   *frac_trzero + trrecl_one*frac_trone   
+  </strong> 
+<strong>print(paste("Random Forest   Grid Search Train accuracy:",tr_acc))   
+print(paste("Random Forest   Grid Search - Train Classification Report"))   
+print(paste("Zero_Precision",trprec_zero,"Zero_Recall",trrecl_zero))   
+print(paste("One_Precision",trprec_one,"One_Recall",trrecl_one))   
+print(paste("Overall_Precision",round(trprec_ovll,4),"Overall_Recall",round(trrecl_ovll,4)))   
+   
+ts_tble =   table(ts_y_act,ts_y_pred)   
+print(paste("Random Forest   Grid search Test Confusion Matrix"))   
+print(ts_tble)   
+ts_acc =   accrcy(ts_y_act,ts_y_pred)   
+tsprec_zero =   prec_zero(ts_y_act,ts_y_pred); tsrecl_zero = recl_zero(ts_y_act,ts_y_pred)   
+tsprec_one =   prec_one(ts_y_act,ts_y_pred); tsrecl_one = recl_one(ts_y_act,ts_y_pred)   
+tsprec_ovll = tsprec_zero   *frac_tszero + tsprec_one*frac_tsone   
+tsrecl_ovll = tsrecl_zero   *frac_tszero + tsrecl_one*frac_tsone   
+   
+print(paste("Random Forest   Grid Search Test accuracy:",ts_acc))   
+print(paste("Random Forest   Grid Search - Test Classification Report"))   
+print(paste("Zero_Precision",tsprec_zero,"Zero_Recall",tsrecl_zero))   
+print(paste("One_Precision",tsprec_one,"One_Recall",tsrecl_one))   
+print(paste("Overall_Precision",round(tsprec_ovll,4),"Overall_Recall",round(tsrecl_ovll,4)))</strong></pre>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">AdaBoost classifier</h1>
+                </header>
+            
+            <article>
+                
+<p class="mce-root">Boosting is another state-of-the-art model that is being used by many data scientists to win so many competitions. In this section, we will be covering the <strong>AdaBoost</strong> algorithm, followed by <strong>gradient boost</strong> and <strong>extreme gradient boost</strong> (<strong>XGBoost</strong>). Boosting is a general approach that can be applied to many statistical models. However, in this book, we will be discussing the application of boosting in the context of decision trees. In bagging, we have taken multiple samples from the training data and then combined the results of individual trees to create a single predictive model; this method runs in parallel, as each bootstrap sample does not depend on others. Boosting works in a sequential manner and does not involve bootstrap sampling; instead, each tree is fitted on a modified version of an original dataset and finally added up to create a strong classifier:</p>
+<div style="padding-left: 180px" class="mce-root CDPAlignLeft CDPAlign"><img src="assets/d8dbad23-3a24-4337-a7f2-46d70806d109.jpg" style="width:10.50em;height:3.50em;"/></div>
+<p class="mce-root CDPAlignCenter CDPAlign"><img class="image-border" src="assets/d67d7eae-1176-4fe6-8a40-00c74a987933.png" style="width:32.33em;height:31.00em;"/></p>
+<p class="mce-root">The preceding figure is the sample methodology on how AdaBoost works. We will cover step-by-step procedures in detail in the following algorithm description. Initially, a simple classifier has been fitted on the data (also called a decision stump, which splits the data into just two regions) and whatever the classes correctly classified will be given less weightage in the next iteration (iteration 2) and higher weightage for misclassified classes (observer + blue icons), and again another decision stump/weak classifier will be fitted on the data and will change the weights again for the next iteration (iteration 3, here check the - symbols for which weight has been increased). Once it finishes the iterations, these are combined with weights (weights automatically calculated for each classifier at each iteration based on error rate) to come up with a strong classifier, which predicts the classes with surprising accuracy.</p>
+<p class="mce-root"><strong>Algorithm for AdaBoost consists of the following steps:</strong></p>
+<ol>
+<li>Initialize the observation weights <em>w<sub>i</sub> = 1/N, i=1, 2, …, N</em>. Where <em>N = Number of observations.</em></li>
+<li>For m = 1 to M:
+<ul>
+<li>Fit a classifier <em>Gm(x)</em> to the training data using weights <em>w<sub>i</sub></em></li>
+<li>Compute:</li>
+</ul>
+</li>
+</ol>
+<div style="padding-left: 180px" class="CDPAlignLeft CDPAlign"><img src="assets/cf136375-279e-47a3-9584-fd97f3841f66.jpg" style="width:17.33em;height:3.67em;"/></div>
+<ul>
+<li style="list-style-type: none">
+<ul>
+<li>Compute: </li>
+</ul>
+</li>
+</ul>
+<div style="padding-left: 210px" class="CDPAlignLeft CDPAlign"><img src="assets/9d970c77-ab57-497e-aaa9-10feed4790c5.jpg" style="width:11.17em;height:2.58em;"/></div>
+<ul>
+<li style="list-style-type: none">
+<ul>
+<li>Set:</li>
+</ul>
+</li>
+</ul>
+<div style="padding-left: 150px" class="CDPAlignLeft CDPAlign"><img src="assets/10e696b5-b9c1-4029-8e6e-3a679166bfaf.jpg" style="width:26.50em;height:1.75em;"/></div>
+<ol start="3">
+<li>Output:</li>
+</ol>
+<div style="padding-left: 180px" class="CDPAlignLeft CDPAlign"><img src="assets/af921fd3-a852-4c86-b988-abc62a45c382.jpg" style="width:15.33em;height:1.83em;"/></div>
+<p>All the observations are given equal weight.</p>
+<div class="packt_infobox">In bagging and random forest algorithms, we deal with the columns of the data; whereas, in boosting, we adjust the weights of each observation and don't elect a few columns.</div>
+<p>We fit a classifier on the data and evaluate overall errors. The error used for calculating weight should be given for that classifier in the final additive model (<strong>α</strong>) evaluation. The intuitive sense is that the higher weight will be given for the model with fewer errors. Finally, weights for each observation will be updated. Here, weight will be increased for incorrectly classified observations in order to give more focus to the next iterations, and weights will be reduced for correctly classified observations.</p>
+<p>All the weak classifiers are combined with their respective weights to form a strong classifier. In the following figure, a quick idea is shared on how weights changed in the last iteration compared with the initial iteration:</p>
+<div class="CDPAlignCenter CDPAlign"><img class="image-border" src="assets/154913f0-cfe9-41dc-b813-cecc75c0a0fa.png"/></div>
+<pre><strong># Adaboost Classifier 
+&gt;&gt;&gt; from sklearn.tree import DecisionTreeClassifier 
+&gt;&gt;&gt; from sklearn.ensemble import AdaBoostClassifier</strong> </pre>
+<p>Decision stump is used as a base classifier for AdaBoost. If we observe the following code, the depth of the tree remains as 1, which has decision taking ability only once (also considered a weak classifier):</p>
+<pre><strong>&gt;&gt;&gt; dtree = DecisionTreeClassifier(criterion='gini',max_depth=1)</strong> </pre>
+<p>In AdaBoost, decision stump has been used as a base estimator to fit on whole datasets and then fits additional copies of the classifier on the same dataset up to 5000 times. The learning rate shrinks the contribution of each classifier by 0.05. There is a trade-off between the learning rate and number of estimators. By carefully choosing a low learning rate and a long number of estimators, one can converge optimum very much, however at the expense of computing power:</p>
+<pre><strong>&gt;&gt;&gt;adabst_fit = AdaBoostClassifier(base_estimator= dtree,n_estimators=5000,learning_rate=0.05,random_state=42)</strong><br/><br/><strong>&gt;&gt;&gt;adabst_fit.fit(x_train, y_train)</strong><br/><strong>&gt;&gt;&gt;print ("\nAdaBoost - Train Confusion Matrix\n\n", pd.crosstab(y_train, adabst_fit.predict(x_train), rownames = ["Actuall"],colnames = ["Predicted"]))</strong><br/><strong>&gt;&gt;&gt;print ("\nAdaBoost - Train accuracy",round(accuracy_score(y_train,adabst_fit.predict(x_train)), 3))</strong><br/><strong>&gt;&gt;&gt;print ("\nAdaBoost  - Train Classification Report\n",classification_report(y_train,adabst_fit.predict(x_train)))</strong></pre>
+<div class="CDPAlignCenter CDPAlign"><img class="image-border" src="assets/2da58a78-f500-42c4-b9d3-e2c77f56cfb6.png" style="width:29.00em;height:33.33em;"/></div>
+<p>The result of the AdaBoost seems to be much better than the known best random forest classifiers in terms of the recall of 1 value. Though there is a slight decrease in accuracy to 86.8% compared with the best accuracy of 87.8%, the number of 1's predicted is 23 from the RF, which is 14 with some expense of an increase in 0's, but it really made good progress in terms of identifying actual attriters:</p>
+<p>R Code for AdaBoost classifier applied on HR attrition data:</p>
+<pre><strong># Adaboost classifier using   C5.0 with trails included for boosting   
+library(C50)   
+class_zero_wgt = 0.3   
+class_one_wgt = 1-class_zero_wgt   
+cstvr =   class_one_wgt/class_zero_wgt   
+error_cost &lt;- matrix(c(0, 1,   cstvr, 0), nrow = 2)   
+# Fitting Adaboost model     
+ada_fit = C5.0(train_data[-31],train_data$Attrition_ind,costs   = error_cost, trails = 5000,control = C5.0Control(minCases = 1))   
+summary(ada_fit)   
+   
+tr_y_pred = predict(ada_fit,   train_data,type = "class")   
+ts_y_pred =   predict(ada_fit,test_data,type = "class")   
+   
+tr_y_act =   train_data$Attrition_ind;ts_y_act = test_data$Attrition_ind   
+   
+tr_tble = table(tr_y_act,tr_y_pred)   
+print(paste("AdaBoost -   Train Confusion Matrix"))   
+print(tr_tble)   
+tr_acc =   accrcy(tr_y_act,tr_y_pred)   
+trprec_zero =   prec_zero(tr_y_act,tr_y_pred); trrecl_zero = recl_zero(tr_y_act,tr_y_pred)   
+trprec_one =   prec_one(tr_y_act,tr_y_pred); trrecl_one = recl_one(tr_y_act,tr_y_pred)  </strong> 
+<strong>trprec_ovll = trprec_zero   *frac_trzero + trprec_one*frac_trone   
+trrecl_ovll = trrecl_zero   *frac_trzero + trrecl_one*frac_trone   
+print(paste("AdaBoost   Train accuracy:",tr_acc))   
+print(paste("AdaBoost -   Train Classification Report"))   
+print(paste("Zero_Precision",trprec_zero,"Zero_Recall",trrecl_zero))   
+print(paste("One_Precision",trprec_one,"One_Recall",trrecl_one))   
+print(paste("Overall_Precision",round(trprec_ovll,4),"Overall_Recall",round(trrecl_ovll,4)))   
+   
+ts_tble =   table(ts_y_act,ts_y_pred)   
+print(paste("AdaBoost -   Test Confusion Matrix"))   
+print(ts_tble)   
+   
+ts_acc =   accrcy(ts_y_act,ts_y_pred)   
+tsprec_zero =   prec_zero(ts_y_act,ts_y_pred); tsrecl_zero = recl_zero(ts_y_act,ts_y_pred)   
+tsprec_one =   prec_one(ts_y_act,ts_y_pred); tsrecl_one = recl_one(ts_y_act,ts_y_pred)   
+   
+tsprec_ovll = tsprec_zero   *frac_tszero + tsprec_one*frac_tsone   
+tsrecl_ovll = tsrecl_zero   *frac_tszero + tsrecl_one*frac_tsone   
+  </strong> 
+<strong>print(paste("AdaBoost Test   accuracy:",ts_acc))   
+print(paste("AdaBoost -   Test Classification Report"))   
+print(paste("Zero_Precision",tsprec_zero,"Zero_Recall",tsrecl_zero))   
+print(paste("One_Precision",tsprec_one,"One_Recall",tsrecl_one))   
+print(paste("Overall_Precision",round(tsprec_ovll,4),"Overall_Recall",round(tsrecl_ovll,4)))  </strong> </pre>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Gradient boosting classifier</h1>
+                </header>
+            
+            <article>
+                
+<p>Gradient boosting is one of the competition-winning algorithms that work on the principle of boosting weak learners iteratively by shifting focus towards problematic observations that were difficult to predict in previous iterations and performing an ensemble of weak learners, typically decision trees. It builds the model in a stage-wise fashion as other boosting methods do, but it generalizes them by allowing optimization of an arbitrary differentiable loss function.</p>
+<p>Let's start understanding Gradient Boosting with a simple example, as GB challenges many data scientists in terms of understanding the working principle:</p>
+<ol>
+<li>Initially, we fit the model on observations producing 75% accuracy and the remaining unexplained variance is captured in the <strong><em>error</em></strong> term:</li>
+</ol>
+<div style="padding-left: 180px" class="mce-root CDPAlignLeft CDPAlign"><img src="assets/6cc1f87f-915a-4141-baa9-b7b829f34fe5.jpg" style="width:9.08em;height:1.42em;"/></div>
+<ol start="2">
+<li>Then we will fit another model on the error term to pull the extra explanatory component and add it to the original model, which should improve the overall accuracy:</li>
+</ol>
+<div style="padding-left: 180px" class="mce-root CDPAlignLeft CDPAlign"><img src="assets/2d7f49d3-84b7-41ec-8314-42b706ff263d.jpg" style="width:10.67em;height:1.17em;"/></div>
+<ol start="3">
+<li>Now, the model is providing 80% accuracy and the equation looks as follows:</li>
+</ol>
+<div style="padding-left: 180px" class="mce-root CDPAlignLeft CDPAlign"><img src="assets/635f7efa-5e62-4cc8-aa89-898d720a2556.jpg" style="width:12.67em;height:1.25em;"/></div>
+<ol start="4">
+<li>We continue this method one more time to fit a model on the <strong>error2</strong> component to extract a further explanatory component:</li>
+</ol>
+<div style="padding-left: 180px" class="mce-root CDPAlignLeft CDPAlign"><img src="assets/4b7f8e8d-a0aa-4a58-9e8f-42948e8b620c.jpg" style="width:12.00em;height:1.08em;"/></div>
+<ol start="5">
+<li>Now, model accuracy is further improved to 85% and the final model equation looks as follows:</li>
+</ol>
+<div style="padding-left: 180px" class="mce-root CDPAlignLeft CDPAlign"><img src="assets/749e5e90-0a8a-4e88-9292-4abfb987f360.jpg" style="width:17.25em;height:1.25em;"/></div>
+<ol start="6">
+<li>Here, if we use weighted average (higher importance given to better models that predict results with greater accuracy than others) rather than simple addition, it will improve the results further. In fact, this is what the gradient boosting algorithm does!</li>
+</ol>
+<div style="padding-left: 180px" class="mce-root CDPAlignLeft CDPAlign"><img src="assets/558d6b99-dc6b-4627-a674-e61e99137f73.jpg" style="width:21.67em;height:1.25em;"/></div>
+<div class="mce-root packt_infobox">After incorporating weights, the name of the error changed from <strong>error3</strong> to <strong>error4</strong>, as both errors may not be exactly the same. If we find better weights, we will probably get an accuracy of 90% instead of simple addition, where we have only got 85%.</div>
+<p class="mce-root"><strong>Gradient boosting involves three elements:</strong></p>
+<ul>
+<li>
+<p><strong>Loss function to be optimized:</strong> Loss function depends on the type of problem being solved. In the case of regression problems, mean squared error is used, and in classification problems, the logarithmic loss will be used. In boosting, at each stage, unexplained loss from prior iterations will be optimized rather than starting from scratch.</p>
+</li>
+<li>
+<p><strong>Weak learner to make predictions:</strong> Decision trees are used as a weak learner in gradient boosting.</p>
+</li>
+<li>
+<p><strong>Additive model to add weak learners to minimize the loss function:</strong> Trees are added one at a time and existing trees in the model are not changed. The gradient descent procedure is used to minimize the loss when adding trees.</p>
+</li>
+</ul>
+<p><strong>The algorithm for Gradient boosting consists of the following steps:</strong></p>
+<ol>
+<li>Initialize:</li>
+</ol>
+<div style="padding-left: 180px" class="CDPAlignLeft CDPAlign"><img src="assets/2ddc97ad-e0da-44a7-b79d-c449607be372.jpg" style="width:15.17em;height:3.00em;"/></div>
+<ol start="2">
+<li class="CodeWithinTableColumnContentEndPACKT"><span>For <em>m = 1</em> to M:</span>
+<ul>
+<li>a) For <em>i = 1, 2, …, N</em> compute:</li>
+</ul>
+</li>
+</ol>
+<div style="padding-left: 180px" class="CDPAlignLeft CDPAlign"><img src="assets/95586651-da5d-4724-aa5b-66e0d87c8136.jpg" style="width:18.25em;height:3.75em;"/></div>
+<ul>
+<li style="list-style-type: none">
+<ul>
+<li>b) Fit a regression tree to the targets r<sub>im</sub> giving terminal regions R<sub>jm</sub>, j = 1, 2, …, J<sub>m</sub>,</li>
+<li>c) For j = 1, 2, …, J<sub>m</sub>, compute:</li>
+</ul>
+</li>
+</ul>
+<div style="padding-left: 180px" class="CDPAlignLeft CDPAlign"><img src="assets/7c070b8d-1742-4565-9c69-c730b94ae07d.jpg" style="width:22.33em;height:3.83em;"/></div>
+<ul>
+<li style="list-style-type: none">
+<ul>
+<li>d) Update:</li>
+</ul>
+</li>
+</ul>
+<div style="padding-left: 180px" class="CDPAlignLeft CDPAlign"><img src="assets/f3a737c5-daa7-4843-bfa9-93a634fc461b.jpg" style="width:22.50em;height:2.08em;"/></div>
+<ol start="3">
+<li>Output:</li>
+</ol>
+<div style="padding-left: 240px" class="CDPAlignLeft CDPAlign"><img src="assets/c8ab0b80-4bb0-4e32-a52f-7a8a6d311fe1.jpg" style="width:7.17em;height:1.92em;"/></div>
+<p>Initializes the constant optimal constant model, which is just a single terminal node that will be utilized as a starting point to tune it further in the next steps. <em>(2a)</em>, calculates the residuals/errors by comparing actual outcome with predicted results, followed by (<em>2b</em> and <em>2c</em>) in which the next decision tree will be fitted on error terms to bring in more explanatory power to the model, and in (<em>2d</em>) add the extra component to the model at last iteration. Finally, ensemble all weak learners to create a strong learner.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Comparison between AdaBoosting versus gradient boosting</h1>
+                </header>
+            
+            <article>
+                
+<p>After understanding both AdaBoost and gradient boost, readers may be curious to see the differences in detail. Here, we are presenting exactly that to quench your thirst!</p>
+<div class="mce-root CDPAlignCenter CDPAlign"><img class="image-border" src="assets/6ca41b37-732c-4c61-8225-0bc5962acab3.jpg" style="width:35.92em;height:20.17em;"/></div>
+<p>The gradient boosting classifier from the scikit-learn package has been used for computation here:</p>
+<pre><strong># Gradientboost Classifier</strong><br/><strong>&gt;&gt;&gt; from sklearn.ensemble import GradientBoostingClassifier</strong></pre>
+<p>Parameters used in the gradient boosting algorithms are as follows. Deviance has been used for loss, as the problem we are trying to solve is 0/1 binary classification. The learning rate has been chosen as 0.05, number of trees to build is 5000 trees, minimum sample per leaf/terminal node is 1, and minimum samples needed in a bucket for qualification for splitting is 2:</p>
+<pre class="mce-root"><strong>&gt;&gt;&gt; gbc_fit = GradientBoostingClassifier (loss='deviance', learning_rate=0.05, n_estimators=5000, min_samples_split=2, min_samples_leaf=1, max_depth=1, random_state=42 ) </strong><br/><br/></pre>
+<p class="mce-root"/>
+<p class="mce-root"/>
+<pre class="mce-root"><strong>&gt;&gt;&gt; gbc_fit.fit(x_train,y_train) </strong><br/><strong>&gt;&gt;&gt; print ("\nGradient Boost - Train Confusion Matrix\n\n",pd.crosstab(y_train, gbc_fit.predict(x_train),rownames = ["Actuall"],colnames = ["Predicted"]))</strong><br/><strong>&gt;&gt;&gt; print ("\nGradient Boost - Train accuracy",round(accuracy_score(y_train, gbc_fit.predict(x_train)),3))</strong><br/><strong>&gt;&gt;&gt; print ("\nGradient Boost - Train Classification Report\n",classification_report( y_train, gbc_fit.predict(x_train)))</strong><br/><br/><strong>&gt;&gt;&gt; print ("\n\nGradient Boost - Test Confusion Matrix\n\n",pd.crosstab(y_test, gbc_fit.predict(x_test),rownames = ["Actuall"],colnames = ["Predicted"]))</strong><br/><strong>&gt;&gt;&gt; print ("\nGradient Boost - Test accuracy",round(accuracy_score(y_test, gbc_fit.predict(x_test)),3)) &gt;&gt;&gt; print ("\nGradient Boost - Test Classification Report\n",classification_report( y_test, gbc_fit.predict(x_test)))</strong></pre>
+<div class="mce-root CDPAlignCenter CDPAlign"><img class=" image-border" src="assets/96bd6b48-620a-4932-ba93-231c6acff064.png" style="width:28.25em;height:17.58em;"/></div>
+<p class="mce-root">If we analyze the results, Gradient boosting has given better results than AdaBoost with the highest possible test accuracy of 87.5% with most 1's captured as 24, compared with AdaBoost with which the test accuracy obtained was 86.8%. Hence, it has been proven that it is no wonder why every data scientist tries to use this algorithm to win competitions!</p>
+<p class="mce-root">The R code for gradient boosting classifier applied on HR attrition data:</p>
+<pre class="CodeWithinTableColumnContentEndPACKT"><strong># Gradient boosting</strong><br/><strong>library(gbm)</strong><br/><br/><strong>library(caret)</strong><br/><strong>set.seed(43)</strong><br/><strong># Giving weights to all the observations in a way that total #weights will </strong><br/><strong>be euqal 1</strong><br/><strong>model_weights &lt;- ifelse(train_data$Attrition_ind == "0",</strong><br/><strong>      (1/table(train_data$Attrition_ind)[1]) * 0.3,</strong><br/><strong>        (1/table(train_data$Attrition_ind)[2]) * 0.7)</strong><br/><strong># Setting parameters for GBM</strong><br/><strong>grid &lt;- expand.grid(n.trees = 5000, interaction.depth = 1, shrinkage = .04, n.minobsinnode = 1)</strong><br/><strong># Fitting the GBM model</strong><br/><strong>gbm_fit &lt;- train(Attrition_ind ~ ., data = train_data, method = "gbm", weights = model_weights,</strong><br/><strong>                 tuneGrid=grid,verbose = FALSE)</strong><br/><strong># To print variable importance plot</strong><br/><strong>summary(gbm_fit)</strong><br/><br/><strong>tr_y_pred = predict(gbm_fit, train_data,type = "raw")</strong><br/><strong>ts_y_pred = predict(gbm_fit,test_data,type = "raw")</strong><br/><strong>tr_y_act = train_data$Attrition_ind;ts_y_act = test_data$Attrition_ind</strong><br/><br/><strong>tr_tble = table(tr_y_act,tr_y_pred)</strong><br/><strong>print(paste("Gradient Boosting - Train Confusion Matrix"))</strong><br/><strong>print(tr_tble)</strong><br/><br/><strong>tr_acc = accrcy(tr_y_act,tr_y_pred)</strong><br/><strong>trprec_zero = prec_zero(tr_y_act,tr_y_pred); trrecl_zero = </strong><br/><strong>recl_zero(tr_y_act,tr_y_pred)</strong><br/><strong>trprec_one = prec_one(tr_y_act,tr_y_pred); trrecl_one = recl_one(tr_y_act,tr_y_pred)</strong><br/><br/><strong>trprec_ovll = trprec_zero *frac_trzero + trprec_one*frac_trone</strong><br/><strong>trrecl_ovll = trrecl_zero *frac_trzero + trrecl_one*frac_trone</strong><br/><br/><strong>print(paste("Gradient Boosting Train accuracy:",tr_acc))</strong><br/><strong>print(paste("Gradient Boosting - Train Classification Report"))</strong><br/><strong>print(paste("Zero_Precision",trprec_zero,"Zero_Recall",trrecl_zero))</strong><br/><strong>print(paste("One_Precision",trprec_one,"One_Recall",trrecl_one))</strong><br/><strong>print(paste("Overall_Precision",round(trprec_ovll,4),"Overall_Recall",round(trrecl_ovll,4)))</strong><br/><br/><br/><strong>ts_tble = table(ts_y_act,ts_y_pred)</strong><br/><strong>print(paste("Gradient Boosting - Test Confusion Matrix"))</strong><br/><strong>print(ts_tble)</strong><br/><strong>ts_acc = accrcy(ts_y_act,ts_y_pred)</strong><br/><strong>tsprec_zero = prec_zero(ts_y_act,ts_y_pred); tsrecl_zero = </strong><br/><strong>recl_zero(ts_y_act,ts_y_pred)</strong><br/><strong>tsprec_one = prec_one(ts_y_act,ts_y_pred); tsrecl_one = recl_one(ts_y_act,ts_y_pred)</strong><br/><strong>tsprec_ovll = tsprec_zero *frac_tszero + tsprec_one*frac_tsone</strong><br/><strong>tsrecl_ovll = tsrecl_zero *frac_tszero + tsrecl_one*frac_tsone</strong><br/><strong>print(paste("Gradient Boosting Test accuracy:",ts_acc))</strong><br/><strong>print(paste("Gradient Boosting - Test Classification Report"))</strong><br/><strong>print(paste("Zero_Precision",tsprec_zero,"Zero_Recall",tsrecl_zero))</strong><br/><strong>print(paste("One_Precision",tsprec_one,"One_Recall",tsrecl_one))</strong><br/><strong>print(paste("Overall_Precision",round(tsprec_ovll,4),"Overall_Recall",round(tsrecl_ovll,4)))</strong><br/><br/><strong># Use the following code for performing cross validation on data - At the moment commented though</strong><br/><strong>#fitControl &lt;- trainControl(method = "repeatedcv", number = 4, repeats = 4)</strong><br/><strong># gbmFit1 &lt;- train(Attrition_ind ~ ., data = train_data,</strong><br/><strong>method = # "gbm", trControl = fitControl,tuneGrid=grid,verbose = FALSE)</strong></pre>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Extreme gradient boosting - XGBoost classifier</h1>
+                </header>
+            
+            <article>
+                
+<p class="CodeWithinTableColumnContentEndPACKT">XGBoost is the new algorithm developed in 2014 by <em>Tianqi Chen</em> based on the Gradient boosting principles. It has created a storm in the data science community since its inception. XGBoost has been developed with both deep consideration in terms of system optimization and principles in machine learning. The goal of the library is to push the extremes of the computation limits of machines to provide scalable, portable, and accurate results:</p>
+<pre><strong># Xgboost Classifier</strong><br/><strong>&gt;&gt;&gt; import xgboost as xgb</strong><br/><strong>&gt;&gt;&gt; xgb_fit = xgb.XGBClassifier(max_depth=2, n_estimators=5000, </strong><br/><strong>learning_rate=0.05)</strong><br/><strong>&gt;&gt;&gt; xgb_fit.fit(x_train, y_train)</strong><br/><br/><strong>&gt;&gt;&gt; print ("\nXGBoost - Train Confusion Matrix\n\n",pd.crosstab(y_train, xgb_fit.predict(x_train),rownames = ["Actuall"],colnames = ["Predicted"]))     </strong><br/><strong>&gt;&gt;&gt; print ("\nXGBoost - Train accuracy",round(accuracy_score(y_train, xgb_fit.predict(x_train)),3))</strong><br/><strong>&gt;&gt;&gt; print ("\nXGBoost  - Train Classification Report\n",classification_report(y_train, xgb_fit.predict(x_train)))</strong><br/><strong>&gt;&gt;&gt; print ("\n\nXGBoost - Test Confusion Matrix\n\n",pd.crosstab(y_test, xgb_fit.predict(x_test),rownames = ["Actuall"],colnames = ["Predicted"]))     </strong><br/><strong>&gt;&gt;&gt; print ("\nXGBoost - Test accuracy",round(accuracy_score(y_test, xgb_fit.predict(x_test)),3))</strong><br/><strong>&gt;&gt;&gt; print ("\nXGBoost - Test Classification Report\n",classification_report(y_test, xgb_fit.predict(x_test)))</strong></pre>
+<div class="mce-root CDPAlignCenter CDPAlign"><img class="image-border" src="assets/9c1aa18d-2475-4698-8275-1048a2e9405a.png" style="width:28.08em;height:34.67em;"/></div>
+<p class="mce-root">The results obtained from <strong>XGBoost</strong> are almost similar to gradient boosting. The test accuracy obtained was 87.1%, whereas boosting got 87.5%, and also the number of 1's identified is 23 compared with 24 in gradient boosting. The greatest advantage of XGBoost over Gradient boost is in terms of performance and the options available to control model tune. By changing a few of them, makes XGBoost even beat gradient boost as well!</p>
+<p class="mce-root">The R code for xtreme gradient boosting (XGBoost) classifier applied on HR attrition data:</p>
+<pre class="CodeWithinTableColumnContentEndPACKT"><strong># Xgboost Classifier</strong><br/><strong>library(xgboost); library(caret)</strong><br/><br/><strong>hrattr_data = read.csv("WA_Fn-UseC_-HR-Employee-Attrition.csv")</strong><br/><strong>str(hrattr_data); summary(hrattr_data)
+# Target variable creation
+hrattr_data$Attrition_ind = 0;
+hrattr_data$Attrition_ind[hrattr_data$Attrition=="Yes"]=1
+
+# Columns to be removed due to no change in its value across observations
+remove_cols = c("EmployeeCount","EmployeeNumber","Over18","StandardHours","Attrition")</strong><br/><strong>hrattr_data_new = hrattr_data[,!(names(hrattr_data) %in% remove_cols)]
+</strong><br/><strong># List of  variables with continuous values </strong><br/><strong>continuous_columns = c('Age','DailyRate', 'DistanceFromHome', 'Education', 'EnvironmentSatisfaction', 'HourlyRate', 'JobInvolvement', 'JobLevel', 'JobSatisfaction','MonthlyIncome', 'MonthlyRate', 'NumCompaniesWorked', 'PercentSalaryHike', 'PerformanceRating', 'RelationshipSatisfaction', 'StockOptionLevel', 'TotalWorkingYears',  'TrainingTimesLastYear', 'WorkLifeBalance', 'YearsAtCompany', 'YearsInCurrentRole', 'YearsSinceLastPromotion', 'YearsWithCurrManager')</strong><br/><br/><strong># list of categorical variables</strong><br/><strong>ohe_feats = c('BusinessTravel', 'Department', 'EducationField','Gender','JobRole', 'MaritalStatus', 'OverTime')</strong><br/><br/><strong># one-hot-encoding categorical features</strong><br/><strong>dummies &lt;- dummyVars(~ BusinessTravel+Department+ EducationField+Gender+JobRole+MaritalStatus+OverTime, data = hrattr_data_new)</strong><br/><strong>df_all_ohe &lt;- as.data.frame(predict(dummies, newdata = hrattr_data_new))</strong><br/><br/><strong># Cleaning column names and replace . with _</strong><br/><br/><strong>colClean &lt;- function(x){ colnames(x) &lt;- gsub("\\.", "_", colnames(x)); x }</strong><br/><strong>df_all_ohe = colClean(df_all_ohe)</strong><br/><br/><strong>hrattr_data_new$Attrition_ind = as.integer(hrattr_data_new$Attrition_ind)</strong><br/><br/><strong># Combining both continuous and dummy variables from categories</strong><br/><strong>hrattr_data_v3 = cbind(df_all_ohe,hrattr_data_new [,(names(hrattr_data_new) %in% continuous_columns)], hrattr_data_new$Attrition_ind)</strong><br/><br/><strong>names(hrattr_data_v3)[52] = "Attrition_ind"</strong><br/><br/><strong># Train and Test split based on 70% and 30%</strong><br/><strong>set.seed(123)</strong><br/><strong>numrow = nrow(hrattr_data_v3)</strong><br/><strong>trnind = sample(1:numrow,size = as.integer(0.7*numrow))</strong><br/><strong>train_data = hrattr_data_v3[trnind,]</strong><br/><strong>test_data = hrattr_data_v3[-trnind,]</strong><br/><br/><strong># Custom functions for calculation of Precision and Recall</strong><br/><strong>frac_trzero = (table(train_data$Attrition_ind)[[1]])/nrow(train_data)</strong><br/><strong>frac_trone = (table(train_data$Attrition_ind)[[2]])/nrow(train_data)</strong><br/><br/><strong>frac_tszero = (table(test_data$Attrition_ind)[[1]])/nrow(test_data)</strong><br/><strong>frac_tsone = (table(test_data$Attrition_ind)[[2]])/nrow(test_data)</strong><br/><strong>prec_zero &lt;- function(act,pred){  tble = table(act,pred)</strong><br/><strong>return( round( tble[1,1]/(tble[1,1]+tble[2,1]),4)  ) }</strong><br/><br/><strong>prec_one &lt;- function(act,pred){ tble = table(act,pred)</strong><br/><strong>return( round( tble[2,2]/(tble[2,2]+tble[1,2]),4)   ) }</strong><br/><br/><strong>recl_zero &lt;- function(act,pred){tble = table(act,pred)</strong><br/><strong>return( round( tble[1,1]/(tble[1,1]+tble[1,2]),4)   ) }</strong><br/><br/><strong>recl_one &lt;- function(act,pred){ tble = table(act,pred)</strong><br/><strong>return( round( tble[2,2]/(tble[2,2]+tble[2,1]),4)  ) }</strong><br/><br/><strong>accrcy &lt;- function(act,pred){ tble = table(act,pred)</strong><br/><strong>return( round((tble[1,1]+tble[2,2])/sum(tble),4)) }</strong><br/><br/><strong>y = train_data$Attrition_ind</strong><br/><br/><strong># XGBoost Classifier Training</strong><br/><strong>xgb &lt;- xgboost(data = data.matrix(train_data[,-52]),label = y,eta = 0.04,max_depth = 2, nround=5000, subsample = 0.5, colsample_bytree = 0.5, seed = 1, eval_metric = "logloss", objective = "binary:logistic",nthread = 3)</strong><br/><br/><strong># XGBoost value prediction on train and test data</strong><br/><strong>tr_y_pred_prob &lt;- predict(xgb, data.matrix(train_data[,-52]))</strong><br/><strong>tr_y_pred &lt;- as.numeric(tr_y_pred_prob &gt; 0.5)</strong><br/><strong>ts_y_pred_prob &lt;- predict(xgb, data.matrix(test_data[,-52]))</strong><br/><strong>ts_y_pred &lt;- as.numeric(ts_y_pred_prob &gt; 0.5)</strong><br/><strong>tr_y_act = train_data$Attrition_ind;ts_y_act = test_data$Attrition_ind</strong><br/><strong>tr_tble = table(tr_y_act,tr_y_pred)</strong><br/><br/><strong># XGBoost Metric predictions on Train Data</strong><br/><strong>print(paste("Xgboost - Train Confusion Matrix"))</strong><br/><strong>print(tr_tble)</strong><br/><strong>tr_acc = accrcy(tr_y_act,tr_y_pred)</strong><br/><strong>trprec_zero = prec_zero(tr_y_act,tr_y_pred); trrecl_zero = recl_zero(tr_y_act,tr_y_pred)</strong><br/><strong>trprec_one = prec_one(tr_y_act,tr_y_pred); trrecl_one = recl_one(tr_y_act,tr_y_pred)</strong><br/><strong>trprec_ovll = trprec_zero *frac_trzero + trprec_one*frac_trone</strong><br/><strong>trrecl_ovll = trrecl_zero *frac_trzero + trrecl_one*frac_trone</strong><br/><br/><strong>print(paste("Xgboost Train accuracy:",tr_acc))</strong><br/><strong>print(paste("Xgboost - Train Classification Report"))</strong><br/><strong>print(paste("Zero_Precision",trprec_zero,"Zero_Recall",trrecl_zero))</strong><br/><strong>print(paste("One_Precision",trprec_one,"One_Recall",trrecl_one))</strong><br/><strong>print(paste("Overall_Precision",round(trprec_ovll,4),"Overall_Recall",round(trrecl_ovll,4)))</strong><br/><br/><strong># XGBoost Metric predictions on Test Data</strong><br/><strong>ts_tble = table(ts_y_act,ts_y_pred)</strong><br/><strong>print(paste("Xgboost - Test Confusion Matrix"))</strong><br/><strong>print(ts_tble)</strong><br/><strong>ts_acc = accrcy(ts_y_act,ts_y_pred)</strong><br/><strong>tsprec_zero = prec_zero(ts_y_act,ts_y_pred); tsrecl_zero = recl_zero(ts_y_act,ts_y_pred)</strong><br/><strong>tsprec_one = prec_one(ts_y_act,ts_y_pred); tsrecl_one = recl_one(ts_y_act,ts_y_pred)</strong><br/><strong>tsprec_ovll = tsprec_zero *frac_tszero + tsprec_one*frac_tsone</strong><br/><strong>tsrecl_ovll = tsrecl_zero *frac_tszero + tsrecl_one*frac_tsone</strong><br/><br/><strong>print(paste("Xgboost Test accuracy:",ts_acc))</strong><br/><strong>print(paste("Xgboost - Test Classification Report"))</strong><br/><strong>print(paste("Zero_Precision",tsprec_zero,"Zero_Recall",tsrecl_zero))</strong><br/><strong>print(paste("One_Precision",tsprec_one,"One_Recall",tsrecl_one))</strong><br/><strong>print(paste("Overall_Precision",round(tsprec_ovll,4),"Overall_Recall",round(tsrecl_ovll,4)))</strong></pre>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Ensemble of ensembles - model stacking</h1>
+                </header>
+            
+            <article>
+                
+<p class="mce-root">Ensemble of ensembles or model stacking is a method to combine different classifiers into a meta-classifier that has a better generalization performance than each individual classifier in isolation. It is always advisable to take opinions from many people when you are in doubt, when dealing with problems in your personal life too! There are two ways to perform ensembles on models:</p>
+<ul>
+<li><strong>Ensemble with different types of classifiers:</strong> In this methodology, different types of classifiers (for example, logistic regression, decision trees, random forest, and so on) are fitted on the same training data and results are combined based on either majority voting or average, based on if it is classification or regression problems.</li>
+<li><strong>Ensemble with a single type of classifiers, but built separately on various bootstrap samples:</strong> In this methodology, bootstrap samples are drawn from training data and, each time, separate models will be fitted (individual models could be decision trees, random forest, and so on) on the drawn sample, and all these results are combined at the end to create an ensemble. This method suits dealing with highly flexible models where variance reduction still improves performance.</li>
+</ul>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Ensemble of ensembles with different types of classifiers</h1>
+                </header>
+            
+            <article>
+                
+<p class="mce-root">As briefly mentioned in the preceding section, different classifiers will be applied on the same training data and the results ensembled either taking majority voting or applying another classifier (also known as a meta-classifier) fitted on results obtained from individual classifiers. This means, for meta-classifier <em>X</em>, variables would be model outputs and Y variable would be an actual 0/1 result. By doing this, we will obtain the weightage that should be given for each classifier and those weights will be applied accordingly to classify unseen observations. All three methods of application of ensemble of ensembles are shown here:</p>
+<ul>
+<li><strong>Majority voting or average:</strong> In this method, a simple mode function (classification problem) is applied to select the category with the major number of appearances out of individual classifiers. Whereas, for regression problems, an average will be calculated to compare against actual values.</li>
+<li><strong>Method of application of meta-classifiers on outcomes:</strong> Predict actual outcome either 0 or 1 from individual classifiers and apply a meta-classifier on top of 0's and 1's. A small problem with this type of approach is that the meta-classifier will be a bit brittle and rigid. I mean 0's and 1's just gives the result, rather than providing exact sensibility (such as probability).</li>
+<li><strong>Method of application of meta-classifiers on probabilities:</strong> In this method, probabilities are obtained from individual classifiers instead of 0's and 1's. Applying meta-classifier on probabilities makes this method a bit more flexible than the first method. Though users can experiment with both methods to see which one performs better. After all, machine learning is all about exploration and trial and error methodologies.</li>
+</ul>
+<p class="mce-root">In the following diagram, the complete flow of model stacking has been described with various stages:</p>
+<div class="mce-root CDPAlignCenter CDPAlign"><img class="image-border" src="assets/d4230cd2-6bd4-49ff-b898-787f83c39c09.png" style="width:42.92em;height:36.33em;"/></div>
+<p class="mce-root"><strong>Steps in the following ensemble with multiple classifiers example</strong>:</p>
+<ul>
+<li>Four classifiers have been used separately on training data (logistic regression, decision tree, random forest, and AdaBoost)</li>
+<li>Probabilities have been determined for all four classifiers, however, only the probability for category 1 has been utilized in meta-classifier due to the reason that the probability of class 0 + probability of class 1 = 1, hence only one probability is good enough to represent, or else multi-collinearity issues appearing</li>
+<li>Logistic regression has been used as a meta-classifier to model the relationship between four probabilities (obtained from each individual classifier) with respect to a final 0/1 outcome</li>
+<li>Coefficients have been calculated for all four variables used in meta-classifier and applied on new data for calculating the final aggregated probability for classifying observations into the respective categories:</li>
+</ul>
+<pre class="CodePACKT"><strong>#Ensemble of Ensembles - by fitting various classifiers</strong><br/><strong>&gt;&gt;&gt; clwght = {0:0.3,1:0.7}</strong><br/><br/><strong># Classifier 1 – Logistic Regression</strong><br/><strong>&gt;&gt;&gt; from sklearn.linear_model import LogisticRegression</strong><br/><strong>&gt;&gt;&gt; clf1_logreg_fit = LogisticRegression(fit_intercept=True,class_weight=clwght)</strong><br/><strong>&gt;&gt;&gt; clf1_logreg_fit.fit(x_train,y_train)</strong><br/><br/><strong>&gt;&gt;&gt; print ("\nLogistic Regression for Ensemble - Train Confusion Matrix\n\n",pd.crosstab( y_train, clf1_logreg_fit.predict(x_train),rownames = ["Actuall"],colnames = ["Predicted"]))</strong><br/><strong>&gt;&gt;&gt; print ("\nLogistic Regression for Ensemble - Train accuracy",round( accuracy_score(y_train,clf1_logreg_fit.predict(x_train)),3))</strong><br/><strong>&gt;&gt;&gt; print ("\nLogistic Regression for Ensemble - Train Classification Report\n", classification_report(y_train,clf1_logreg_fit.predict(x_train)))</strong><br/><strong>&gt;&gt;&gt; print ("\n\nLogistic Regression for Ensemble - Test Confusion Matrix\n\n",pd.crosstab( y_test,clf1_logreg_fit.predict(x_test),rownames = ["Actuall"],colnames = ["Predicted"]))     &gt;</strong><br/><strong>&gt;&gt; print ("\nLogistic Regression for Ensemble - Test accuracy",round( accuracy_score(y_test,clf1_logreg_fit.predict(x_test)),3))</strong><br/><strong>&gt;&gt;&gt; print ("\nLogistic Regression for Ensemble - Test Classification Report\n", classification_report( y_test,clf1_logreg_fit.predict(x_test)))</strong><br/><br/><strong># Classifier 2 – Decision Tree</strong><br/><strong>&gt;&gt;&gt; from sklearn.tree import DecisionTreeClassifier</strong><br/><strong>&gt;&gt;&gt; clf2_dt_fit = DecisionTreeClassifier(criterion="gini", max_depth=5, min_samples_split=2, min_samples_leaf=1, random_state=42, class_weight=clwght)</strong><br/><strong>&gt;&gt;&gt; clf2_dt_fit.fit(x_train,y_train)</strong><br/><br/><strong>&gt;&gt;&gt; print ("\nDecision Tree for Ensemble - Train Confusion Matrix\n\n",pd.crosstab( y_train, clf2_dt_fit.predict(x_train),rownames = ["Actuall"],colnames = ["Predicted"]))</strong><br/><strong>&gt;&gt;&gt; print ("\nDecision Tree for Ensemble - Train accuracy", round(accuracy_score( y_train,clf2_dt_fit.predict(x_train)),3))</strong><br/><strong>&gt;&gt;&gt; print ("\nDecision Tree for Ensemble - Train Classification Report\n", classification_report(y_train,clf2_dt_fit.predict(x_train)))
+&gt;&gt;&gt; print ("\n\nDecision Tree for Ensemble - Test Confusion Matrix\n\n", pd.crosstab(y_test, clf2_dt_fit.predict(x_test),rownames = ["Actuall"],colnames = ["Predicted"]))</strong><br/><strong>&gt;&gt;&gt; print ("\nDecision Tree for Ensemble - Test accuracy",round(accuracy_score(y_test, clf2_dt_fit.predict(x_test)),3))</strong><br/><br/><strong>&gt;&gt;&gt; print ("\nDecision Tree for Ensemble - Test Classification Report\n", classification_report(y_test, clf2_dt_fit.predict(x_test)))
+
+# Classifier 3 – Random Forest
+&gt;&gt;&gt; from sklearn.ensemble import RandomForestClassifier</strong><br/><strong>&gt;&gt;&gt; clf3_rf_fit = RandomForestClassifier(n_estimators=10000, criterion="gini", max_depth=6, min_samples_split=2,min_samples_leaf=1,class_weight = clwght)
+&gt;&gt;&gt; clf3_rf_fit.fit(x_train,y_train)
+
+&gt;&gt;&gt; print ("\nRandom Forest for Ensemble - Train Confusion Matrix\n\n", pd.crosstab(y_train, clf3_rf_fit.predict(x_train),rownames = ["Actuall"],colnames = ["Predicted"]))
+&gt;&gt;&gt; print ("\nRandom Forest for Ensemble - Train accuracy",round(accuracy_score( y_train,clf3_rf_fit.predict(x_train)),3))
+&gt;&gt;&gt; print ("\nRandom Forest for Ensemble - Train Classification Report\n", classification_report(y_train,clf3_rf_fit.predict(x_train)))
+</strong><br/><strong>&gt;&gt;&gt; print ("\n\nRandom Forest for Ensemble - Test Confusion Matrix\n\n",pd.crosstab( y_test, clf3_rf_fit.predict(x_test),rownames = ["Actuall"],colnames = ["Predicted"]))     
+&gt;&gt;&gt; print ("\nRandom Forest for Ensemble - Test</strong> <strong>accuracy",round(accuracy_score( y_test,clf3_rf_fit.predict(x_test)),3))
+&gt;&gt;&gt; print ("\nRandom Forest for Ensemble - Test Classification Report\n", classification_report(y_test,clf3_rf_fit.predict(x_test)))
+</strong><br/><strong># Classifier 4 – Adaboost classifier
+&gt;&gt;&gt; from sklearn.ensemble import AdaBoostClassifier
+&gt;&gt;&gt; clf4_dtree = DecisionTreeClassifier(criterion='gini',max_depth=1,class_weight = clwght)
+&gt;&gt;&gt; clf4_adabst_fit = AdaBoostClassifier(base_estimator= clf4_dtree,
+                n_estimators=5000,learning_rate=0.05,random_state=42)
+&gt;&gt;&gt; clf4_adabst_fit.fit(x_train, y_train)
+&gt;&gt;&gt; print ("\nAdaBoost for Ensemble  - Train Confusion Matrix\n\n",pd.crosstab(y_train, clf4_adabst_fit.predict(x_train),rownames = ["Actuall"],colnames = ["Predicted"]))     
+&gt;&gt;&gt; print ("\nAdaBoost for Ensemble   - Train accuracy",round(accuracy_score(y_train, clf4_adabst_fit.predict(x_train)),3))
+&gt;&gt;&gt; print ("\nAdaBoost for Ensemble   - Train Classification Report\n", classification_report(y_train,clf4_adabst_fit.predict(x_train)))
+&gt;&gt;&gt; print ("\n\nAdaBoost for Ensemble   - Test Confusion Matrix\n\n", pd.crosstab(y_test, clf4_adabst_fit.predict(x_test),rownames = ["Actuall"],colnames = ["Predicted"]))     
+&gt;&gt;&gt; print ("\nAdaBoost for Ensemble   - Test accuracy",round(accuracy_score(y_test, clf4_adabst_fit.predict(x_test)),3))</strong>
+<strong>&gt;&gt;&gt; print ("\nAdaBoost for Ensemble  - Test Classification Report\n", classification_report(y_test, clf4_adabst_fit.predict(x_test)))</strong></pre>
+<p class="mce-root">In the following step, we perform an ensemble of classifiers:</p>
+<pre class="mce-root"><strong>&gt;&gt; ensemble = pd.DataFrame()</strong> </pre>
+<p class="mce-root">In the following step, we take probabilities only for category 1, as it gives intuitive sense for high probability and indicates the value towards higher class 1. But this should not stop someone if they really want to fit probabilities on a 0 class instead. In that case, low probability values are preferred for category 1, which gives us a little bit of a headache!</p>
+<pre class="CodePACKT"><strong>&gt;&gt;&gt; ensemble["log_output_one"] = pd.DataFrame(clf1_logreg_fit.predict_proba( x_train))[1]</strong><br/><strong>&gt;&gt;&gt; ensemble["dtr_output_one"] = pd.DataFrame(clf2_dt_fit.predict_proba(x_train))[1]</strong><br/><strong>&gt;&gt;&gt; ensemble["rf_output_one"] = pd.DataFrame(clf3_rf_fit.predict_proba(x_train))[1]</strong><br/><strong>&gt;&gt;&gt; ensemble["adb_output_one"] = pd.DataFrame(clf4_adabst_fit.predict_proba( x_train))[1]</strong><br/><strong>&gt;&gt;&gt; ensemble = pd.concat([ensemble,pd.DataFrame(y_train).reset_index(drop = True )],axis=1)</strong><br/><br/><strong># Fitting meta-classifier</strong><br/><strong>&gt;&gt;&gt; meta_logit_fit =  LogisticRegression(fit_intercept=False)</strong><br/><strong>&gt;&gt;&gt; meta_logit_fit.fit(ensemble[['log_output_one', 'dtr_output_one', 'rf_output_one', 'adb_output_one']],ensemble['Attrition_ind'])</strong><br/><strong>&gt;&gt;&gt; coefs =  meta_logit_fit.coef_</strong><br/><strong>&gt;&gt;&gt; ensemble_test = pd.DataFrame()</strong><br/><strong>&gt;&gt;&gt; ensemble_test["log_output_one"] = pd.DataFrame(clf1_logreg_fit.predict_proba( x_test))[1]</strong><br/><strong>&gt;&gt;&gt; ensemble_test["dtr_output_one"] = pd.DataFrame(clf2_dt_fit.predict_proba( x_test))[1] </strong><br/><strong>&gt;&gt;&gt; ensemble_test["rf_output_one"] = pd.DataFrame(clf3_rf_fit.predict_proba( x_test))[1]</strong><br/><strong>&gt;&gt;&gt; ensemble_test["adb_output_one"] = pd.DataFrame(clf4_adabst_fit.predict_proba( x_test))[1]</strong><br/><strong>&gt;&gt;&gt; coefs =  meta_logit_fit.coef_</strong><br/><strong>&gt;&gt;&gt; ensemble_test = pd.DataFrame()</strong><br/><strong>&gt;&gt;&gt; ensemble_test["log_output_one"] = pd.DataFrame(clf1_logreg_fit.predict_proba( x_test))[1]</strong><br/><strong>&gt;&gt;&gt; ensemble_test["dtr_output_one"] = pd.DataFrame(clf2_dt_fit.predict_proba( x_test))[1]</strong><br/><strong>&gt;&gt;&gt; ensemble_test["rf_output_one"] = pd.DataFrame(clf3_rf_fit.predict_proba( x_test))[1]</strong><br/><strong>&gt;&gt;&gt; ensemble_test["adb_output_one"] = pd.DataFrame(clf4_adabst_fit.predict_proba( x_test))[1]</strong><br/><strong>&gt;&gt;&gt; print ("\n\nEnsemble of Models - Test Confusion Matrix\n\n",pd.crosstab( ensemble_test['Attrition_ind'],ensemble_test['all_one'],rownames = ["Actuall"], colnames = ["Predicted"]))     </strong><br/><strong>&gt;&gt;&gt; print ("\nEnsemble of Models - Test accuracy",round(accuracy_score (ensemble_test['Attrition_ind'],ensemble_test['all_one']),3))</strong><br/><strong>&gt;&gt;&gt; print ("\nEnsemble of Models - Test Classification Report\n", classification_report( ensemble_test['Attrition_ind'], ensemble_test['all_one']))</strong></pre>
+<div class="mce-root CDPAlignCenter CDPAlign"><img class="image-border" src="assets/403279b7-d323-47be-bbdd-6db25232febb.png" style="width:26.25em;height:16.33em;"/></div>
+<p class="mce-root">Though code prints <strong>Train</strong>, <strong>Test accuracies</strong>, <strong>Confusion Matrix</strong>, and <strong>Classification Reports</strong>, we have not shown them here due to space constraints. Users are advised to run and check the results on their computers. Test accuracy came as <em>87.5%</em>, which is the highest value (the same as gradient boosting results). However, by careful tuning, ensembles do give much better results based on adding better models and removing models with low weights:</p>
+<pre class="mce-root"><strong>&gt;&gt;&gt; coefs = meta_logit_fit.coef_</strong><br/><strong>&gt;&gt;&gt; print ("Co-efficients for LR, DT, RF and AB are:",coefs)</strong></pre>
+<div class="mce-root CDPAlignCenter CDPAlign"><img class=" image-border" src="assets/e972efd9-6953-40fa-bba5-075c99e48b1c.png"/></div>
+<p class="mce-root">It seems that, surprisingly, AdaBoost is dragging down performance of the ensemble. A tip is to either change the parameters used in AdaBoost and rerun the entire exercise, or remove the AdaBoost classifier from the ensemble and rerun the ensemble step to see if there is any improvement in ensemble test accuracy, precision, and recall values:</p>
+<p class="mce-root">R Code for Ensemble of Ensembles with different Classifiers Applied on HR Attrition Data:</p>
+<pre class="mce-root"><strong># Ensemble of Ensembles with different type of Classifiers setwd </strong><br/><strong>("D:\\Book writing\\Codes\\Chapter 4") </strong><br/><br/><strong>hrattr_data = read.csv("WA_Fn-UseC_-HR-Employee-Attrition.csv") </strong><br/><strong>str(hrattr_data) </strong><br/><strong>summary(hrattr_data) </strong><br/><br/><strong>hrattr_data$Attrition_ind = 0; hrattr_data$Attrition_ind[hrattr_data$Attrition=="Yes"]=1 </strong><br/><strong>hrattr_data$Attrition_ind = as.factor(hrattr_data$Attrition_ind) </strong><br/><br/><strong>remove_cols = c ("EmployeeCount","EmployeeNumber","Over18",  "StandardHours","Attrition")</strong><br/><strong>hrattr_data_new = hrattr_data[,!(names(hrattr_data) %in% remove_cols)]</strong><br/><br/><strong>set.seed(123)</strong><br/><strong>numrow = nrow(hrattr_data_new)</strong><br/><strong>trnind = sample(1:numrow,size = as.integer(0.7*numrow))</strong><br/><strong>train_data = hrattr_data_new[trnind,]</strong><br/><strong>test_data = hrattr_data_new[-trnind,]</strong><br/><br/><strong># Ensemble of Ensembles with different type of Classifiers train_data$Attrition_ind = as.factor(train_data$Attrition_ind)</strong><br/><br/><strong># Classifier 1 - Logistic Regression</strong><br/><strong>glm_fit = glm(Attrition_ind ~.,family = "binomial",data = train_data) glm_probs = predict(glm_fit,newdata = train_data,type = "response")</strong><br/><br/><strong># Classifier 2 - Decision Tree classifier</strong><br/><strong>library(C50) </strong><br/><strong>dtree_fit = C5.0(train_data[-31],train_data$Attrition_ind,</strong><br/><strong>            control = C5.0Control(minCases = 1))</strong><br/><strong>dtree_probs = predict(dtree_fit,newdata = train_data,type = "prob")[,2]</strong><br/><br/><strong># Classifier 3 - Random Forest</strong><br/><strong>library(randomForest)</strong><br/><strong>rf_fit = randomForest(Attrition_ind~., data = train_data,mtry=6,maxnodes= 64,ntree=5000,nodesize = 1)</strong><br/><strong>rf_probs = predict(rf_fit,newdata = train_data,type = "prob")[,2]</strong><br/><br/><strong># Classifier 4 - Adaboost</strong><br/><strong>ada_fit = C5.0(train_data[-31],train_data$Attrition_ind,trails = 5000,control = C5.0Control(minCases = 1))</strong><br/><strong>ada_probs = predict(ada_fit,newdata = train_data,type = "prob")[,2]</strong><br/><br/><strong># Ensemble of Models</strong><br/><strong>ensemble = data.frame(glm_probs,dtree_probs,rf_probs,ada_probs)</strong><br/><strong>ensemble = cbind(ensemble,train_data$Attrition_ind)</strong><br/><strong>names(ensemble)[5] = "Attrition_ind"</strong><br/><strong>rownames(ensemble) &lt;- 1:nrow(ensemble)</strong><br/><br/><strong># Meta-classifier on top of individual classifiers</strong><br/><strong>meta_clf = glm(Attrition_ind~.,data = ensemble,family = "binomial")</strong><br/><strong>meta_probs = predict(meta_clf, ensemble,type = "response")</strong><br/><br/><strong>ensemble$pred_class = 0</strong><br/><strong>ensemble$pred_class[meta_probs&gt;0.5]=1</strong><br/><br/><strong># Train confusion and accuracy metrics</strong><br/><strong>tr_y_pred = ensemble$pred_class</strong><br/><strong>tr_y_act = train_data$Attrition_ind;ts_y_act = test_data$Attrition_ind</strong><br/><strong>tr_tble = table(tr_y_act,tr_y_pred)</strong><br/><strong>print(paste("Ensemble - Train Confusion Matrix"))</strong><br/><strong>print(tr_tble)</strong><br/><br/><strong>tr_acc = accrcy(tr_y_act,tr_y_pred)</strong><br/><strong>print(paste("Ensemble Train accuracy:",tr_acc))</strong><br/><br/><strong># Now verifing on test data</strong><br/><strong>glm_probs = predict(glm_fit,newdata = test_data,type = "response")</strong><br/><strong>dtree_probs = predict(dtree_fit,newdata = test_data,type = "prob")[,2]</strong><br/><strong>rf_probs = predict(rf_fit,newdata = test_data,type = "prob")[,2]</strong><br/><strong>ada_probs = predict(ada_fit,newdata = test_data,type = "prob")[,2]</strong><br/><br/><strong>ensemble_test = data.frame(glm_probs,dtree_probs,rf_probs,ada_probs)</strong><br/><strong>ensemble_test = cbind(ensemble_test,test_data$Attrition_ind)</strong><br/><strong>names(ensemble_test)[5] = "Attrition_ind"</strong><br/><br/><strong>rownames(ensemble_test) &lt;- 1:nrow(ensemble_test)</strong><br/><strong>meta_test_probs = predict(meta_clf,newdata = ensemble_test,type = "response")</strong><br/><strong>ensemble_test$pred_class = 0</strong><br/><strong>ensemble_test$pred_class[meta_test_probs&gt;0.5]=1</strong><br/><br/><strong># Test confusion and accuracy metrics</strong><br/><strong>ts_y_pred = ensemble_test$pred_class</strong><br/><strong>ts_tble = table(ts_y_act,ts_y_pred)</strong><br/><strong>print(paste("Ensemble - Test Confusion Matrix"))</strong><br/><strong>print(ts_tble)</strong><br/><br/><strong>ts_acc = accrcy(ts_y_act,ts_y_pred)</strong><br/><strong>print(paste("Ensemble Test accuracy:",ts_acc))</strong></pre>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Ensemble of ensembles with bootstrap samples using a single type of classifier</h1>
+                </header>
+            
+            <article>
+                
+<p>In this methodology, bootstrap samples are drawn from training data and, each time, separate models will be fitted (individual models could be decision trees, random forest, and so on) on the drawn sample, and all these results are combined at the end to create an ensemble. This method suits dealing with highly flexible models where variance reduction will still improve performance:</p>
+<div class="packt_figure CDPAlignCenter CDPAlign"><img class=" image-border" src="assets/7349014a-3a2e-47b1-a9d7-5209f4ee1256.png" style="width:37.08em;height:36.42em;"/></div>
+<p>In the following example, AdaBoost is used as a base classifier and the results of individual AdaBoost models are combined using the bagging classifier to generate final outcomes. Nonetheless, each AdaBoost is made up of decision trees with a depth of 1 (decision stumps). Here, we would like to show that classifier inside classifier inside classifier is possible (sounds like the Inception movie though!):</p>
+<pre><strong># Ensemble of Ensembles - by applying bagging on simple classifier <br/>&gt;&gt;&gt; from sklearn.tree import DecisionTreeClassifier <br/>&gt;&gt;&gt; from sklearn.ensemble import BaggingClassifier <br/>&gt;&gt;&gt; from sklearn.ensemble import AdaBoostClassifier <br/>&gt;&gt;&gt; clwght = {0:0.3,1:0.7}</strong></pre>
+<p>The following is the base classifier (decision stump) used in the AdaBoost classifier:</p>
+<pre><strong>&gt;&gt;&gt; eoe_dtree = DecisionTreeClassifier(criterion='gini',max_depth=1,class_weight = clwght)</strong></pre>
+<p>Each AdaBoost classifier consists of 500 decision trees with a learning rate of 0.05:</p>
+<pre><strong>&gt;&gt;&gt; eoe_adabst_fit = AdaBoostClassifier(base_estimator= eoe_dtree, n_estimators=500,learning_rate=0.05,random_state=42) <br/>&gt;&gt;&gt; eoe_adabst_fit.fit(x_train, y_train) <br/><br/>&gt;&gt;&gt; print ("\nAdaBoost - Train Confusion Matrix\n\n",pd.crosstab(y_train, eoe_adabst_fit.predict(x_train),rownames = ["Actuall"],colnames = ["Predicted"])) <br/>&gt;&gt;&gt; print ("\nAdaBoost - Train accuracy",round(accuracy_score(y_train, eoe_adabst_fit.predict(x_train)),3)) <br/>&gt;&gt;&gt; print ("\nAdaBoost - Train Classification Report\n",classification_report(y_train, eoe_adabst_fit.predict(x_train))) <br/><br/>&gt;&gt;&gt; print ("\n\nAdaBoost - Test Confusion Matrix\n\n",pd.crosstab(y_test, eoe_adabst_fit.predict(x_test),rownames = ["Actuall"],colnames = ["Predicted"])) <br/>&gt;&gt;&gt; print ("\nAdaBoost - Test accuracy",round(accuracy_score(y_test, eoe_adabst_fit.predict(x_test)),3)) <br/>&gt;&gt;&gt; print ("\nAdaBoost - Test Classification Report\n",classification_report(y_test, eoe_adabst_fit.predict(x_test)))</strong></pre>
+<p>The bagging classifier consists of 50 AdaBoost classifiers to ensemble the ensembles:</p>
+<pre><strong>&gt;&gt;&gt; bag_fit = BaggingClassifier(base_estimator= eoe_adabst_fit,n_estimators=50,</strong><br/><strong>max_samples=1.0,max_features=1.0, bootstrap=True,</strong><br/><strong>bootstrap_features=False,n_jobs=-1,random_state=42) <br/>&gt;&gt;&gt; bag_fit.fit(x_train, y_train) <br/>&gt;&gt;&gt; print ("\nEnsemble of AdaBoost - Train Confusion Matrix\n\n",pd.crosstab( y_train,bag_fit.predict(x_train),rownames = ["Actuall"],colnames = ["Predicted"])) <br/>&gt;&gt;&gt; print ("\nEnsemble of AdaBoost - Train accuracy",round(accuracy_score(y_train, bag_fit.predict(x_train)),3))<br/>&gt;&gt;&gt; print ("\nEnsemble of AdaBoost - Train Classification Report\n", classification_report( y_train,bag_fit.predict(x_train))) <br/><br/>&gt;&gt;&gt; print ("\n\nEnsemble of AdaBoost - Test Confusion Matrix\n\n",pd.crosstab(y_test, bag_fit.predict(x_test),rownames = ["Actuall"],colnames = ["Predicted"])) <br/>&gt;&gt;&gt; print ("\nEnsemble of AdaBoost - Test accuracy",round(accuracy_score(y_test,bag_fit.predict(x_test)),3)) <br/>&gt;&gt;&gt; print ("\nEnsemble of AdaBoost - Test Classification Report\n", classification_report(y_test,bag_fit.predict(x_test)))</strong></pre>
+<div class="packt_figure CDPAlignCenter CDPAlign"><img class=" image-border" src="assets/cc16a73e-c924-4552-b7f6-5ffa61b480bd.png" style="width:31.67em;height:36.58em;"/></div>
+<p>The results of the ensemble on AdaBoost have shown some improvements, in which the test accuracy obtained is 87.1%, which is almost to that of gradient boosting at 87.5%, which is the best value we have seen so far. However, the number of 1's identified is 25 here, which is greater than Gradient Boosting. Hence, it has been proven that an ensemble of ensembles does work! Unfortunately, these types of functions are not available in R software, hence we are not writing the equivalent R-code here.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Summary</h1>
+                </header>
+            
+            <article>
+                
+<p>In this chapter, you have learned the complete details about tree-based models, which are currently the most used in the industry, including individual decision trees with grid search and an ensemble of trees such as bagging, random forest, boosting (including AdaBoost, gradient boost and XGBoost), and finally, ensemble of ensembles, also known as model stacking, for further improving accuracy by reducing variance errors by aggregating results further. In model stacking, you have learned how to determine the weights for each model, so that decisions can be made as to which model to keep in the final results to obtain the best possible accuracy.</p>
+<p>In the next chapter, you will be learning k-nearest neighbors and Naive Bayes, which are less computationally intensive than tree-based models. The Naive Bayes model will be explained with an NLP use case. In fact, Naive Bayes and SVM are often used where variables (number of dimensions) are very high in number to classify.</p>
+
+
+            </article>
+
+            
+        </section>
+    </body></html>
