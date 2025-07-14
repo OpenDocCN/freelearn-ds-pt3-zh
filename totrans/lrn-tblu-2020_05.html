@@ -1,0 +1,548 @@
+<html><head></head><body>
+  <div id="_idContainer230">
+    <h1 class="chapterNumber">5</h1>
+    <h1 id="_idParaDest-104" class="chapterTitle">Leveraging Level of Detail Calculations</h1>
+    <p class="normal">Having considered row-level and aggregate calculations, it's time to turn our attention to the third of the four main types of calculations: <strong class="bold">level of detail calculations</strong>.</p>
+    <p class="normal"><strong class="bold">Level of detail calculations</strong> (sometimes referred to as <strong class="bold">LOD calcs</strong> or <strong class="bold">LOD expressions</strong>) allow you to perform aggregations at a specified level of detail, which may be different from the level of detail that is defined in the view. You can leverage this capability to perform a wide variety of analyses that would otherwise be quite difficult.</p>
+    <p class="normal">In this chapter, we'll cover the following:</p>
+    <ul>
+      <li class="list">Overview of level of detail</li>
+      <li class="list">Level of detail calculation syntax and variations</li>
+      <li class="list">Examples of <code class="Code-In-Text--PACKT-">FIXED</code> level of detail calculations</li>
+      <li class="list">Examples of <code class="Code-In-Text--PACKT-">INCLUDE</code> level of detail calculations</li>
+      <li class="list">Examples of <code class="Code-In-Text--PACKT-">EXCLUDE</code> level of detail calculations</li>
+    </ul>
+    <h1 id="_idParaDest-105" class="title">Overview of level of detail</h1>
+    <p class="normal">What does the <a id="_idIndexMarker461"/><a id="_idIndexMarker462"/>term <strong class="bold">level of detail</strong> mean? A lot depends on the context in which the term is used. Within Tableau, we'll distinguish several levels of detail, each of which is vitally important to understand in order to properly analyze data:</p>
+    <ul>
+      <li class="list"><strong class="bold">Data level of detail</strong>: Sometimes referred to as the <strong class="bold">grain</strong> of the data, this is the level of detail defined by a single record of the data set. When you can articulate what one record of the data represents (for example, "Every record represents a single order" or "There is one record for every customer"), then you have a good understanding of the data level of detail. <em class="italics">Row-level calculations operate at this level</em>.</li>
+      <li class="list"><strong class="bold">View level of detail</strong>: We've previously discussed that the combination of fields used as dimensions in the view defines the view level of detail. Normally in a view, Tableau draws a single mark for each distinct combination of values present in the data for all the dimensions in the view. For example, if <strong class="screen-text">Customer</strong> and <strong class="screen-text">Year</strong> are the two dimensions in your view, Tableau will draw a mark (such as a bar or circle) for each <strong class="screen-text">Customer</strong>/<strong class="screen-text">Year</strong> combination present in the data (that is not excluded by a filter). <em class="italics">Aggregate calculations operate at this level</em>.</li>
+      <li class="list"><strong class="bold">Calculated level of detail</strong>: This is a separate level of detail defined by a calculation. As we'll see, you <a id="_idIndexMarker463"/><a id="_idIndexMarker464"/>may use any number of dimensions to define the level of detail. <em class="italics">Level of detail calculations are used to define this level</em>.</li>
+    </ul>
+    <p class="normal">Consider the following data set, with a <strong class="bold">data level of detail </strong>of one record per customer:</p>
+    <table id="table001-1" class="No-Table-Style">
+      <colgroup>
+        <col/>
+        <col/>
+        <col/>
+        <col/>
+        <col/>
+      </colgroup>
+      <tbody>
+        <tr class="No-Table-Style">
+          <td class="No-Table-Style">
+            <strong class="heading">Customer</strong>
+          </td>
+          <td class="No-Table-Style">
+            <strong class="heading">State</strong>
+          </td>
+          <td class="No-Table-Style">
+            <strong class="heading">Membership Date</strong>
+          </td>
+          <td class="No-Table-Style">
+            <strong class="heading">Membership Level</strong>
+          </td>
+          <td class="No-Table-Style">
+            <strong class="heading">Orders</strong>
+          </td>
+        </tr>
+        <tr class="No-Table-Style">
+          <td class="No-Table-Style">
+            <p class="content">Neil</p>
+          </td>
+          <td class="No-Table-Style">
+            <p class="content">Kansas</p>
+          </td>
+          <td class="No-Table-Style">
+            <p class="content">2009-05-05</p>
+          </td>
+          <td class="No-Table-Style">
+            <p class="content">Silver</p>
+          </td>
+          <td class="No-Table-Style">
+            <p class="content">1</p>
+          </td>
+        </tr>
+        <tr class="No-Table-Style">
+          <td class="No-Table-Style">
+            <p class="content">Jeane</p>
+          </td>
+          <td class="No-Table-Style">
+            <p class="content">Kansas</p>
+          </td>
+          <td class="No-Table-Style">
+            <p class="content">2012-03-17</p>
+          </td>
+          <td class="No-Table-Style">
+            <p class="content">Gold</p>
+          </td>
+          <td class="No-Table-Style">
+            <p class="content">5</p>
+          </td>
+        </tr>
+        <tr class="No-Table-Style">
+          <td class="No-Table-Style">
+            <p class="content">George</p>
+          </td>
+          <td class="No-Table-Style">
+            <p class="content">Oklahoma</p>
+          </td>
+          <td class="No-Table-Style">
+            <p class="content">2016-02-01</p>
+          </td>
+          <td class="No-Table-Style">
+            <p class="content">Gold</p>
+          </td>
+          <td class="No-Table-Style">
+            <p class="content">10</p>
+          </td>
+        </tr>
+        <tr class="No-Table-Style">
+          <td class="No-Table-Style">
+            <p class="content">Wilma</p>
+          </td>
+          <td class="No-Table-Style">
+            <p class="content">Texas</p>
+          </td>
+          <td class="No-Table-Style">
+            <p class="content">2018-09-17</p>
+          </td>
+          <td class="No-Table-Style">
+            <p class="content">Silver</p>
+          </td>
+          <td class="No-Table-Style">
+            <p class="content">4</p>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+    <p class="normal">In this case, each record defines a single unique customer. If we were to perform a row-level calculation, such as <code class="Code-In-Text--PACKT-">DATEDIFF('year'</code>,<code class="Code-In-Text--PACKT-"> [Membership Date]</code>,<code class="Code-In-Text--PACKT-"> TODAY())</code> to determine the number of years each customer has been a member, then the result would be calculated per record.</p>
+    <p class="normal">Now consider a view created from the data with a <strong class="bold">view level of detail</strong> of state:</p>
+    <figure class="mediaobject"><img src="../Images/B16021_05_01.png" alt=""/></figure>
+    <p class="packt_figref">Figure 5.1: The view level of detail of state</p>
+    <p class="normal">As the only dimension in the view, <strong class="screen-text">State</strong> defines the view level of detail. There is one mark per state, and calculations and fields used as aggregates, such as <strong class="screen-text">SUM(Orders)</strong>, will be performed per state.</p>
+    <p class="normal">Based on that <a id="_idIndexMarker465"/><a id="_idIndexMarker466"/>particular view, we might want to enhance our understanding by asking additional questions, such as the following:</p>
+    <ul>
+      <li class="list">Which customer was the first member of each state in the view?</li>
+      <li class="list">How does the number of orders per state compare to the average number of orders for all states?</li>
+      <li class="list">Which membership level had the highest or lowest number of orders per state?</li>
+    </ul>
+    <p class="normal">In each case, the question involves a level of detail that is different from the view (the minimum membership date per state compared to each individual customer, the average orders overall compared to orders per state, and the minimum or maximum number of orders per membership level per state). In some cases, it might make sense to build a new view to answer these questions. But sometimes we want to supplement an existing view or compare different levels of detail in the same view. Level of detail calculations <a id="_idIndexMarker467"/><a id="_idIndexMarker468"/>provide a solution!</p>
+    <h1 id="_idParaDest-106" class="title">Level of detail calculations</h1>
+    <p class="normal">Before getting into <a id="_idIndexMarker469"/><a id="_idIndexMarker470"/>practical examples of using level of detail calculations, let's take a moment to understand the syntax and types of level of detail calculations.</p>
+    <h2 id="_idParaDest-107" class="title">Level of detail syntax</h2>
+    <p class="normal">Level of detail <a id="_idIndexMarker471"/><a id="_idIndexMarker472"/>calculations follow this basic pattern of syntax:</p>
+    <pre class="programlisting code"><code class="hljs-code">{FIXED|INCLUDE|EXCLUDE [Dim <span class="hljs-number">1</span>],[Dim <span class="hljs-number">2</span>] : AGG([Field])}
+</code></pre>
+    <p class="normal">The definitions of the preceding declaration are as follows:</p>
+    <ul>
+      <li class="list"><code class="Code-In-Text--PACKT-">FIXED</code>, <code class="Code-In-Text--PACKT-">INCLUDE</code>, and <code class="Code-In-Text--PACKT-">EXCLUDE</code> are keywords that indicate the type of level of detail calculation. We'll consider the differences in detail in the following section.</li>
+      <li class="list"><code class="Code-In-Text--PACKT-">Dim 1</code>, <code class="Code-In-Text--PACKT-">Dim 2</code> (and as many dimensions that are needed) is a comma-separated list of dimension fields that defines the level of detail at which the calculation will be performed.</li>
+      <li class="list"><code class="Code-In-Text--PACKT-">AGG</code> is the aggregate function you wish to perform (such as <code class="Code-In-Text--PACKT-">SUM</code>, <code class="Code-In-Text--PACKT-">AVG</code>, <code class="Code-In-Text--PACKT-">MIN</code>, and <code class="Code-In-Text--PACKT-">MAX</code>).</li>
+      <li class="list"><code class="Code-In-Text--PACKT-">Field</code> is the value that will be aggregated as specified by the aggregation you choose.</li>
+    </ul>
+    <h2 id="_idParaDest-108" class="title">Level of detail types</h2>
+    <p class="normal">Three types of level<a id="_idIndexMarker473"/><a id="_idIndexMarker474"/> of detail calculations are used in Tableau: <strong class="bold">FIXED</strong>, <strong class="bold">INCLUDE</strong>, and <strong class="bold">EXCLUDE</strong>.</p>
+    <h3 id="_idParaDest-109" class="title">FIXED</h3>
+    <p class="normal"><strong class="bold">Fixed</strong> level of detail <a id="_idIndexMarker475"/><a id="_idIndexMarker476"/>expressions<a id="_idIndexMarker477"/><a id="_idIndexMarker478"/> work at the level of detail that's specified by the list of dimensions in the code, regardless of what dimensions are in the view. For example, the following code returns the average orders per state, regardless of what other dimensions are in the view:</p>
+    <pre class="programlisting code"><code class="hljs-code">{FIXED [State] : AVG([Orders])} 
+</code></pre>
+    <p class="normal">You may include as many dimensions as needed or none at all. The following code represents a fixed calculation of the average orders for the entire set of data from the data source:</p>
+    <pre class="programlisting code"><code class="hljs-code">{<span class="hljs-attribute">FIXED </span>: <span class="hljs-built_in">AVG</span>([Orders])} 
+</code></pre>
+    <p class="normal">Alternately, you<a id="_idIndexMarker479"/><a id="_idIndexMarker480"/> might write the calculation in<a id="_idIndexMarker481"/><a id="_idIndexMarker482"/> the following way with identical results:</p>
+    <pre class="programlisting code"><code class="hljs-code">{AVG([Orders])}
+</code></pre>
+    <div class="note">
+      <p class="Information-Box--PACKT-">A fixed level of detail expression with no dimensions specified is sometimes referred to as a <em class="italics">table-scoped fixed level of detail expression</em>, because the aggregation defined in the calculation will be for the entire table.</p>
+    </div>
+    <h3 id="_idParaDest-110" class="title">INCLUDE</h3>
+    <p class="normal"><strong class="bold">Include</strong> level of <a id="_idIndexMarker483"/><a id="_idIndexMarker484"/>detail<a id="_idIndexMarker485"/><a id="_idIndexMarker486"/> expressions aggregate at the level of detail that's determined by the dimensions in the view, <em class="italics">along with</em> the dimensions listed in the code. For example, the following code calculates the average orders at the level of detail that's defined by dimensions in the view, but includes the dimension <code class="Code-In-Text--PACKT-">Membership Level</code>, even if <code class="Code-In-Text--PACKT-">Membership Level</code> is not in the view:</p>
+    <pre class="programlisting code"><code class="hljs-code">{INCLUDE [Membership Level] : AVG([Orders])} 
+</code></pre>
+    <h3 id="_idParaDest-111" class="title">EXCLUDE</h3>
+    <p class="normal"><strong class="bold">Exclude</strong> level of detail<a id="_idIndexMarker487"/><a id="_idIndexMarker488"/> expressions <a id="_idIndexMarker489"/><a id="_idIndexMarker490"/>aggregate at the level of detail determined by the dimensions in the view, <em class="italics">excluding</em> any listed in the code. For example, the following code calculates the average number of orders at the level of detail defined in the view, but does not include the <code class="Code-In-Text--PACKT-">Customer</code> dimension as part of the level of detail, even if <code class="Code-In-Text--PACKT-">Customer</code> is in the view:</p>
+    <pre class="programlisting code"><code class="hljs-code">{EXCLUDE [Customer] : AVG([Orders])}
+</code></pre>
+    <h2 id="_idParaDest-112" class="title">An illustration of the difference level of detail can make</h2>
+    <p class="normal">As you analyze<a id="_idIndexMarker491"/><a id="_idIndexMarker492"/> data, one thing you might often wonder is how slices of data relate to the overall picture. For example, you might wonder how the number of orders for each state in the view above relates to the overall average number of orders. One quick and easy option is to add an <strong class="screen-text">Average Line</strong> to the view from the <strong class="screen-text">Analytics</strong> tab, by dragging and dropping like this:</p>
+    <figure class="mediaobject"><img src="../Images/B16021_05_02.png" alt=""/></figure>
+    <p class="packt_figref">Figure 5.2: Adding an average line to the view</p>
+    <p class="normal">You'll end up with an average line that looks like this:</p>
+    <figure class="mediaobject"><img src="../Images/B16021_05_03.png" alt=""/></figure>
+    <p class="packt_figref">Figure 5.3: The overall average is reported as 6.66667. This is the average per state</p>
+    <p class="normal">But is <code class="Code-In-Text--PACKT-">6.66667</code> truly the average number of orders overall? It turns out that it's not. It's actually the average of the sum of the number of orders for each state: <code class="Code-In-Text--PACKT-">(6 + 10 + 4) / 3</code>. Many times, that average line (that is, the average of the total number of orders per state) is exactly what we want to compare when using aggregate numbers.</p>
+    <p class="normal">But sometimes, we might want to calculate the true overall average. To get the average number of orders present in the entire data set, we might consider creating a calculation named <code class="Code-In-Text--PACKT-">Overall Average Number of Orders</code> and using a fixed level of detail calculation<a id="_idIndexMarker493"/><a id="_idIndexMarker494"/> like this:</p>
+    <pre class="programlisting code"><code class="hljs-code">{<span class="hljs-attribute">FIXED </span>: <span class="hljs-built_in">AVG</span>([Orders])} 
+</code></pre>
+    <p class="normal">Adding that calculated field to the <strong class="screen-text">Detail</strong> part of the <strong class="screen-text">Marks</strong> card and editing the reference line to use that field instead gives us a different result:</p>
+    <figure class="mediaobject"><img src="../Images/B16021_05_04.png" alt=""/></figure>
+    <p class="packt_figref">Figure 5.4: The true overall average number of orders per customer is 5</p>
+    <p class="normal">You'll recall that <a id="_idIndexMarker495"/><a id="_idIndexMarker496"/>the original data set had four records, and a quick check validates the result:</p>
+    <pre class="programlisting code"><code class="hljs-code">(<span class="hljs-number">1</span> + <span class="hljs-number">5</span> + <span class="hljs-number">10</span> + <span class="hljs-number">4</span>) / <span class="hljs-number">4</span> = <span class="hljs-number">5</span>
+</code></pre>
+    <p class="normal">Now we have examined how level of detail calculations make a real difference; let's look at some practical examples.</p>
+    <h1 id="_idParaDest-113" class="title">Examples of fixed level of detail calculations</h1>
+    <p class="normal">As we turn our attention<a id="_idIndexMarker497"/><a id="_idIndexMarker498"/> to some practical examples of level of detail calculations, we'll use the<code class="Code-In-Text--PACKT-"> Chapter 05 Loans</code> data set contained in the <code class="Code-In-Text--PACKT-">Chapter 05</code> workbook. The true data set contains many more records, but here is an example of the kinds of data it contains:</p>
+    <table id="table002-1" class="No-Table-Style">
+      <colgroup>
+        <col/>
+        <col/>
+        <col/>
+        <col/>
+        <col/>
+        <col/>
+        <col/>
+        <col/>
+        <col/>
+      </colgroup>
+      <tbody>
+        <tr class="No-Table-Style">
+          <td class="No-Table-Style">
+            <strong class="heading">Date</strong>
+          </td>
+          <td class="No-Table-Style">
+            <strong class="heading">Portfolio</strong>
+          </td>
+          <td class="No-Table-Style">
+            <strong class="heading">Loan Type</strong>
+          </td>
+          <td class="No-Table-Style">
+            <strong class="heading">Balance</strong>
+          </td>
+          <td class="No-Table-Style">
+            <strong class="heading">Open Date</strong>
+          </td>
+          <td class="No-Table-Style">
+            <strong class="heading">Member Name</strong>
+          </td>
+          <td class="No-Table-Style">
+            <strong class="heading">Credit Score</strong>
+          </td>
+          <td class="No-Table-Style">
+            <strong class="heading">Age</strong>
+          </td>
+          <td class="No-Table-Style">
+            <strong class="heading">State</strong>
+          </td>
+        </tr>
+        <tr class="No-Table-Style">
+          <td class="No-Table-Style">
+            <p class="content">3/1/2020</p>
+          </td>
+          <td class="No-Table-Style">
+            <p class="content">Auto</p>
+          </td>
+          <td class="No-Table-Style">
+            <p class="content">New Auto</p>
+          </td>
+          <td class="No-Table-Style">
+            <p class="content">15987</p>
+          </td>
+          <td class="No-Table-Style">
+            <p class="content">9/29/2018</p>
+          </td>
+          <td class="No-Table-Style">
+            <p class="content">Samuel </p>
+          </td>
+          <td class="No-Table-Style">
+            <p class="content">678</p>
+          </td>
+          <td class="No-Table-Style">
+            <p class="content">37</p>
+          </td>
+          <td class="No-Table-Style">
+            <p class="content">California</p>
+          </td>
+        </tr>
+        <tr class="No-Table-Style">
+          <td class="No-Table-Style">
+            <p class="content">7/1/2020</p>
+          </td>
+          <td class="No-Table-Style">
+            <p class="content">Mortgage</p>
+          </td>
+          <td class="No-Table-Style">
+            <p class="content">1st Mortgage</p>
+          </td>
+          <td class="No-Table-Style">
+            <p class="content">96364</p>
+          </td>
+          <td class="No-Table-Style">
+            <p class="content">8/7/2013</p>
+          </td>
+          <td class="No-Table-Style">
+            <p class="content">Lloyd </p>
+          </td>
+          <td class="No-Table-Style">
+            <p class="content">768</p>
+          </td>
+          <td class="No-Table-Style">
+            <p class="content">62</p>
+          </td>
+          <td class="No-Table-Style">
+            <p class="content">Ohio</p>
+          </td>
+        </tr>
+        <tr class="No-Table-Style">
+          <td class="No-Table-Style">
+            <p class="content">3/1/2020</p>
+          </td>
+          <td class="No-Table-Style">
+            <p class="content">Mortgage</p>
+          </td>
+          <td class="No-Table-Style">
+            <p class="content">HELOC</p>
+          </td>
+          <td class="No-Table-Style">
+            <p class="content">15123</p>
+          </td>
+          <td class="No-Table-Style">
+            <p class="content">4/2/2013</p>
+          </td>
+          <td class="No-Table-Style">
+            <p class="content">Inez</p>
+          </td>
+          <td class="No-Table-Style">
+            <p class="content">751</p>
+          </td>
+          <td class="No-Table-Style">
+            <p class="content">66</p>
+          </td>
+          <td class="No-Table-Style">
+            <p class="content">Illinois</p>
+          </td>
+        </tr>
+        <tr class="No-Table-Style">
+          <td class="No-Table-Style">
+            <p class="content">3/1/2020</p>
+          </td>
+          <td class="No-Table-Style">
+            <p class="content">Mortgage</p>
+          </td>
+          <td class="No-Table-Style">
+            <p class="content">1st Mortgage</p>
+          </td>
+          <td class="No-Table-Style">
+            <p class="content">418635</p>
+          </td>
+          <td class="No-Table-Style">
+            <p class="content">9/30/2015</p>
+          </td>
+          <td class="No-Table-Style">
+            <p class="content">Patrick </p>
+          </td>
+          <td class="No-Table-Style">
+            <p class="content">766</p>
+          </td>
+          <td class="No-Table-Style">
+            <p class="content">60</p>
+          </td>
+          <td class="No-Table-Style">
+            <p class="content">Ohio</p>
+          </td>
+        </tr>
+        <tr class="No-Table-Style">
+          <td class="No-Table-Style">
+            <p class="content">5/1/2020</p>
+          </td>
+          <td class="No-Table-Style">
+            <p class="content">Auto</p>
+          </td>
+          <td class="No-Table-Style">
+            <p class="content">Used Auto</p>
+          </td>
+          <td class="No-Table-Style">
+            <p class="content">1151</p>
+          </td>
+          <td class="No-Table-Style">
+            <p class="content">10/22/2018</p>
+          </td>
+          <td class="No-Table-Style">
+            <p class="content">Eric</p>
+          </td>
+          <td class="No-Table-Style">
+            <p class="content">660</p>
+          </td>
+          <td class="No-Table-Style">
+            <p class="content">44</p>
+          </td>
+          <td class="No-Table-Style">
+            <p class="content">Pennsylvania</p>
+          </td>
+        </tr>
+        <tr class="No-Table-Style">
+          <td class="No-Table-Style">
+            <p class="content">…</p>
+          </td>
+          <td class="No-Table-Style">
+            <p class="content">…</p>
+          </td>
+          <td class="No-Table-Style">
+            <p class="content">…</p>
+          </td>
+          <td class="No-Table-Style">
+            <p class="content">…</p>
+          </td>
+          <td class="No-Table-Style">
+            <p class="content">…</p>
+          </td>
+          <td class="No-Table-Style">
+            <p class="content">…</p>
+          </td>
+          <td class="No-Table-Style">
+            <p class="content">…</p>
+          </td>
+          <td class="No-Table-Style">
+            <p class="content">…</p>
+          </td>
+          <td class="No-Table-Style">
+            <p class="content">…</p>
+          </td>
+        </tr>
+        <tr class="No-Table-Style">
+          <td class="No-Table-Style">
+            <p class="content">…</p>
+          </td>
+          <td class="No-Table-Style">
+            <p class="content">…</p>
+          </td>
+          <td class="No-Table-Style">
+            <p class="content">…</p>
+          </td>
+          <td class="No-Table-Style">
+            <p class="content">…</p>
+          </td>
+          <td class="No-Table-Style">
+            <p class="content">…</p>
+          </td>
+          <td class="No-Table-Style">
+            <p class="content">…</p>
+          </td>
+          <td class="No-Table-Style">
+            <p class="content">…</p>
+          </td>
+          <td class="No-Table-Style">
+            <p class="content">…</p>
+          </td>
+          <td class="No-Table-Style">
+            <p class="content">…</p>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+    <p class="normal">The data set represents historical data for loans for members at a bank, credit union, or similar financial institution. Each record is a monthly snapshot of a loan and contains the date of the snapshot along with fields that describe the loan (<strong class="bold">Portfolio</strong>, <strong class="bold">Loan Type</strong>, <strong class="bold">Balance</strong>, and <strong class="bold">Open Date</strong>) and fields for the member (<strong class="bold">Name</strong>, <strong class="bold">Credit Score</strong>, <strong class="bold">Age</strong>, and <strong class="bold">State</strong>).</p>
+    <p class="normal">As in previous chapters, the goal is to understand key concepts and some key patterns. The following are only a few examples of all the possibilities presented by level of detail calculations.</p>
+    <h2 id="_idParaDest-114" class="title">Was a member ever at risk?</h2>
+    <p class="normal">Let's say branch management has determined that any member who has ever had a credit score of less than 550 is considered to be at risk and eligible for special assistance. Consider the history <a id="_idIndexMarker499"/><a id="_idIndexMarker500"/>for the following three individuals:</p>
+    <figure class="mediaobject"><img src="../Images/B16021_05_05.png" alt=""/></figure>
+    <p class="packt_figref">Figure 5.5: Credit scores for three individuals with scores under the 550 threshold indicated via arrows</p>
+    <p class="normal">Every month, a new snapshot of history is recorded. Loan balances often change along with the member's credit score. Some members have never been at risk. The first member, Vicki, has 699 as her lowest recorded score and has never been at risk. However, both Charles and Thomas had periods in the history where their credit scores fell below the threshold (indicated with arrows in the preceding screenshot).</p>
+    <p class="normal">A simple row-level calculation, such as <code class="Code-In-Text--PACKT-">[Credit Score] &lt; 550</code>, could identify each record where the monthly snapshot of credit score indicated a risk. But members whose scores fluctuated <em class="italics">below</em> and <em class="italics">above</em> the threshold would have records that were alternately <code class="Code-In-Text--PACKT-">TRUE</code> or <code class="Code-In-Text--PACKT-">FALSE</code>.</p>
+    <p class="normal">We want every record for a given member to be <code class="Code-In-Text--PACKT-">TRUE</code> if <em class="italics">any</em> of the records for that member are below <a id="_idIndexMarker501"/><a id="_idIndexMarker502"/>the threshold and <code class="Code-In-Text--PACKT-">FALSE</code> if <em class="italics">none</em> of the records are below the threshold.</p>
+    <p class="normal">One solution is to use a level of detail calculation, which we'll name <code class="Code-In-Text--PACKT-">Member Ever at Risk?</code>, with the code:</p>
+    <pre class="programlisting code"><code class="hljs-code">{<span class="hljs-built_in">FIXED</span> [Member ID] <span class="hljs-symbol">:</span> <span class="hljs-built_in">MIN</span>([Credit Score])} &lt; <span class="hljs-number">550</span>
+</code></pre>
+    <p class="normal">This calculation determines the lowest credit score for each member and compares it to the risk threshold of 550. The result is the same for each record for a given member, as you can see here:</p>
+    <figure class="mediaobject"><img src="../Images/B16021_05_06.png" alt=""/></figure>
+    <p class="packt_figref">Figure 5.6: The Member Ever at Risk? field is True or False for all records of a given member</p>
+    <p class="normal">Notice that every<a id="_idIndexMarker503"/><a id="_idIndexMarker504"/> record contains the result for the relevant member. This illustrates one key concept for fixed level of detail calculations: <em class="italics">while the calculation is an aggregation at a defined level of detail, the results are at the row level.</em> That is, the <code class="Code-In-Text--PACKT-">TRUE</code> or <code class="Code-In-Text--PACKT-">FALSE</code> value is calculated at the member level, but the results are available as row-level values for every record for that member.</p>
+    <p class="normal">This enables all kinds of analysis possibilities, such as:</p>
+    <ul>
+      <li class="list">Filtering to include only at-risk members but retaining all records for their history. If you instead filtered based on individual credit score, you'd lose all records for parts of the history where the credit score was above the threshold. Those records might be critical for your analysis.</li>
+      <li class="list">Correctly counting members as either at risk or not while avoiding counting them for both cases if the history fluctuated.</li>
+      <li class="list">Comparing members who were or were not at risk at other levels of detail. For example, this view shows the number of members who were at risk or not at risk by<a id="_idIndexMarker505"/><a id="_idIndexMarker506"/> portfolio:
+    <figure class="mediaobject"><img src="../Images/B16021_05_07.png" alt=""/></figure>
+    <p class="packt_figref">Figure 5.7: We can implement some brushing to show what proportion of members has ever been at risk</p></li>
+    </ul>
+    <div class="note">
+      <p class="Information-Box--PACKT-">Fixed level of detail calculations are context sensitive. That is, they operate within a context, which is either 1) the entire data set, or 2) defined by <strong class="bold">context filters </strong>(filters where the drop-down <strong class="screen-text">Add to Context</strong> option has been selected). In this example, that means the values calculated for each member will not change if you don't use context filters. Consider Thomas, who will always be considered at risk, even if you applied a normal filter that kept only dates after March 2020. That is because the fixed level of detail calculation would work across the entire data set and find at-risk values in January and February. If you were to add such a filter to context, the result could change. This behavior of fixed level of detail calculations can be leveraged to aid your analysis but can also cause unexpected behavior if not understood.</p>
+    </div>
+    <p class="normal">This is a single example of the kinds of analysis made simple with level of detail calculations. There's<a id="_idIndexMarker507"/><a id="_idIndexMarker508"/> so much more we can do and we'll see another example next!</p>
+    <h2 id="_idParaDest-115" class="title">Latest balance for a member</h2>
+    <p class="normal">Many data sets contain a series of events or a history of transactions. You may find yourself asking questions such as:</p>
+    <ul>
+      <li class="list">What diagnoses <a id="_idIndexMarker509"/><a id="_idIndexMarker510"/>are common for a patient's first visit to the hospital?</li>
+      <li class="list">What was the last reported status of each computer on the network?</li>
+      <li class="list">How much did each customer spend on their last order?</li>
+      <li class="list">How much did the first trade of the week make compared to the last?</li>
+    </ul>
+    <p class="normal">None of these questions is simply asking when the earliest or latest event happened. A simple <code class="Code-In-Text--PACKT-">MIN</code> or <code class="Code-In-Text--PACKT-">MAX</code> aggregation of the date would provide that answer. But with these questions, there is the added complexity of asking for additional detail about what happened on the earliest or latest dates. For these kinds of questions, level of detail calculations provide a way to arrive at answers.</p>
+    <p class="normal">Consider the following three members' data contained in the <code class="Code-In-Text--PACKT-">Chapter 05 Loans</code> data set:</p>
+    <figure class="mediaobject"><img src="../Images/B16021_05_08.png" alt=""/></figure>
+    <p class="packt_figref">Figure 5.8: The data for three selected members in the Loans data set</p>
+    <p class="normal">Each has a history <a id="_idIndexMarker511"/><a id="_idIndexMarker512"/>of balances for each of their loans. However, the most recent date of history differs for each loan. Kelly's most recent balance is given for July. Joseph's latest balance is for August. Gerald has two loans: the first has the most recent balance for July and the second has the most recent balance for September.</p>
+    <p class="normal">What if you want to identify only the records that represent the latest known balance for a member? You might consider using a fixed level of detail calculation called <code class="Code-In-Text--PACKT-">Latest Date per Member/Loan</code> with code such as this:</p>
+    <pre class="programlisting code"><code class="hljs-code">{<span class="hljs-built_in">FIXED</span> [Member ID],[Loan Number] <span class="hljs-symbol">:</span> <span class="hljs-built_in">MAX</span>([<span class="hljs-built_in">Date</span>])} = [<span class="hljs-built_in">Date</span>]
+</code></pre>
+    <p class="normal">This determines the maximum date per member per loan and compares the result to each row-level date, returning <code class="Code-In-Text--PACKT-">TRUE</code> for matches and <code class="Code-In-Text--PACKT-">FALSE</code> otherwise.</p>
+    <div class="packt_tip">
+      <p>Two dimensions have been used to define the level of detail in the previous calculation<a id="_idIndexMarker513"/><a id="_idIndexMarker514"/> because a single member can have more than one loan. If you had a truly unique identifier for each loan, you could alternatively use that as the single dimension defining the level of detail. You will need to have a good understanding of your data to accurately leverage level of detail calculations.</p>
+    </div>
+    <p class="normal">You can see the results of the calculation here:</p>
+    <figure class="mediaobject"><img src="../Images/B16021_05_09.png" alt=""/> </figure>
+    <p class="packt_figref">Figure 5.9: The latest date per loan per person is indicated by a True value for the calculation</p>
+    <p class="normal">If you had wanted to determine the first record for each loan, you would have simply changed <code class="Code-In-Text--PACKT-">MAX</code> to <code class="Code-In-Text--PACKT-">MIN</code> in the code. You can use the level of detail calculation's row-level <code class="Code-In-Text--PACKT-">TRUE</code> / <code class="Code-In-Text--PACKT-">FALSE</code> result as a filter to keep only the latest records, or even as part of other calculations to accomplish an analysis, such as comparing, starting, and ending balances.</p>
+    <div class="packt_tip">
+      <p>The technique demonstrated by this calculation has many applications. In cases where data <em class="italics">trickles in</em>, you can identify the most recent records. In cases where you have duplication of records, you can filter to keep only the first or last. You can identify a customer's first or last purchase. You can compare historic balances to the original balance and much, much more!</p>
+    </div>
+    <p class="normal">We've just seen how <a id="_idIndexMarker515"/><a id="_idIndexMarker516"/>fixed level of detail calculations can be leveraged to answer some complex questions. Let's continue by examining include level of detail expressions.</p>
+    <h1 id="_idParaDest-116" class="title">Example of include level of detail expressions</h1>
+    <p class="normal">Include level of detail<a id="_idIndexMarker517"/><a id="_idIndexMarker518"/> calculations can be very useful when you need to perform certain calculations at levels of detail that are lower (more detailed) than the view level of detail. Let's take a look at an example.</p>
+    <h2 id="_idParaDest-117" class="title">Average loans per member</h2>
+    <p class="normal">Some members have a single loan. Some have two or three or possibly more. What if we wanted to see how<a id="_idIndexMarker519"/><a id="_idIndexMarker520"/> many loans the average member has on a state by state basis? Let's consider how we might go about that.</p>
+    <p class="normal">We'll start with a sheet where the view level of detail is <strong class="screen-text">State</strong>:</p>
+    <figure class="mediaobject"><img src="../Images/B16021_05_10.png" alt=""/></figure>
+    <p class="packt_figref">Figure 5.10: The starting place for the example—a filled map by state</p>
+    <p class="normal">It would be relatively easy to visualize the average credit score or average balance per state. But what if <a id="_idIndexMarker521"/><a id="_idIndexMarker522"/>we want to visualize the average number of loans per member for each state? While there are several possible approaches to solving this kind of problem, here we'll consider using the following level of detail expression named <code class="Code-In-Text--PACKT-">Number of Loans per Member</code>:</p>
+    <pre class="programlisting code"><code class="hljs-code">{INCLUDE [Member ID] : COUNTD([Loan Number])}
+</code></pre>
+    <p class="normal">This code returns a distinct count of loan numbers at a level of detail that includes the member ID along with all dimensions that defined the view level of detail (state, in this case). When we add the calculation to the view, we'll need to decide how to aggregate it. In this case, we want the average number of loans per member, so we'll select <strong class="screen-text">Measure</strong> | <strong class="screen-text">Average</strong> from the dropdown on the field, revealing an interesting geographic pattern:</p>
+    <figure class="mediaobject"><img src="../Images/Image59131.png" alt=""/></figure>
+    <p class="packt_figref">Figure 5.11: Using the Include level of detail calculation to create a gradient of color to show average loans per member</p>
+    <p class="normal">As you think<a id="_idIndexMarker523"/><a id="_idIndexMarker524"/> through how include level of detail calculations work, you might want to construct a crosstab at the level of detail:</p>
+    <figure class="mediaobject"><img src="../Images/Image59141.png" alt=""/></figure>
+    <p class="packt_figref">Figure 5.12: A crosstab helps illustrate how the distinct count of loans can be used as a basis for an average</p>
+    <p class="normal"><strong class="screen-text">State</strong>, the first dimension on <strong class="screen-text">Rows</strong>, comes from the view level of detail. <strong class="screen-text">Member ID</strong> has been included <a id="_idIndexMarker525"/><a id="_idIndexMarker526"/>in the crosstab to simulate the dimension included in the level of detail expression. <code class="Code-In-Text--PACKT-">COUNTD(Loan Number)</code> gives the number of loans per member. Averaging the values for all the members in the state gives the state average. A quick check for <strong class="screen-text">North Dakota</strong> gives us an average of 1.2 loans per member, which matches the map visualization exactly.</p>
+    <p class="normal">In this case, the include level of detail expression gives us a useful solution. There are some alternative ways to solve and it is helpful to consider some of these as you think through how you might solve similar issues. We'll consider those next.</p>
+    <h3 id="_idParaDest-118" class="title">Alternative approaches</h3>
+    <p class="normal">It's worth noting that <a id="_idIndexMarker527"/><a id="_idIndexMarker528"/>the above dataset actually allows you to use <code class="Code-In-Text--PACKT-">MAX([Loan Number])</code> instead of <code class="Code-In-Text--PACKT-">COUNTD([Loan Number])</code> as the number simply increments for each member based on how many loans they have. The highest number is identical to the number of loans for that member. In a significantly large data set, the <code class="Code-In-Text--PACKT-">MAX</code> calculation should perform better.</p>
+    <p class="normal">There are also a few other approaches to solving this problem, such as the calculation. For example, you could write the following code:</p>
+    <pre class="programlisting code"><code class="hljs-code">COUNTD(<span class="hljs-name">STR</span>([Member ID]) + <span class="hljs-string">"_"</span> + STR([Loan Number])) 
+/ 
+<span class="hljs-title">COUNTD</span><span class="hljs-params">([Member ID])</span>
+</code></pre>
+    <p class="normal">This code takes the distinct count of loans and divides it by the distinct count of members. In order to count the distinct number of loans, the code creates a unique key by concatenating a string of a member ID and a loan number.</p>
+    <div class="packt_tip">
+      <p>The aggregate calculation alternative has the advantage of working at any level of detail in your view. You may find either the level of detail or aggregate calculation to be easier to understand, and you will need to decide which best helps you to maintain a flow of thought as you tackle the problem at hand.</p>
+    </div>
+    <p class="normal">Another approach <a id="_idIndexMarker529"/><a id="_idIndexMarker530"/>would be to use a fixed level of detail expression, such as:</p>
+    <pre class="programlisting code"><code class="hljs-code">{FIXED [State],[Member ID] : COUNTD([Loan Number])}
+</code></pre>
+    <p class="normal">This calculation results in the same level of detail as the include expression and uses the same distinct count of loan number. It turns out that in this data set, each member belongs to only a single state, so state wouldn't necessarily have to be included in the fixed level of detail expression. However, if you wanted to change the level of detail you'd need to adjust the calculation, whereas, with the include expression, you'd only have to add or remove dimensions to the view.</p>
+    <p class="normal">With the include example along with some alternatives in mind, let's turn our attention to an example of exclude level of detail calculations.</p>
+    <h1 id="_idParaDest-119" class="title">Example of exclude level of detail calculations</h1>
+    <p class="normal">Exclude level of<a id="_idIndexMarker531"/><a id="_idIndexMarker532"/> detail calculations are useful when you want to perform certain calculations at higher (less detailed) levels than the view level of detail. The following example will demonstrate how we can leverage this functionality.</p>
+    <h2 id="_idParaDest-120" class="title">Average credit score per loan type</h2>
+    <p class="normal">In this example, we'll answer<a id="_idIndexMarker533"/><a id="_idIndexMarker534"/> the following question: how does the average credit score for a given loan type compare to the overall average for the entire portfolio?</p>
+    <p class="normal">Take the following view, which shows the average credit score per loan type (where loan types are grouped into portfolios):</p>
+    <figure class="mediaobject"><img src="../Images/B16021_05_13.png" alt=""/></figure>
+    <p class="packt_figref">Figure 5.13: This crosstab shows the average credit score per loan type</p>
+    <p class="normal">What if we wanted to compare the average credit score of each loan type with the overall average credit score for the entire portfolio? We could accomplish this with an exclude level of detail calculation that looks like this:</p>
+    <pre class="programlisting code"><code class="hljs-code">{EXCLUDE [Loan Type] : AVG([Credit Score])}
+</code></pre>
+    <p class="normal">This removes <strong class="screen-text">Loan Type</strong> from the level of detail and the average is calculated only per portfolio. This gives us results like the following:</p>
+    <figure class="mediaobject"><img src="../Images/B16021_05_14.png" alt=""/></figure>
+    <p class="packt_figref">Figure 5.14: The exclude level of detail expression removes Loan Type so the average is only at the portfolio level</p>
+    <p class="normal">You'll notice that the same value for the average excluding loan type is repeated for each loan type. This<a id="_idIndexMarker535"/><a id="_idIndexMarker536"/> is expected because the overall average is at the portfolio level and is not affected by the loan type. As is, this is perhaps not the most useful view. But we can extend the calculation a bit to give us the difference between the overall portfolio average and the average of each loan type. The code would look like this:</p>
+    <pre class="programlisting code"><code class="hljs-code">AVG([Credit Score]) - AVG([Average Credit Score Excluding Loan <span class="hljs-keyword">Type</span>])
+</code></pre>
+    <p class="normal">This takes the average at the view level of detail (loan type and portfolio) and subtracts the average at the portfolio level to give us the difference between each loan type average and the overall portfolio average. We might rearrange the view to see the results visually, like this:</p>
+    <figure class="mediaobject"><img src="../Images/B16021_05_15.png" alt=""/></figure>
+    <p class="packt_figref">Figure 5.15: The final view shows the difference between the loan type average credit score and the overall portfolio average</p>
+    <p class="normal">Exclude level of<a id="_idIndexMarker537"/><a id="_idIndexMarker538"/> detail expressions give us the ability to analyze differences between the view level of detail and higher levels of detail.</p>
+    <h1 id="_idParaDest-121" class="title">Summary</h1>
+    <p class="normal">Level of detail expressions greatly extend what you can accomplish with calculations. You now have a toolset for working with data at different levels of detail. With fixed level of detail calculations, you can identify the first or last event in a series or whether a condition is ever true across entire subsets of data. With include expressions, you can work at lower levels of detail and then summarize those results in a view. With exclude expressions, you can work at higher levels of detail, greatly expanding analysis possibilities.</p>
+    <p class="normal">In the next chapter, we'll explore the final main type of calculations: <strong class="bold">table calculations</strong>. These are some of the most powerful calculations in terms of their ability to solve problems, and they open up incredible possibilities for in-depth analysis. In practice, they range from very easy to exceptionally complex.</p>
+  </div>
+</body></html>

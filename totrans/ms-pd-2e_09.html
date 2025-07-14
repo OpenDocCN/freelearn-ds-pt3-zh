@@ -1,0 +1,1301 @@
+<html><head></head><body>
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Grouping, Merging, and Reshaping Data in pandas</h1>
+                </header>
+            
+            <article>
+                
+<p>In this chapter, we'll tackle the question of rearranging and reshaping data in our data structures. We'll examine the various functions that enable us to rearrange data by utilizing them on real-world datasets. Such functions include <kbd>groupby</kbd>, <kbd>concat</kbd>, <kbd>aggregate</kbd>, <kbd>append</kbd>, and so on.</p>
+<p>The topics that we'll discuss in this chapter are as follows:</p>
+<ul>
+<li>Aggregating/grouping data</li>
+<li>Merging and concatenating data</li>
+<li>Reshaping data</li>
+<li>Other methods for reshaping DataFrames</li>
+</ul>
+<p class="mce-root"/>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Grouping data</h1>
+                </header>
+            
+            <article>
+                
+<p>Grouping data is vital to arrive at key conclusions at an initial exploratory analysis phase. For example, when you deal with a retail dataset with variables such as <em>OrderID, CustomerID, Shipping Date, Product Category, Sales Region, Quantity Ordered, Cancelation Status, Total Sales, Profit, Discount,</em> and others,grouping the data and aggregating it helps you to arrive at answers to questions such as those that follow:</p>
+<ul>
+<li>Which region was the most profitable?</li>
+<li>Which product category had the most cancelations?</li>
+<li>What percent of customers contribute to 80% of the profit?</li>
+</ul>
+<p>Grouping involves aggregating across each category. Aggregation may involve operations such as count, sum, exponent, or implementing a complex user-defined function. The <kbd>groupby</kbd> function of pandas helps with grouping. This is not much different from the <kbd>groupby</kbd> query in SQL.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">The groupby operation</h1>
+                </header>
+            
+            <article>
+                
+<p>Through a <kbd>groupby</kbd> function, a chain of actions gets executed: splitting, applying, and combining. Splitting segments each category from the desired grouping variable to perform further operations with it. Then, functions can be individually applied across each of these split groups. These functions might involve aggregation (sum across a group or mean across a group), transformation (filling NAs within a group or sorting), filtration (applying conditions within a group to drop rows), or even a combination of these three operations. Finally, the results obtained after the functions are applied across each of the split groups are combined together.</p>
+<p>Let's use sample data from a fictitious global retailer. The data available as CSV is read as a pandas DataFrame:</p>
+<pre>sales_data = pd.read_csv("salesdata.csv", encoding = "ISO-8859-1")</pre>
+<p class="mce-root">The <kbd>head</kbd> function will give us a quick glimpse of the dataset we just imported:</p>
+<pre>sales_data.head()</pre>
+<p class="mce-root"/>
+<p class="mce-root"/>
+<p>The following will be the output:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/bcf0a6c6-1720-4dee-adfc-20c36448a3fa.png"/></p>
+<div class="CDPAlignCenter CDPAlign packt_figref"> Snapshot of sample sales data</div>
+<p>While a sample of five rows has been shown in the preceding output, the data contains 51,290 rows and 15 columns.</p>
+<p>Now, to understand how <kbd>groupby</kbd> splits the data, let's split it by the <kbd>Category</kbd> variable. The object created is not a DataFrame but rather an object type unique to the <kbd>groupby</kbd> function:</p>
+<pre style="padding-left: 90px">category_grouped = sales_data.groupby("Category")<br/>type(category_grouped)<br/>pandas.core.groupby. DataFrameGroupBy</pre>
+<p>The grouping object is referred to as the key. Here, <kbd>Category</kbd> is the key. The groups under the <kbd>groupby</kbd> object created in the previous step are shown here. You can see that each group in <kbd>Category</kbd> is mapped to the row-index labels covered by each category:</p>
+<pre>category_grouped.groups</pre>
+<p>The following will be the output:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1568 image-border" src="assets/edab4c50-68a7-4d0d-a1e6-a1e882fb9bc2.png" style="width:61.08em;height:26.67em;"/></p>
+<div class="CDPAlignCenter CDPAlign packt_figref">Information for each group</div>
+<p>The data has four quantitative variables: <kbd>Quantity</kbd>, <kbd>Sales</kbd>, <kbd>Discount</kbd>, and <kbd>Profit</kbd>. Using <kbd>groupby</kbd>, let's compute the sum of all these four variables across each <kbd>Category</kbd>. This is an application of aggregation with <kbd>groupby</kbd>:</p>
+<pre>sales_data.groupby("Category").sum()</pre>
+<p>The following will be the output:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1569 image-border" src="assets/1a2acde3-97d0-4c21-be06-b6f951325fee.png" style="width:29.25em;height:10.50em;"/></p>
+<div class="CDPAlignCenter CDPAlign packt_figref">Results of groupby and summing</div>
+<p>Modify the code slightly, as shown here, to compute only the sum of sales. This involves subsetting the data right before applying <kbd>groupby</kbd>:</p>
+<pre>sales_data[["Category", "Sales"]].groupby("Category").sum()</pre>
+<p>The following will be the output:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1570 image-border" src="assets/57784647-3ea2-4f59-8078-f78624504dbe.png" style="width:14.17em;height:8.33em;"/></p>
+<div class="CDPAlignCenter CDPAlign packt_figref"><span><span>g</span></span>roupby and sum across one variable</div>
+<p>Aggregation need not be applied across only a quantitative variable. Now, using <kbd>groupby</kbd>, let's find the <kbd>Country</kbd> in which each category was first ordered:</p>
+<pre>sales_data[["Category", "Country"]].groupby("Category").first()</pre>
+<p>The following will be the output:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1571 image-border" src="assets/a86594b7-6ffd-4efc-b61d-194b6afac555.png" style="width:12.42em;height:8.33em;"/></p>
+<div class="CDPAlignCenter CDPAlign packt_figref">Using the aggregate first along with groupby</div>
+<p>The <kbd>size()</kbd> function helps to find the number of occurrences of each <kbd>Category</kbd>. After computing <kbd>size</kbd>, let's explore the transformation ability of <kbd>groupby</kbd> by sorting the results:</p>
+<pre>sales_data.groupby("Category").size().sort_values(ascending = True)</pre>
+<p>The following will be the output:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1572 image-border" src="assets/f44a750b-9060-42c4-bf4c-903a4ae1c2f7.png" style="width:13.08em;height:6.33em;"/></p>
+<div class="CDPAlignCenter CDPAlign packt_figref">Aggregation of size after sorting</div>
+<p>The key or grouping object need not necessarily be an existing column; it can also be a function defining a grouping rule. For example, from <kbd>OrderDate</kbd>, we can extract the year and then <kbd>groupby</kbd> the year in which orders were placed. For this, the index is first set to <kbd>OrderDate</kbd>:</p>
+<pre>index_by_date = sales_data.set_index('OrderDate')<br/>index_by_date.groupby(lambda OrderDate: OrderDate.split('-')[2]).sum()</pre>
+<p>The following will be the output:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1573 image-border" src="assets/f2590d6d-1154-4c13-8a81-cb716d75dfb4.png" style="width:24.17em;height:9.17em;"/></p>
+<div class="CDPAlignCenter CDPAlign packt_figref">Groupby to group variables created via a custom&amp; function</div>
+<p>It is also possible to group by more than one key. Here, let's group by <kbd>ShipMode </kbd>and <kbd>Category </kbd>to aggregate by the number of observations. The <kbd>groupby</kbd> function accepts multiple variables as a list:</p>
+<pre>sales_data.groupby(["ShipMode","Category"]).size()</pre>
+<p>The following will be the output:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/06986d90-88b0-4d56-a6de-a971031143e4.png" style="width:23.33em;height:16.83em;"/></p>
+<div class="CDPAlignCenter CDPAlign packt_figref">Aggregate of size across two grouping variables</div>
+<p>The <kbd>get_group()</kbd> attribute of the <kbd>groupby</kbd> function allows data to be filtered by one category out of all of the categories available in the group:</p>
+<pre>sales_data.groupby("ShipMode").get_group("Same Day")</pre>
+<p>The following will be the output:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/1fc9c1c3-fabf-4aa7-b6d0-56188829e0ec.png"/></p>
+<div class="CDPAlignCenter CDPAlign packt_figref">The <kbd>get_group</kbd> attribute of groupby</div>
+<p>The <kbd>groupby</kbd> object produced by the <kbd>groupby</kbd> function is iterable. Let's iterate over a simple <kbd>groupby</kbd> object:</p>
+<pre>for name, group in sales_data.groupby("ShipMode"):<br/>print(name)<br/>print(group.iloc[0:5,0:5])</pre>
+<p>The following will be the output:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/6fa6ede3-19f0-4fe7-9bab-829bfa19904c.png" style="width:39.92em;height:29.83em;"/></p>
+<div class="CDPAlignCenter CDPAlign packt_figref">Iterating through the groupby object</div>
+<p>Instead of grouping by a column name, an index can also be used. When using an index, the level can be specified in place of the index name. Let's set <kbd>Region </kbd>as an index to demonstrate this:</p>
+<pre>region_index_df = sales_data.set_index("Region", drop = True)<br/>region_index_df.groupby(level = 0).sum()</pre>
+<p>The following will be the output:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/b1c1c5b2-5987-4053-a759-2c3cf5f80dcc.png" style="width:25.67em;height:24.58em;"/></p>
+<div class="CDPAlignCenter CDPAlign packt_figref"> Grouping with index</div>
+<p><kbd>groupby </kbd>aggregations need not always occur along a column. If required, items can be grouped and aggregated along a row by changing the <kbd>axis</kbd> argument. The default setting of the <kbd>axis</kbd> argument is <kbd>0</kbd>. Changing it to <kbd>axis =  1 </kbd>groups items along a row:</p>
+<pre>sales_data.groupby("ShipMode", axis = 0).size()</pre>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Using groupby with a MultiIndex</h1>
+                </header>
+            
+            <article>
+                
+<p>Let's explore how the <kbd>groupby</kbd> function works for hierarchically indexed data.</p>
+<p>To start with, we can assign two indices to the sample sales data, as shown:</p>
+<pre style="padding-left: 90px">multiindex_df = sales_data.set_index(["ShipMode", "Category"])<br/>multiindex_df.head()</pre>
+<p>The following will be the output:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/8596f393-eefc-4ad1-938c-d96d733d66a0.png"/></p>
+<div class="CDPAlignCenter CDPAlign packt_figref"> Snapshot of multi-indexed data</div>
+<p>Grouping by an index can be done by specifying either the level number or the index name:</p>
+<pre style="padding-left: 60px">multiindex_df.groupby(level = 0).sum()</pre>
+<p>The following will be the output:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/ce9d8a8b-c144-40a7-9741-534456bd86c2.png" style="width:25.92em;height:10.58em;"/></p>
+<div class="CDPAlignCenter CDPAlign packt_figref">  The level attribute of groupby</div>
+<p>The <kbd>level</kbd> parameter can take names as well instead of numbers as follows:</p>
+<pre>multiindex_df.groupby(level = "Category").sum()</pre>
+<p>The following will be the output:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/11a3d0a5-81ae-4919-bc1f-6eaa0f1f2701.png" style="width:28.25em;height:10.00em;"/></p>
+<div class="CDPAlignCenter CDPAlign packt_figref"> Using the level name to group by</div>
+<p>Index names can be used directly as keys, as shown:</p>
+<pre>multiindex_df.groupby("Category").sum()</pre>
+<p>This results in the following output:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/f61d3aeb-42b1-4124-846d-b85e16b75612.png" style="width:29.25em;height:10.42em;"/></p>
+<div class="CDPAlignCenter CDPAlign packt_figref"><span><span> </span></span>Providing index names as the key </div>
+<p>Multiple indices can also be passed through the <kbd>level</kbd> argument of <kbd>groupby </kbd>to obtain the same result as the preceding one:</p>
+<pre>multiindex_df.groupby(level = ["ShipMode", "Category"]).sum()</pre>
+<p class="mce-root"/>
+<p class="mce-root"/>
+<p>The following will be the output:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/fab41586-1523-4031-99d5-d18694ec280b.png" style="width:35.08em;height:25.42em;"/></p>
+<div class="CDPAlignCenter CDPAlign packt_figref"> Groupby for multiple indexes</div>
+<p>When grouping by index, the aggregation functions can directly take up the <kbd>level</kbd> parameter to enable splitting across groups. Here, we have grouped across both levels by specifying the <kbd>level</kbd> number. Instead of the <kbd>level</kbd> number, the index name can also be specified:</p>
+<pre>multiindex_df.sum(level = [0, 1])</pre>
+<p>The following will be the output:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/743f2b0e-14f0-4967-a404-7f3f48f79a3e.png" style="width:34.58em;height:24.75em;"/></p>
+<div class="CDPAlignCenter CDPAlign packt_figref"> Multi-index grouping with the level parameter</div>
+<p>To group by both index and column name, the following method can be used. The level number provided here can also be replaced with the level name. Instead of using the <kbd>Grouper</kbd> function, the index name and column name can be provided as a list of keys:</p>
+<pre>multiindex_df.groupby([pd.Grouper(level = 1), "Region"]).size()<br/>multiindex_df.groupby(["Category", "Region"]).size()</pre>
+<p class="mce-root"/>
+<p class="mce-root"/>
+<p>The following will be the output:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1574 image-border" src="assets/ff2ca38a-32ab-4df0-9038-8b662d7b0826.png" style="width:16.00em;height:33.33em;"/></p>
+<div class="CDPAlignCenter CDPAlign packt_figref"> Using normal columns and index columns together for grouping</div>
+<p>Let's take <kbd>groupby</kbd> a notch further and apply some data transformation to the results. We will begin by computing the ratio of total sales, quantity, profit, and discount with respect to the overall <kbd>Sales</kbd>, <kbd>Quantity</kbd>, <kbd>Profit</kbd>, and <kbd>Discount</kbd>:</p>
+<pre>sum_all = multiindex_df.groupby(level = 1).sum()<br/><br/>sum_all.ix["Furniture"]/(sum_all.ix["Furniture"] + sum_all.ix["Technology"] + sum_all.ix["Office Supplies"])</pre>
+<p>The following will be the output:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/74a25962-4717-44d9-aee1-11f24a7c6d37.png" style="width:13.00em;height:7.00em;"/></p>
+<div class="CDPAlignCenter CDPAlign packt_figref"> Groupby to evaluate complex calculations</div>
+<p>This results in a series. Remember the <kbd>transpose</kbd> function from NumPy? Similarly, a DataFrame can be transposed as well. However, the output just obtained is a series and not a DataFrame. Before transposing, the series has to be converted to a DataFrame:</p>
+<pre>furniture_ratio = sum_all.ix["Furniture"]/(sum_all.ix["Furniture"] + sum_all.ix["Technology"] + sum_all.ix["Office Supplies"])<br/><br/>pd.DataFrame(furniture_ratio).T</pre>
+<p>The following will be the output:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/52fe431e-0691-4cfb-b26f-0247d8d4444b.png" style="width:22.83em;height:4.25em;"/></p>
+<div class="CDPAlignCenter CDPAlign packt_figref">Intermediate result of data transformation</div>
+<p>The index label in the result is <kbd>0</kbd>. Let's rename it to a more appropriate label using the following snippet. The output is also shown in the screenshot that follows:</p>
+<pre>furniture_ratio_df = pd.DataFrame(furniture_ratio).T<br/>furniture_ratio_df.rename(index = {0 : "FurniturePercent"})</pre>
+<p>Take a look at the following screenshot:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1575 image-border" src="assets/10b645bc-aeeb-4838-89cc-254374fff7f9.png" style="width:25.67em;height:4.50em;"/></p>
+<div class="CDPAlignCenter CDPAlign packt_figref"> Result of data transformation</div>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Using the aggregate method</h1>
+                </header>
+            
+            <article>
+                
+<p>In all of the previous use cases, we used sum aggregation. We were directly able to use <kbd>sum</kbd> without going through the <kbd>aggregate</kbd> function of Python. The <kbd>sum()</kbd> function that we used is a Cython-optimized implementation. Some other Cython-optimized implementations are <kbd>mean</kbd>, <kbd>std</kbd>, and <kbd>sem</kbd> (standard error of the mean). To implement other functions or a combination of aggregations, the <kbd>aggregate</kbd> function comes in handy:</p>
+<pre>sales_data.groupby("Category").aggregate(np.sum)</pre>
+<p>The following will be the output:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/6aea7e66-b914-4d4b-95de-20fa6004e452.png" style="width:28.25em;height:9.92em;"/></p>
+<div class="CDPAlignCenter CDPAlign packt_figref"> Use of the aggregate function</div>
+<p>All the rules discussed in the sections on handling multiple keys and indices are applicable here as well.</p>
+<p>Please note that when using multiple keys or Multiindex, the result has a hierarchical ordering in indices. To overcome this, you can use the <kbd>reset_index</kbd> attribute of DataFrames:</p>
+<pre>sales_data.groupby(["ShipMode", "Category"]).aggregate(np.sum)</pre>
+<p>The following will be the output:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1576 image-border" src="assets/71375e84-b550-4424-86a7-a0094780b43d.png" style="width:27.67em;height:20.17em;"/></p>
+<div class="CDPAlignCenter CDPAlign packt_figref">  The aggregate function for multiple columns</div>
+<p>The index of the output can be reset using the following snippet:</p>
+<pre>sales_data.groupby(["ShipMode", "Category"]).aggregate(np.sum).reset_index()</pre>
+<p>The following will be the output:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1577 image-border" src="assets/2fc7c293-f9bb-4314-813e-4bbd3c482d32.png" style="width:29.75em;height:19.75em;"/></p>
+<div class="CDPAlignCenter CDPAlign packt_figref"> The aggregate function for multiple grouping variables</div>
+<p>To achieve the same results, in place of <kbd>reset_index</kbd>, the <kbd>as_index</kbd> parameter of <kbd>groupby</kbd> can be set to <kbd>False</kbd>:</p>
+<pre>sales_data.groupby(["ShipMode", "Category"], as_index = False).aggregate(np.sum)</pre>
+<p>Like the implementation of the <kbd>sum</kbd> function, the following is a list of other functions that can be applied to <kbd>groupby</kbd> objects:</p>
+<table style="border-collapse: collapse;width: 838px;height: 895px" class="MsoTableGrid" border="1">
+<tbody>
+<tr>
+<td style="width: 242.465px">
+<p><strong>Function</strong></p>
+</td>
+<td style="width: 588.021px">
+<p><strong>Description</strong></p>
+</td>
+</tr>
+<tr>
+<td style="width: 242.465px">
+<p><kbd>mean()</kbd></p>
+</td>
+<td style="width: 588.021px" class="CDPAlignLeft CDPAlign">
+<p>Compute mean of groups</p>
+</td>
+</tr>
+<tr>
+<td style="width: 242.465px">
+<p><kbd>sum()</kbd></p>
+</td>
+<td style="width: 588.021px" class="CDPAlignLeft CDPAlign">
+<p>Compute sum of group values</p>
+</td>
+</tr>
+<tr>
+<td style="width: 242.465px">
+<p><kbd>size()</kbd></p>
+</td>
+<td style="width: 588.021px" class="CDPAlignLeft CDPAlign">
+<p>Compute group sizes</p>
+</td>
+</tr>
+<tr>
+<td style="width: 242.465px">
+<p><kbd>count()</kbd></p>
+</td>
+<td style="width: 588.021px" class="CDPAlignLeft CDPAlign">
+<p>Compute count of group</p>
+</td>
+</tr>
+<tr>
+<td style="width: 242.465px">
+<p><kbd>std()</kbd></p>
+</td>
+<td style="width: 588.021px" class="CDPAlignLeft CDPAlign">
+<p>Standard deviation of groups</p>
+</td>
+</tr>
+<tr>
+<td style="width: 242.465px">
+<p><kbd>var()</kbd></p>
+</td>
+<td style="width: 588.021px" class="CDPAlignLeft CDPAlign">
+<p>Compute variance of groups</p>
+</td>
+</tr>
+<tr>
+<td style="width: 242.465px">
+<p><kbd>sem()</kbd></p>
+</td>
+<td style="width: 588.021px" class="CDPAlignLeft CDPAlign">
+<p>Standard error of the mean of groups</p>
+</td>
+</tr>
+<tr>
+<td style="width: 242.465px">
+<p><kbd>describe()</kbd></p>
+</td>
+<td style="width: 588.021px" class="CDPAlignLeft CDPAlign">
+<p>Generate descriptive statistics</p>
+</td>
+</tr>
+<tr>
+<td style="width: 242.465px">
+<p><kbd>first()</kbd></p>
+</td>
+<td style="width: 588.021px" class="CDPAlignLeft CDPAlign">
+<p>Compute first of group values</p>
+</td>
+</tr>
+<tr>
+<td style="width: 242.465px">
+<p><kbd>last()</kbd></p>
+</td>
+<td style="width: 588.021px" class="CDPAlignLeft CDPAlign">
+<p>Compute last of group values</p>
+</td>
+</tr>
+<tr>
+<td style="width: 242.465px">
+<p><kbd>nth()</kbd></p>
+</td>
+<td style="width: 588.021px" class="CDPAlignLeft CDPAlign">
+<p>Take nth value, or a subset if n is a list</p>
+</td>
+</tr>
+<tr>
+<td style="width: 242.465px">
+<p><kbd>min()</kbd></p>
+</td>
+<td style="width: 588.021px" class="CDPAlignLeft CDPAlign">
+<p>Compute min of group values</p>
+</td>
+</tr>
+<tr>
+<td style="width: 242.465px">
+<p><kbd>max()</kbd></p>
+</td>
+<td style="width: 588.021px" class="CDPAlignLeft CDPAlign">
+<p>Compute max of group values</p>
+</td>
+</tr>
+</tbody>
+</table>
+<div class="packt_figref CDPAlignCenter CDPAlign">Table 6.1: List of all aggregate functions</div>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Applying multiple functions</h1>
+                </header>
+            
+            <article>
+                
+<p>For any DataFrame, a list of aggregations can be performed after applying <kbd>groupby</kbd>. In the following example, the mean and standard deviation have been computed for <kbd>Sales</kbd> and <kbd>Quantity</kbd>:</p>
+<pre>sales_data[["Sales", "Quantity", "Category"]].groupby("Category").agg([np.mean, np.std])</pre>
+<p>The following will be the output:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1579 image-border" src="assets/c2f99b80-8e48-4fd2-ac16-5e5b614b4c63.png" style="width:25.58em;height:10.67em;"/></p>
+<div class="CDPAlignCenter CDPAlign packt_figref">Multiple aggregations</div>
+<p>Note that hierarchy has also been introduced in the column index. <kbd>agg</kbd> is a short form of aggregate. These aggregations will exclude any NAs found for computation.</p>
+<p>In the preceding example, columns were created with the <kbd>mean</kbd> and <kbd>std </kbd>labels. Let's try renaming them. The <kbd>rename</kbd> argument maps the new name onto the old name:</p>
+<pre>sales_data[["Sales", "Quantity", "Category"]].groupby("Category").agg([np.mean, np.std]).rename(columns = {"mean": "Mean", "std": "SD"})</pre>
+<p>The following will be the output:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/ac9f0eda-4a19-4d7b-92d5-6db90a724b2c.png" style="width:26.83em;height:11.58em;"/></p>
+<div class="CDPAlignCenter CDPAlign packt_figref">Different aggregates for each column</div>
+<p>To apply selected functions to selected columns, the following convention can be used. For example, here, the sum of <kbd>Sales</kbd> and the mean of <kbd>Quantity</kbd> have been computed:</p>
+<pre>sales_data[["Sales", "Quantity", "Category"]].groupby("Category").agg({"Sales":"sum", "Quantity":"mean"})</pre>
+<p>The following is the output:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/e8b130f1-5fbf-4e92-8fbf-6c04d063d6ca.png" style="width:19.42em;height:10.58em;"/></p>
+<div class="CDPAlignCenter CDPAlign packt_figref"> Renaming columns after aggregation</div>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">The transform() method</h1>
+                </header>
+            
+            <article>
+                
+<p>The <kbd>transform</kbd> function in <kbd>groupby</kbd> is used to perform transformation operations on a <kbd>groupby</kbd> object. For example, we could replace NaN values in the <kbd>groupby</kbd> object using the <kbd>fillna</kbd> method. The resultant object after using <kbd>transform</kbd> has the same size as the original <kbd>groupby</kbd> object.</p>
+<p>Let's introduce NAs into the sample sales data. The following code injects NAs into 25% of the records:</p>
+<pre>na_df = sales_data[["Sales", "Quantity", "Discount", "Profit", "Category"]].set_index("Category").mask(np.random.random(sales_data[["Sales", "Quantity", "Discount", "Profit"]].shape) &amp;amp;lt; .25)<br/><br/>na_df.head(10)</pre>
+<p>The following will be the output:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/0fd700e6-42e7-45e6-8ec1-b18d49204f91.png" style="width:24.83em;height:20.67em;"/></p>
+<div class="CDPAlignCenter CDPAlign packt_figref"> Snapshot of data with NAs inserted</div>
+<p>Now, the four quantitative variables contain NAs in 25% of the rows, and <kbd>Category</kbd> is set as the index. A simple <kbd>groupby</kbd> and <kbd>count</kbd> aggregation will give the number of non-NA values in each column for each category:</p>
+<pre>na_df.groupby("Category").count()</pre>
+<p>The following will be the output:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/7b00bfdf-e910-44c3-b27a-8634e551bc7f.png" style="width:22.17em;height:9.67em;"/></p>
+<div class="CDPAlignCenter CDPAlign packt_figref"> Count of non-NA values</div>
+<p>The <kbd>transform()</kbd> function fills the NAs with the mean of each group:</p>
+<pre>transformed = na_df.groupby("Category").transform(lambda x: x.fillna(x.mean()))<br/>transformed.head(10)</pre>
+<p>The following will be the output:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/04cf6412-aa6b-4a05-8652-26f60e0f95ba.png" style="width:24.92em;height:19.67em;"/></p>
+<div class="CDPAlignCenter CDPAlign packt_figref"> Using transform to fill NAs</div>
+<p>The result shows that <kbd>transform()</kbd> performs group-specific NA handling. The count of non-NAs can be seen to have increased:</p>
+<pre>transformed.groupby("Category").count()</pre>
+<p>The following will be the output:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/813570b2-6ab7-46b3-9e0a-7f7026e60a1e.png" style="width:23.08em;height:10.25em;"/></p>
+<div class="CDPAlignCenter CDPAlign packt_figref"> Count of non-NAs after transformation</div>
+<p class="mce-root"/>
+<p>To verify the operation, let's compare <span><span>averages </span></span>of the groups before and after transformation. The outputs from the two methods are found to be equal as shown following:</p>
+<pre>na_df.groupby("Category").mean()</pre>
+<p>The following will be the output:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/65edcccf-0941-422f-acae-0f9c0ba45e96.png" style="width:25.25em;height:9.75em;"/></p>
+<div class="CDPAlignCenter CDPAlign packt_figref">  Group means before transformation</div>
+<p>Calculating the mean using the object obtained from the transform method can be done as follows:</p>
+<pre>transformed.groupby("Category").mean()</pre>
+<p>The following will be the output:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/324c6a91-1599-45b7-a3bd-181fa2418e25.png" style="width:26.00em;height:10.00em;"/></p>
+<div class="CDPAlignCenter CDPAlign packt_figref"> Group means after transformation</div>
+<p>Some functions, such as <kbd>bfill()</kbd> (backward fill), <kbd>ffill()</kbd> (forward fill), <kbd>fillna()</kbd>, and <kbd>shift()</kbd> can perform transformation by themselves, without the need for the <kbd>transform()</kbd> function:</p>
+<pre>na_df.groupby("Category").bfill()</pre>
+<p class="mce-root"/>
+<p class="mce-root"/>
+<p>The following will be the output:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/00dc4098-1d60-4637-8836-8a7e224917c2.png" style="width:32.83em;height:21.42em;"/></p>
+<div class="CDPAlignCenter CDPAlign packt_figref"> Transformation with backward fill</div>
+<p>Operations such as <kbd>rolling()</kbd>, <kbd>resample()</kbd>, and <kbd>expanding()</kbd> can also be used as methods on <kbd>groupby</kbd>. <kbd>rolling() </kbd>aggregates values in moving windows, <kbd>expanding()</kbd> cumulates the aggregates, and <kbd>resample()</kbd> helps to bring regular frequency to time-series data with forward fill or backward fill:</p>
+<pre>sales_data[["Sales", "Category"]].groupby("Category").expanding().sum()</pre>
+<p>The preceding example of <kbd>expanding()</kbd> calculates a cumulative sum within each group.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Filtering</h1>
+                </header>
+            
+            <article>
+                
+<p>The <kbd>filter</kbd> method enables us to apply filtering to a <kbd>groupby</kbd> object to result in a subset of the initial object.</p>
+<p>Let's apply <kbd>filter </kbd>to the sample sales data to compute only the sums of those groups whose length is more than <kbd>10000</kbd>, when grouped across <kbd>Category</kbd>:</p>
+<pre>filtered_df = sales_data[["Category", "Quantity"]].set_index("Category").groupby("Category").filter(lambda x: len(x) &amp;amp;gt; 10000)<br/>filtered_df.groupby("Category").sum()</pre>
+<p class="mce-root"/>
+<p>The following will be the output:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/d4430aea-88b6-4c3a-8304-ec0ab74c01d4.png" style="width:12.67em;height:8.42em;"/></p>
+<div class="CDPAlignCenter CDPAlign packt_figref"> Filtering with groupby</div>
+<p>Now, as you can see, filtering removes the <kbd>Furniture</kbd> category, whose length is less than <kbd>10000</kbd>.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Merging and joining</h1>
+                </header>
+            
+            <article>
+                
+<p>There are various functions that can be used to merge and join pandas data structures, which include the following functions:</p>
+<ul>
+<li><kbd>concat</kbd></li>
+<li><kbd>append</kbd></li>
+<li><kbd>join</kbd></li>
+</ul>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">The concat function</h1>
+                </header>
+            
+            <article>
+                
+<p>The <kbd>concat</kbd> function is used to join multiple pandas data structures along a specified axis and possibly perform union or intersection operations along other axes. The following command explains the <kbd>concat</kbd> function:</p>
+<pre><strong>concat(objs, axis=0, , join='outer', join_axes=None, ignore_index=False,</strong> <strong>keys=None, levels=None, names=None, verify_integrity=False)</strong></pre>
+<p>The elements of the <kbd>concat</kbd> function can be summarized as follows:</p>
+<ul>
+<li>The <kbd>objs</kbd> function: A list or dictionary of Series, DataFrame, or Panel objects to be concatenated.</li>
+<li>The <kbd>axis</kbd> function: The axis along which the concatenation should be performed. <kbd>0</kbd> is the default value.</li>
+<li>The <kbd>join</kbd> function: The type of join to perform when handling indexes on other axes. The <kbd>'outer'</kbd> function is the default.</li>
+<li>The <kbd>join_axes</kbd> function: This is used to specify exact indexes for the remaining indexes instead of doing an outer/inner join.</li>
+<li>The <kbd>keys</kbd> function: This specifies a list of keys to be used to construct a MultiIndex.</li>
+</ul>
+<p>For an explanation of the remaining options, please refer to the documentation at <span class="MsoHyperlink"><a href="http://pandas.pydata.org/pandas-docs/stable/merging.html">http://pandas.pydata.org/pandas-docs/stable/merging.html</a></span>.</p>
+<p>Here is an illustration of the workings of <kbd>concat</kbd> using our stock price examples from earlier chapters:</p>
+<pre>    <strong>In [53]: stockDataDF=pd.read_csv('./tech_stockprices.csv').set_index(<br/> ['Symbol']);stockDataDF</strong>
+    <strong>Out[53]:</strong>
+    <strong>     Closing price  EPS  Shares Outstanding(M) P/E Market Cap(B) Beta</strong>
+    <strong>Symbol</strong>
+    <strong>AAPL   501.53  40.32  892.45          12.44  447.59    0.84</strong>
+    <strong>AMZN   346.15  0.59   459.00         589.80  158.88    0.52</strong>
+    <strong>FB   61.48        0.59  2450.00         104.93  150.92    NaN</strong>
+    <strong>GOOG   1133.43    36.05   335.83          31.44  380.64    0.87</strong>
+    <strong>TWTR   65.25        -0.30   555.20            NaN   36.23    NaN</strong>
+    <strong>YHOO   34.90         1.27     1010.00          27.48   35.36    0.66</strong>
+  </pre>
+<p>We now take various slices of the data:</p>
+<pre>    <strong>In [83]: A=stockDataDF.ix[:4, ['Closing price', 'EPS']]; A</strong>
+    <strong>Out[83]:  Closing price  EPS</strong>
+    <strong> Symbol</strong>
+    <strong>  AAPL     501.53      40.32</strong>
+    <strong>  AMZN     346.15     0.59</strong>
+    <strong>  FB      61.48     0.59</strong>
+    <strong>   GOOG    1133.43    36.05</strong>
+    
+    <strong>In [84]: B=stockDataDF.ix[2:-2, ['P/E']];B</strong>
+    <strong>Out[84]:         P/E</strong>
+    <strong>        Symbol</strong>
+    <strong>       FB   104.93</strong>
+    <strong>       GOOG   31.44</strong>
+    
+    <strong>In [85]: C=stockDataDF.ix[1:5, ['Market Cap(B)']];C</strong>
+    <strong>Out[85]:         Market Cap(B)</strong>
+    <strong>        Symbol</strong>
+    <strong>       AMZN   158.88</strong>
+    <strong>       FB   150.92</strong>
+    <strong>       GOOG   380.64</strong>
+    <strong>       TWTR   36.23</strong></pre>
+<p>Here, we perform concatenation by specifying an outer join, which concatenates and performs a union on all three DataFrames and includes entries that do not have values for all the columns by inserting <kbd>NaN</kbd> for such columns:</p>
+<pre>    <strong>In [86]: pd.concat([A,B,C],axis=1) # outer join</strong>
+    <strong>Out[86]:  Closing price  EPS    P/E   Market Cap(B)</strong>
+    <strong>  AAPL   501.53     40.32  NaN   NaN</strong>
+    <strong>  AMZN   346.15     0.59   NaN   158.88</strong>
+    <strong>   FB   61.48           0.59  104.93 150.92</strong>
+    <strong>   GOOG   1133.43       36.05  31.44 380.64</strong>
+    <strong>   TWTR   NaN            NaN    NaN    36.23</strong></pre>
+<p>We can also specify an inner join that performs concatenation but only includes rows that contain values for all the columns in the final DataFrame by throwing out rows with missing columns; that is, it takes the intersection:</p>
+<pre>    <strong>In [87]: pd.concat([A,B,C],axis=1, join='inner') # Inner join</strong>
+    <strong>Out[87]:        Closing price  EPS  P/E   Market Cap(B)</strong>
+    <strong>         Symbol</strong>
+    <strong>         FB      61.48    0.59 104.93  150.92</strong>
+    <strong>      GOOG    1133.43   36.05   31.44   380.64</strong>
+  </pre>
+<p>The third case enables us to use the specific index from the original DataFrame to join on:</p>
+<pre>    <strong>In [102]: pd.concat([A,B,C], axis=1, join_axes=[stockDataDF.index])</strong>
+    <strong>Out[102]:       Closing price  EPS    P/E   Market Cap(B)</strong>
+    <strong>      Symbol</strong>
+    <strong>         AAPL   501.53     40.32  NaN   NaN</strong>
+    <strong>        AMZN   346.15     0.59   NaN   158.88</strong>
+    <strong>         FB   61.48           0.59  104.93 150.92</strong>
+    <strong>         GOOG   1133.43       36.05  31.44 380.64</strong>
+    <strong>         TWTR   NaN            NaN    NaN    36.23</strong>
+    <strong>        YHOO   NaN            NaN    NaN    NaN</strong>
+  </pre>
+<p>In this last case, we see that the <kbd>YHOO </kbd>row was included even though it wasn't contained in any of the slices that were concatenated. In this case, however, the values for all the columns are <kbd>NaN</kbd>. Here is another illustration of <kbd>concat</kbd>, but this time, it is on random statistical distributions. Note that in the absence of an <kbd>axis</kbd> argument, the default axis of concatenation is <kbd>0</kbd>:</p>
+<pre>    <strong>In[135]: np.random.seed(100)</strong>
+    <strong>        normDF=pd.DataFrame(np.random.randn(3,4));normDF</strong>
+    <strong>Out[135]:    0    1      2    3</strong>
+    <strong>  0  -1.749765  0.342680  1.153036  -0.252436</strong>
+    <strong>  1   0.981321  0.514219  0.221180  -1.070043</strong>
+    <strong>  2  -0.189496  0.255001 -0.458027   0.435163</strong>
+    
+    <strong>In [136]: binomDF=pd.DataFrame(np.random.binomial(100,0.5,(3,4)));binomDF</strong>
+    <strong>Out[136]:  0  1  2  3</strong>
+    <strong>  0  57  50  57     50</strong>
+    <strong>  1  48  56  49     43</strong>
+    <strong>  2  40  47  49     55</strong>
+    
+    <strong>In [137]: poissonDF=pd.DataFrame(np.random.poisson(100,(3,4)));poissonDF</strong>
+    <strong>Out[137]:  0  1  2  3</strong>
+    <strong>   0  93  96  96  89</strong>
+    <strong>   1  76  96  104  103</strong>
+    <strong>   2  96  93  107   84</strong>
+    
+    <strong>In [138]: rand_distribs=[normDF,binomDF,poissonDF]</strong>
+    <strong>In [140]: rand_distribsDF=pd.concat(rand_distribs,keys=['Normal', 'Binomial', 'Poisson']);rand_distribsDF</strong>
+    <strong>Out[140]:         0        1       2          3</strong>
+    <strong>  Normal     0  -1.749765   0.342680  1.153036  -0.252436</strong>
+    <strong>       1   0.981321   0.514219  0.221180  -1.070043</strong>
+    <strong>       2  -0.189496   0.255001 -0.458027   0.435163</strong>
+    <strong>  Binomial 0   57.00       50.00     57.00      50.00</strong>
+    <strong>       1   48.00       56.00     49.00      43.00</strong>
+    <strong>       2   40.00       47.00     49.00      55.00</strong>
+    <strong>  Poisson  0   93.00       96.00     96.00      89.00</strong>
+    <strong>       1   76.00       96.00    104.00     103.00</strong>
+    <strong>       2   96.00       93.00    107.00      84.00</strong></pre>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Using append</h1>
+                </header>
+            
+            <article>
+                
+<p><kbd>append</kbd> is a simpler version of <kbd>concat</kbd> that concatenates along <kbd>axis=0</kbd>. Here is an illustration of its use, where we slice out the first two rows and the first three columns of the <kbd>stockData</kbd> DataFrame:</p>
+<pre>    <strong>In [145]: stockDataA=stockDataDF.ix[:2,:3]</strong>
+    <strong>            stockDataA</strong>
+    <strong>Out[145]:  Closing price  EPS   Shares Outstanding(M)</strong>
+    <strong>  Symbol</strong>
+    <strong>  AAPL     501.53   40.32   892.45</strong>
+    <strong>  AMZN     346.15   0.59   459.00</strong>
+  </pre>
+<p>And the remaining rows can be obtained as shown following:</p>
+<pre>    <strong>In [147]: stockDataB=stockDataDF[2:]</strong>
+    <strong>         stockDataB</strong>
+    <strong>Out[147]:</strong>
+    <strong>     Closing price EPS Shares Outstanding(M)  P/E  Market Cap(B) Beta</strong>
+    <strong>Symbol</strong>
+    <strong>FB   61.48         0.59  2450.00          104.93 150.92   NaN</strong>
+    <strong>GOOG   1133.43    36.05   335.83          31.44  380.64   0.87</strong>
+    <strong>TWTR     65.25    -0.30   555.20           NaN     36.23   NaN</strong>
+    <strong>YHOO     34.90  1.27  1010.00       27.48  35.36   0.66</strong>
+  </pre>
+<p>Now, we use <kbd>append</kbd> to combine the two DataFrames from the preceding commands:</p>
+<pre>    <strong>In [161]:stockDataA.append(stockDataB)</strong>
+    <strong>Out[161]:</strong>
+    <strong>    Beta Closing price EPS MarketCap(B) P/E     Shares Outstanding(M)</strong>
+    <strong>Symbol</strong>
+    <strong>AMZN  NaN  346.15    0.59  NaN   NaN    459.00</strong>
+    <strong>GOOG  NaN  1133.43   36.05  NaN   NaN    335.83</strong>
+    <strong>FB  NaN  61.48      0.59  150.92 104.93 2450.00</strong>
+    <strong>YHOO  27.48  34.90      1.27  35.36   0.66   1010.00</strong>
+    <strong>TWTR  NaN  65.25     -0.30  36.23   NaN    555.20</strong>
+    <strong>AAPL  12.44  501.53     40.32  0.84   447.59 892.45</strong>
+  </pre>
+<p>In order to maintain the order of columns similar to the original DataFrame, we can apply the <kbd>reindex_axis</kbd> function:</p>
+<pre>    <strong>In [151]: stockDataA.append(stockDataB).reindex_axis(stockDataDF.columns, axis=1)</strong>
+    <strong>Out[151]:</strong>
+    <strong>  Closing price EPS Shares Outstanding(M)  P/E Market Cap(B) Beta</strong>
+    <strong>Symbol</strong>
+    <strong>AAPL   501.53  40.32  892.45         NaN  NaN      NaN</strong>
+    <strong>AMZN   346.15   0.59  459.00          NaN  NaN      NaN</strong>
+    <strong>FB   61.48     0.59  2450.00          104.93  150.92      NaN</strong>
+    <strong>GOOG  1133.43  36.05  335.83        31.44  380.64     0.87</strong>
+    <strong>TWTR    65.25  -0.30  555.20          NaN   36.23      NaN</strong>
+    <strong>YHOO   34.90     1.27  1010.00            27.48  35.36     0.66</strong>
+  </pre>
+<p>Note that, for the first two rows, the value of the last two columns is <kbd>NaN</kbd> since the first DataFrame only contained the first three columns. The <kbd>append</kbd> function does not work in places, but it returns a new DataFrame with the second DataFrame appended to the first.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Appending a single row to a DataFrame</h1>
+                </header>
+            
+            <article>
+                
+<p>We can append a single row to a DataFrame by passing a series or dictionary to the <kbd>append</kbd> method:</p>
+<pre>    <strong>In [152]: </strong>
+    <strong>algos={'search':['DFS','BFS','Binary Search','Linear'],</strong>
+    <strong>        'sorting': ['Quicksort','Mergesort','Heapsort','Bubble Sort'],</strong>
+    <strong>       'machine learning':['RandomForest','K Nearest Neighbor','Logistic Regression','K-Means Clustering']}</strong>
+    <strong>algoDF=pd.DataFrame(algos);algoDF</strong>
+    <strong>Out[152]: machine learning    search      sorting</strong>
+    <strong>0    RandomForest        DFS      Quicksort</strong>
+    <strong>1    K Nearest Neighbor   BFS      Mergesort</strong>
+    <strong>2    Logistic Regression  Binary Search Heapsort</strong>
+    <strong>3    K-Means Clustering   Linear       Bubble Sort</strong>
+    
+    <strong>In [154]: </strong>
+    <strong>moreAlgos={'search': 'ShortestPath'  , 'sorting': 'Insertion Sort',</strong>
+    <strong>            'machine learning': 'Linear Regression'}</strong>
+    <strong>    algoDF.append(moreAlgos,ignore_index=True)<br/><br/></strong>
+    <strong>Out[154]: machine learning    search      sorting</strong>
+    <strong>0    RandomForest        DFS      Quicksort</strong>
+    <strong>1    K Nearest Neighbor    BFS      Mergesort</strong>
+    <strong>2    Logistic Regression Binary Search Heapsort</strong>
+    <strong>3    K-Means Clustering  Linear       Bubble Sort</strong>
+    <strong>4    Linear Regression   ShortestPath  Insertion Sort</strong>
+  </pre>
+<p>In order for this to work, you must pass the <kbd>ignore_index=True</kbd> argument so that the <kbd>index [0,1,2,3]</kbd> in <kbd>algoDF</kbd> is ignored.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">SQL-like merging/joining of DataFrame objects</h1>
+                </header>
+            
+            <article>
+                
+<p>The <kbd>merge</kbd> function is used to join two DataFrame objects similar to those used in SQL database queries. It results in a merged DataFrame. DataFrame objects are analogous to SQL tables. The following command explains this:</p>
+<pre>    <strong>merge(left, right, how='inner', on=None, left_on=None,</strong>
+    <strong>      right_on=None, left_index=False, right_index=False, </strong>
+    <strong>      sort=True, suffixes=('_x', '_y'), copy=True)</strong></pre>
+<p>The following is a summary of the <kbd>merge</kbd> function:</p>
+<ul>
+<li>The <kbd>left</kbd> argument: This is the first DataFrame object.</li>
+<li>The <kbd>right</kbd> argument: This is the second DataFrame object.</li>
+<li>The <kbd>how</kbd> argument: This is the type of join and can be inner, outer, left, or right. The default is inner.</li>
+<li>The <kbd>on</kbd> argument: This shows the names of columns to join on as join keys.</li>
+<li>The <kbd>left_on</kbd> and <kbd>right_on</kbd> arguments: These show the left and right <kbd>DataFrame</kbd> column names to join on.</li>
+<li>The <kbd>left_index</kbd> and <kbd>right_index</kbd> arguments: These have a Boolean value. If this is <kbd>True</kbd>, use the left or right <kbd>DataFrame</kbd> index/row labels to join on.</li>
+<li>The <kbd>sort</kbd> argument: This has a Boolean value. The default <kbd>True</kbd> setting results in a lexicographical sort. Setting the default value to <kbd>False</kbd> may improve performance.</li>
+<li>The <kbd>suffixes</kbd> argument: The tuple of string suffixes to be applied to overlapping columns. The defaults are <kbd>'_x'</kbd> and <kbd>'_y'</kbd>.</li>
+<li>The <kbd>copy</kbd> argument: The default <kbd>True</kbd> value causes data to be copied from the passed <kbd>DataFrame</kbd> objects.</li>
+</ul>
+<p>The source of the preceding information is <a href="http://pandas.pydata.org/pandas-docs/stable/merging.html"><span class="URLPACKT">http://pandas.pydata.org/pandas-docs/stable/merging.html</span></a>.</p>
+<p>Let's create two DataFrames – left and right – to understand merging:</p>
+<pre>left</pre>
+<p>The following will be the output:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/d4c4680b-f7b6-4f34-aefc-0975de88893a.png" style="width:25.00em;height:12.25em;"/></p>
+<div class="CDPAlignCenter CDPAlign packt_figref">Left DataFrame for merge</div>
+<p>The right dataframe can be viewed using the following:</p>
+<pre>right</pre>
+<p>The following will be the output:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/0a8ccd95-b5df-41e8-8a68-554e4d77df84.png" style="width:23.58em;height:12.08em;"/></p>
+<div class="CDPAlignCenter CDPAlign packt_figref"> Right dataframe for merge</div>
+<p>The DataFrames have five rows each, with <kbd>Category </kbd>and <kbd>Region</kbd> as the keys. Of these five rows, two rows from each DataFrame share the same set of keys. Let's perform a merge on both keys:</p>
+<pre>pd.merge(left, right, on = ["Category", "Region"])</pre>
+<p>The following will be the output:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/7503539b-acd4-44de-92d2-963dafb0c0db.png" style="width:31.00em;height:6.58em;"/></p>
+<div class="packt_figref CDPAlignCenter CDPAlign"> Default inner merge</div>
+<p>By default, the <kbd>how</kbd> argument is set to <kbd>inner</kbd>, hence, in this scenario, an inner join is performed. Now, let's perform a <kbd>left</kbd> join:</p>
+<pre>pd.merge(left, right, how = "left", on = ["Category", "Region"])</pre>
+<p>The following will be the output:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/7f67e3ca-961f-431d-9510-1d54d2b9d21a.png" style="width:32.67em;height:12.08em;"/></p>
+<div class="packt_figref CDPAlignCenter CDPAlign"> Left merge</div>
+<p>In a left join, all the rows found in the left DataFrame are included in the result. The rows of <kbd>left</kbd> not found in <kbd>right</kbd> get NAs appended to the columns originating from the right DataFrame – <kbd>Discount</kbd> and <kbd>Profit</kbd> – for which keys do not exist in the left <span>DataFrame</span>. A right join would be the exact opposite: the result would contain all the rows from the right dataframe and NAs would be appended to <kbd>Sales</kbd> and <kbd>Quantity </kbd>for cases where keys are found in <kbd>left</kbd> but not in the right DataFrame:</p>
+<pre>pd.merge(left, right, how = "right", on = ["Category", "Region"])</pre>
+<p>The following will be the output:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/6afd4e55-db7d-4a5d-b3df-7053fd520fff.png" style="width:33.58em;height:12.00em;"/></p>
+<div class="CDPAlignCenter CDPAlign packt_figref"> Right merge</div>
+<p>In the case of an outer join, no rows are excluded and NAs are appended as necessary for missing values:</p>
+<pre>pd.merge(left, right, how = "outer", on = ["Category", "Region"])</pre>
+<p class="mce-root"/>
+<p>The following will be the output:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/495b4f94-04f1-441e-96a1-16ba7e07555a.png" style="width:32.75em;height:16.42em;"/></p>
+<div class="packt_figref CDPAlignCenter CDPAlign">Outer merge</div>
+<p>Let's investigate the behavior of an outer merge when duplicate entries of a key are found. The following command duplicates the last key combination of the <kbd>left </kbd>DataFrame. The keys with the <kbd>Office Supplies </kbd>category and the <kbd>Canada </kbd>region occur twice:</p>
+<pre>left.loc[5,:] =["Office Supplies", "Canada", 111, 111]<br/>left</pre>
+<p>The following will be the output:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/87a6f49b-a6d7-4901-93b1-4afc77d46ea3.png" style="width:25.33em;height:13.33em;"/></p>
+<div class="packt_figref CDPAlignCenter CDPAlign">Inserting duplicates in the left DataFrame</div>
+<p>The result of the outer merge is as follows:</p>
+<pre>pd.merge(left, right, how = "outer", on = ["Category", "Region"])</pre>
+<p>The following will be the output:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/e244184e-5af2-47f4-a354-555f388261a0.png" style="width:33.83em;height:18.83em;"/></p>
+<div class="packt_figref CDPAlignCenter CDPAlign"> Outer merge for data with duplicates</div>
+<p>As you can see, the <kbd>right</kbd> DataFrame gets merged on the <kbd>left</kbd> DataFrame for each occurrence of the key and duplicates are not dropped. This behavior may not be desirable in huge datasets. It may be necessary to drop duplicates before merging. For such instances, the <kbd>validate</kbd> argument of <kbd>merge</kbd> helps to keep a check to support only one-to-one merges:</p>
+<pre>pd.merge(left, right, how = "outer", on = ["Category", "Region"], validate = "one_to_one")</pre>
+<p>The following will be the output:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/e0f88a15-4dc6-425a-8b82-2cade3322aa0.png" style="width:46.17em;height:3.42em;"/></p>
+<div class="packt_figref CDPAlignCenter CDPAlign">Error indicating duplicates in the DataFrame when merging</div>
+<p>The <kbd>indicator</kbd> argument of merge indicates the source of a row – <kbd>left</kbd>, <kbd>right</kbd>, or both:</p>
+<pre>pd.merge(left, right, how = "outer", on = ["Category", "Region"], indicator = "Indicator")</pre>
+<p>The following will be the output:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/1a1f9823-b09b-449e-8675-733a1dd46390.png" style="width:37.08em;height:18.75em;"/></p>
+<div class="CDPAlignCenter CDPAlign packt_figref">The indicator parameter of merge</div>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">The join function</h1>
+                </header>
+            
+            <article>
+                
+<p>The <kbd>DataFrame.join</kbd> function is used to combine two DataFrames that have different columns with nothing in common. Essentially, this does a longitudinal join of two DataFrames. Here is an example:</p>
+<pre>df_1 = sales_data.iloc[0:5, 0:3]<br/>df_2 = sales_data.iloc[3:8, 3:6]<br/>df_1.join(df_2)</pre>
+<p>The following will be the output:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/f7b1434b-8f15-41a0-83c5-ac228d2057e0.png" style="width:38.75em;height:12.67em;"/></p>
+<div class="packt_figref CDPAlignCenter CDPAlign">Default left join</div>
+<p class="mce-root"/>
+<p><kbd>join</kbd> is almost identical to <kbd>merge</kbd>, the difference being that, while merge works for DataFrames that share identical keys, <kbd>join</kbd> combines DataFrames by the row-index. By default, the <kbd>join</kbd> function performs a left join. The other types of join can be specified through the <kbd>how</kbd> parameter:</p>
+<pre>df_1.join(df_2, how = "right")</pre>
+<p>The following will be the output:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/71820881-b334-4ba1-b4c1-a263e27dc44e.png" style="width:38.25em;height:11.50em;"/></p>
+<div class="packt_figref CDPAlignCenter CDPAlign">Right join</div>
+<p>The inner join can be performed as shown following:</p>
+<pre>df_1.join(df_2, how = "inner")</pre>
+<p>The following will be the output:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/5c4ff5cd-a51a-4b8f-b9a6-fd3b0ecc61e5.png" style="width:39.75em;height:7.75em;"/></p>
+<div class="packt_figref CDPAlignCenter CDPAlign">Inner join</div>
+<p>The outer join can be performed as shown following:</p>
+<pre>df_1.join(df_2, how = "outer")</pre>
+<p class="mce-root"/>
+<p>The following will be the output:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/9321a282-86b3-4d85-ba09-52f9b244cc59.png" style="width:38.58em;height:16.67em;"/></p>
+<div class="packt_figref CDPAlignCenter CDPAlign">Outer join</div>
+<p>If the two DataFrames being joined have a common column over which the join should be performed, the key or list of keys can be mentioned in the <kbd>on</kbd> parameter of the <kbd>join</kbd> function. This is just the same as a <kbd>merge</kbd> function.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Pivots and reshaping data</h1>
+                </header>
+            
+            <article>
+                
+<p>This section deals with how you can reshape data. Sometimes, data is stored in what is known as a <em>stacked</em> format. Here is an example of stacked data using the <kbd>PlantGrowth</kbd> dataset:</p>
+<pre>    <strong>In [344]: plantGrowthRawDF=pd.read_csv('./PlantGrowth.csv')</strong>
+    <strong>       plantGrowthRawDF</strong>
+    <strong>Out[344]:   observation   weight  group</strong>
+    <strong>        0   1      4.17  ctrl</strong>
+    <strong>        1   2      5.58  ctrl</strong>
+    <strong>        2   3      5.18  ctrl</strong>
+    <strong>        ...</strong>
+    <strong>        10       1        4.81    trt1</strong>
+    <strong>        11       2        4.17    trt1</strong>
+    <strong>        12       3        4.41    trt1</strong>
+    <strong>       ... </strong>
+    <strong>        20       1        6.31    trt2</strong>
+    <strong>        21       2        5.12    trt2</strong>
+    <strong>        22       3        5.54    trt2</strong>
+  </pre>
+<p class="mce-root"/>
+<p class="mce-root"/>
+<p class="mce-root"/>
+<p class="mceNonEditable"/>
+<p>This data consists of results from an experiment that compared the dried weight yields of plants that were obtained under a <strong>control</strong> (<strong>ctrl</strong>) and two different treatment conditions (<strong>trt1 </strong>and <strong>trt2</strong>). Suppose we wanted to do some analysis on this data by group value. One way to do this would be to use a logical filter on the DataFrame:</p>
+<pre>    <strong>In [346]: plantGrowthRawDF[plantGrowthRawDF['group']=='ctrl']</strong>
+    <strong>Out[346]:   observation   weight  group</strong>
+    <strong>        0     1      4.17   ctrl</strong>
+    <strong>        1   2      5.58   ctrl</strong>
+    <strong>        2   3      5.18   ctrl</strong>
+    <strong>        3   4      6.11   ctrl</strong>
+    <strong>       ...</strong>
+  </pre>
+<p>This can be tedious, so we would instead like to pivot/unstack this data and display it in a form that is more conducive to analysis. We can do this using the <kbd>DataFrame.pivot</kbd> function as follows:</p>
+<pre>    <strong>In [345]: plantGrowthRawDF.pivot(index='observation',columns='group',values='weight')</strong>
+    <strong>Out[345]: weight    </strong>
+    <strong>          group   ctrl  trt1  trt2</strong>
+    <strong>      observation</strong>
+    <strong>        1   4.17   4.81   6.31</strong>
+    <strong>        2   5.58   4.17   5.12</strong>
+    <strong>        3   5.18   4.41   5.54</strong>
+    <strong>        4   6.11   3.59   5.50</strong>
+    <strong>        5   4.50   5.87   5.37</strong>
+    <strong>        6   4.61   3.83   5.29</strong>
+    <strong>        7   5.17   6.03   4.92</strong>
+    <strong>        8    4.53   4.89   6.15</strong>
+    <strong>        9   5.33   4.32   5.80</strong>
+    <strong>       10   5.14   4.69   5.26</strong></pre>
+<p>Here, a DataFrame is created with columns corresponding to the different values of a group, or, in statistical parlance, levels of the factor.</p>
+<p>Some more examples of pivoting on <kbd>salesdata.csv</kbd> are as follows:</p>
+<pre>datastr=pd.read_csv('salesdata.csv')<br/>table=pd.pivot_table(datastr,index=['Customer Segment'])<strong># the aggregate values are average by default<br/></strong></pre>
+<p>The following will be the output. This gives the results for all the columns:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/da032d62-e5ed-4d61-b8cf-a27ea1d6512a.png"/></p>
+<p><span>If we specify a <kbd>columns</kbd> parameter with a variable name, all the categories in that variable become separate columns:</span></p>
+<pre>table2=pd.pivot_table(datastr,values='Sales',index=['Customer Segment'],columns=['Region'])</pre>
+<p>For example, the output of the preceding code would be as shown following:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/864919be-166e-4a7f-950d-388a0fb46ff7.png"/></p>
+<p>Multi-indexed pivots are also possible, as shown:</p>
+<pre>table4=pd.pivot_table(datastr,values='Sales',index=['Customer Segment','Ship Mode'],columns=['Region'])</pre>
+<p class="mce-root"/>
+<p>The following will be the output:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/9d2912c3-41a9-47cc-b692-ee544e9dc9b1.png"/></p>
+<p>A different aggregate function, other than default average, or a custom function can be applied for aggregation as shown in the example following:</p>
+<pre>table5=pd.pivot_table(datastr,values='Sales',index=['Customer Segment','Ship Mode'],columns=['Region'],aggfunc=sum)</pre>
+<p>The following will be the output:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/54a535d8-64f3-479d-8055-d2e50630bd07.png"/></p>
+<p>Some more important tips and tricks to keep in mind while using <kbd>pivot_tables</kbd> are listed following:</p>
+<ul>
+<li>If you expect missing values in your pivot table, then use <kbd>fill.values=0</kbd>:</li>
+</ul>
+<pre>table4=pd.pivot_table(datastr,values='Sales',index=['Customer Segment','Ship Mode'],columns=['Region'],fill_values=0)</pre>
+<ul>
+<li>If you want totals at the end, use <kbd>margins=TRUE</kbd>:</li>
+</ul>
+<pre>table4=pd.pivot_table(datastr,values='Sales',index=['Customer Segment','Ship Mode'],columns=['Region'],fill_values=0,margins=TRUE)</pre>
+<ul>
+<li>You can pass different aggregate functions to different value columns:</li>
+</ul>
+<pre>table6=pd.pivot_table(datastr,values=['Sales','Unit Price'],index=['Customer Segment','Ship Mode'],columns=['Region'],aggfunc={"Sales":sum,"Unit Price":len})</pre>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Stacking and unstacking</h1>
+                </header>
+            
+            <article>
+                
+<p>In addition to pivot functions, the stack and unstack functions are also available on Series and DataFrames, which work on objects containing MultiIndex.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">The stack() function</h1>
+                </header>
+            
+            <article>
+                
+<p>When stacking, a set of column labels get converted to an index level. To explore stacking further, let's use a DataFrame with a MultiIndex along the row-index and column-index:</p>
+<pre>multi_df = sales_data[["Sales", "Quantity", "Category", "ShipMode"]].groupby(["Category", "ShipMode"]).agg([np.sum, np.mean])<br/>multi_df</pre>
+<p>The following will be the output:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1580 image-border" src="assets/e2d47143-71d1-4a0b-9a1b-0c05dc5c9d2e.png" style="width:34.25em;height:27.83em;"/></p>
+<div class="packt_figref CDPAlignCenter CDPAlign">Hierarchical data for stacking and unstacking</div>
+<p>Applying <kbd>stack() </kbd>makes a wide DataFrame longer. Let's apply <kbd>stack()</kbd> on the preceding DataFrame. The column labels on the last level get added to the MultiIndex:</p>
+<pre>multi_df.stack()</pre>
+<p class="mce-root"/>
+<p>The following will be the output:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/f573195b-a5cb-41a0-883b-9f63476744fd.png" style="width:28.83em;height:41.08em;"/></p>
+<div class="packt_figref CDPAlignCenter CDPAlign">Result of stacking</div>
+<p>The <kbd>stack()</kbd> function accepts a <kbd>level</kbd> argument. In this case, the default level setting is <kbd>1</kbd>. Let's try stacking at level <kbd>0</kbd>:</p>
+<pre>multi_df.stack(level = 0)</pre>
+<p class="mce-root"/>
+<p class="mce-root"/>
+<p>The following will be the output:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1581 image-border" src="assets/7f94af5a-13df-4bca-90cb-8a43704d76c2.png" style="width:29.92em;height:42.50em;"/></p>
+<div class="CDPAlignCenter CDPAlign packt_figref">Stacking using the level parameter</div>
+<p>Instead of specifying level numbers, level names can also be specified when stacking. To stack multiple levels, a list of level names or level numbers can be passed to the <kbd>level</kbd> argument. However, the list cannot be a combination of both level names and level numbers:</p>
+<pre>multi_df.stack(level = [0,1])</pre>
+<p>The following will be the output:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1582 image-border" src="assets/53a27fd4-b4cd-4a5b-844f-8764011dab5e.png" style="width:36.67em;height:35.08em;"/></p>
+<div class="packt_figref CDPAlignCenter CDPAlign">Stacking multiple levels at once</div>
+<p>Let's explore the attributes of the index after stacking. The <kbd>index</kbd> attribute of a DataFrame helps us understand the various levels, labels, and names of each index:</p>
+<pre>multi_df.stack(level = 0).index</pre>
+<p>The following will be the output:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/e2bf78e4-cded-4a41-bc98-a7471e103be4.png"/></p>
+<div class="packt_figref CDPAlignCenter CDPAlign">Index properties after stacking</div>
+<p>At times, stacking introduces missing values when there are no values for a certain combination of index and column name. Consider the following DataFrame:</p>
+<pre>multicol = pd.MultiIndex.from_tuples([('Male', 'M'),<br/>('Female', 'F')])<br/>missing_info = pd.DataFrame([[20, None], [34, 78]],<br/>index=['ClassA', 'ClassB'],<br/>columns=multicol)<br/>missing_info</pre>
+<p>The following will be the output:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/c1985d13-8377-43f4-b81f-f379b458d33f.png" style="width:13.75em;height:8.50em;"/></p>
+<div class="packt_figref CDPAlignCenter CDPAlign">Handling missing values when stacking</div>
+<p>Upon stacking, the <kbd>dropna</kbd> parameter of the <kbd>stack</kbd> function, which is set to <kbd>True</kbd> by default, automatically drops all NAs:</p>
+<pre>missing_info.stack(dropna = False)</pre>
+<p>The following will be the output:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/5eee33c1-dbd7-47d7-86a6-0e5a23da2279.png" style="width:11.83em;height:10.17em;"/></p>
+<div class="CDPAlignCenter CDPAlign packt_figref">dropna set to False when stacking</div>
+<p>By default, it will drop the rows with all missing values, as shown following:</p>
+<pre>missing_info.stack()</pre>
+<p>The following will be the output:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/8dc1b7ae-f9e8-42f3-8c5e-cd744a0c5c92.png" style="width:12.08em;height:8.67em;"/></p>
+<div class="packt_figref CDPAlignCenter CDPAlign">Dropping NAs by default when stacking</div>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">The unstack() function</h1>
+                </header>
+            
+            <article>
+                
+<p>The <kbd>unstack</kbd> function performs the reverse operation of the <kbd>stack</kbd> function. It converts long DataFrames to a wider format. Let's unstack the multi-level indexed sales data. The last level is unstacked by default:</p>
+<pre>multi_df.unstack()</pre>
+<p>The following will be the output:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/9b6d4218-e6f7-485d-b16a-45f27fe3df43.png"/></p>
+<div class="packt_figref CDPAlignCenter CDPAlign">Unstacking</div>
+<p>Just like <kbd>stack</kbd>, <kbd>unstack</kbd> has a <kbd>level</kbd> parameter. This <kbd>level</kbd> parameter accepts a level number, a level name, or a list of level names/level numbers.</p>
+<p>Any missing values created when unstacking can be handled using the <kbd>fill_value</kbd> argument of the <kbd>unstack</kbd> function. Consider the following DataFrame:</p>
+<pre>multi_df.iloc[[0,5,6],[0,2]]</pre>
+<p>The following will be the output:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/8630f903-1d61-488d-9e42-13e106518daf.png" style="width:23.67em;height:12.33em;"/></p>
+<div class="packt_figref CDPAlignCenter CDPAlign">Snapshot of data</div>
+<p>Unstacking the preceding DataFrame introduces NAs:</p>
+<pre>multi_df.iloc[[0,5,6],[0,2]].unstack()</pre>
+<p>The following will be the output:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/1ef3ab3e-d937-426c-bbd3-ddf901936f90.png" style="width:39.33em;height:11.67em;"/></p>
+<div class="packt_figref CDPAlignCenter CDPAlign"> Unstacking without handling missing data</div>
+<p class="mce-root"/>
+<p>We can impute the missing cells with a value of our choice using the <kbd>fill_value</kbd> method. Following are the missing values have been replaced by 0:</p>
+<pre>multi_df.iloc[[0,5,6],[0,2]].unstack(fill_value = 0)</pre>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/f7a65c30-3f69-46b8-bda7-e7bea17a0ab4.png" style="width:40.83em;height:11.75em;"/></p>
+<div class="packt_figref CDPAlignCenter CDPAlign"><span><span> </span></span>Filling NAs with 0 when unstacking</div>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Other methods for reshaping DataFrames</h1>
+                </header>
+            
+            <article>
+                
+<p>There are various other methods that are related to reshaping DataFrames; we'll discuss them here.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Using the melt function</h1>
+                </header>
+            
+            <article>
+                
+<p>The <kbd>melt</kbd> function enables us to transform a DataFrame by designating some of its columns as ID columns, ensuring they remain as columns with the remaining non-ID columns treated as <em>variable</em> columns and are pivoted and become part of a name-value two-column scheme. ID columns uniquely identify a row in a DataFrame.</p>
+<p>The names of those non-ID columns can be customized by supplying the <kbd>var_name</kbd> and <kbd>value_name</kbd> parameters. The use of <kbd>melt</kbd> is perhaps best illustrated by an example, as follows:</p>
+<pre>    <strong>In [385]: from pandas.core.reshape import melt</strong>
+    
+    <strong>In [401]: USIndexDataDF[:2]<br/></strong>
+    <strong>Out[401]:  TradingDate   Nasdaq   S&amp;amp;P 500   Russell 2000   DJIA</strong>
+    <strong>   0      2014/01/30    4123.13   1794.19   1139.36   15848.61</strong>
+    <strong>   1    2014/01/31    4103.88   1782.59   1130.88   15698.85</strong>
+    
+    <strong>In [402]: melt(USIndexDataDF[:2], id_vars=['TradingDate'], var_name='Index Name', value_name='Index Value')<br/></strong>
+    <strong>Out[402]:</strong>
+    <strong>    TradingDate   Index Name    Index value</strong>
+    <strong>  0  2014/01/30    Nasdaq      4123.13</strong>
+    <strong>  1  2014/01/31    Nasdaq      4103.88</strong>
+    <strong>  2  2014/01/30    S&amp;amp;P 500      1794.19</strong>
+    <strong>  3  2014/01/31    S&amp;amp;P 500      1782.59</strong>
+    <strong>  4  2014/01/30    Russell 2000  1139.36</strong>
+    <strong>  5  2014/01/31    Russell 2000  1130.88</strong>
+    <strong>  6  2014/01/30    DJIA           15848.61</strong>
+    <strong>  7  2014/01/31    DJIA           15698.85</strong>
+  </pre>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">The pandas.get_dummies() function</h1>
+                </header>
+            
+            <article>
+                
+<p>This function is used to convert a categorical variable into an indicator DataFrame, which is essentially a truth table of possible values of the categorical variable. An example of this is the following command:</p>
+<pre><strong>In [408]: </strong><strong>melted=melt(USIndexDataDF[:2], id_vars=['TradingDate'], var_name='Index Name', value_name='Index Value')</strong> <strong> <br/><br/>melted<br/></strong>
+<strong>Out[408]: TradingDate   Index Name  Index Value</strong>
+    <strong>0     2014/01/30   Nasdaq     4123.13</strong>
+    <strong>1     2014/01/31   Nasdaq     4103.88</strong>
+    <strong>2     2014/01/30   S&amp;amp;P 500     1794.19</strong>
+    <strong>3     2014/01/31   S&amp;amp;P 500     1782.59</strong>
+    <strong>4     2014/01/30   Russell 2000   1139.36</strong>
+    <strong>5     2014/01/31   Russell 2000   1130.88</strong>
+    <strong>6     2014/01/30   DJIA        15848.61</strong>
+    <strong>7     2014/01/31   DJIA        15698.85</strong>
+    
+    <strong>In [413]: pd.get_dummies(melted['Index Name'])<br/></strong>
+    <strong>Out[413]:         DJIA  Nasdaq  Russell 2000  S&amp;amp;P 500</strong>
+    <strong>        0   0   1      0            0</strong>
+    <strong>        1   0   1      0            0</strong>
+    <strong>        2   0   0      0            1</strong>
+    <strong>        3   0   0      0            1</strong>
+    <strong>        4   0   0      1            0</strong>
+    <strong>        5   0   0      1            0</strong>
+    <strong>        6   1   0      0            0</strong>
+    <strong>        7   1   0      0            0</strong>
+  </pre>
+<p>The source of the preceding data is <a href="http://vincentarelbundock.github.io/Rdatasets/csv/datasets/PlantGrowth.csv"><span class="URLPACKT">http://vincentarelbundock.github.io/Rdatasets/csv/datasets/PlantGrowth.csv</span></a>.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">pivot table</h1>
+                </header>
+            
+            <article>
+                
+<p>The pandas <kbd>pivot_table</kbd> function is more advanced than the <kbd>pivot</kbd> function in several ways. Let's discuss some interesting parameters of the <kbd>pivot_table</kbd> function:</p>
+<ul>
+<li><kbd>data</kbd>: The DataFrame object that is to be reshaped</li>
+<li><kbd>values</kbd>: A column or a list of columns that are to be aggregated</li>
+<li><kbd>index</kbd>: The key <span>across </span>which grouping of pivot index occurs</li>
+<li><kbd>columns</kbd>: The key with respect to which grouping of the <kbd>pivot</kbd> column occurs</li>
+<li><kbd>aggfunc</kbd>: The function to use for aggregation, such as <kbd>np.mean</kbd></li>
+</ul>
+<p>Let's pivot the sample sales data to slice and dice <kbd>Sales</kbd> across <kbd>Category</kbd> and <kbd>ShipMode</kbd>. Note that when <kbd>aggfunc</kbd> is empty, the mean is calculated:</p>
+<pre>pd.pivot_table(sales_data, values = "Sales", index = "Category", columns = "ShipMode")</pre>
+<p>The following will be the output:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/5c9f51e3-4a80-4bbc-9bef-8621031db69a.png" style="width:31.50em;height:10.17em;"/></p>
+<div class="packt_figref CDPAlignCenter CDPAlign">  Pivot table from pandas</div>
+<p>Now, it is possible to have multiple values for <kbd>values</kbd>, <kbd>index</kbd>, <kbd>column</kbd>, or <kbd>aggfunc</kbd>. Those multiple values can be passed as a list. Let's calculate <kbd>mean</kbd> for <kbd>Sales</kbd> and <kbd>sum</kbd> for <kbd>Quantity</kbd>:</p>
+<pre>pd.pivot_table(sales_data, values = ["Sales", "Quantity"], index = "Category", columns = "ShipMode", aggfunc = {"Sales": np.mean, "Quantity": np.sum})</pre>
+<p>The following will be the output:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1583 image-border" src="assets/1456c041-5da8-41c0-a546-e79e891deceb.png" style="width:66.00em;height:13.75em;"/></p>
+<div class="packt_figref CDPAlignCenter CDPAlign"> Pivot table with multiple aggregations</div>
+<p>Through <kbd>pivot_table</kbd>, DataFrames with hierarchical indices can be created. The <kbd>fill_value</kbd> and <kbd>dropna</kbd> parameters of the <kbd>pivot_table</kbd> function help in handling missing values.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Transpose in pandas</h1>
+                </header>
+            
+            <article>
+                
+<p>The <kbd>transpose</kbd> function in pandas is similar to that of NumPy. It interchanges rows and columns. Let's find the transpose of the following DataFrame:</p>
+<pre>sales_data.groupby("Category").sum()</pre>
+<p>The following will be the output:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1584 image-border" src="assets/6ab29d7a-bafd-482a-8f9f-fbab762e43f2.png" style="width:29.58em;height:10.08em;"/></p>
+<div class="packt_figref CDPAlignCenter CDPAlign"> Data to be transposed</div>
+<p>In the transpose of the DataFrame, the column labels and row indices are swapped:</p>
+<pre>sales_data.groupby("Category").sum().transpose()</pre>
+<p>The following will be the output:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/bff6518d-61aa-4a4a-a2fb-ede17f78f66c.png" style="width:22.83em;height:9.08em;"/></p>
+<div class="packt_figref CDPAlignCenter CDPAlign"> Output of transpose</div>
+<p><kbd>T</kbd> acts as an accessor to the <kbd>transpose</kbd> function and can be used as shown:</p>
+<pre>sales_data.groupby("Category").sum().T<br/><strong>Swaplevel and swapaxes</strong></pre>
+<p class="mce-root">The <kbd>swaplevel</kbd> function helps to interchange the levels within any axis. Consider the following DataFrame:</p>
+<pre>multi_df</pre>
+<p>The following will be the output:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1585 image-border" src="assets/6d98f001-fcf4-4916-9358-4fd619e042f4.png" style="width:29.33em;height:23.75em;"/></p>
+<div class="packt_figref CDPAlignCenter CDPAlign"> Data for swaplevel and swapaxes</div>
+<p>Now, let's switch the <span><span>positions of </span></span>the <kbd>Category</kbd> and <kbd>ShipMode </kbd><span>index levels. </span>Level numbers or level names can be provided as arguments:</p>
+<pre>multi_df.swaplevel(i = 1, j = 0, axis = 0)</pre>
+<p>The following will be the output:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1586 image-border" src="assets/8b2d0fe8-1ee8-41c4-a144-b659540c7f08.png" style="width:34.25em;height:28.08em;"/></p>
+<div class="packt_figref CDPAlignCenter CDPAlign"> Levels swapped</div>
+<p>Similarly, such switches can also be executed on the column labels by setting <kbd>axis</kbd> to <kbd>1</kbd>:</p>
+<pre>multi_df.swaplevel(i = 0, j = 1, axis = 1)</pre>
+<p class="mce-root"/>
+<p>The following will be the output:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1587 image-border" src="assets/8bac432a-2314-4130-ba8a-30df215a7f1a.png" style="width:34.33em;height:27.42em;"/></p>
+<div class="packt_figref CDPAlignCenter CDPAlign"> Levels swapped along axis 1</div>
+<p>The <kbd>swapaxes</kbd> function is functionally similar to the <kbd>transpose</kbd> function. The following shows the <kbd>swapaxes</kbd> function in action:</p>
+<pre>multi_df.swapaxes(axis1 = 0, axis2 = 1)</pre>
+<p>The following will be the output:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1588 image-border" src="assets/3d40cbf8-aa4d-426a-a215-ef2a8393387e.png" style="width:83.83em;height:17.75em;"/></p>
+<div class="packt_figref CDPAlignCenter CDPAlign">  Axis swapped</div>
+<p class="mce-root"/>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Squeeze</h1>
+                </header>
+            
+            <article>
+                
+<p><kbd>squeeze</kbd> helps to convert a 1D DataFrame to a series. Let's consider a 1D DataFrame:</p>
+<pre>dim1_df = sales_data[["Sales","OrderID"]].set_index("OrderID")<br/>dim1_df</pre>
+<p>The following will be the output:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1589 image-border" src="assets/42d5196e-b6c1-4cbf-af15-edcb8d8df314.png" style="width:11.83em;height:16.58em;"/></p>
+<div class="CDPAlignCenter CDPAlign packt_figref">  Data to squeeze</div>
+<p>The type of the preceding object has been deciphered here – it is a DataFrame:</p>
+<pre>type(dim1_df)</pre>
+<p>The following will be the output:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1590 image-border" src="assets/70a1b703-3992-4942-870b-3854bf22cf61.png" style="width:13.75em;height:1.83em;"/></p>
+<div class="packt_figref CDPAlignCenter CDPAlign"> Object type before squeezing</div>
+<p>Now, let's apply the <kbd>squeeze</kbd> function and find the object type. The required snippet and the output looks as shown following:</p>
+<pre>type(dim1_df.squeeze())</pre>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/cb19268e-6d19-4e62-a6a6-107dd298f679.png" style="width:15.33em;height:2.00em;"/></p>
+<div class="packt_figref CDPAlignCenter CDPAlign"><span><span> </span></span>Object type after squeezing</div>
+<p class="mce-root"/>
+<p>As you can see, <kbd>squeeze</kbd> transforms the DataFrame into a series.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">nsmallest and nlargest</h1>
+                </header>
+            
+            <article>
+                
+<p>The <kbd>nsmallest</kbd> and <kbd>nlargest </kbd>functions are extremely useful for returning the n smallest and n largest rows after ordering by the desired column.</p>
+<p>In the sample sales data, let's find the <kbd>3</kbd> smallest records by <kbd>Profit</kbd>:</p>
+<pre>sales_data.nsmallest(3, "Profit")</pre>
+<p>The following will be the output:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/087b2825-526c-48bd-a110-585dcc3f4b0a.png"/></p>
+<div class="packt_figref CDPAlignCenter CDPAlign"><span>Figure</span>6.73: Result of nsmallest</div>
+<p>The ordering can also be done with respect to multiple columns, as shown here:</p>
+<pre>sales_data.nlargest(3, ["Quantity", "Profit"])</pre>
+<p>The following will be the output:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1591 image-border" src="assets/7bbd3fc8-f873-470d-a5be-a1595c485d06.png" style="width:55.00em;height:10.92em;"/></p>
+<div class="packt_figref CDPAlignCenter CDPAlign">Result of nlargest</div>
+<p>These functions – <kbd>nsmallest</kbd> and <kbd>nlargest</kbd> have the <kbd>keep</kbd> parameter to decide how duplicates are handled. It helps to choose either the first occurrence, the last occurrence, or to retain all duplicates.</p>
+<p class="mce-root"/>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Summary</h1>
+                </header>
+            
+            <article>
+                
+<p>This chapter added to our arsenal of pandas tricks to aggregate, join, and transform data. Here is a quick recap of the chapter:</p>
+<ul>
+<li><kbd>groupby</kbd> creates groups of rows – one group for each category in a categorical variable (or a combination of categories across categorical variables).</li>
+<li>Using <kbd>groupby</kbd>, the same analysis can be performed on different groups efficiently.</li>
+<li>Similarly shaped DataFrames can be concatenated or appended to perform analysis <span>simultaneously </span>for the entire dataset.</li>
+<li>SQL-like joining or merging between DataFrames is also possible.</li>
+<li>Wide data can be made longer, or vice versa, depending on the requirement.</li>
+<li>pandas can handle multi-index data and there are functions to convert multi-index data to single-index data and vice versa.</li>
+<li>Spreadsheet operations such as pivot tables and transposes are possible and provide more flexibility than in spreadsheets.</li>
+</ul>
+<p><span>In the next chapter, we will discuss and elaborate on the methods, syntax, and usage of some of these special data operations in pandas.</span></p>
+
+
+            </article>
+
+            
+        </section>
+    </body></html>
