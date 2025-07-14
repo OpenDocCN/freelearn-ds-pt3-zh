@@ -1,0 +1,513 @@
+<html><head></head><body>
+        <section>
+
+                            <header class="header-title chapter-title">
+                    Advanced Array Concepts
+                </header>
+            
+            <article>
+                
+<p>In this chapter, we will explain some more advanced aspects of arrays. First, we will cover the notion of an array view – a concept that a NumPy programmer absolutely must be aware of to avoid hard-to-debug programming errors. Then, Boolean arrays will be introduced along with the ways to compare arrays. Furthermore, we will briefly describe indexing and vectorization, explaining special topics such as broadcasting and sparse matrices.</p>
+<p>In this chapter, we will be covering the following topics:</p>
+<ul>
+<li>Array views and copies</li>
+<li>Comparing arrays</li>
+<li>Array indexing</li>
+<li>Performance and vectorization</li>
+<li>Broadcasting </li>
+<li>Sparse matrices</li>
+</ul>
+<h1 id="uuid-54bc9c85-2fc4-430e-8f1f-61000ab913a9">5.1 Array views and copies</h1>
+<p>In order to control precisely how memory is used, NumPy offers the concept of a view of an array. Views are smaller arrays that share the same data as a larger array. This works just like a reference to one single object.</p>
+<h2 id="uuid-8df1284e-e78d-445d-b7f3-aedc826aae24">5.1.1 Array views</h2>
+<p>The simplest example of a view is given by a slice of an array:</p>
+<pre>M = array([[1.,2.],[3.,4.]])
+v = M[0,:] # first row of M</pre>
+<p>The preceding slice <kbd>v </kbd> is a view of<span> </span><kbd>M</kbd>. It shares the same data as<span> </span><kbd>M</kbd>. Modifying<span> </span><kbd>v</kbd><span> </span>will modify<span> </span><kbd>M</kbd><span> </span>as well:</p>
+<pre>v[-1] = 0.
+v # array([[1.,0.]])
+M # array([[1.,0.],[3.,4.]]) # M is modified as well</pre>
+<p>It is possible to access the object that owns the data using the array attribute<span> </span><kbd>base</kbd>:</p>
+<pre>v.base # array([[1.,0.],[3.,4.]])
+v.base is M # True</pre>
+<p>If an array owns its data, the attribute base is <kbd>None</kbd>:</p>
+<pre>M.base # None</pre>
+<h2 id="uuid-117f5b01-da12-4cdd-af09-032bd474fbfd">5.1.2 Slices as views</h2>
+<p>There are precise rules on which slices will return views and which ones will return copies. Only basic slices (mainly index expressions with<span> </span><kbd>:</kbd>) return views, whereas any advanced selections (such as slicing with a Boolean) will return a copy of the data. For instance, it is possible to create new matrices by indexing with lists (or arrays):</p>
+<pre>a = arange(4) # array([0.,1.,2.,3.])
+b = a[[2,3]] # the index is a list [2,3]
+b # array([2.,3.])
+b.base is None # True, the data was copied
+c = a[1:3] <br/>c.base is None # False, this is just a view</pre>
+<p>In the preceding example, the array<span> </span><kbd>b</kbd><span> </span>is not a view, whereas the array<span> </span><kbd>c</kbd>, obtained with a simpler slice, is a view.</p>
+<p>There is an especially simple slice of an array that returns a view of the whole array:</p>
+<pre>N = M[:] # this is a view of the whole array M</pre>
+<h2 id="uuid-e584e434-62ef-47cb-b887-85cf304c4602">5.1.3 <span><span>Generating</span></span> views by transposing and reshaping</h2>
+<p>Some other important operations return views. For instance, transposing an array returns a view:</p>
+<pre>M = random.random_sample((3,3))
+N = M.T
+N.base is M # True</pre>
+<p>The same applies to all  reshaping operations:</p>
+<pre>v = arange(10)
+C = v.reshape(-1,1) # column matrix
+C.base is v # True</pre>
+<p class="mce-root"/>
+<h2 id="uuid-2d343c61-27bb-4d0f-8c44-2e971ec5f87c">5.1.4 Array copies</h2>
+<p>Sometimes it is necessary to explicitly request that the data be copied. This is simply achieved with the NumPy function called <kbd>array</kbd>:</p>
+<pre>M = array([[1.,2.],[3.,4.]])
+N = array(M.T) # copy of M.T</pre>
+<p>We can verify that the data has indeed been copied:</p>
+<pre>N.base is None # True</pre>
+<p><span>In this section, you saw the concept of array views. NumPy works with views instead of copies of a given array to save memory, which – especially for large arrays – can be crucial. On the other hand, unintentionally using views may cause programming errors that are hard to debug. </span></p>
+<h1 id="uuid-06309e6f-3e3f-4b3f-94c3-1cdcf4c79a47">5.2 Comparing arrays</h1>
+<p>Comparing two arrays is not as simple as it may seem. Consider the following code, which is intended to check whether two matrices are close to each other:</p>
+<pre>A = array([0.,0.])
+B = array([0.,0.])
+if abs(B-A) &lt; 1e-10: # an exception is raised here
+    print("The two arrays are close enough")</pre>
+<p>This code raises the following exception when the<span> </span><kbd>if</kbd><span> </span>statement is executed:</p>
+<pre>ValueError: The truth value of an array with more than one element is ambiguous. Use a.any() or a.all()</pre>
+<p>In this section, we'll explain why this is so and how to remedy this state of affairs.</p>
+<h2 id="uuid-b1094e2b-15c1-4e80-b1c4-b69b098fb431">5.2.1 Boolean arrays</h2>
+<p>Boolean arrays are useful for advanced array indexing (also see <a href="e60692b7-f6d2-42df-a59f-bfaf357ea932.xhtml">Section 5.3.1</a>: Indexing with Boolean arrays). A Boolean array is simply an array for which the entries have the type<span> </span><kbd>bool</kbd>:</p>
+<pre>A = array([True,False]) # Boolean array
+A.dtype # dtype('bool')</pre>
+<p>Any comparison operator acting on arrays will create a Boolean array instead of a simple Boolean:</p>
+<pre>M = array([[2, 3],
+           [1, 4]])
+M &gt; 2 # array([[False, True],
+             # [False, True]])
+M == 0 # array([[False, False],
+             # [False, False]])
+N = array([[2, 3],
+           [0, 0]])
+M == N # array([[True, True],
+       # [False, False]])</pre>
+<p>Note that because array comparison creates Boolean arrays, one cannot use array comparison directly in conditional statements, for example,<span> </span><kbd>if</kbd><span> </span>statements. The solution is to use the methods<span> </span><kbd>all</kbd><span> </span>and<span> </span><kbd>any</kbd> to create a simple <kbd>True</kbd> or <kbd>False</kbd>:</p>
+<pre>A = array([[1,2],[3,4]])
+B = array([[1,2],[3,3]])
+A == B # creates array([[True, True], [True, False]]) 
+(A == B).all() # False
+(A != B).any() # True
+if (abs(B-A) &lt; 1e-10).all():
+    print("The two arrays are close enough")</pre>
+<p>Here, the use of one of the methods <kbd>all</kbd> and <kbd>any</kbd> results in a "scalar" Boolean, which now allows array comparisons in <kbd>if</kbd> statements. </p>
+<h2 id="uuid-5d63e515-9f6e-41bb-acc9-30a563ffd76c">5.2.2 Checking for array equality</h2>
+<p>Checking the equality of two float arrays is not straightforward, because two floats may be very close without being equal. In NumPy, it is possible to check for equality with<span> </span><kbd>allclose</kbd>. This function checks for the equality of two arrays up to a given precision:</p>
+<pre>data = random.rand(2)*1e-3
+small_error = random.rand(2)*1e-16
+data == data + small_error # False
+allclose(data, data + small_error, rtol=1.e-5, atol=1.e-8)   # True</pre>
+<p>The tolerance is given in terms of a relative tolerance bound,<span> </span><kbd>rtol</kbd>, and an absolute error bound,<span> </span><kbd>atol</kbd>. The command<span> </span><kbd>allclose</kbd><span> </span>is a short form of:<span> </span></p>
+<pre>(abs(A-B) &lt; atol+rtol*abs(B)).all()</pre>
+<p>Note that<span> </span><kbd>allclose</kbd><span> </span>can be also applied to scalars:</p>
+<pre>data = 1e-3
+error = 1e-16
+data == data + error # False
+allclose(data, data + error, rtol=1.e-5, atol=1.e-8)  #True</pre>
+<h2 id="uuid-d97f1a83-6bcb-4168-afd7-b798e949d96c">5.2.3 Boolean operations on arrays</h2>
+<p>You cannot use<span> </span><kbd>and</kbd>, <kbd>or</kbd>, and <kbd>not</kbd><span> </span>on Boolean arrays. Indeed, those operators force the casting from array to Boolean, which is not permitted. Instead, we can use the operators given in Table 5.1 for component-wise logical operations on Boolean arrays:</p>
+<table style="border-collapse: collapse;width: 100%" border="1">
+<tbody>
+<tr>
+<td>
+<div class="CDPAlignCenter CDPAlign"><strong>Logic operator</strong></div>
+</td>
+<td>
+<div class="CDPAlignCenter CDPAlign"><strong>Replacement for Boolean arrays</strong></div>
+</td>
+</tr>
+<tr>
+<td>
+<div class="CDPAlignCenter CDPAlign"><kbd>A and B</kbd></div>
+</td>
+<td>
+<div class="CDPAlignCenter CDPAlign"><kbd>A &amp; B</kbd></div>
+</td>
+</tr>
+<tr>
+<td>
+<div class="CDPAlignCenter CDPAlign"><kbd>A or B</kbd></div>
+</td>
+<td>
+<div class="CDPAlignCenter CDPAlign"><kbd>A | B</kbd></div>
+</td>
+</tr>
+<tr>
+<td>
+<div class="CDPAlignCenter CDPAlign"><kbd>not A</kbd></div>
+</td>
+<td>
+<div class="CDPAlignCenter CDPAlign"><kbd>~ A</kbd></div>
+</td>
+</tr>
+</tbody>
+</table>
+<p class="mce-root"/>
+<div class="packt_figref CDPAlignCenter CDPAlign">Table 5.1: Logical operators for component-wise logical array operations</div>
+<p><span>Here is an example usage of logical operators with Boolean arrays:</span></p>
+<pre>A = array([True, True, False, False])
+B = array([True, False, True, False])
+A and B # error!
+A &amp; B # array([True, False, False, False])
+A | B # array([True, True, True, False])
+~A # array([False, False, True, True])</pre>
+<p>Suppose that we have a sequence of data that is marred with some measurement error. Suppose further that we run a regression and it gives us a deviation for each value. We wish to obtain all the exceptional values and all the values with a little deviation that are lower than a given threshold:</p>
+<pre>data = linspace(1,100,100) # data <br/>deviation = random.normal(size=100) # the deviations<br/>data = data + deviation <br/># do not forget the parentheses in the next statement! <br/>exceptional = data[(deviation&lt;-0.5)|(deviation&gt;0.5)] <br/>exceptional = data[abs(deviation)&gt;0.5] # same result <br/>small = data[(abs(deviation)&lt;0.1)&amp;(data&lt;5.)] # small deviation and data</pre>
+<p>In this example, we first created a data vector and then we perturbed it with some deviations sampled from normally distributed random numbers. We demonstrated two alternative ways of finding elements of data with large perturbations in absolute values, and finally, we collected only small data values for small perturbations. Here, we used a Boolean array instead of indexes when working with the array <kbd>data</kbd>. This technique will be explained in the next section. </p>
+<h1 id="uuid-9a775cdb-9291-4572-92d0-e01b3c4d8f92">5.3 Array indexing</h1>
+<p>We have already seen that we can index arrays with combinations of slices and integers – this is a basic slicing technique. There are, however, many more possibilities that allow for a variety of ways to access and modify array elements.</p>
+<h2 id="uuid-64073dfb-8031-495c-8670-9c65ac14a797">5.3.1 Indexing with Boolean arrays</h2>
+<p>It is often useful to access and modify only parts of an array, depending on its value. For instance, you might want to access all the positive elements of an array. This turns out to be possible using Boolean arrays, which act like masks to select only some elements of an array. The result of such indexing is<span> </span><em>always</em><span> </span>a vector. For instance, consider the following example:</p>
+<pre>B = array([[True, False],
+           [False, True]])
+M = array([[2, 3],
+           [1, 4]])
+M[B] # array([2,4]), a vector</pre>
+<p>In fact, the command<span> </span><kbd>M[B]</kbd> is equivalent to<span> </span><kbd>M[B].flatten()</kbd>. You can then replace the resulting vector with another vector. For instance, you can replace all the elements with zero:</p>
+<pre>M[B] = 0
+M # [[0, 3], [1, 0]]</pre>
+<p>Or you can replace all the selected values with others:</p>
+<pre>M[B] = 10, 20
+M # [[10, 3], [1, 20]]</pre>
+<p>By combining the creation of Boolean arrays (<kbd>M &gt; 2</kbd>), smart indexing (indexing with a Boolean array), and broadcasting, you can use the following elegant syntax:</p>
+<pre>M[M&gt;2] = 0    # all the elements &gt; 2 are replaced by 0</pre>
+<p>The expression broadcasting here refers to the tacit conversion of the scalar <kbd>0</kbd> to a vector of an appropriate shape (also see <a href="e60692b7-f6d2-42df-a59f-bfaf357ea932.xhtml">Section 5.5</a>: <em>Broadcasting</em>).</p>
+<h2 id="uuid-a036b61b-f016-4596-8a95-5c1ba08cff9c">5.3.2 Using the command where</h2>
+<p>The command<span> </span><kbd>where</kbd><span> </span>gives a useful construct that can take a Boolean array as a condition and either return the indexes of the array elements satisfying the condition or return different values depending on the values in the Boolean array.</p>
+<p>The basic structure is:</p>
+<pre>where(condition, a, b)</pre>
+<p>This will return values from<span> </span><kbd>a</kbd><span> </span>when the condition is<span> </span><kbd>True</kbd><span> </span>and values from<span> </span><kbd>b</kbd><span> </span>when it is<span> </span><kbd>False</kbd>.</p>
+<p>For instance, consider a<span> </span><em>Heaviside</em><span> </span>function:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="fm-editor-equation" src="assets/460877e6-45a6-42bb-b9a6-c002278d76c7.png" style="width:6.50em;height:1.92em;"/></p>
+<p>and its implementation with the command <kbd>where</kbd>:</p>
+<pre>def H(x):
+    return where(x &lt; 0, 0, 1)
+x = linspace(-1,1,11)  # [-1. -0.8 -0.6 -0.4 -0.2 0. 0.2 0.4 0.6 0.8 1. ]
+print(H(x))            # [0 0 0 0 0 1 1 1 1 1 1]</pre>
+<p>The second and third arguments can be either arrays of the same size as the condition (the Boolean array) or scalars. We'll give two more examples to demonstrate how to manipulate elements from an array or a scalar depending on a condition:</p>
+<pre>x = linspace(-4,4,5)
+# [-4. -2.  0.  2.  4.]
+
+print(where(x &lt; 0, -x, x))
+# [ 4., 2., 0, 2., 4.] ]
+print(where(x &gt; 0, 1, -1)) # [-1 -1 -1  1  1]</pre>
+<p>If the second and third arguments are omitted, then a tuple containing the indexes of the elements satisfying the condition is returned.</p>
+<p>For example, consider the use of<span> </span><kbd>where</kbd><span> </span>with only one argument in the following code:</p>
+<pre>a = arange(9)
+b = a.reshape((3,3))
+
+print(where(a &gt; 5))   # (array([6, 7, 8]),)
+print(where(b &gt; 5))   # (array([2, 2, 2]), array([0, 1, 2]))</pre>
+<p>T<span>his example demonstrates how to find out indexes of those elements of a Boolean array that are</span> <kbd>True</kbd><span>. The command</span> <kbd>where</kbd> <span>is a very handy tool to search in an array for elements fulfilling a given condition.</span></p>
+<p>In this section, you saw various use cases of Boolean arrays. Whenever your code contains <kbd>for</kbd> loops operating on conditions and arrays, check if the concept of Boolean arrays could help to remove unnecessary <kbd>for</kbd> loops and increase at least the readability of your code.</p>
+<h1 id="uuid-28ea454d-b016-4fdd-ac8a-99dbc5875754">5.4 Performance and vectorization</h1>
+<p>When it comes to the performance of your Python code, it often boils down to the difference between interpreted code and compiled code. Python is an interpreted programming language and basic Python code is executed directly without any intermediate compilation to machine code. With a compiled language, the code needs to be translated to machine instructions before execution.</p>
+<p>The benefits of an interpreted language are many but interpreted code cannot compete with compiled code for speed. To make your code faster, you can write some parts in a compiled language such as FORTRAN, C, or C++. This is what NumPy and SciPy do.</p>
+<p>For this reason, it is best to use functions in NumPy and SciPy over interpreted versions whenever possible. NumPy array operations such as matrix multiplication, matrix-vector multiplication, matrix factorization, scalar products, and so on are much faster than any pure Python equivalent. Consider the simple case of scalar products. The scalar product is much slower than the compiled NumPy function <kbd>dot(a,b)</kbd><span> </span>(more than 100 times slower for arrays with about 100 elements):</p>
+<pre>def my_prod(a,b):
+    val = 0
+    for aa, bb in zip(a,b):
+        val += aa*bb
+    return val</pre>
+<p>Measuring the speed of your functions is an important aspect of scientific computing. See <a href="dfb91b0a-8012-4043-af84-5cff4c6506db.xhtml">Section 15.3</a>: <em>Measuring execution time</em> for details on measuring execution times.</p>
+<h2 id="uuid-914518b8-2936-4015-ac6a-6444594b713f">5.4.1 Vectorization</h2>
+<p>To improve performance, you have often to vectorize the code. Replacing<span> </span><kbd>for</kbd><span> </span>loops and other slower parts of the code with NumPy slicing, operations, and functions can give significant improvements.</p>
+<p>For example, the simple addition of a scalar to a vector by iterating over the elements is very slow:</p>
+<pre>for i in range(len(v)):
+    w[i] = v[i] + 5</pre>
+<p>But using NumPy's addition is much faster:</p>
+<pre>w = v + 5</pre>
+<p>Using NumPy slicing can also give significant speed improvements over iterating with<span> </span><kbd>for</kbd><span> </span>loops. To demonstrate this, let's consider forming the average of neighbors in a two-dimensional array:</p>
+<pre>def my_avg(A):
+    m,n = A.shape
+    B = A.copy()
+    for i in range(1,m-1):
+        for j in range(1,n-1):
+            B[i,j] = (A[i-1,j] + A[i+1,j] + A[i,j-1] + A[i,j+1])/4
+    return B
+
+def slicing_avg(A):
+    A[1:-1,1:-1] = (A[:-2,1:-1] + A[2:,1:-1] +
+                    A[1:-1,:-2] + A[1:-1,2:])/4
+    return A</pre>
+<p>These functions both assign each element the average of its four neighbors. The second version, using slicing, is much faster.</p>
+<p>Besides replacing<span> </span><kbd>for</kbd><span> </span>loops and other slower constructions with NumPy functions, there is a useful function called<span> </span><kbd>vectorized</kbd> (see <a href="b9f628e9-f682-41be-b5a6-94359f8629fc.xhtml">Section 4.8</a>: <em>Functions acting on arrays</em>). This takes a function and creates a vectorized version that applies the function on all elements of an array using functions wherever possible.</p>
+<p>Consider the following function which we will use to demonstrate how to vectorize functions:</p>
+<pre>def my_func(x):
+    y = x**3 - 2*x + 5
+    if y&gt;0.5:
+        return y-0.5
+    else:
+        return 0def my_func(x):<br/>    y = x**3 - 2*x + 5<br/>    if y&gt;0.5:<br/>        return y-0.5<br/>    else:<br/>        return 0</pre>
+<p>Applying this function on elements of a vector <img class="fm-editor-equation" src="assets/4586f943-368a-4d03-9422-88fe5ca55f9a.png" style="width:0.83em;height:1.17em;"/> with 100 elements in a non-vectorized way:</p>
+<pre>[my_func(vk) for vk in v]</pre>
+<p>is nearly three times slower than using it in the vectorized way:</p>
+<pre>vectorize(my_func)(v)</pre>
+<p>In this section, we showed several examples of the vectorization of computations with NumPy arrays. An active use of this concept is recommended not only for speeding up the execution of your code but also for improving the readability of your code. </p>
+<h1 id="uuid-4776e02c-a85b-4749-9e57-1cb22dc4941a">5.5 Broadcasting</h1>
+<p>Broadcasting in NumPy denotes the ability to guess a common, compatible shape between two arrays. For instance, when adding a vector (one-dimensional array) and a scalar (zero-dimensional array), the scalar is extended to a vector, in order to allow for the addition. The general mechanism is called broadcasting. We will first review that mechanism from a mathematical point of view, and then proceed to give the precise rules for broadcasting in NumPy. The mathematical view might give a mathematically trained reader easier access to broadcasting, while other readers might want to skip the mathematical details and directly continue reading <a href="e60692b7-f6d2-42df-a59f-bfaf357ea932.xhtml">Section 5.5.2</a>: <em>Broadcasting arrays</em>.</p>
+<h2 id="uuid-08a9c039-7ac7-453c-a59d-3ca80d086bce">5.5.1 Mathematical views</h2>
+<p>Broadcasting is often performed in mathematics, mainly implicitly. Examples are expressions such as <img class="fm-editor-equation" src="assets/69891ec8-0b8d-4396-9e75-2192d35dd16f.png" style="width:3.08em;height:0.92em;"/> or <img class="fm-editor-equation" src="assets/92db4562-4d42-4820-a1e6-0d22d11a35e1.png" style="width:4.25em;height:1.00em;"/>. We will give an explicit description of that technique in this section.</p>
+<p>We have in mind the very close relationship between functions and NumPy arrays, as described in <a href="b9f628e9-f682-41be-b5a6-94359f8629fc.xhtml">Section 4.2.1</a>: <em>Arrays as functions</em>.</p>
+<h3 id="uuid-4deb440a-9828-4c36-bcb5-9c8223fbc3bd">Constant functions</h3>
+<p>One of the most common examples of broadcasting is the addition of a function and a constant; if<span> </span><img class="fm-editor-equation" src="assets/66a23cd3-5e96-4255-9e41-2491f350b5da.png" style="width:0.83em;height:0.92em;"/> is a scalar, we often write:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="fm-editor-equation" src="assets/ef17988a-4b0c-4195-8d65-d04ad4f6c07d.png" style="width:4.83em;height:1.00em;"/></p>
+<p>This is an abuse of notation since you should not be able to add functions and constants. Constants are, however, implicitly broadcast to functions. The broadcast version of the constant<span> </span><img class="fm-editor-equation" src="assets/371dcbce-b9e2-4331-8072-7038d84c16ef.png" style="width:0.75em;height:0.83em;"/> is the function <img class="fm-editor-equation" src="assets/6c1b9471-8cc7-4600-bff9-b0720043b17e.png" style="width:0.67em;height:0.92em;"/> defined by:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="fm-editor-equation" src="assets/f15a1f56-1c7a-429c-a38b-e1481f7436e1.png" style="width:7.50em;height:1.08em;"/></p>
+<p>Now it makes sense to add two functions together:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="fm-editor-equation" src="assets/dfba5757-8042-4e11-ad24-6e7b231cc428.png" style="width:4.42em;height:1.08em;"/></p>
+<p>We are not being pedantic for the sake of it, but because a similar situation may arise for arrays, as in the following code:</p>
+<pre>vector = arange(4) # array([0.,1.,2.,3.])
+vector + 1.        # array([1.,2.,3.,4.])</pre>
+<p>In this example, everything happens as if the scalar<span> </span><kbd>1.</kbd><span> </span>had been converted to an array of the same length as<span> </span><kbd>vector</kbd>, that is, <kbd>array([1.,1.,1.,1.])</kbd>, and then added to<span> </span><kbd>vector</kbd>.</p>
+<p>This example is exceedingly simple, so we'll proceed to show less obvious situations.</p>
+<h3 id="uuid-ad4c565b-8afb-4190-9206-a50be6c01e1a">Functions of several variables</h3>
+<p>A more intricate example of broadcasting arises when building functions of several variables.<span> </span>Suppose, for instance, that we were given two<span> </span>functions of one variable, <span><img class="fm-editor-equation" src="assets/ac094d60-643a-4288-aaa0-a59873bf1149.png" style="width:0.67em;height:1.17em;"/></span> and<span> </span><em><img class="fm-editor-equation" src="assets/fb48d608-1c7e-47ed-92f8-b8348723c3a9.png" style="width:0.58em;height:1.00em;"/></em>, and that we want to construct a new function,<span> </span><em><img class="fm-editor-equation" src="assets/568707f0-40b8-4f1a-9483-66297d555257.png" style="width:0.75em;height:0.83em;"/></em>, according to the formula:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="fm-editor-equation" src="assets/9ee8e56a-18e9-423a-b540-587e6a6997a9.png" style="width:8.75em;height:1.08em;"/></p>
+<p class="CDPAlignLeft CDPAlign"><em> </em>This is clearly a valid mathematical definition. We would like to express this definition as the sum of two functions in two variables defined as</p>
+<p class="CDPAlignCenter CDPAlign"><img class="fm-editor-equation" src="assets/a348796b-1a2e-4cfe-9fe5-b78373d683e4.png" style="width:9.92em;height:2.50em;"/>,</p>
+<p>and now we may simply write:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="fm-editor-equation" src="assets/fdb81504-466e-467b-abc2-3c8b78df504c.png" style="width:4.42em;height:1.17em;"/></p>
+<p>The situation is similar to that arising when adding a column matrix and a row matrix:</p>
+<pre>C = arange(2).reshape(-1,1) # column
+R = arange(2).reshape(1,-1) # row
+C + R                       # valid addition: array([[0.,1.],[1.,2.]])</pre>
+<p>This is especially useful when sampling functions of two variables, as shown in <a href="e60692b7-f6d2-42df-a59f-bfaf357ea932.xhtml">Section 5.5.3</a>:<span> </span><em>Typical examples</em>.</p>
+<h3 id="uuid-9fcb9674-df71-43ba-bd5e-794cf4ba2baa">General mechanism</h3>
+<p>We have seen how to add a function and a scalar and how to build a function of two variables from two functions of one variable. Let's now focus on the general mechanism that makes this possible. The general mechanism consists of two steps: <em>reshaping</em> and <em>extending</em>.</p>
+<p>First, the function<span> </span><span><img class="fm-editor-equation" src="assets/b3f744ae-3eb2-4a0d-ad22-e109b90e4b30.png" style="width:0.58em;height:1.00em;"/></span> is <em>reshaped</em> to the function<span> </span><img class="fm-editor-equation" src="assets/744ec18e-d9c8-48ae-90bc-52778afdef85.png" style="width:0.58em;height:1.00em;"/>, which takes two arguments. One of these arguments is a dummy argument, which we take to be zero, as a convention:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="fm-editor-equation" src="assets/ba7c8aec-ae56-4b15-877a-7936cbb1b6f6.png" style="width:5.58em;height:1.00em;"/></p>
+<p>Mathematically, the domain of the definition of <img class="fm-editor-equation" src="assets/c1a4c9a1-5a05-4bb5-936f-fd31524e29dc.png" style="width:0.58em;height:1.08em;"/> is now<span> </span><img class="fm-editor-equation" src="assets/ec7c650c-102d-4c3a-820b-99effb8c4af3.png" style="width:4.08em;height:1.25em;"/> Then the function<span> </span><img class="fm-editor-equation" src="assets/d442142f-b300-4b26-9f85-a94741d9e562.png" style="width:0.58em;height:1.08em;"/> is <em>reshaped</em> in a way similar to:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="fm-editor-equation" src="assets/af5cef49-26d4-4daf-b64c-119ed180760a.png" style="width:7.50em;height:1.42em;"/></p>
+<p>Now both<span> </span><img class="fm-editor-equation" src="assets/e3bf73d2-a1a3-44fb-af5e-c0779496df1f.png" style="width:0.83em;height:1.42em;"/>and<span> </span><img class="fm-editor-equation" src="assets/13afea47-b115-429d-b132-28d5905a513f.png" style="width:0.67em;height:1.25em;"/> take two arguments, although one of them is always zero. We proceed to the next step, <em>extending</em>. It is the same step that converted a constant into a constant function.</p>
+<p>The function <img class="fm-editor-equation" src="assets/5d7e6e3f-a7df-408b-9161-38c50b311745.png" style="width:0.75em;height:1.25em;"/> is <em>extended</em> to:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="fm-editor-equation" src="assets/4bf12815-d1ac-4df8-8ec5-b93901699031.png" style="width:12.67em;height:1.42em;"/> </p>
+<p>The function<span> </span><img class="fm-editor-equation" src="assets/0b274b2e-637a-4aaa-b3ce-7e34acb94f31.png" style="width:0.58em;height:1.00em;"/> is extended to:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="fm-editor-equation" src="assets/de132c36-12e2-42e2-9f1d-8cc0137eb711.png" style="width:13.08em;height:1.25em;"/></p>
+<p>Now the function of two variables, <img class="fm-editor-equation" src="assets/a8620c7e-d435-4557-85d9-be15cbafb7d3.png" style="width:1.00em;height:1.17em;"/>, which was sloppily defined by <img class="fm-editor-equation" src="assets/eed2403f-0afd-4741-bfc4-11fd7ab13a03.png" style="width:9.42em;height:1.17em;"/>, may be defined without reference to its arguments:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="fm-editor-equation" src="assets/8de1d5f3-13e4-4d33-afff-95477ad21e9d.png" style="width:5.08em;height:1.25em;"/></p>
+<p>For example, let's describe the preceding mechanism for constants. A constant is a scalar, that is, a function of zero arguments. The <em>reshaping step</em> is thus to define the function of one (empty) variable:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="fm-editor-equation" src="assets/15e63522-e49d-4dd7-8114-35a33fab1d8c.png" style="width:4.25em;height:1.17em;"/></p>
+<p>Now the <em>extension step</em> proceeds simply with:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="fm-editor-equation" src="assets/2e4751c9-6b14-4d2e-a08b-95f9cb52e64e.png" style="width:5.67em;height:1.33em;"/></p>
+<h3 id="uuid-17e219d5-4517-4a36-bbb5-85c38d22351d">Conventions</h3>
+<p>The last ingredient is the convention for how to add the extra arguments to a function, that is, how the reshaping is automatically performed. By convention, a function is automatically reshaped by adding zeros on the left.</p>
+<p>For example, if a function <span><img class="fm-editor-equation" src="assets/dbd64242-e716-4805-b924-487009f23a49.png" style="width:0.58em;height:1.00em;"/></span> of two arguments has to be reshaped to three arguments, the new function will be defined by:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="fm-editor-equation" src="assets/35e31143-4398-41a3-be36-f193b706925d.png" style="width:7.75em;height:1.08em;"/> </p>
+<p>After having seen a more mathematical motivation for broadcasting, we now show how this applies to NumPy arrays.</p>
+<h2 id="uuid-df0b8726-5e0c-4858-a3d1-08d9a5abcc8b">5.5.2 Broadcasting arrays</h2>
+<p>We'll now repeat the observation that arrays are merely functions of several variables (see <a href="b9f628e9-f682-41be-b5a6-94359f8629fc.xhtml">Section</a><span> 4.2: </span><em>Mathematical preliminaries</em>). Array broadcasting thus follows exactly the same procedure as explained above for mathematical functions. Broadcasting is done automatically in NumPy.</p>
+<p>In Figure 5.1, we show what happens when adding a matrix of shape (4, 3) to a matrix of size (1, 3). The resulting matrix is of the shape (4, 3):</p>
+<div class="CDPAlignCenter CDPAlign"><img src="assets/c2e7cf3e-17d3-4938-a31f-0456a76e19ec.png" style="width:35.58em;height:7.17em;"/></div>
+<div class="packt_figref CDPAlignCenter CDPAlign">Figure 5.1: Broadcasting between a matrix and a vector</div>
+<h3 id="uuid-34a6ed31-8683-4012-a579-7d9765135db7">The broadcasting problem</h3>
+<p>When NumPy is given two arrays with different shapes and is asked to perform an operation that<em> </em>would require the two shapes to be the same, both arrays are broadcast to a common shape.</p>
+<p>Suppose the two arrays have shapes <span><img class="fm-editor-equation" src="assets/f5574319-181a-4f32-aba0-71d06d7ba0de.png" style="width:1.17em;height:0.92em;"/></span><span> </span>and <img class="fm-editor-equation" src="assets/5b47ea61-2df0-4ea2-a664-f16987b19b1a.png" style="width:1.08em;height:0.83em;"/>. Broadcasting consists of the two steps:</p>
+<ol>
+<li>If the shape <span><img class="fm-editor-equation" src="assets/c3046fe0-1e71-44e6-9b37-66789ee79b95.png" style="width:1.00em;height:0.75em;"/></span><span> </span>is shorter than the shape <span><img class="fm-editor-equation" src="assets/30589aa2-56ff-41ea-a6a0-670c80e814e1.png" style="width:1.00em;height:0.75em;"/>, that is, <kbd>len(s1) &lt; len(s2)</kbd>,</span><span> </span>then ones are added on the left of the shape <span><img class="fm-editor-equation" src="assets/00af5683-394d-4b11-b526-a0d661fd1445.png" style="width:1.08em;height:0.83em;"/></span>. This is reshaping.</li>
+<li>When the shapes have the same length, the first array is extended to match the shape<span> </span><em>s<sub>2</sub></em><span> </span>(if possible).</li>
+</ol>
+<p>Suppose we want to add a vector of shape <img class="fm-editor-equation" src="assets/c3a599e3-145d-4a1b-9155-a668ffca988f.png" style="width:4.58em;height:1.33em;"/> to a matrix of shape <img class="fm-editor-equation" src="assets/cd2275cc-e7d9-4129-b18d-4fba55afaea3.png" style="width:4.92em;height:1.25em;"/>. The vector needs to be broadcast. The first operation is reshaping; the shape of the vector is converted from (3, ) to (1, 3). The second operation is an extension; the shape is converted from (1, 3) to (4, 3).</p>
+<p>For instance, suppose a vector <img class="fm-editor-equation" src="assets/25dcaa7c-1ab6-48ef-8f60-2d002c90f591.png" style="width:0.83em;height:1.08em;"/> of size<span> </span><em>n</em><span> </span>is to be broadcast to the shape (<em>m, n</em>):</p>
+<ol>
+<li><img class="fm-editor-equation" src="assets/d012613e-decb-42fa-aba9-5d3fe7dc155b.png" style="width:0.67em;height:0.92em;"/><span> </span>is automatically reshaped to (1,<span> </span><em>n</em>).</li>
+<li><span><img class="fm-editor-equation" src="assets/077eabe8-be98-4d56-b46c-6424aa64c9e1.png" style="width:0.67em;height:0.83em;"/></span> is extended to (<em>m</em>,<span> </span><em>n</em>).</li>
+</ol>
+<p>To demonstrate this, we consider a matrix defined by:</p>
+<pre>M = array([[11, 12, 13, 14],
+           [21, 22, 23, 24],
+           [31, 32, 33, 34]])</pre>
+<p>and a vector given by:</p>
+<pre>v = array([100, 200, 300, 400])</pre>
+<p>Now we may add<span> </span><kbd>M</kbd><span> </span>and<span> </span><kbd>v</kbd><span> </span>directly:</p>
+<pre>M + v # works directly</pre>
+<p>The result is this matrix:</p>
+<p style="padding-left: 180px"><img src="assets/9f0e0965-3ef7-48ff-9dbf-25c7ab17f013.png" style="width:8.33em;height:3.08em;"/></p>
+<h3 id="uuid-699f1e2c-c12c-4e60-b08b-89f9cfc5e64b">Shape mismatch</h3>
+<p>It is not possible to automatically broadcast a vector<span> </span><kbd>v</kbd><span> </span>of length<span> </span><kbd>n</kbd><span> </span>to the shape<span> </span><kbd>(n,m)</kbd>. This is illustrated in <em>Figure 5.2</em>.</p>
+<div class="CDPAlignCenter CDPAlign"><img src="assets/6c77c88d-e3f2-4a51-a36b-d8ce883f6059.png" style="width:22.25em;height:14.42em;"/></div>
+<div class="packt_figref CDPAlignCenter CDPAlign">Figure 5.2: Failure of broadcasting due to shape mismatch</div>
+<p>The broadcasting fails, because the shape<span> </span><kbd>(n,)</kbd><span> </span>may not be automatically broadcast to the shape<span> </span><kbd>(m, n)</kbd>. The solution is to manually reshape<span> </span><kbd>v</kbd><span> </span>to the shape<span> </span><kbd>(n,1)</kbd>. The broadcasting will now work as usual (by extension only):</p>
+<pre>M + v.reshape(-1,1)</pre>
+<p>This is illustrated by the following example.</p>
+<p>Define a matrix with:</p>
+<pre>M = array([[11, 12, 13, 14],
+           [21, 22, 23, 24],
+           [31, 32, 33, 34]])</pre>
+<p>and a vector with:</p>
+<pre>v = array([100, 200, 300])</pre>
+<p>Now automatic broadcasting will fail because automatic reshaping does not work:</p>
+<pre>M + v # shape mismatch error</pre>
+<p>The solution is thus to take care of the reshaping manually. What we want in that case is to add 1 on the right, that is, transform the vector into a column matrix. The broadcasting then works directly:</p>
+<pre>M + v.reshape(-1,1)</pre>
+<p>(For the shape parameter <kbd>-1</kbd>, see <a href="b9f628e9-f682-41be-b5a6-94359f8629fc.xhtml">Section 4.6.3</a>: <em>Reshape.</em>)<span> </span>The result is this matrix:</p>
+<pre>array([[111, 112, 113, 114],  <br/>       [221, 222, 223, 224], <br/>       [331, 332, 333, 334]])</pre>
+<h2 id="uuid-1aeb59bc-f5bb-4724-a7e2-01a9d75df184">5.5.3 Typical examples</h2>
+<p>Let's examine some typical examples where broadcasting may come in handy.</p>
+<h3 id="uuid-c404217b-128c-4f28-9041-b6239dc197d0">Rescale rows</h3>
+<p>Suppose<span> </span><kbd>M</kbd><span> </span>is an <em><img class="fm-editor-equation" src="assets/8c502202-49f7-4a8e-a850-142921b05540.png" style="width:3.00em;height:0.75em;"/></em> matrix and we want to multiply each row by a coefficient. The coefficients are stored in a vector<span> </span><kbd>coeff</kbd><span> </span>with<span> </span><em>n</em><span> </span>components. In that case, automatic reshaping will not work, and we have to execute:</p>
+<pre>rescaled = M*coeff.reshape(-1,1)</pre>
+<h3 id="uuid-b40cb9fd-77b3-459b-8fe3-dbc8e28b1cc7">Rescale columns</h3>
+<p>The setup is the same here, but we would like to rescale each column with a coefficient stored in a vector<span> </span><kbd>coeff</kbd><span> </span>of length<span> </span><em>m</em>. In this case, automatic reshaping will work:</p>
+<pre>rescaled = M*coeff</pre>
+<p>Obviously, we may also do the reshaping manually and achieve the same result with:</p>
+<pre>rescaled = M*coeff.reshape(1,-1)</pre>
+<h3 id="uuid-1b147caf-eae9-4a1d-b657-c4fbe2c6b6ff">Functions of two variables</h3>
+<p>Suppose <img class="fm-editor-equation" src="assets/1c262619-1c75-4291-970a-1daad2e23f1b.png" style="width:0.67em;height:0.75em;"/> and<span> </span><span><img class="fm-editor-equation" src="assets/d304100a-0ec4-4653-8315-abc1a427de3a.png" style="width:0.83em;height:1.08em;"/></span> are vectors and we want to form the matrix<span> </span><img class="fm-editor-equation" src="assets/52654bb6-2f26-451d-8b06-9d16eb84a766.png" style="width:0.92em;height:0.75em;"/> with elements<span> <img class="fm-editor-equation" src="assets/e082400a-96c1-4e39-9567-2b20d7548b88.png" style="width:6.33em;height:1.17em;"/></span>. This would correspond to the function<span> <img class="fm-editor-equation" src="assets/44feaca2-8d65-40cf-86ee-4f32300f2b0b.png" style="width:6.25em;height:1.08em;"/></span>. The matrix<span> </span><img class="fm-editor-equation" src="assets/6d1d25c9-5da6-4eb1-95e0-2f78f4318103.png" style="width:0.92em;height:0.75em;"/> is merely defined by:</p>
+<pre>W=u.reshape(-1,1) + v</pre>
+<p>If the vectors<span> </span><em><img class="fm-editor-equation" src="assets/7c329343-7ce8-40d9-b58e-ee57831cc5b8.png" style="width:0.67em;height:0.75em;"/></em> and<span> </span><img class="fm-editor-equation" src="assets/a8a0819d-b28c-415e-aa33-3a8748d54267.png" style="width:0.58em;height:0.75em;"/> are <img class="fm-editor-equation" src="assets/5abfef87-142c-4971-801d-95e0dfa50d20.png" style="width:2.58em;height:1.17em;"/> and <img class="fm-editor-equation" src="assets/e875b9e9-c719-4c4c-beb9-7a506626e90d.png" style="width:3.83em;height:1.25em;"/> respectively, the result is:</p>
+<pre class="CDPAlignLeft CDPAlign">array([[2, 3, 4],<br/>       [3, 4, 5]])</pre>
+<p>More generally, suppose that we want to sample the function<span> <img class="fm-editor-equation" src="assets/514d009e-f785-4285-8728-cf6a0e8ae6d9.png" style="width:11.42em;height:1.17em;"/></span>. Supposing that the vectors<span> </span><img class="fm-editor-equation" src="assets/ca628e79-cf1c-413b-94b4-d13cdef8c319.png" style="width:0.67em;height:0.75em;"/> and<span> </span><img class="fm-editor-equation" src="assets/6146f5d4-8840-4353-8999-f0bc24d15203.png" style="width:0.50em;height:0.83em;"/> are defined, the matrix<span> </span><img class="fm-editor-equation" src="assets/0c41556d-bccb-4901-9eac-0370087b4249.png" style="width:1.00em;height:0.83em;"/> of sampled values is obtained with:</p>
+<pre>W = cos(x).reshape(-1,1) + sin(2*y)</pre>
+<p>Note that this is very frequently used in combination with<span> </span><kbd>ogrid</kbd>. The vectors obtained from<span> </span><kbd>ogrid</kbd><span> </span>are already conveniently shaped for broadcasting. This allows for the following elegant sampling of the function <img class="fm-editor-equation" src="assets/e25a91bf-92cb-4797-8317-39708a208778.png" style="width:7.58em;height:1.25em;"/>:</p>
+<pre>x,y = ogrid[0:1:3j,0:1:3j] 
+# x,y are vectors with the contents of linspace(0,1,3)
+w = cos(x) + sin(2*y)</pre>
+<p>The syntax of<span> </span><kbd>ogrid</kbd><span> </span>needs some explanation: First,<span> </span><kbd>ogrid</kbd><span> </span>is not a function. It is an instance of a class with a<span> </span><kbd>__getitem__</kbd><span> </span>method (see <a href="1654fae9-6203-4871-8352-e436445fa49a.xhtml">Section 8.1.5</a>: <em>Special methods</em>). That is why it is used with brackets instead of parentheses.</p>
+<p>The two commands are equivalent:</p>
+<pre>x,y = ogrid[0:1:3j, 0:1:3j]
+x,y = ogrid.__getitem__((slice(0, 1, 3j),slice(0, 1, 3j)))</pre>
+<p>The stride parameter in the preceding example is a complex number. This is to indicate that it is the number of steps instead of the step size. The rules for the stride parameter might be confusing at first glance:</p>
+<ul>
+<li>If the stride is a real number, then it defines the size of the steps between start and stop and stop is not included in the list.</li>
+</ul>
+<ul>
+<li>If the stride is a complex number<span> </span><kbd>s</kbd>, then the integer part of <kbd>s.imag</kbd><span> </span>defines the number of steps between start and stop and stop is included in the list.</li>
+</ul>
+<p>The output of<span> </span><kbd>ogrid</kbd><span> </span>is a tuple with two arrays, which can be used for broadcasting:</p>
+<pre>x,y = ogrid[0:1:3j, 0:1:3j]</pre>
+<p>This gives:</p>
+<pre>array([[ 0. ],
+       [ 0.5],
+       [ 1. ]])
+array([[ 0. ,  0.5,  1. ]])</pre>
+<p>which is equivalent to:</p>
+<pre>x,y = ogrid[0:1.5:.5, 0:1.5:.5]</pre>
+<h1 id="uuid-9f5d7775-095f-46a8-bdc2-1f06b8df461f">5.6. Sparse matrices</h1>
+<p>Matrices with a small number of nonzero entries are called<span> </span><em>sparse matrices</em>. Sparse matrices occur, for example, in scientific computing when describing discrete differential operators in the context of numerically solving partial differential equations.</p>
+<p>Sparse matrices often have large dimensions, sometimes so large that the entire matrix (with zero entries) would not even fit in the available memory. This is one motivation for a special datatype for sparse matrices. Another motivation is better performance of operations where zero matrix entries can be avoided.</p>
+<p>There are only a very limited number of algorithms for general, unstructured sparse matrices in linear algebra. Most of them are iterative in nature and based on efficient implementations of matrix-vector multiplication for sparse matrices.</p>
+<p>Examples of sparse matrices are diagonal or banded matrices. The simple pattern of these matrices allows straightforward storing strategies; the principal diagonal and the sub- and super-diagonals are stored in 1D arrays. Conversion from a sparse representation to the classical array type and vice versa can be done with the NumPy command<span> </span><kbd>diag</kbd>.</p>
+<p>In general, there is not such a simple structure and the description of sparse matrices requires special techniques and standards.</p>
+<p>An example of such a matrix is shown in Figure 5.3. There, t<span>he pixels denote nonzero entries in the 1250 × 1250 matrix.</span></p>
+<p>In this section, we present a row and a column-oriented type for sparse matrices, both available through the module<span> </span><kbd>scipy.sparse</kbd>.</p>
+<div class="CDPAlignCenter CDPAlign"><img src="assets/f80bc23d-f23a-4f62-bd62-7fa64296e1ce.png" style="width:13.75em;height:13.75em;"/></div>
+<div class="packt_figref CDPAlignCenter CDPAlign">Figure 5.3: A<span> </span>stiffness<span> </span>matrix from a finite element model of an elastic plate.</div>
+<p class="CDPAlignLeft CDPAlign"/>
+<h2 id="uuid-a4adc248-2c32-417c-941a-be77a1a9c238">5.6.1 Sparse matrix formats</h2>
+<p>The module<span> </span><kbd>scipy.sparse</kbd><span> </span>provides many different storing formats for sparse matrices. Here, we'll describe only the most important ones: CSR, CSC, and LIL. The LIL format should be used for generating and altering sparse matrices; CSR and CSC are efficient formats for matrix-matrix and matrix-vector operations.</p>
+<h3 id="uuid-17209f36-21aa-4a72-a2c2-521df52fc4c0">Compressed sparse row format (CSR)</h3>
+<p>The <strong>compressed sparse row</strong> (<strong>CSR</strong>) format uses three arrays: <kbd>data</kbd>,<span> </span><kbd>indptr</kbd>, and<span> </span><kbd>indices</kbd>:</p>
+<ul>
+<li>The 1D array<span> </span><kbd>data</kbd><span> </span>stores all the nonzero values in order. It has as many elements as there are nonzero elements, often denoted by the variable<span> </span><kbd>nnz</kbd>.</li>
+</ul>
+<ul>
+<li>The 1D array<span> </span><kbd>indptr</kbd><span> </span>contains integers such that<span> </span><kbd>indptr[i]</kbd><span> </span>is the index of the element in<span> </span><kbd>data</kbd>, which is the first nonzero element of row<span> </span><em>i</em>. If the entire row<span> </span><em>i</em><span> </span>is zero, then<span> </span><kbd>indptr[i]==indptr[i+1]</kbd>. If the original matrix has<span> </span><em>m</em><span> </span>rows, then<span> </span><kbd>len(indptr)==m+1</kbd>.</li>
+<li>The 1D array<span> </span><kbd>indices</kbd><span> </span>contains the column index information in such a way that<span> </span><kbd>indices[indptr[i]:indptr[i+1]]</kbd><span> </span>is an integer array with the column indexes of the nonzero elements in row<span> </span><em>i</em>. Obviously,<span> </span><kbd>len(indices)==len(data)==nnz</kbd>.</li>
+</ul>
+<p>Let's see an example:</p>
+<p>The CSR format of the matrix:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="fm-editor-equation" src="assets/3637523e-fddf-44da-8c67-6286fe700b5a.png" style="width:9.75em;height:5.08em;"/></p>
+<div class="CDPAlignLeft CDPAlign"/>
+<p>is given by the three arrays:</p>
+<pre>data = array([1., 2., 3., 1., 4.])<br/>indptr = array([0, 2, 2, 3, 5])<br/>indices = array([0, 2, 0, 0, 3]</pre>
+<p>The module<span> </span><kbd>scipy.sparse</kbd><span> </span>provides a type, <kbd>csr_matrix</kbd>, with a constructor, which can be used in the following ways:</p>
+<ul>
+<li>With a 2D array as an argument</li>
+<li>With a matrix in one of the other sparse formats in<span> </span><kbd>scipy.sparse</kbd></li>
+<li>With a shape argument, <kbd>(m,n)</kbd>, to generate a zero matrix in CSR format</li>
+<li>By a 1D array for<span> </span><kbd>data</kbd><span> </span>and an integer array<span> </span><kbd>ij</kbd><span> </span>with the shape<span> </span><kbd>(2,len(data))</kbd><span> </span>such that<span> </span><kbd>ij[0,k]</kbd><span> </span>is the row index and<span> </span><kbd>ij[1,k]</kbd><span> </span>is the column index of<span> </span><kbd>data[k]</kbd><span> </span>of the matrix</li>
+<li>The three arguments, <kbd>data</kbd>, <kbd>indptr</kbd>, and<span> </span><kbd>indices</kbd>, can be given to the constructor directly</li>
+</ul>
+<p>The first two options are there for conversion purposes while the last two directly define the sparse matrix.</p>
+<p>Consider the above example; in Python, it looks like:</p>
+<pre>import scipy.sparse as sp
+A = array([[1,0,2,0],[0,0,0,0],[3.,0.,0.,0.],[1.,0.,0.,4.]])
+AS = sp.csr_matrix(A)</pre>
+<p>Among others, the following attributes are provided:</p>
+<pre>AS.data      # returns array([ 1., 2., 3., 1., 4.]) 
+AS.indptr    # returns array([0, 2, 2, 3, 5])
+AS.indices   # returns array([0, 2, 0, 0, 3])
+AS.nnz       # returns 5</pre>
+<h3 id="uuid-2d4560a8-844a-4299-9041-b1a90e366466">Compressed sparse column format (CSC)</h3>
+<p>The CSR format has a column-oriented twin – the <strong>compressed sparse column</strong> (<strong>CSC</strong>) format. The only difference in it compared to the CSR format is the definition of the<span> </span><kbd>indptr</kbd><span> </span>and<span> </span><kbd>indices</kbd><span> </span>arrays, which are now column-related. The type for the CSC format is<span> </span><kbd>csc_matrix</kbd><span> </span>and its use corresponds to<span> </span><kbd>csr_matrix</kbd>, explained previously in this subsection.</p>
+<p>Continuing the same example in CSC format:</p>
+<pre>import scipy.sparse as sp
+A = array([[1,0,2,0],[0,0,0,0],[3.,0.,0.,0.],[1.,0.,0.,4.]])
+AS = sp.csc_matrix(A)
+AS.data         # returns array([ 1., 3., 1., 2., 4.]) 
+AS.indptr       # returns array([0, 3, 3, 4, 5])
+AS.indices      # returns array([0, 2, 3, 0, 3])
+AS.nnz          # returns 5</pre>
+<h3 id="uuid-fc54f828-8c08-412d-912a-738c7bce0577">Row-based linked list format (LIL)</h3>
+<p>The linked list sparse format stores the nonzero matrix entries row-wise in a list<span> </span><kbd>data</kbd><span> </span>such that<span> </span><kbd>data[k]</kbd><span> </span>is a list of the nonzero entries in row<span> </span><em>k</em>. If all entries in that row are 0, it contains an empty list.</p>
+<p>A second list,<span> </span><kbd>rows</kbd>, contains at position<span> </span><em>k</em><span> </span>a list of column indexes of the nonzero elements in row<span> </span><em>k</em>. Here is an example in<span> r</span>ow-based <strong>linked list</strong> (<strong>LIL</strong>)<span> </span>format:</p>
+<pre>import scipy.sparse as sp
+A = array([[1,0,2,0],[0,0,0,0], [3.,0.,0.,0.], [1.,0.,0.,4.]]) 
+AS = sp.lil_matrix(A)
+AS.data     # returns array([[1.0, 2.0], [], [3.0], [1.0, 4.0]], dtype=object)
+AS.rows     # returns array([[0, 2], [], [0], [0, 3]], dtype=object)
+AS.nnz      # returns 5</pre>
+<h3 id="uuid-ab599c66-1dc6-4840-91c6-fcf634a0da54">Altering and slicing matrices in LIL format</h3>
+<p>The LIL<span> </span>format is the one best suited for slicing, that is, extracting submatrices in LIL format, and for changing the sparsity pattern by inserting nonzero elements. Slicing is demonstrated by the next example:</p>
+<pre>BS = AS[1:3,0:2]
+BS.data     # returns array([[], [3.0]], dtype=object)
+BS.rows     # returns array([[], [0]], dtype=object)</pre>
+<p>The insertion of a new nonzero element automatically updates the attributes:</p>
+<pre>AS[0,1] = 17 
+AS.data # returns array([[1.0, 17.0, 2.0], [], [3.0], [1.0, 4.0]])
+AS.rows              # returns array([[0, 1, 2], [], [0], [0, 3]])
+AS.nnz               # returns 6</pre>
+<p>These operations are discouraged in the other sparse matrix formats as they are extremely inefficient.</p>
+<h2 id="uuid-666e4601-c8ea-446b-bda2-80d1141f40f5">5.6.2 Generating sparse matrices</h2>
+<p>The NumPy commands<span> </span><kbd>eye</kbd>,<span> </span><kbd>identity</kbd>,<span> </span><kbd>diag</kbd>, and<span> </span><kbd>rand</kbd><span> </span>have their sparse counterparts. They take an additional argument; it specifies the sparse matrix format of the resulting matrix.</p>
+<p>The following commands generate the identity matrix but in different sparse matrix formats:</p>
+<pre>import scipy.sparse as sp
+sp.eye(20,20,format = 'lil') 
+sp.spdiags(ones((20,)),0,20,20, format = 'csr') 
+sp.identity(20,format ='csc')</pre>
+<p>The<span> command </span><kbd>sp.rand</kbd> takes an additional argument describing the density of the generated random matrix. A dense matrix has density 1 while a zero matrix has density 0:</p>
+<pre>import scipy.sparse as sp 
+AS=sp.rand(20,200,density=0.1,format='csr')
+AS.nnz # returns 400</pre>
+<p>There is no direct correspondence to the NumPy command<span> </span><kbd>zeroes</kbd>. Matrices completely filled with zeros are generated by instantiating the corresponding type with the shape parameters as constructor parameters:</p>
+<pre>import scipy.sparse as sp
+Z=sp.csr_matrix((20,200))
+Z.nnz    # returns 0</pre>
+<p>After having studied different sparse matrix formats, we now turn to special methods for a sparse matrix, mainly conversion methods.</p>
+<h2 id="uuid-dd8c7474-bbf5-4ad0-8e4d-f2832bedd0f6">5.6.3 Sparse matrix methods</h2>
+<p>There are methods to convert one sparse type into another or into an array:</p>
+<pre>AS.toarray # converts sparse formats to a numpy array 
+AS.tocsr
+AS.tocsc
+AS.tolil</pre>
+<p>The type of a sparse matrix can be inspected by the methods <kbd>issparse</kbd>, <kbd>isspmatrix_lil</kbd>, <kbd>isspmatrix_csr</kbd>, and <kbd>isspmatrix_csc</kbd>.</p>
+<p>Elementwise operations<span> </span><kbd>+</kbd>,<span> </span><kbd>*</kbd>,<span> </span><kbd>/</kbd>, and<span> </span><kbd>**</kbd><span> </span>on sparse matrices are defined as for NumPy arrays. Regardless of the sparse matrix format of the operands, the result is always <kbd>csr_matrix</kbd>. Applying elementwise operating functions to sparse matrices requires first transforming them to either CSR or CSC format and applying the functions to their<span> </span><kbd>data</kbd><span> </span>attribute, as demonstrated by the next example.</p>
+<p>The elementwise sine of a sparse matrix can be defined by an operation on its<span> </span><kbd>data</kbd><span> </span>attribute:</p>
+<pre>import scipy.sparse as sp
+def sparse_sin(A):
+    if not (sp.isspmatrix_csr(A) or sp.isspmatrix_csc(A)):
+        A = A.tocsr()
+    A.data = sin(A.data)
+    return A</pre>
+<p>For matrix-matrix or matrix-vector multiplications, there is a sparse matrix method, <kbd>dot</kbd>. It returns either a<span> </span><kbd>csr_matrix</kbd><span> </span>or a 1D NumPy<span> </span><kbd>array</kbd>:</p>
+<p>Consider the following function on which we will demonstrate how to vectorize a function:</p>
+<pre>import scipy.sparse as sp
+A = array([[1,0,2,0],[0,0,0,0],[3.,0.,0.,0.],[1.,0.,0.,4.]])
+AS = sp.csr_matrix(A)
+b = array([1,2,3,4])
+c = AS.dot(b)      # returns array([ 7., 0., 3., 17.]) 
+C = AS.dot(AS)     # returns  csr_matrix
+d = dot(AS,b)      # does not return the expected result! </pre>
+<p class="mce-root">Avoid using NumPy's command<span> </span><kbd>dot</kbd><span> </span>on sparse matrices, as this might lead to unexpected results. Use the command<span> </span><kbd>dot</kbd><span> </span>from<span> </span><kbd>scipy.sparse</kbd><span> </span>instead.</p>
+<p>Other linear algebra operations such as system solving, least squares, eigenvalues, and singular values are provided by the module<span> </span><kbd>scipy.sparse.linalg</kbd>.</p>
+<h1 id="uuid-c846244d-09b3-49d6-bac6-e0de16032c32">5.7 Summary</h1>
+<p>The concept of views is one of the important topics you should have learned from this chapter. Missing this topic will give you a hard time when debugging your code. Boolean arrays occur at various places throughout this book. They are handy and compact tools for avoiding lengthy <kbd>if</kbd><span> </span>constructions and loops when working with arrays. In nearly all large computational projects, sparse matrices become an issue. You have seen how they are handled and which related methods are available.</p>
+
+
+            </article>
+
+            
+        </section>
+    </body></html>
