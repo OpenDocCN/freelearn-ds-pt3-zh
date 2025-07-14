@@ -1,0 +1,957 @@
+<html><head></head><body>
+  <div id="_idContainer030" class="Basic-Text-Frame">
+    <h1 class="chapterNumber">2</h1>
+    <h1 id="_idParaDest-52" class="chapterTitle">Anticipating Data Cleaning Issues When Working with HTML, JSON, and Spark Data</h1>
+    <p class="normal">This chapter continues our work on importing data from a variety of sources and the initial checks we should do on the data after importing it. Over the last 25 years, data analysts have found that they increasingly need to work with data in non-tabular, semi-structured forms. Sometimes, they even create and persist data in those forms. We will work with a common alternative to traditional tabular datasets in this chapter, JSON, but the general concepts can be extended to XML and NoSQL data stores such as MongoDB. We will also go over common issues that occur when scraping data from websites.</p>
+    <p class="normal">Data analysts have also been finding that increases in the volume of data to be analyzed have been even greater than improvements in machine processing power, at least those computing resources that are available locally. Working with big data sometimes requires us to rely on technology like Apache Spark, which can take advantage of distributed resources.</p>
+    <p class="normal">In this chapter, we will work through the following recipes:</p>
+    <ul>
+      <li class="bulletList">Importing simple JSON data</li>
+      <li class="bulletList">Importing more complicated JSON data from an API</li>
+      <li class="bulletList">Importing data from web pages</li>
+      <li class="bulletList">Working with Spark data</li>
+      <li class="bulletList">Persisting JSON data</li>
+      <li class="bulletList">Versioning data</li>
+    </ul>
+    <h1 id="_idParaDest-53" class="heading-1">Technical requirements</h1>
+    <p class="normal">You will need pandas, NumPy, and Matplotlib to complete the recipes in this chapter. I used pandas 2.1.4, but the code will run on pandas 1.5.3 or later.</p>
+    <p class="normal">The code in this chapter can be downloaded from the book’s GitHub repository, <a href="https://github.com/PacktPublishing/Python-Data-Cleaning-Cookbook-Second-Edition"><span class="url">https://github.com/PacktPublishing/Python-Data-Cleaning-Cookbook-Second-Edition</span></a>.</p>
+    <h1 id="_idParaDest-54" class="heading-1">Importing simple JSON data</h1>
+    <p class="normal"><strong class="keyWord">JavaScript Object Notation</strong> (<strong class="keyWord">JSON</strong>) has turned out to be an incredibly <a id="_idIndexMarker092"/>useful standard for transferring data from one machine, process, or node to another. Often, a client sends a data request to a server, upon which that server queries the data in local storage and then converts it from something like an SQL Server, MySQL, or PostgreSQL table or tables into JSON, which the client can consume. This is sometimes complicated further by the first server (say, a web server) forwarding the request to a database server. JSON facilitates this, as does XML, by doing the following:</p>
+    <ul>
+      <li class="bulletList">Being readable by humans</li>
+      <li class="bulletList">Being consumable by most client devices</li>
+      <li class="bulletList">Not being limited in structure</li>
+    </ul>
+    <p class="normal">JSON is quite flexible, which means that it can accommodate just about anything, no matter how unwise. The structure can even change within a JSON file, so different keys might be present at different points. For example, the file might begin with some explanatory keys that have a very different structure than the remaining <em class="italic">data</em> keys or some keys might be present in some cases but not others. We will go over some approaches for dealing with that messiness (uh, flexibility).</p>
+    <h2 id="_idParaDest-55" class="heading-2">Getting ready</h2>
+    <p class="normal">We are going to work with data on news stories about political candidates in this recipe. This data is made available for public use at <a href="https://dataverse.harvard.edu/dataset.xhtml?persistentId=doi:10.7910/DVN/0ZLHOK"><span class="url">dataverse.harvard.edu/dataset.xhtml?persistentId=doi:10.7910/DVN/0ZLHOK</span></a>. I have combined the JSON files there into one file and randomly selected 60,000 news stories from the combined data. This sample (<code class="inlineCode">allcandidatenewssample.json</code>) is available in the GitHub repository of this book.</p>
+    <p class="normal">We will do a little work<a id="_idIndexMarker093"/> with list and dictionary comprehension in this recipe. <em class="italic">DataCamp</em> has good<a id="_idIndexMarker094"/> guides on list comprehension (<a href="https://www.datacamp.com/community/tutorials/python-list-comprehension"><span class="url">https://www.datacamp.com/community/tutorials/python-list-comprehension</span></a>) and dictionary comprehension (<a href="https://www.datacamp.com/community/tutorials/python-dictionary-comprehension"><span class="url">https://www.datacamp.com/community/tutorials/python-dictionary-comprehension</span></a>) if you are feeling<a id="_idIndexMarker095"/> a little rusty or have limited or no experience with list and dictionary comprehension.</p>
+    <h2 id="_idParaDest-56" class="heading-2">How to do it…</h2>
+    <p class="normal">We will import a JSON file into pandas after doing some data checking and cleaning:</p>
+    <ol>
+      <li class="numberedList" value="1">Import the <code class="inlineCode">json</code> and <code class="inlineCode">pprint</code> libraries.</li>
+    </ol>
+    <p class="normal-one"><code class="inlineCode">pprint</code> improves the display of the lists and dictionaries that are returned when we load JSON data:</p>
+    <pre class="programlisting code-one"><code class="hljs-code"><span class="hljs-keyword">import</span> pandas <span class="hljs-keyword">as</span> pd
+<span class="hljs-keyword">import</span> numpy <span class="hljs-keyword">as</span> np
+<span class="hljs-keyword">import</span> json
+<span class="hljs-keyword">import</span> pprint
+<span class="hljs-keyword">from</span> collections <span class="hljs-keyword">import</span> Counter
+</code></pre>
+    <ol>
+      <li class="numberedList" value="2">Load the JSON data and look for potential issues.</li>
+    </ol>
+    <p class="normal-one">Use the <code class="inlineCode">json load</code> method to return data on news stories about political candidates. <code class="inlineCode">load</code> returns a list of dictionaries. Use <code class="inlineCode">len</code> to get the size of the list, which is the total number of news stories in this case. (Each list item is a dictionary with keys for the title, source, and so on, and their respective values.) Use <code class="inlineCode">pprint</code> to display the first two dictionaries. Get the value from the source key for the first list item:</p>
+    <pre class="programlisting code-one"><code class="hljs-code"><span class="hljs-keyword">with</span> <span class="hljs-built_in">open</span>(<span class="hljs-string">'data/allcandidatenewssample.json'</span>) <span class="hljs-keyword">as</span> f:
+<span class="hljs-meta">... </span>  candidatenews = json.load(f)
+...
+<span class="hljs-built_in">len</span>(candidatenews)
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">60000
+</code></pre>
+    <pre class="programlisting code-one"><code class="hljs-code">pprint.pprint(candidatenews[<span class="hljs-number">0</span>:<span class="hljs-number">2</span>])
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">[{'date': '2019-12-25 10:00:00',
+  'domain': 'www.nbcnews.com',
+  'panel_position': 1,
+  'query': 'Michael Bloomberg',
+  'source': 'NBC News',
+  'story_position': 6,
+  'time': '18 hours ago',
+  'title': 'Bloomberg cuts ties with company using prison inmates to make campaign calls',
+  'url': 'https://www.nbcnews.com/politics/2020-election/bloomberg-cuts-ties-company-using-prison-inmates-make-campaign-calls-n1106971'},
+ {'date': '2019-11-09 08:00:00',
+  'domain': 'www.townandcountrymag.com',
+  'panel_position': 1,
+  'query': 'Amy Klobuchar',
+  'source': 'Town &amp; Country Magazine',
+  'story_position': 3,
+  'time': '18 hours ago',
+  'title': "Democratic Candidates React to Michael Bloomberg's Potential Run",
+  'url': 'https://www.townandcountrymag.com/society/politics/a29739854/michael-bloomberg-democratic-candidates-campaign-reactions/'}]
+</code></pre>
+    <pre class="programlisting code-one"><code class="hljs-code">pprint.pprint(candidatenews[<span class="hljs-number">0</span>][<span class="hljs-string">'source'</span>])
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">'NBC News'
+</code></pre>
+    <ol>
+      <li class="numberedList" value="3">Check for differences<a id="_idIndexMarker096"/> in the structure of the dictionaries.</li>
+    </ol>
+    <p class="normal-one">Use <code class="inlineCode">Counter</code> to check for any dictionaries in the list with fewer or more than the 9 keys that are normal. Look at a few of the dictionaries with almost no data (those with just two keys) before removing them. Confirm that the remaining list of dictionaries has the expected length – <code class="inlineCode">60000-2382=57618</code>:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">Counter([<span class="hljs-built_in">len</span>(item) <span class="hljs-keyword">for</span> item <span class="hljs-keyword">in</span> candidatenews])
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">Counter({9: 57202, 2: 2382, 10: 416})
+</code></pre>
+    <pre class="programlisting code-one"><code class="hljs-code">pprint.pprint(<span class="hljs-built_in">next</span>(item <span class="hljs-keyword">for</span> item <span class="hljs-keyword">in</span> candidatenews <span class="hljs-keyword">if</span> <span class="hljs-built_in">len</span>(item)&lt;<span class="hljs-number">9</span>))
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">{'date': '2019-09-11 18:00:00', 'reason': 'Not collected'}
+</code></pre>
+    <pre class="programlisting code-one"><code class="hljs-code">pprint.pprint(<span class="hljs-built_in">next</span>(item <span class="hljs-keyword">for</span> item <span class="hljs-keyword">in</span> candidatenews <span class="hljs-keyword">if</span> <span class="hljs-built_in">len</span>(item)&gt;<span class="hljs-number">9</span>))
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">{'category': 'Satire',
+ 'date': '2019-08-21 04:00:00',
+ 'domain': 'politics.theonion.com',
+ 'panel_position': 1,
+ 'query': 'John Hickenlooper',
+ 'source': 'Politics | The Onion',
+ 'story_position': 8,
+ 'time': '4 days ago',
+ 'title': ''And Then There Were 23,' Says Wayne Messam Crossing Out '
+          'Hickenlooper Photo \n'
+          'In Elaborate Grid Of Rivals',
+ 'url': 'https://politics.theonion.com/and-then-there-were-23-says-wayne-messam-crossing-ou-1837311060'}
+</code></pre>
+    <pre class="programlisting code-one"><code class="hljs-code">pprint.pprint([item <span class="hljs-keyword">for</span> item <span class="hljs-keyword">in</span> candidatenews <span class="hljs-keyword">if</span> <span class="hljs-built_in">len</span>(item)==<span class="hljs-number">2</span>][<span class="hljs-number">0</span>:<span class="hljs-number">2</span>])
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">[{'date': '2019-09-11 18:00:00', 'reason': 'Not collected'},
+ {'date': '2019-07-24 00:00:00', 'reason': 'No Top stories'},
+</code></pre>
+    <pre class="programlisting code-one"><code class="hljs-code">3candidatenews = [item <span class="hljs-keyword">for</span> item <span class="hljs-keyword">in</span> candidatenews <span class="hljs-keyword">if</span> <span class="hljs-built_in">len</span>(item)&gt;<span class="hljs-number">2</span>]
+<span class="hljs-built_in">len</span>(candidatenews)
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">57618
+</code></pre>
+    <ol>
+      <li class="numberedList" value="4">Generate counts<a id="_idIndexMarker097"/> from the JSON data.</li>
+    </ol>
+    <p class="normal-one">Get the dictionaries just for <em class="italic">Politico</em> (a website that covers political news) and display a couple of dictionaries:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">politico = [item <span class="hljs-keyword">for</span> item <span class="hljs-keyword">in</span> candidatenews <span class="hljs-keyword">if</span> item[<span class="hljs-string">"source"</span>] == <span class="hljs-string">"Politico"</span>]
+<span class="hljs-built_in">len</span>(politico)
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">2732
+</code></pre>
+    <pre class="programlisting code-one"><code class="hljs-code">pprint.pprint(politico[<span class="hljs-number">0</span>:<span class="hljs-number">2</span>])
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">[{'date': '2019-05-18 18:00:00',
+  'domain': 'www.politico.com',
+  'panel_position': 1,
+  'query': 'Marianne Williamson',
+  'source': 'Politico',
+  'story_position': 7,
+  'time': '1 week ago',
+  'title': 'Marianne Williamson reaches donor threshold for Dem debates',
+  'url': 'https://www.politico.com/story/2019/05/09/marianne-williamson-2020-election-1315133'},
+ {'date': '2018-12-27 06:00:00',
+  'domain': 'www.politico.com',
+  'panel_position': 1,
+  'query': 'Julian Castro',
+  'source': 'Politico',
+  'story_position': 1,
+  'time': '1 hour ago',
+  'title': "O'Rourke and Castro on collision course in Texas",
+  'url': 'https://www.politico.com/story/2018/12/27/orourke-julian-castro-collision-texas-election-1073720'}]
+</code></pre>
+    <ol>
+      <li class="numberedList" value="5">Get the <code class="inlineCode">source</code> data and confirm that it has the anticipated length.</li>
+    </ol>
+    <p class="normal-one">Show the first few items in the new <code class="inlineCode">sources</code> list. Generate a count of news stories by source and display the 10 most popular sources. Notice that stories from <em class="italic">The Hill</em> can have <code class="inlineCode">TheHill</code> (without a space) or <code class="inlineCode">The Hill</code> as the value for <code class="inlineCode">source</code>:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">sources = [item.get(<span class="hljs-string">'source'</span>) <span class="hljs-keyword">for</span> item <span class="hljs-keyword">in</span> candidatenews]
+<span class="hljs-built_in">type</span>(sources)
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">&lt;class 'list'&gt;
+</code></pre>
+    <pre class="programlisting code-one"><code class="hljs-code"><span class="hljs-built_in">len</span>(sources)
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">57618
+</code></pre>
+    <pre class="programlisting code-one"><code class="hljs-code">sources[<span class="hljs-number">0</span>:<span class="hljs-number">5</span>]
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">['NBC News', 'Town &amp; Country Magazine', 'TheHill', 'CNBC.com', 'Fox News']
+</code></pre>
+    <pre class="programlisting code-one"><code class="hljs-code">pprint.pprint(Counter(sources).most_common(<span class="hljs-number">10</span>))
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">[('Fox News', 3530),
+ ('CNN.com', 2750),
+ ('Politico', 2732),
+ ('TheHill', 2383),
+ ('The New York Times', 1804),
+ ('Washington Post', 1770),
+ ('Washington Examiner', 1655),
+ ('The Hill', 1342),
+ ('New York Post', 1275),
+ ('Vox', 941)]
+</code></pre>
+    <ol>
+      <li class="numberedList" value="6">Fix any errors in the values<a id="_idIndexMarker098"/> in the dictionary.</li>
+    </ol>
+    <p class="normal-one">Fix the <code class="inlineCode">source</code> values for <code class="inlineCode">The Hill</code>. Notice that <code class="inlineCode">The Hill</code> is now the most frequent source for news stories:</p>
+    <pre class="programlisting code-one"><code class="hljs-code"><span class="hljs-keyword">for</span> newsdict <span class="hljs-keyword">in</span> candidatenews:
+<span class="hljs-meta">... </span>    newsdict.update((k, <span class="hljs-string">"The Hill"</span>) <span class="hljs-keyword">for</span> k, v <span class="hljs-keyword">in</span> newsdict.items()
+<span class="hljs-meta">... </span>     <span class="hljs-keyword">if</span> k == <span class="hljs-string">"source"</span> <span class="hljs-keyword">and</span> v == <span class="hljs-string">"TheHill"</span>)
+...
+sources = [item.get(<span class="hljs-string">'source'</span>) <span class="hljs-keyword">for</span> item <span class="hljs-keyword">in</span> candidatenews]
+pprint.pprint(Counter(sources).most_common(<span class="hljs-number">10</span>))
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">[('The Hill', 3725),
+ ('Fox News', 3530),
+ ('CNN.com', 2750),
+ ('Politico', 2732),
+ ('The New York Times', 1804),
+ ('Washington Post', 1770),
+ ('Washington Examiner', 1655),
+ ('New York Post', 1275),
+ ('Vox', 941),
+ ('Breitbart', 799)]
+</code></pre>
+    <ol>
+      <li class="numberedList" value="7">Create a pandas DataFrame.</li>
+    </ol>
+    <p class="normal-one">Pass the JSON data<a id="_idIndexMarker099"/> to the pandas <code class="inlineCode">DataFrame</code> method. Convert the <code class="inlineCode">date</code> column to a <code class="inlineCode">datetime</code> data type:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">candidatenewsdf = pd.DataFrame(candidatenews)
+candidatenewsdf.dtypes
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">title             object
+url               object
+source            object
+time              object
+date              object
+query             object
+story_position     int64
+panel_position    object
+domain            object
+category          object
+dtype: object
+</code></pre>
+    <ol>
+      <li class="numberedList" value="8">Confirm that we are getting the expected values for <code class="inlineCode">source</code>.</li>
+    </ol>
+    <p class="normal-one">Also, rename the <code class="inlineCode">date</code> column:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">candidatenewsdf.rename(columns={<span class="hljs-string">'date'</span>:<span class="hljs-string">'storydate'</span>}, inplace=<span class="hljs-literal">True</span>)
+candidatenewsdf.storydate = candidatenewsdf.storydate.astype(<span class="hljs-string">'</span><span class="hljs-string">datetime64[ns]'</span>)
+candidatenewsdf.shape
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">(57618, 10)
+</code></pre>
+    <pre class="programlisting code-one"><code class="hljs-code">candidatenewsdf.source.value_counts(sort=<span class="hljs-literal">True</span>).head(<span class="hljs-number">10</span>)
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">The Hill               3725
+Fox News               3530
+CNN.com                2750
+Politico               2732
+The New York Times     1804
+Washington Post        1770
+Washington Examiner    1655
+New York Post          1275
+Vox                     941
+Breitbart               799
+Name: source, dtype: int64
+</code></pre>
+    <p class="normal">We now have a pandas DataFrame<a id="_idIndexMarker100"/> with only the news stories where there is meaningful data and with the values for <code class="inlineCode">source</code> fixed.</p>
+    <h2 id="_idParaDest-57" class="heading-2">How it works…</h2>
+    <p class="normal">The <code class="inlineCode">json.load</code> method returns a list of dictionaries. This makes it possible to use a number of familiar tools when working with this data: list methods, slicing, list comprehensions, dictionary updates, and so on. There are times (maybe when you just have to populate a list or count the number of individuals in a given category) when there is no need to use pandas.</p>
+    <p class="normal">In <em class="italic">Steps 2</em> to <em class="italic">6</em>, we use list methods to do many of the same checks we have done with pandas in previous recipes. In <em class="italic">Step</em><em class="italic"> 3</em>, we use <code class="inlineCode">Counter</code> with a list comprehension (<code class="inlineCode">Counter([len(item) for item in candidatenews])</code>) to get the number of keys in each dictionary. This tells us that there are 2,382 dictionaries with just 2 keys and 416 with 10. We use <code class="inlineCode">next</code> to look for an example of dictionaries with fewer or more than 9 keys to get a sense of the structure of those items. We use slicing to show 2 dictionaries with 2 keys to see if there is any data in those dictionaries. We then select only those dictionaries with more than 2 keys.</p>
+    <p class="normal">In <em class="italic">Step 4</em>, we create a subset of the list of dictionaries, one that just has <code class="inlineCode">source</code> equal to <code class="inlineCode">Politico</code>, and take a look at a couple of items. We then create a list with just the source data and use <code class="inlineCode">Counter</code> to list the 10 most common sources in <em class="italic">Step 5</em>.</p>
+    <p class="normal"><em class="italic">Step 6</em> demonstrates how to replace key values conditionally in a list of dictionaries. In this case, we update the key value to <code class="inlineCode">The Hill</code> whenever <code class="inlineCode">key (k)</code> is <code class="inlineCode">source</code> and <code class="inlineCode">value (v)</code> is <code class="inlineCode">TheHill</code>. The <code class="inlineCode">for k, v in newsdict.items()</code> section is the unsung hero of this line. It loops through all key/value pairs for all dictionaries in <code class="inlineCode">candidatenews</code>.</p>
+    <p class="normal">It is easy to create a pandas DataFrame by passing the list of dictionaries to the pandas <code class="inlineCode">DataFrame</code> method. We do this in <em class="italic">Step 7</em>. The main complication is that we need to convert the date column<a id="_idIndexMarker101"/> from a string to a date since dates are just strings in JSON.</p>
+    <h2 id="_idParaDest-58" class="heading-2">There’s more…</h2>
+    <p class="normal">In <em class="italic">Step</em><em class="italic"> 5</em> and <em class="italic">6</em>, we use <code class="inlineCode">item.get('source')</code> instead of <code class="inlineCode">item['source']</code>. This is handy when there might be missing keys in a dictionary. <code class="inlineCode">get</code> returns <code class="inlineCode">None</code> when the key is missing, but we can use an optional second argument to specify a value to return.</p>
+    <p class="normal">I renamed the <code class="inlineCode">date</code> column <code class="inlineCode">storydate</code> in <em class="italic">Step 8</em>. This is not necessary but is a good idea. Not only does <code class="inlineCode">date</code> not tell you anything about what the dates actually represent but it is also so generic a column name that it is bound to cause problems at some point.</p>
+    <p class="normal">The news stories data fits nicely into a tabular structure. It makes sense to represent each list item as one row and the key/value pairs as columns and column values for that row. There are no significant complications, such as key values that are themselves lists of dictionaries. Imagine an <code class="inlineCode">authors</code> key for each story with a list item for each author as the key value, and that list item is a dictionary of information about the author. This is not at all unusual when working with JSON data in Python. The next recipe shows how to work with data structured in this way.</p>
+    <h1 id="_idParaDest-59" class="heading-1">Importing more complicated JSON data from an API</h1>
+    <p class="normal">In the previous recipe, we discussed<a id="_idIndexMarker102"/> one significant <a id="_idIndexMarker103"/>advantage (and challenge) of working with JSON data – its flexibility. A JSON file can have just about any structure its authors can imagine. This often means that this data does not have the tabular structure of the data sources we have discussed so far and that pandas DataFrames have. Often, analysts and application developers use JSON precisely because it does not insist on a tabular structure. I know I do!</p>
+    <p class="normal">Retrieving data from multiple tables often requires us to do a one-to-many merge. Saving that data to one table or file means duplicating data on the “one” side of the one-to-many relationship. For example, student demographic data is merged with data on the courses studied, and the demographic data is repeated for each course. With JSON, duplication is not required to capture these items of data in one file. We can have data on the courses studied nested within the data for each student.</p>
+    <p class="normal">But doing analysis with JSON structured in this way will eventually require us to either manipulate the data in a very different way than we are used to doing or convert the JSON to a tabular form. We examine the first approach in the <em class="italic">Classes that handle non-tabular data structures</em> recipe in <em class="chapterRef">Chapter 12</em>, <em class="italic">Automate Data Cleaning with User-Defined Functions and Classes</em>. This recipe takes the second approach. It uses a very handy tool for converting selected nodes of JSON to a tabular structure – <code class="inlineCode">json_normalize</code>.</p>
+    <p class="normal">We first use an API to get JSON<a id="_idIndexMarker104"/> data because that is how JSON<a id="_idIndexMarker105"/> is frequently consumed. One advantage of retrieving the data with an API, rather than working from a file we have saved locally, is that it is easier to rerun our code when the source data is refreshed.</p>
+    <h2 id="_idParaDest-60" class="heading-2">Getting ready</h2>
+    <p class="normal">This recipe assumes you have the <code class="inlineCode">requests</code> and <code class="inlineCode">pprint</code> libraries already installed. If they are not installed, you can install them with pip. From the terminal (or PowerShell in Windows), enter <code class="inlineCode">pip</code> <code class="inlineCode">install</code> <code class="inlineCode">requests</code> and <code class="inlineCode">pip</code> <code class="inlineCode">install</code> <code class="inlineCode">pprint</code>.</p>
+    <p class="normal">The following is the structure of the JSON file that is created when using the Collections API of the Cleveland Museum of Art. There is a helpful <em class="italic">info</em> section at the beginning, but we are interested in the <em class="italic">data</em> section. This data does not fit nicely into a tabular data structure. There may be several <code class="inlineCode">citations</code> objects and several <code class="inlineCode">creators</code> objects for each collection object. I have abbreviated the JSON file to save space:</p>
+    <pre class="programlisting code"><code class="hljs-code"><span class="hljs-punctuation">{</span><span class="hljs-attr">"info"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span> <span class="hljs-attr">"total"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">778</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">"parameters"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span><span class="hljs-attr">"african_american_artists"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">""</span> <span class="hljs-punctuation">}},</span>
+<span class="hljs-attr">"data"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+<span class="hljs-punctuation">{</span>
+<span class="hljs-attr">"id"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">165157</span><span class="hljs-punctuation">,</span>
+<span class="hljs-attr">"accession_number"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"2007.158"</span><span class="hljs-punctuation">,</span>
+<span class="hljs-attr">"title"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"Fulton and Nostrand"</span><span class="hljs-punctuation">,</span>
+<span class="hljs-attr">"creation_date"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"1958"</span><span class="hljs-punctuation">,</span>
+<span class="hljs-attr">"citations"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+  <span class="hljs-punctuation">{</span>
+   <span class="hljs-attr">"citation"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"</span><span class="hljs-string">Annual Exhibition: Sculpture, Paintings..."</span><span class="hljs-punctuation">,</span>
+   <span class="hljs-attr">"page_number"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"Unpaginated, [8],[12]"</span><span class="hljs-punctuation">,</span>
+   <span class="hljs-attr">"url"</span><span class="hljs-punctuation">:</span> <span class="hljs-keyword">null</span>
+   <span class="hljs-punctuation">},</span>
+  <span class="hljs-punctuation">{</span>
+   <span class="hljs-attr">"citation"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"\"Moscow to See Modern U.S. Art,\"&lt;em&gt; New York..."</span><span class="hljs-punctuation">,</span> 
+   <span class="hljs-attr">"page_number"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"P. 60"</span><span class="hljs-punctuation">,</span>
+   <span class="hljs-attr">"url"</span><span class="hljs-punctuation">:</span> <span class="hljs-keyword">null</span>
+  <span class="hljs-punctuation">}]</span>
+<span class="hljs-attr">"creators"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+      <span class="hljs-punctuation">{</span>
+     <span class="hljs-attr">"description"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"Jacob Lawrence (American, 1917-2000)"</span><span class="hljs-punctuation">,</span>
+     <span class="hljs-attr">"extent"</span><span class="hljs-punctuation">:</span> <span class="hljs-keyword">null</span><span class="hljs-punctuation">,</span>
+     <span class="hljs-attr">"qualifier"</span><span class="hljs-punctuation">:</span> <span class="hljs-keyword">null</span><span class="hljs-punctuation">,</span>
+     <span class="hljs-attr">"role"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"artist"</span><span class="hljs-punctuation">,</span>
+     <span class="hljs-attr">"birth_year"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"1917"</span><span class="hljs-punctuation">,</span>
+     <span class="hljs-attr">"death_year"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"2000"</span>
+     <span class="hljs-punctuation">}</span>
+  <span class="hljs-punctuation">]</span>
+ <span class="hljs-punctuation">}</span>
+</code></pre>
+    <div class="note">
+      <p class="normal"><strong class="keyWord">Data note</strong></p>
+      <p class="normal">The API used in this recipe<a id="_idIndexMarker106"/> is provided by the Cleveland Museum of Art. It is available for public use at <a href="https://openaccess-api.clevelandart.org/"><span class="url">https://openaccess-api.clevelandart.org/</span></a>.</p>
+      <p class="normal">Since the call to the API retrieves real-time data, you may get different output from running the code in this recipe.</p>
+    </div>
+    <h2 id="_idParaDest-61" class="heading-2">How to do it...</h2>
+    <p class="normal">Create a DataFrame from<a id="_idIndexMarker107"/> the museum’s collections data<a id="_idIndexMarker108"/> with one row for each <code class="inlineCode">citation</code>, and the <code class="inlineCode">title</code> and <code class="inlineCode">creation_date</code> duplicated:</p>
+    <ol>
+      <li class="numberedList" value="1">Import the <code class="inlineCode">json</code>, <code class="inlineCode">requests</code>, and <code class="inlineCode">pprint</code> libraries.</li>
+    </ol>
+    <p class="normal-one">We need the <code class="inlineCode">requests</code> library to use an API to retrieve JSON data. <code class="inlineCode">pprint</code> improves the display of lists and dictionaries:</p>
+    <pre class="programlisting code-one"><code class="hljs-code"><span class="hljs-keyword">import</span> pandas <span class="hljs-keyword">as</span> pd
+<span class="hljs-keyword">import</span> numpy <span class="hljs-keyword">as</span> np
+<span class="hljs-keyword">import</span> json
+<span class="hljs-keyword">import</span> pprint
+<span class="hljs-keyword">import</span> requests
+</code></pre>
+    <ol>
+      <li class="numberedList" value="2">Use an API to load the JSON data.</li>
+    </ol>
+    <p class="normal-one">Make a <code class="inlineCode">get</code> request<a id="_idIndexMarker109"/> to the Collections API<a id="_idIndexMarker110"/> of the Cleveland Museum of Art. Use the query string to indicate that you just want collections from African-American artists. Display the first collection item. I have truncated the output for the first item to save space:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">response = requests.get(<span class="hljs-string">"https://openaccess-api.clevelandart.org/api/artworks/?african_american_artists"</span>)
+camcollections = json.loads(response.text)
+<span class="hljs-built_in">len</span>(camcollections[<span class="hljs-string">'data'</span>])
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">778
+</code></pre>
+    <pre class="programlisting code-one"><code class="hljs-code">pprint.pprint(camcollections[<span class="hljs-string">'</span><span class="hljs-string">data'</span>][<span class="hljs-number">0</span>])
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">{'accession_number': '2007.158',
+ 'catalogue_raisonne': None,
+ 'citations': [
+   {'citation': 'Annual Exhibition: Sculpture...',
+    'page_number': 'Unpaginated, [8],[12]',
+    'url': None},
+  {'citation': '"Moscow to See Modern U.S....',
+    'page_number': 'P. 60',
+    'url': None}]
+ 'collection': 'American - Painting',
+ 'creation_date': '1958',
+ 'creators': [
+  {'biography': 'Jacob Lawrence (born 1917)...',
+   'birth_year': '1917',
+   'description': 'Jacob Lawrence (American...)',
+   'role': 'artist'}],
+ 'type': 'Painting'}
+</code></pre>
+    <ol>
+      <li class="numberedList" value="3">Flatten the JSON data.</li>
+    </ol>
+    <p class="normal-one">Create a DataFrame from the JSON data using the <code class="inlineCode">json_normalize</code> method. Indicate that the number of citations will determine the number of rows, and that <code class="inlineCode">accession_number</code>, <code class="inlineCode">title</code>, <code class="inlineCode">creation_date</code>, <code class="inlineCode">collection</code>, <code class="inlineCode">creators</code>, and <code class="inlineCode">type</code> will be repeated. Observe that the data has been flattened by displaying the first<a id="_idIndexMarker111"/> two observations, transposing<a id="_idIndexMarker112"/> them with the <code class="inlineCode">.T</code> option to make it easier to view:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">camcollectionsdf = \
+<span class="hljs-meta">... </span>  pd.json_normalize(camcollections[<span class="hljs-string">'data'</span>],
+<span class="hljs-meta">... </span>   <span class="hljs-string">'citations'</span>,
+<span class="hljs-meta">... </span>   [<span class="hljs-string">'accession_number'</span>,<span class="hljs-string">'</span><span class="hljs-string">title'</span>,<span class="hljs-string">'creation_date'</span>,
+<span class="hljs-meta">... </span>   <span class="hljs-string">'collection'</span>,<span class="hljs-string">'creators'</span>,<span class="hljs-string">'type'</span>])
+camcollectionsdf.head(<span class="hljs-number">2</span>).T
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">                                   0                         1
+citation          Annual Exhibiti...  "Moscow to See Modern...
+page_number             Unpaginated,                     P. 60
+url                             None                      None
+accession_number            2007.158                  2007.158
+title               Fulton and No...          Fulton and No...
+creation_date                   1958                      1958
+collection          American - Pa...          American - Pa...
+creators       [{'description':'J...     [{'description':'J...
+type                        Painting                  Painting
+</code></pre>
+    <ol>
+      <li class="numberedList" value="4">Pull the <code class="inlineCode">birth_year</code> value from <code class="inlineCode">creators</code>:
+        <pre class="programlisting code-one"><code class="hljs-code">creator = camcollectionsdf[:<span class="hljs-number">1</span>].creators[<span class="hljs-number">0</span>]
+<span class="hljs-built_in">type</span>(creator[<span class="hljs-number">0</span>])
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">dict
+</code></pre>
+        <pre class="programlisting code-one"><code class="hljs-code">pprint.pprint(creator)
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">[{'biography': 'Jacob Lawrence (born 1917) has been a prominent art...',
+  'birth_year': '1917',
+  'death_year': '2000',
+  'description': 'Jacob Lawrence (American, 1917-2000)',
+  'extent': None,
+  'name_in_original_language': None,
+  'qualifier': None,
+  'role': 'artist'}]
+</code></pre>
+        <pre class="programlisting code-one"><code class="hljs-code">camcollectionsdf[<span class="hljs-string">'birthyear'</span>] = camcollectionsdf.\
+<span class="hljs-meta">... </span>  creators.apply(<span class="hljs-keyword">lambda</span> x: x[<span class="hljs-number">0</span>][<span class="hljs-string">'birth_year'</span>])
+camcollectionsdf.birthyear.value_counts().\
+<span class="hljs-meta">... </span>  sort_index().head()
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">1821    18
+1886     2
+1888     1
+1892    13
+1899    17
+Name: birthyear, dtype: int64
+</code></pre>
+      </li>
+    </ol>
+    <p class="normal">This gives us a pandas DataFrame with one row for each <code class="inlineCode">citation</code> for each collection item, with the collection information (<code class="inlineCode">title</code>, <code class="inlineCode">creation_date</code>, and so on) duplicated.</p>
+    <h2 id="_idParaDest-62" class="heading-2">How it works…</h2>
+    <p class="normal">We work with a much<a id="_idIndexMarker113"/> more <em class="italic">interesting</em> JSON file in this recipe<a id="_idIndexMarker114"/> than in the previous one. Each object in the JSON file is an item in the collection of the Cleveland Museum of Art. Nested within each collection item are one or more citations. The only way to capture this information in a tabular DataFrame is to flatten it. There are also one or more dictionaries for the creators of the collection item (the artist or artists). That dictionary (or dictionaries) contains the <code class="inlineCode">birth_year</code> value that we want.</p>
+    <p class="normal">We want one row for every citation for all collection items. To understand this, imagine that we are working with relational data and have a collections table and a citations table and that we are doing a one-to-many merge from collections to citations. We do something similar with <code class="inlineCode">json_normalize</code> by using <em class="italic">citations</em> as the second parameter. That tells <code class="inlineCode">json_normalize</code> to create one row for each citation and use the key values in each citation dictionary – for <code class="inlineCode">citation</code>, <code class="inlineCode">page_number</code>, and <code class="inlineCode">url</code> – as data values.</p>
+    <p class="normal">The third parameter in the call to <code class="inlineCode">json_normalize</code> has the list of column names for the data that will be repeated with each citation. Notice that <code class="inlineCode">access_number</code>, <code class="inlineCode">title</code>, <code class="inlineCode">creation_date</code>, <code class="inlineCode">collection</code>, <code class="inlineCode">creators</code>, and <code class="inlineCode">type</code> are repeated in the first two observations. <code class="inlineCode">Citation</code> and <code class="inlineCode">page_number</code> change. (<code class="inlineCode">url</code> is the same value for the first and second citations. Otherwise, it would also change.)</p>
+    <p class="normal">This still leaves us with the problem of the <code class="inlineCode">creators</code> dictionaries (there can be more than one creator). When we ran <code class="inlineCode">json_normalize</code>, it grabbed the value for each key we indicated (in the third parameter) and stored it in the data for that column and row, whether that value was simple text or a list of dictionaries, as is the case for creators. We take a look at the first (and in this case, only) <code class="inlineCode">creators</code> item for the first collections row in <em class="italic">Step 4</em>, naming it <code class="inlineCode">creator</code>. (Note that the <code class="inlineCode">creators</code> list is duplicated across all <code class="inlineCode">citations</code> for a collection item, just as the values for <code class="inlineCode">title</code>, <code class="inlineCode">creation_date</code>, and so on are.)</p>
+    <p class="normal">We want the birth year of the first creator for each collection item, which can be found at <code class="inlineCode">creator[0]['birth_year']</code>. To create a <code class="inlineCode">birthyear</code> series using this, we use <code class="inlineCode">apply</code> and a <code class="inlineCode">lambda</code> function:</p>
+    <pre class="programlisting code"><code class="hljs-code">camcollectionsdf[<span class="hljs-string">'birthyear'</span>] = camcollectionsdf.\
+<span class="hljs-meta">... </span>  creators.apply(<span class="hljs-keyword">lambda</span> x: x[<span class="hljs-number">0</span>][<span class="hljs-string">'birth_year'</span>])
+</code></pre>
+    <p class="normal">We take a closer look at lambda functions in <em class="chapterRef">Chapter 6</em>, <em class="italic">Cleaning and Exploring Data with Series Operations</em>. Here, it is helpful to think of the <code class="inlineCode">x</code> as representing the <code class="inlineCode">creators</code> series, so <code class="inlineCode">x[0]</code> gives us the list<a id="_idIndexMarker115"/> item we want, <code class="inlineCode">creators[0]</code>. We grab<a id="_idIndexMarker116"/> the value from the <code class="inlineCode">birth_year</code> key.</p>
+    <h2 id="_idParaDest-63" class="heading-2">There’s more…</h2>
+    <p class="normal">You may have noticed that we left out some of the JSON returned by the API in our call to <code class="inlineCode">json_normalize</code>. The first parameter that we passed to <code class="inlineCode">json_normalize</code> was <code class="inlineCode">camcollections['data']</code>. Effectively, we ignore the info object at the beginning of the JSON data. The information we want does not start until the data object. This is not very different conceptually from the <code class="inlineCode">skiprows</code> parameter in the second recipe of the previous chapter. There is sometimes metadata like this at the beginning of JSON files.</p>
+    <h2 id="_idParaDest-64" class="heading-2">See also</h2>
+    <p class="normal">The preceding recipe demonstrates some useful techniques for doing data integrity checks without pandas, including list operations and comprehensions. Those are all relevant to the data in this recipe as well.</p>
+    <h1 id="_idParaDest-65" class="heading-1">Importing data from web pages</h1>
+    <p class="normal">We use <strong class="keyWord">Beautiful Soup</strong> in this recipe<a id="_idIndexMarker117"/> to scrape<a id="_idIndexMarker118"/> data from a web page<a id="_idIndexMarker119"/> and load that data into pandas. <strong class="keyWord">Web scraping</strong> is very useful when<a id="_idIndexMarker120"/> there is data on a website that is updated regularly but there is no API. We can rerun our code to generate new data whenever the page is updated.</p>
+    <p class="normal">Unfortunately, the web scrapers we build can be broken when the structure of the targeted page changes. That is less likely to happen with APIs because they are designed for data exchange and carefully curated with that end in mind. The priority for most web designers is the quality of the display of information, not the reliability and ease of data exchange. This causes data cleaning challenges that are unique to web scraping, including HTML elements that house the data in surprising and changing locations, formatting tags that obfuscate the underlying data, and explanatory text that aid data interpretation being difficult to retrieve. In addition to these challenges, scraping presents data cleaning issues that are familiar, such as changing data types in columns, less-than-ideal headings, and missing values. We will deal <a id="_idIndexMarker121"/>with data issues that occur <a id="_idIndexMarker122"/>most frequently in this recipe.</p>
+    <h2 id="_idParaDest-66" class="heading-2">Getting ready</h2>
+    <p class="normal">You will need Beautiful Soup installed to run the code in this recipe. You can install it with pip by entering <code class="inlineCode">pip install beautifulsoup4</code> in a terminal window or Windows PowerShell.</p>
+    <p class="normal">We will scrape data from a web page, find the following table on that page, and load it into a pandas DataFrame:</p>
+    <figure class="mediaobject"><img src="../Images/Image1956.png" alt="" role="presentation"/></figure>
+    <p class="packt_figref">Figure 2.1: COVID-19 data from countries with the lowest cases per million in population</p>
+    <div class="note">
+      <p class="normal"><strong class="keyWord">Data</strong> <strong class="keyWord">note</strong></p>
+      <p class="normal">I created this web page, <a href="http://www.alrb.org/datacleaning/highlowcases.html"><span class="url">http://www.alrb.org/datacleaning/highlowcases.html</span></a>, based on COVID-19 data for public use from <em class="italic">Our World in Data</em>, available at <a href="https://ourworldindata.org/covid-cases"><span class="url">https://ourworldindata.org/covid-cases</span></a>.</p>
+    </div>
+    <h2 id="_idParaDest-67" class="heading-2">How to do it…</h2>
+    <p class="normal">We scrape the COVID-19 data <a id="_idIndexMarker123"/>from the website and do some routine<a id="_idIndexMarker124"/> data checks:</p>
+    <ol>
+      <li class="numberedList" value="1">Import the <code class="inlineCode">pprint</code>, <code class="inlineCode">requests</code>, and <code class="inlineCode">BeautifulSoup</code> libraries:
+        <pre class="programlisting code-one"><code class="hljs-code"><span class="hljs-keyword">import</span> pandas <span class="hljs-keyword">as</span> pd
+<span class="hljs-keyword">import</span> numpy <span class="hljs-keyword">as</span> np
+<span class="hljs-keyword">import</span> json
+<span class="hljs-keyword">import</span> pprint
+<span class="hljs-keyword">import</span> requests
+<span class="hljs-keyword">from</span> bs4 <span class="hljs-keyword">import</span> BeautifulSoup
+</code></pre>
+      </li>
+      <li class="numberedList">Parse the web page and get the header row of the table.</li>
+    </ol>
+    <p class="normal-one">Use Beautiful Soup’s <code class="inlineCode">find</code> method to get the table we want and then use <code class="inlineCode">find_all</code> to retrieve the elements nested within the <code class="inlineCode">th</code> elements for that table. Create a list of column labels based on the text of the <code class="inlineCode">th</code> rows:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">webpage = requests.get(<span class="hljs-string">"http://www.alrb.org/datacleaning/highlowcases.html"</span>)
+bs = BeautifulSoup(webpage.text, <span class="hljs-string">'html.parser'</span>)
+theadrows = bs.find(<span class="hljs-string">'table'</span>, {<span class="hljs-string">'id'</span>:<span class="hljs-string">'tblLowCases'</span>}).thead.find_all(<span class="hljs-string">'th'</span>)
+<span class="hljs-built_in">type</span>(theadrows)
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">&lt;class 'bs4.element.ResultSet'&gt;
+</code></pre>
+    <pre class="programlisting code-one"><code class="hljs-code">labelcols = [j.get_text() <span class="hljs-keyword">for</span> j <span class="hljs-keyword">in</span> theadrows]
+labelcols[<span class="hljs-number">0</span>] = <span class="hljs-string">"rowheadings"</span>
+labelcols
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">['rowheadings',
+ 'Last Date',
+ 'Total Cases',
+ 'Total Deaths',
+ 'Total Cases PM',
+ 'Total Deaths PM',
+ 'Population',
+ 'GDP Per Capita',
+ 'Median Age']
+</code></pre>
+    <ol>
+      <li class="numberedList" value="3">Get the data from the table cells.</li>
+    </ol>
+    <p class="normal-one">Find all of the table rows<a id="_idIndexMarker125"/> for the table we want. For each<a id="_idIndexMarker126"/> table row, find the <code class="inlineCode">th</code> element and retrieve the text. We will use that text for our row labels. Also, for each row, find all the <code class="inlineCode">td</code> elements (the table cells with the data) and save text from all of them in a list. </p>
+    <p class="normal-one">This gives us <code class="inlineCode">datarows</code>, which has all the numeric data in the table. (You can confirm that it matches the table from the web page.) We then insert the <code class="inlineCode">labelrows</code> list (which has the row headings) at the beginning of each list in <code class="inlineCode">datarows</code>:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">rows = bs.find(<span class="hljs-string">'table'</span>, {<span class="hljs-string">'id'</span>:<span class="hljs-string">'tblLowCases'</span>}).tbody.find_all(<span class="hljs-string">'tr'</span>)
+datarows = []
+labelrows = []
+<span class="hljs-keyword">for</span> row <span class="hljs-keyword">in</span> rows:
+<span class="hljs-meta">... </span>  rowlabels = row.find(<span class="hljs-string">'th'</span>).get_text()
+<span class="hljs-meta">... </span>  cells = row.find_all(<span class="hljs-string">'td'</span>, {<span class="hljs-string">'class'</span>:<span class="hljs-string">'data'</span>})
+<span class="hljs-meta">... </span>  <span class="hljs-keyword">if</span> (<span class="hljs-built_in">len</span>(rowlabels)&gt;<span class="hljs-number">3</span>):
+<span class="hljs-meta">... </span>    labelrows.append(rowlabels)
+<span class="hljs-meta">... </span>  <span class="hljs-keyword">if</span> (<span class="hljs-built_in">len</span>(cells)&gt;<span class="hljs-number">0</span>):
+<span class="hljs-meta">... </span>    cellvalues = [j.get_text() <span class="hljs-keyword">for</span> j <span class="hljs-keyword">in</span> cells]
+<span class="hljs-meta">... </span>    datarows.append(cellvalues)
+...
+pprint.pprint(datarows[<span class="hljs-number">0</span>:<span class="hljs-number">2</span>])
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">[['11/6/2022', '11,945', '2,159', '354', '64', '33,696,612', '1,479', '20.3'],
+ ['7/2/2023', '9,515', '315', '363', '12', '26,207,982', '926', '15.1']]
+</code></pre>
+    <pre class="programlisting code-one"><code class="hljs-code">pprint.pprint(labelrows[<span class="hljs-number">0</span>:<span class="hljs-number">2</span>])
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">['Yemen', 'Niger']
+</code></pre>
+    <pre class="programlisting code-one"><code class="hljs-code"><span class="hljs-keyword">for</span> i <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(<span class="hljs-built_in">len</span>(datarows)):
+<span class="hljs-meta">... </span>  datarows[i].insert(<span class="hljs-number">0</span>, labelrows[i])
+...
+pprint.pprint(datarows[<span class="hljs-number">0</span>:<span class="hljs-number">2</span>])
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">[['Yemen',
+  '11/6/2022',
+  '11,945',
+  '2,159',
+  '354',
+  '64',
+  '33,696,612',
+  '1,479',
+  '20.3'],
+ ['Niger',
+  '7/2/2023',
+  '9,515',
+  '315',
+  '363',
+  '12',
+  '26,207,982',
+  '926',
+  '15.1']]
+</code></pre>
+    <ol>
+      <li class="numberedList" value="4">Load the data into pandas.</li>
+    </ol>
+    <p class="normal-one">Pass the <code class="inlineCode">datarows</code> list<a id="_idIndexMarker127"/> to the <code class="inlineCode">DataFrame</code> method<a id="_idIndexMarker128"/> of pandas. Notice that all data is read into pandas with the object data type and that some data has values that cannot be converted into numeric values in their current form (due to the commas):</p>
+    <pre class="programlisting code-one"><code class="hljs-code">lowcases = pd.DataFrame(datarows, columns=labelcols)
+lowcases.iloc[:,<span class="hljs-number">1</span>:<span class="hljs-number">5</span>].head()
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">     Last Date   Total Cases   Total Deaths   Total Cases PM
+0    11/6/2022        11,945          2,159              354
+1     7/2/2023         9,515            315              363
+2    4/30/2023         7,698            194              434
+3   12/10/2023        43,223            846              660
+4   12/24/2023         7,779            125              904
+</code></pre>
+    <pre class="programlisting code-one"><code class="hljs-code">lowcases.dtypes
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">rowheadings                object
+Last Date                  object
+Total Cases                object
+Total Deaths               object
+Total Cases PM             object
+Total Deaths PM            object
+Population                 object
+GDP Per Capita             object
+Median Age                 object
+dtype: object
+</code></pre>
+    <ol>
+      <li class="numberedList" value="5">Fix the column names<a id="_idIndexMarker129"/> and convert<a id="_idIndexMarker130"/> the data to numeric values.</li>
+    </ol>
+    <p class="normal-one">Remove spaces from the column names. Remove all non-numeric data from the first columns with data, including the commas (<code class="inlineCode">str.replace("[^0-9]",""</code>). Convert to numeric values, handling most columns as integers, the <code class="inlineCode">last_date</code> column as a datetime, <code class="inlineCode">median_age</code> as float, and leaving <code class="inlineCode">rowheadings</code> as an object:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">lowcases.columns = lowcases.columns.<span class="hljs-built_in">str</span>.replace(<span class="hljs-string">" "</span>, <span class="hljs-string">"_"</span>).<span class="hljs-built_in">str</span>.lower()
+<span class="hljs-keyword">for</span> col <span class="hljs-keyword">in</span> lowcases.columns[<span class="hljs-number">2</span>:-<span class="hljs-number">1</span>]:
+  lowcases[col] = lowcases[col].\
+<span class="hljs-built_in">str</span>.replace(<span class="hljs-string">"[^0-9]"</span>,<span class="hljs-string">""</span>,regex=<span class="hljs-literal">True</span>).astype(<span class="hljs-string">'int64</span>')
+lowcases[<span class="hljs-string">'last_date'</span>] = pd.to_datetime(lowcases.last_date)
+lowcases[<span class="hljs-string">'</span><span class="hljs-string">median_age'</span>] = lowcases[<span class="hljs-string">'median_age'</span>].astype(<span class="hljs-string">'float'</span>)
+lowcases.dtypes
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">rowheadings                 object
+last_date            datetime64[ns]
+total_cases                 int64
+total_deaths                int64
+total_cases_pm              int64
+total_deaths_pm             int64
+population                  int64
+gdp_per_capita              int64
+median_age                float64
+dtype: object
+</code></pre>
+    <p class="normal">We have now created a pandas DataFrame from an <code class="inlineCode">html</code> table.</p>
+    <h2 id="_idParaDest-68" class="heading-2">How it works…</h2>
+    <p class="normal">Beautiful Soup is a very useful<a id="_idIndexMarker131"/> tool for finding specific HTML elements<a id="_idIndexMarker132"/> in a web page and retrieving text from them. You can get one HTML element with <code class="inlineCode">find</code> and get one or more with <code class="inlineCode">find_all</code>. The first argument for both <code class="inlineCode">find</code> and <code class="inlineCode">find_all</code> is the HTML element to get. The second argument takes a Python dictionary of attributes. You can retrieve text from all of the HTML elements you find with <code class="inlineCode">get_text</code>.</p>
+    <p class="normal">Some amount of looping is usually necessary to process the elements and text, as with <em class="italic">Step 2</em> and<em class="italic"> Step 3</em>. These two statements in <em class="italic">Step 2</em> are fairly typical:</p>
+    <pre class="programlisting code"><code class="hljs-code">theadrows = bs.find(<span class="hljs-string">'table'</span>, {<span class="hljs-string">'id'</span>:<span class="hljs-string">'tblLowCases'</span>}).thead.find_all(<span class="hljs-string">'th'</span>)
+labelcols = [j.get_text() <span class="hljs-keyword">for</span> j <span class="hljs-keyword">in</span> theadrows]
+</code></pre>
+    <p class="normal">The first statement finds all the <code class="inlineCode">th</code> elements we want and creates a Beautiful Soup result set called <code class="inlineCode">theadrows</code> from the elements it found. The second statement iterates over the <code class="inlineCode">theadrows</code> Beautiful Soup result set using the <code class="inlineCode">get_text</code> method to get the text from each element and then stores it in the <code class="inlineCode">labelcols</code> list.</p>
+    <p class="normal"><em class="italic">Step 3</em> is a little more involved but makes use of the same Beautiful Soup methods. We find all of the table rows (<code class="inlineCode">tr</code>) in the target table (<code class="inlineCode">rows = bs.find('table', {'id':'tblLowCases'}).tbody.find_all('tr')</code>). We then iterate over each of those rows, finding the <code class="inlineCode">th</code> element and getting the text in that element (<code class="inlineCode">rowlabels = row.find('th').get_text()</code>). We also find all of the table cells (<code class="inlineCode">td</code>) for each row (<code class="inlineCode">cells = row.find_all('td', {'class':'data'}</code>) and get the text from all table cells (<code class="inlineCode">cellvalues = [j.get_text() for j in cells]</code>). Note that this code is dependent on the class of the <code class="inlineCode">td</code> elements being <code class="inlineCode">data</code>. </p>
+    <p class="normal">Finally, we insert the row labels we get from the <code class="inlineCode">th</code> elements at the beginning of each list in <code class="inlineCode">datarows</code>:</p>
+    <pre class="programlisting code"><code class="hljs-code"><span class="hljs-keyword">for</span> i <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(<span class="hljs-built_in">len</span>(datarows)):
+<span class="hljs-meta">... </span>  datarows[i].insert(<span class="hljs-number">0</span>, labelrows[i])
+</code></pre>
+    <p class="normal">In <em class="italic">step 4</em>, we use the <code class="inlineCode">DataFrame</code> method to load the list we created in <em class="italic">Steps 2</em> and <em class="italic">3</em> into pandas. We then do some cleaning similar to what we have done in previous recipes in this chapter. We use <code class="inlineCode">string replace</code> to remove spaces from column names and to remove all non-numeric data, including commas, from what are otherwise valid numeric values. We convert<a id="_idIndexMarker133"/> all columns, except<a id="_idIndexMarker134"/> for the <code class="inlineCode">rowheadings</code> column, to numeric.</p>
+    <h2 id="_idParaDest-69" class="heading-2">There’s more…</h2>
+    <p class="normal">Our scraping code is dependent on several aspects of the web page’s structure not changing: the ID of the table of interest, the presence of <code class="inlineCode">th</code> tags with column and row labels, and the <code class="inlineCode">td</code> elements continuing to have their class equal to data. The good news is that if the structure of the web page does change, this will likely only affect the <code class="inlineCode">find</code> and <code class="inlineCode">find_all</code> calls. The rest of the code would not need to change.</p>
+    <h1 id="_idParaDest-70" class="heading-1">Working with Spark data</h1>
+    <p class="normal">When working with large<a id="_idIndexMarker135"/> datasets, we sometimes need to rely on distributed resources to clean and manipulate our data. With Apache Spark, analysts can take advantage of the combined processing power of many machines. We will use PySpark, a Python API for working with Spark, in this recipe. We will also go over how to use PySpark tools to take a first look at our data, select parts of our data, and generate some simple summary statistics.</p>
+    <h2 id="_idParaDest-71" class="heading-2">Getting ready</h2>
+    <p class="normal">To run the code in this section, you need to get Spark running on your computer. If you have installed Anaconda, you can follow these steps to work with Spark:</p>
+    <ol>
+      <li class="numberedList" value="1">Install <code class="inlineCode">Java</code> with <code class="inlineCode">conda install openjdk</code>.</li>
+      <li class="numberedList">Install <code class="inlineCode">PySpark</code> with <code class="inlineCode">conda install pyspark</code> or <code class="inlineCode">conda install -c conda forge pyspark</code>.</li>
+      <li class="numberedList">Install <code class="inlineCode">findspark</code> with <code class="inlineCode">conda install -c conda-forge findspark</code>.<div class="note-one">
+          <p class="normal"><strong class="keyWord">Note</strong></p>
+          <p class="normal">Installation of PySpark can be tricky, particularly setting the necessary environment variables. While <code class="inlineCode">findspark</code> helps with this, a common problem is that the Java installation is not recognized when running PySpark commands. If you get the dreaded <code class="inlineCode">JAVA_HOME is not set</code> error when attempting to run the code in this recipe, then there is a good chance that that is your problem.</p>
+          <p class="normal"><em class="italic">Step 3</em> at the following <a id="_idIndexMarker136"/>link shows you how to set the environment variables for Linux, macOS, and Windows machines: <a href="https://www.dei.unipd.it/~capri/BDC/PythonInstructions.html"><span class="url">https://www.dei.unipd.it/~capri/BDC/PythonInstructions.html</span></a>.</p>
+        </div>
+      </li>
+    </ol>
+    <p class="normal-one">We will work with the land<a id="_idIndexMarker137"/> temperature data from <em class="chapterRef">Chapter 1</em>, <em class="italic">Anticipating Data Cleaning Issues When Importing Tabular Data with pandas</em>, and the candidate news data from this chapter. All data and the code we will be running in this recipe are available in the GitHub repository for this book.</p>
+    <div class="note-one">
+      <p class="normal"><strong class="keyWord">Data</strong> <strong class="keyWord">note</strong></p>
+      <p class="normal">This dataset, taken from the Global Historical Climatology Network integrated database, is made available for public use by the United States National Oceanic and Atmospheric Administration at <a href="https://www.ncei.noaa.gov/data/global-historical-climatology-network-monthly/v4/"><span class="url">https://www.ncei.noaa.gov/data/global-historical-climatology-network-monthly/v4/</span></a>.</p>
+    </div>
+    <p class="normal">We will use PySpark in this recipe to read data we have in local storage.</p>
+    <h2 id="_idParaDest-72" class="heading-2">How to do it...</h2>
+    <p class="normal">To read and explore the data, follow these steps:</p>
+    <ol>
+      <li class="numberedList" value="1">Let’s start a Spark session and load the land temperature data. We can use the read method of the session object to create a Spark DataFrame. We indicate that the first row of the CSV file we are importing has a header:
+        <pre class="programlisting code-one"><code class="hljs-code"><span class="hljs-keyword">from</span> pyspark.sql <span class="hljs-keyword">import</span> SparkSession
+spark = SparkSession.builder \
+   .getOrCreate()
+landtemps = spark.read.option(<span class="hljs-string">"header"</span>,<span class="hljs-literal">True</span>) \
+     .csv(<span class="hljs-string">"data/landtemps.tar.gz"</span>)
+<span class="hljs-built_in">type</span>(landtemps)
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">pyspark.sql.dataframe.DataFrame
+</code></pre>
+      </li>
+    </ol>
+    <p class="normal-one">Notice that the <code class="inlineCode">read</code> method returns a Spark DataFrame, not a pandas DataFrame. We will need to use different methods to view our data than those we have used so far.</p>
+    <p class="normal-one">We load the full dataset, not just a 100,000-row sample as we did in the first chapter. If your system is low on resources, you can import the <code class="inlineCode">landtempssample.csv</code> file instead.</p>
+    <ol>
+      <li class="numberedList" value="2">We should take a look <a id="_idIndexMarker138"/>at the number of rows and the column names and data types that were imported. The <code class="inlineCode">temp</code> column was read as a string. It should be a float. We will fix that in a later step:
+        <pre class="programlisting code-one"><code class="hljs-code">landtemps.count()
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">16904868
+</code></pre>
+        <pre class="programlisting code-one"><code class="hljs-code">landtemps.printSchema()
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">root
+ |-- locationid: string (nullable = true)
+ |-- year: string (nullable = true)
+ |-- month: string (nullable = true)
+ |-- temp: string (nullable = true)
+ |-- latitude: string (nullable = true)
+ |-- longitude: string (nullable = true)
+ |-- stnelev: string (nullable = true)
+ |-- station: string (nullable = true)
+ |-- countryid: string (nullable = true)
+ |-- country: string (nullable = true)
+</code></pre>
+      </li>
+      <li class="numberedList">Let’s look at the data for a few rows. We can choose a subset of the columns by using the <code class="inlineCode">select</code> method:
+        <pre class="programlisting code-one"><code class="hljs-code">landtemps.select(<span class="hljs-string">"station"</span>,<span class="hljs-string">'</span><span class="hljs-string">country'</span>,<span class="hljs-string">'month'</span>,<span class="hljs-string">'year'</span>,<span class="hljs-string">'temp'</span>) \
+    .show(<span class="hljs-number">5</span>, <span class="hljs-literal">False</span>)
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">+-------+-------------------+-----+----+-----+
+|station|country            |month|year|temp |
++-------+-------------------+-----+----+-----+
+|SAVE   |Antigua and Barbuda|1    |1961|-0.85|
+|SAVE   |Antigua and Barbuda|1    |1962|1.17 |
+|SAVE   |Antigua and Barbuda|1    |1963|-7.09|
+|SAVE   |Antigua and Barbuda|1    |1964|0.66 |
+|SAVE   |Antigua and Barbuda|1    |1965|0.48 |
++-------+-------------------+-----+----+-----+
+only showing top 5 rows
+</code></pre>
+      </li>
+      <li class="numberedList">We should fix the data type<a id="_idIndexMarker139"/> of the <code class="inlineCode">temp</code> column. We can use the <code class="inlineCode">withColumn</code> function to do a range of column operations in Spark. Here, we use it to cast the <code class="inlineCode">temp</code> column to <code class="inlineCode">float</code>:
+        <pre class="programlisting code-one"><code class="hljs-code">landtemps = landtemps \
+  .withColumn(<span class="hljs-string">"temp"</span>,landtemps.temp.cast(<span class="hljs-string">'float'</span>))
+landtemps.select(<span class="hljs-string">"temp"</span>).dtypes
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">[('temp', 'float')]
+</code></pre>
+      </li>
+      <li class="numberedList">Now we can run summary statistics on the <code class="inlineCode">temp</code> variable. We can use the <code class="inlineCode">describe</code> method for that:
+        <pre class="programlisting code-one"><code class="hljs-code">landtemps.describe(<span class="hljs-string">'temp'</span>).show()
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">+-------+------------------+
+|summary|              temp|
++-------+------------------+
+|  count|          14461547|
+|   mean|10.880725773138536|
+| stddev|11.509636369381685|
+|    min|             -75.0|
+|    max|             42.29|
++-------+------------------+
+</code></pre>
+      </li>
+      <li class="numberedList">The Spark session’s read method can import a variety of different data files, not just CSV files. Let’s try that with the <code class="inlineCode">allcandidatenews</code> JSON file that we worked with earlier in this chapter:
+        <pre class="programlisting code-one"><code class="hljs-code">allcandidatenews = spark.read \
+     .json(<span class="hljs-string">"data/allcandidatenewssample.json"</span>)
+allcandidatenews \
+  .select(<span class="hljs-string">"source"</span>,<span class="hljs-string">"title"</span>,<span class="hljs-string">"story_position"</span>) \
+  .show(<span class="hljs-number">5</span>)
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">+--------------------+--------------------+--------------+
+|              source|               title|story_position|
++--------------------+--------------------+--------------+
+|            NBC News|Bloomberg cuts ti...|             6|
+|Town &amp; Country Ma...|Democratic Candid...|             3|
+|                null|                null|          null|
+|             TheHill|Sanders responds ...|             7|
+|            CNBC.com|From Andrew Yang'...|             2|
++--------------------+--------------------+--------------+
+only showing top 5 rows
+</code></pre>
+      </li>
+      <li class="numberedList">We can use the <code class="inlineCode">count</code> and <code class="inlineCode">printSchema</code> methods<a id="_idIndexMarker140"/> again to look at our data:
+        <pre class="programlisting code-one"><code class="hljs-code">allcandidatenews.count()
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">60000
+</code></pre>
+        <pre class="programlisting code-one"><code class="hljs-code">allcandidatenews.printSchema()
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">root
+ |-- category: string (nullable = true)
+ |-- date: string (nullable = true)
+ |-- domain: string (nullable = true)
+ |-- panel_position: string (nullable = true)
+ |-- query: string (nullable = true)
+ |-- reason: string (nullable = true)
+ |-- source: string (nullable = true)
+ |-- story_position: long (nullable = true)
+ |-- time: string (nullable = true)
+ |-- title: string (nullable = true)
+ |-- url: string (nullable = true)
+</code></pre>
+      </li>
+      <li class="numberedList">We can also generate some summary statistics on the <code class="inlineCode">story_position</code> variable:
+        <pre class="programlisting code-one"><code class="hljs-code">allcandidatenews \
+   .describe(<span class="hljs-string">'story_position'</span>) \
+   .show()
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">+-------+-----------------+
+|summary|   story_position|
++-------+-----------------+
+|  count|            57618|
+|   mean|5.249626852719636|
+| stddev|2.889001922195635|
+|    min|                1|
+|    max|               10|
++-------+-----------------+
+</code></pre>
+      </li>
+    </ol>
+    <p class="normal">These steps demonstrate how to import data files into a Spark DataFrame, view the structure of the data, and generate summary statistics.</p>
+    <h2 id="_idParaDest-73" class="heading-2">How it works...</h2>
+    <p class="normal">The PySpark API significantly<a id="_idIndexMarker141"/> reduces the amount of work Python programmers have to do to use Apache Spark to handle large data files. We get methods to work with that are not very different from the methods we use with pandas DataFrames. We can see the number of rows and columns, examine and change data types, and get summary statistics.</p>
+    <h2 id="_idParaDest-74" class="heading-2">There’s more...</h2>
+    <p class="normal">At some point in our analysis, we might want to convert the Spark DataFrame into a pandas DataFrame. This is a fairly expensive process, and we will lose the benefits of working with Spark, so we typically will not do that unless we are at the point of our analysis when we require the pandas library, or a library that depends on pandas. But when we need to move to pandas, it is very easy to do – though if you are working with a lot of data and your machine’s processor and RAM are not exactly top of the line, you might want to start the conversion and then go have some tea or coffee.</p>
+    <p class="normal">The following code converts the <code class="inlineCode">allcandidatenews</code> Spark DataFrame that we created to a pandas DataFrame and displays the resulting DataFrame structure:</p>
+    <pre class="programlisting code"><code class="hljs-code">allcandidatenewsdf = allcandidatenews.toPandas()
+allcandidatenewsdf.info()
+</code></pre>
+    <pre class="programlisting con"><code class="hljs-con">&lt;class 'pandas.core.frame.DataFrame'&gt;
+RangeIndex: 60000 entries, 0 to 59999
+Data columns (total 11 columns):
+ #   Column          Non-Null Count  Dtype
+---  ------          --------------  ------
+ 0   category          416 non-null  object
+ 1   date            60000 non-null  object
+ 2   domain          57618 non-null  object
+ 3   panel_position  57618 non-null  object
+ 4   query           57618 non-null  object
+ 5   reason          2382 non-null   object
+ 6   source          57618 non-null  object
+ 7   story_position  57618 non-null float64
+ 8   time            57618 non-null  object
+ 9   title           57618 non-null  object
+ 10  url             57618 non-null  object
+dtypes: float64(1), object(10)
+memory usage: 5.0+ MB
+</code></pre>
+    <p class="normal">We have been largely working with non-traditional data stores in this chapter: JSON files, data from HTML pages, and Spark files. We often reach a point in our data cleaning work where it makes sense to preserve the results of that cleaning by persisting data. At the end of <em class="chapterRef">Chapter 1</em>, <em class="italic">Anticipating Data Cleaning Issues When Importing Tabular Data with pandas</em>, we examined how to persist tabular data. That works fine in cases where our data can be captured well with columns and rows. When it cannot (say, when we are working with a JSON file that has complicated subdocuments), we might want to preserve that structure when persisting data. In the next recipe, we go over persisting JSON data.</p>
+    <h1 id="_idParaDest-75" class="heading-1">Persisting JSON data</h1>
+    <p class="normal">There are several reasons<a id="_idIndexMarker142"/> why we might want to serialize a JSON file:</p>
+    <ul>
+      <li class="bulletList">We may have retrieved the data with an API but need to keep a snapshot of the data.</li>
+      <li class="bulletList">The data in the JSON file is relatively static and informs our data cleaning and analysis over multiple phases of a project.</li>
+      <li class="bulletList">We might decide that the flexibility of a schema-less format such as JSON helps us solve many data cleaning and analysis problems.</li>
+    </ul>
+    <p class="normal">It is worth highlighting this last reason<a id="_idIndexMarker143"/> to use JSON – that it can solve many data problems. Although tabular data structures clearly have many benefits, particularly for operational data, they are often not the best way to store data for analysis purposes. In preparing data for analysis, a substantial amount of time is spent either merging data from different tables or dealing with data redundancy when working with flat files. Not only are these processes time-consuming but every merge or reshaping leaves the door open to a data error of broad scope. This can also mean that we end up paying too much attention to the mechanics of manipulating data and too little to the conceptual issues at the core of our work.</p>
+    <p class="normal">We return to the Cleveland Museum<a id="_idIndexMarker144"/> of Art collections data in this recipe. There are at least three possible units of analysis for this data file – the collection item level, the creator level, and the citation level. JSON allows us to nest citations and creators within collections. (You can examine the structure of the JSON file in the <em class="italic">Getting ready</em> section of this recipe.) This data cannot be persisted in a tabular structure without flattening the file, which we did in the <em class="italic">Importing more complicated JSON data from an API</em> recipe earlier in this chapter. In this recipe, we will use two different methods to persist JSON data, each with its own advantages and disadvantages.</p>
+    <h2 id="_idParaDest-76" class="heading-2">Getting ready</h2>
+    <p class="normal">We will be working with data on the Cleveland Museum of Art’s collection of works by African-American artists. The following is the structure of the JSON data returned by the API. It has been abbreviated to save space:</p>
+    <pre class="programlisting code"><code class="hljs-code"><span class="hljs-punctuation">{</span><span class="hljs-attr">"info"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span> <span class="hljs-attr">"total"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">778</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">"parameters"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span><span class="hljs-attr">"african_american_artists"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">""</span> <span class="hljs-punctuation">}},</span>
+<span class="hljs-attr">"data"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+<span class="hljs-punctuation">{</span>
+<span class="hljs-attr">"id"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">165157</span><span class="hljs-punctuation">,</span>
+<span class="hljs-attr">"accession_number"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"2007.158"</span><span class="hljs-punctuation">,</span>
+<span class="hljs-attr">"title"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"</span><span class="hljs-string">Fulton and Nostrand"</span><span class="hljs-punctuation">,</span>
+<span class="hljs-attr">"creation_date"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"1958"</span><span class="hljs-punctuation">,</span>
+<span class="hljs-attr">"citations"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+  <span class="hljs-punctuation">{</span>
+   <span class="hljs-attr">"citation"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"Annual Exhibition: Sculpture, Paintings..."</span><span class="hljs-punctuation">,</span>
+   <span class="hljs-attr">"page_number"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"Unpaginated, [8],[12]"</span><span class="hljs-punctuation">,</span>
+   <span class="hljs-attr">"url"</span><span class="hljs-punctuation">:</span> <span class="hljs-keyword">null</span>
+   <span class="hljs-punctuation">},</span>
+  <span class="hljs-punctuation">{</span>
+   <span class="hljs-attr">"citation"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"</span><span class="hljs-string">\"Moscow to See Modern U.S. Art,\"&lt;em&gt; New York..."</span><span class="hljs-punctuation">,</span> 
+   <span class="hljs-attr">"page_number"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"P. 60"</span><span class="hljs-punctuation">,</span>
+   <span class="hljs-attr">"url"</span><span class="hljs-punctuation">:</span> <span class="hljs-keyword">null</span>
+  <span class="hljs-punctuation">}]</span>
+<span class="hljs-attr">"creators"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+      <span class="hljs-punctuation">{</span>
+     <span class="hljs-attr">"description"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"Jacob Lawrence (American, 1917-2000)"</span><span class="hljs-punctuation">,</span>
+     <span class="hljs-attr">"extent"</span><span class="hljs-punctuation">:</span> <span class="hljs-keyword">null</span><span class="hljs-punctuation">,</span>
+     <span class="hljs-attr">"qualifier"</span><span class="hljs-punctuation">:</span> <span class="hljs-keyword">null</span><span class="hljs-punctuation">,</span>
+     <span class="hljs-attr">"role"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"artist"</span><span class="hljs-punctuation">,</span>
+     <span class="hljs-attr">"birth_year"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"1917"</span><span class="hljs-punctuation">,</span>
+     <span class="hljs-attr">"death_year"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"2000"</span>
+     <span class="hljs-punctuation">}</span>
+  <span class="hljs-punctuation">]</span>
+ <span class="hljs-punctuation">}</span>
+</code></pre>
+    <h2 id="_idParaDest-77" class="heading-2">How to do it...</h2>
+    <p class="normal">We will serialize the JSON data<a id="_idIndexMarker145"/> using two different methods:</p>
+    <ol>
+      <li class="numberedList" value="1">Load the <code class="inlineCode">pandas</code>, <code class="inlineCode">json</code>, <code class="inlineCode">pprint</code>, <code class="inlineCode">requests</code>, and <code class="inlineCode">msgpack</code> libraries:
+        <pre class="programlisting code-one"><code class="hljs-code"><span class="hljs-keyword">import</span> pandas <span class="hljs-keyword">as</span> pd
+<span class="hljs-keyword">import</span> json
+<span class="hljs-keyword">import</span> pprint
+<span class="hljs-keyword">import</span> requests
+<span class="hljs-keyword">import</span> msgpack
+</code></pre>
+      </li>
+      <li class="numberedList">Load the JSON data from an API. I have abbreviated the JSON output:
+        <pre class="programlisting code-one"><code class="hljs-code">response = requests.get(<span class="hljs-string">"https://openaccess-api.clevelandart.org/api/artworks/?african_american_artists"</span>)
+camcollections = json.loads(response.text)
+<span class="hljs-built_in">len</span>(camcollections[<span class="hljs-string">'data'</span>])
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">778
+</code></pre>
+        <pre class="programlisting code-one"><code class="hljs-code">pprint.pprint(camcollections[<span class="hljs-string">'data'</span>][<span class="hljs-number">0</span>])
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">{'accession_number': '2007.158',
+ 'catalogue_raisonne': None,
+ 'citations': [
+   {'citation': 'Annual Exhibition: Sculpture...',
+    'page_number': 'Unpaginated, [8],[12]',
+    'url': None},
+  {'citation': '"Moscow to See Modern U.S....',
+    'page_number': 'P. 60',
+    'url': None}]
+ 'collection': 'American - Painting',
+ 'creation_date': '1958',
+ 'creators': [
+  {'biography': 'Jacob Lawrence (born 1917)...',
+   'birth_year': '1917',
+   'description': 'Jacob Lawrence (American...)',
+   'role': 'artist'}],
+ 'type': 'Painting'}
+</code></pre>
+      </li>
+      <li class="numberedList">Save and reload the JSON file<a id="_idIndexMarker146"/> using Python’s <code class="inlineCode">json</code> library.</li>
+    </ol>
+    <p class="normal-one">Persist the JSON data in human-readable form. Reload it from the saved file and confirm that it worked by retrieving the <code class="inlineCode">creators</code> data from the first <code class="inlineCode">collections</code> item:</p>
+    <pre class="programlisting code-one"><code class="hljs-code"><span class="hljs-keyword">with</span> <span class="hljs-built_in">open</span>(<span class="hljs-string">"data/camcollections.json"</span>,<span class="hljs-string">"w"</span>) <span class="hljs-keyword">as</span> f:
+<span class="hljs-meta">... </span>  json.dump(camcollections, f)
+...
+<span class="hljs-keyword">with</span> <span class="hljs-built_in">open</span>(<span class="hljs-string">"data/camcollections.json"</span>,<span class="hljs-string">"r"</span>) <span class="hljs-keyword">as</span> f:
+<span class="hljs-meta">... </span>  camcollections = json.load(f)
+...
+pprint.pprint(camcollections[<span class="hljs-string">'data'</span>][<span class="hljs-number">0</span>][<span class="hljs-string">'creators'</span>])
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">[{'biography': 'Jacob Lawrence (born 1917) has been a prominent artist since...'
+  'birth_year': '1917',
+  'description': 'Jacob Lawrence (American, 1917-2000)',
+  'role': 'artist'}]
+</code></pre>
+    <ol>
+      <li class="numberedList" value="4">Save and reload the JSON file using <code class="inlineCode">msgpack</code>:
+        <pre class="programlisting code-one"><code class="hljs-code"><span class="hljs-keyword">with</span> <span class="hljs-built_in">open</span>(<span class="hljs-string">"data/camcollections.msgpack"</span>, <span class="hljs-string">"wb"</span>) <span class="hljs-keyword">as</span> outfile:
+<span class="hljs-meta">... </span>    packed = msgpack.packb(camcollections)
+<span class="hljs-meta">... </span>    outfile.write(packed)
+...
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">1586507
+</code></pre>
+        <pre class="programlisting code-one"><code class="hljs-code"><span class="hljs-keyword">with</span> <span class="hljs-built_in">open</span>(<span class="hljs-string">"data/camcollections.msgpack"</span>, <span class="hljs-string">"rb"</span>) <span class="hljs-keyword">as</span> data_file:
+<span class="hljs-meta">... </span>    msgbytes = data_file.read()
+...
+camcollections = msgpack.unpackb(msgbytes)
+pprint.pprint(camcollections[<span class="hljs-string">'data'</span>][<span class="hljs-number">0</span>][<span class="hljs-string">'creators'</span>])
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">[{'biography': 'Jacob Lawrence (born 1917) has been a prominent...',
+  'birth_year': '1917',
+  'death_year': '2000',
+  'description': 'Jacob Lawrence (American, 1917-2000)',
+  'role': 'artist'}]
+</code></pre>
+      </li>
+    </ol>
+    <h2 id="_idParaDest-78" class="heading-2">How it works…</h2>
+    <p class="normal">We use the Cleveland Museum of Art’s Collections<a id="_idIndexMarker147"/> API to retrieve collections items. The <code class="inlineCode">african_american_artists</code> flag in the query string indicates that we just want collections for those creators. <code class="inlineCode">json.loads</code> returns a dictionary called <code class="inlineCode">info</code> and a list of dictionaries called <code class="inlineCode">data</code>. We check the length of the <code class="inlineCode">data</code> list. This tells us that there are 778 items in collections. We then display the first item of collections to get a better look at the structure of the data. (I have abbreviated the JSON output.)</p>
+    <p class="normal">We save and then reload the data using Python’s JSON library in <em class="italic">Step 3</em>. The advantage of persisting the data in this way is that it keeps the data in human-readable form. Unfortunately, it has two disadvantages: saving takes longer than alternative serialization methods, and it uses more storage space.</p>
+    <p class="normal">In <em class="italic">Step 4</em>, we use <code class="inlineCode">msgpack</code> to persist our data. This is faster than Python’s <code class="inlineCode">json</code> library, and the saved file uses less space. Of course, the disadvantage is that the resulting JSON is binary rather than text-based.</p>
+    <h2 id="_idParaDest-79" class="heading-2">There’s more…</h2>
+    <p class="normal">I use both methods for persisting JSON data in my work. When I am working with small amounts of data, and that data is relatively static, I prefer human-readable JSON. A great use case for this is the recipes in the previous chapter where we needed to create value labels.</p>
+    <p class="normal">I use <code class="inlineCode">msgpack</code> when I am working with large amounts of data, where that data changes regularly. <code class="inlineCode">msgpack</code> files are also great when you want to take regular snapshots of key tables in enterprise databases.</p>
+    <p class="normal">The Cleveland Museum of Art’s collections data is similar in at least one important way to the data we work with every day. The unit of analysis frequently changes. Here, we are looking at collections, citations, and creators. In our work, we might have to simultaneously look at students and courses, or households and deposits. An enterprise database system for the museum data would likely have separate collections, citations, and creators tables that we would eventually need to merge. The resulting merged file would have data redundancy issues that we would need to account for whenever we changed the unit of analysis.</p>
+    <p class="normal">When we alter our data cleaning process to work directly from JSON or parts of it, we end up eliminating a major source of errors. We do more data cleaning with JSON in the <em class="italic">Classes that handle non-tabular data structures</em> recipe in <em class="chapterRef">Chapter 12</em>, <em class="italic">Automate Data Cleaning with User-Defined Functions, Classes and Pipelines</em>.</p>
+    <h1 id="_idParaDest-80" class="heading-1">Versioning data</h1>
+    <p class="normal">There may be times when we<a id="_idIndexMarker148"/> want to persist data without overwriting a prior version of the data file. This can be accomplished by appending a time stamp to a filename or a unique identifier. However, there are more elegant solutions available. One such solution is the Delta Lake library, which we will explore in this recipe.</p>
+    <p class="normal">We will work with the land temperature data again in this recipe. We will load the data, save it to a data lake, and then save an altered version to the same data lake.</p>
+    <h2 id="_idParaDest-81" class="heading-2">Getting ready</h2>
+    <p class="normal">We will be using the Delta Lake library in this recipe, which can be installed with <code class="inlineCode">pip install deltalake</code>. We will also need the <code class="inlineCode">os</code> library so that we can make a directory for the data lake.</p>
+    <h2 id="_idParaDest-82" class="heading-2">How to do it...</h2>
+    <p class="normal">You can get started with the data and version it as follows:</p>
+    <ol>
+      <li class="numberedList" value="1">We start by importing the Delta Lake library. We also create a folder called <code class="inlineCode">temps_lake</code> for our data versions:
+        <pre class="programlisting code-one"><code class="hljs-code"><span class="hljs-keyword">import</span> pandas <span class="hljs-keyword">as</span> pd
+<span class="hljs-keyword">from</span> deltalake.writer <span class="hljs-keyword">import</span> write_deltalake
+<span class="hljs-keyword">from</span> deltalake <span class="hljs-keyword">import</span> DeltaTable
+<span class="hljs-keyword">import</span> os
+os.makedirs(<span class="hljs-string">"data/temps_lake"</span>, exist_ok=<span class="hljs-literal">True</span>)
+</code></pre>
+      </li>
+      <li class="numberedList">Now, let’s load the land temperature data:
+        <pre class="programlisting code-one"><code class="hljs-code">landtemps = pd.read_csv(<span class="hljs-string">'data/landtempssample.csv'</span>,
+    names=[<span class="hljs-string">'stationid'</span>,<span class="hljs-string">'year'</span>,<span class="hljs-string">'month'</span>,<span class="hljs-string">'avgtemp'</span>,<span class="hljs-string">'latitude'</span>,
+      <span class="hljs-string">'longitude'</span>,<span class="hljs-string">'elevation'</span>,<span class="hljs-string">'station'</span>,<span class="hljs-string">'</span><span class="hljs-string">countryid'</span>,<span class="hljs-string">'country'</span>],
+    skiprows=<span class="hljs-number">1</span>,
+parse_dates=[[<span class="hljs-string">'month'</span>,<span class="hljs-string">'year'</span>]])
+landtemps.shape
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">(100000, 9)
+</code></pre>
+      </li>
+      <li class="numberedList">We save the landtemps DataFrame to the data lake:
+        <pre class="programlisting code-one"><code class="hljs-code">write_deltalake(<span class="hljs-string">"data/temps_lake"</span>, landtemps)
+</code></pre>
+      </li>
+      <li class="numberedList">Let’s now retrieve<a id="_idIndexMarker149"/> the data we just saved. We specify that we want the first version, though that is not necessary as the most recent version will be retrieved when the version is not indicated. This returns a <code class="inlineCode">DeltaTable</code> type, which we can convert into a pandas DataFrame:
+        <pre class="programlisting code-one"><code class="hljs-code">tempsdelta = DeltaTable(<span class="hljs-string">"data/temps_lake"</span>, version=<span class="hljs-number">0</span>)
+<span class="hljs-built_in">type</span>(tempsdelta)
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">deltalake.table.DeltaTable
+</code></pre>
+        <pre class="programlisting code-one"><code class="hljs-code">tempsdfv1 = tempsdelta.to_pandas()
+tempsdfv1.shape
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">(100000, 9)
+</code></pre>
+      </li>
+      <li class="numberedList">Let’s persist only the first 1,000 rows of the land temperature data to the data lake, without replacing the existing data. We pass a value of <code class="inlineCode">overwrite</code> to the <code class="inlineCode">mode</code> parameter. This saves a new dataset to the data lake. It does not replace the previous one. The <code class="inlineCode">overwrite</code> parameter value is a little confusing here. This will be clearer when we use the <code class="inlineCode">append</code> parameter value later:
+        <pre class="programlisting code-one"><code class="hljs-code">write_deltalake(<span class="hljs-string">"data/temps_lake"</span>, landtemps.head(<span class="hljs-number">1000</span>), mode=<span class="hljs-string">"</span><span class="hljs-string">overwrite"</span>)
+</code></pre>
+      </li>
+      <li class="numberedList">Let’s now retrieve this latest version of our data. Notice that this only has 1,000 rows:
+        <pre class="programlisting code-one"><code class="hljs-code">tempsdfv2 = DeltaTable(<span class="hljs-string">"data/temps_lake"</span>, version=<span class="hljs-number">1</span>).to_pandas()
+tempsdfv2.shape
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">(1000, 9)
+</code></pre>
+      </li>
+      <li class="numberedList">If we specify <code class="inlineCode">append</code> instead, we add the rows of the DataFrame in the second argument of <code class="inlineCode">write_deltalake</code> to the rows of the previous version:
+        <pre class="programlisting code-one"><code class="hljs-code">write_deltalake(<span class="hljs-string">"data/temps_lake"</span>, landtemps.head(<span class="hljs-number">1000</span>), mode=<span class="hljs-string">"append"</span>)
+tempsdfv3 = DeltaTable(<span class="hljs-string">"data/temps_lake"</span>, version=<span class="hljs-number">2</span>).to_pandas()
+tempsdfv3.shape
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">(2000, 9)
+</code></pre>
+      </li>
+      <li class="numberedList">Let’s confirm that our first version of the dataset in the data lake is still accessible and has the number of rows<a id="_idIndexMarker150"/> we expect:
+        <pre class="programlisting code-one"><code class="hljs-code">DeltaTable(<span class="hljs-string">"data/temps_lake"</span>, version=<span class="hljs-number">0</span>).to_pandas().shape
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">(100000, 9)
+</code></pre>
+      </li>
+    </ol>
+    <h2 id="_idParaDest-83" class="heading-2">How it works...</h2>
+    <p class="normal">The nomenclature regarding overwrite and append is a little confusing, but it might make more sense if you think of overwrite as a logical deletion of the previous dataset, not a physical deletion. The most recent version has all new data, but the previous versions are still stored.</p>
+    <h1 id="_idParaDest-84" class="heading-1">Summary</h1>
+    <p class="normal">The recipes in this chapter examined importing and data preparation of non-tabular data in a variety of forms, including JSON and HTML. We introduced Spark for working with big data and discussed how to persist tabular and non-tabular data. We also examined how to create a data lake for versioning. We will learn how to take the measure of our data in the next chapter.</p>
+    <h1 class="heading-1">Join our community on Discord</h1>
+    <p class="normal">Join our community’s Discord space for discussions with the author and other readers:</p>
+    <p class="normal"><a href="https://discord.gg/p8uSgEAETX "><span class="url">https://discord.gg/p8uSgEAETX</span></a></p>
+    <p class="normal"><img src="../Images/QR_Code10336218961138498953.png" alt="" role="presentation"/></p>
+  </div>
+</body></html>

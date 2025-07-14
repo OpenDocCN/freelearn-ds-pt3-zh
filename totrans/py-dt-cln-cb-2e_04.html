@@ -1,0 +1,1265 @@
+<html><head></head><body>
+  <div id="_idContainer056" class="Basic-Text-Frame">
+    <h1 class="chapterNumber">4</h1>
+    <h1 id="_idParaDest-121" class="chapterTitle">Identifying Outliers in Subsets of Data</h1>
+    <p class="normal">Outliers and unexpected values may not be errors. They often are not. Individuals and events are complicated and surprise the analyst. Some people really are 7’4” tall and some really have $50 million salaries. Sometimes, data is messy because people and situations are messy; however, extreme values can have an out-sized impact on our analysis, particularly when we are using parametric techniques that assume a normal distribution.</p>
+    <p class="normal">These issues may become even more apparent when working with subsets of data. That is not just because extreme or unexpected values have more weight with smaller samples. It is also because they may make less sense when bivariate and multivariate relationships are considered. When the 7’4” person, or the person making $50 million, is 10 years old, the red flag gets even redder. This may suggest some measurement or data collection error.</p>
+    <p class="normal">But the key issue is the undue influence that outliers can have on the inferences we draw from our data. Indeed, it may be helpful to think of an outlier as an observation with variable values, or relationships between variable values, that are so unusual that they cannot help to explain relationships in the rest of the data. This matters for statistical inference because we cannot assume a neutral impact of outliers on our summary statistics or parameter estimates. Sometimes our models work so hard to construct parameter estimates that can account for patterns in outlier observations that we compromise the model’s explanatory or predictive power for all other observations. Raise your hand if you have ever spent days trying to interpret a model only to discover that your coefficients and predictions completely changed once you removed a few outliers.</p>
+    <p class="normal">The identification and handling of outliers is among the most important data preparation tasks we have in a data analysis project. We explore a range of strategies for detecting and treating outliers in this chapter. Specifically, the recipes in this chapter examine the following:</p>
+    <ul>
+      <li class="bulletList">Identifying outliers with one variable</li>
+      <li class="bulletList">Identifying outliers and unexpected values in bivariate relationships</li>
+      <li class="bulletList">Using subsetting to examine logical inconsistencies in variable relationships</li>
+      <li class="bulletList">Using linear regression to identify data points with significant influence</li>
+      <li class="bulletList">Using <em class="italic">k</em>-nearest neighbors (KNN) to find outliers</li>
+      <li class="bulletList">Using Isolation Forest to find anomalies</li>
+      <li class="bulletList">Using PandasAI to identify outliers</li>
+    </ul>
+    <h1 id="_idParaDest-122" class="heading-1">Technical requirements</h1>
+    <p class="normal">You will need pandas, NumPy, and Matplotlib to complete the recipes in this chapter. I used pandas 2.1.4, but the code will run on pandas 1.5.3 or later.</p>
+    <p class="normal">The code in this chapter can be downloaded from the book’s GitHub repository, <a href="https://github.com/PacktPublishing/Python-Data-Cleaning-Cookbook-Second-Edition"><span class="url">https://github.com/PacktPublishing/Python-Data-Cleaning-Cookbook-Second-Edition</span></a>.</p>
+    <h1 id="_idParaDest-123" class="heading-1">Identifying outliers with one variable</h1>
+    <p class="normal">The concept of an outlier is somewhat<a id="_idIndexMarker245"/> subjective but is closely tied to the properties of a particular distribution; to its central tendency, spread, and shape. We make assumptions about whether a value is expected or unexpected based on how likely we are to get that value given the variable’s distribution. We are more inclined to view a value as an outlier if it is multiple standard deviations away from the mean and it is from a distribution that is approximately normal; one that is symmetrical (has low skew) and has relatively skinny tails (low kurtosis).</p>
+    <p class="normal">This becomes clear if we imagine trying to identify outliers from a uniform distribution. There is no central tendency and there are no tails. Each value is equally likely. If, for example, COVID-19 cases per country were uniformly distributed, with a minimum of 1 and a maximum of 10,000,000, neither 1 nor 10,000,000 would be considered an outlier.</p>
+    <p class="normal">We need to understand how a variable is distributed, then, before we can identify outliers. Several Python libraries provide tools to help us understand how variables of interest are distributed. We use a couple of them in this recipe to identify when a value is sufficiently out of range to be of concern.</p>
+    <h2 id="_idParaDest-124" class="heading-2">Getting ready</h2>
+    <p class="normal">You will need the <code class="inlineCode">matplotlib</code>, <code class="inlineCode">statsmodels</code>, and <code class="inlineCode">scipy</code> libraries, in addition<a id="_idIndexMarker246"/> to <code class="inlineCode">pandas</code> and <code class="inlineCode">numpy</code>, to run the code in this recipe. You can install <code class="inlineCode">matplotlib</code>, <code class="inlineCode">statsmodels</code>, and <code class="inlineCode">scipy</code> by entering <code class="inlineCode">pip install matplotlib</code>, <code class="inlineCode">pip install statsmodels</code>, and <code class="inlineCode">pip install scipy</code> in a terminal client or PowerShell (in Windows). You may also need to install <code class="inlineCode">openpyxl</code> to save Excel files.</p>
+    <p class="normal">We will work with COVID-19 cases data in this recipe. This dataset has one observation for each country with total COVID-19 cases and deaths.</p>
+    <div class="note">
+      <p class="normal"><strong class="keyWord">Data note</strong></p>
+      <p class="normal">Our World in Data<a id="_idIndexMarker247"/> provides COVID-19 public use data at <a href="https://ourworldindata.org/covid-cases"><span class="url">https://ourworldindata.org/covid-cases</span></a>. The dataset includes total cases and deaths, tests administered, hospital beds, and demographic data such as median age, gross domestic product, and a human development index, which is a composite measure of standard of living, educational levels, and life expectancy. The dataset used in this recipe was downloaded on March 3, 2024.</p>
+    </div>
+    <h2 id="_idParaDest-125" class="heading-2">How to do it...</h2>
+    <p class="normal">We take a good look at the distribution of some of the key continuous variables in the COVID-19 data. We examine the central tendency and shape of the distribution, generating measures and visualizations of normality:</p>
+    <ol>
+      <li class="numberedList" value="1">Load the <code class="inlineCode">pandas</code>, <code class="inlineCode">numpy</code>, <code class="inlineCode">matplotlib</code>, <code class="inlineCode">statsmodels</code>, and <code class="inlineCode">scipy</code> libraries, and the COVID-19 case data file.</li>
+    </ol>
+    <p class="normal-one">Also, set up the COVID-19 case and demographic columns:</p>
+    <pre class="programlisting code-one"><code class="hljs-code"><span class="hljs-keyword">import</span> pandas <span class="hljs-keyword">as</span> pd
+<span class="hljs-keyword">import</span> numpy <span class="hljs-keyword">as</span> np
+<span class="hljs-keyword">import</span> matplotlib.pyplot <span class="hljs-keyword">as</span> plt
+<span class="hljs-keyword">import</span> statsmodels.api <span class="hljs-keyword">as</span> sm
+<span class="hljs-keyword">import</span> scipy.stats <span class="hljs-keyword">as</span> scistat
+covidtotals = pd.read_csv(<span class="hljs-string">"data/covidtotals.csv"</span>)
+covidtotals.set_index(<span class="hljs-string">"iso_code"</span>, inplace=<span class="hljs-literal">True</span>)
+totvars = [<span class="hljs-string">'location'</span>,<span class="hljs-string">'total_cases'</span>,
+<span class="hljs-meta">... </span>  <span class="hljs-string">'total_deaths'</span>,<span class="hljs-string">'</span><span class="hljs-string">total_cases_pm'</span>,
+<span class="hljs-meta">... </span>  <span class="hljs-string">'total_deaths_pm'</span>]
+demovars = [<span class="hljs-string">'population'</span>,<span class="hljs-string">'pop_density'</span>,
+<span class="hljs-meta">... </span>  <span class="hljs-string">'median_age'</span>,<span class="hljs-string">'gdp_per_capita'</span>,
+<span class="hljs-meta">... </span>   <span class="hljs-string">'hosp_beds'</span>,<span class="hljs-string">'</span><span class="hljs-string">hum_dev_ind'</span>]
+</code></pre>
+    <ol>
+      <li class="numberedList" value="2">Get descriptive<a id="_idIndexMarker248"/> statistics for the COVID-19 case data.</li>
+    </ol>
+    <p class="normal-one">Create a DataFrame with just the key case data:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">covidtotalsonly = covidtotals.loc[:, totvars]
+covidtotalsonly.describe()
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">            total_cases  total_deaths  total_cases_pm  total_deaths_pm
+count               231           231             231              231
+mean          3,351,599        30,214         206,178            1,262
+std          11,483,212       104,779        2 03,858            1,315
+min                   4             0             354                0
+25%              25,672           178          21,822              141
+50%             191,496         1,937         133,946              827
+75%           1,294,286        14,150         345,690            1,998
+max         103,436,829     1,127,152         763,475            6,508
+</code></pre>
+    <ol>
+      <li class="numberedList" value="3">Show more detailed percentile data. We indicate that we only want to do this for numeric values so that the location column is skipped:
+        <pre class="programlisting code-one"><code class="hljs-code">covidtotalsonly.quantile(np.arange(<span class="hljs-number">0.0</span>, <span class="hljs-number">1.1</span>, <span class="hljs-number">0.1</span>),
+   numeric_only=<span class="hljs-literal">True</span>)
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">      total_cases  total_deaths  total_cases_pm  total_deaths_pm
+0.0           4.0           0.0           354.5              0.0
+0.1       8,359.0          31.0         3,138.6             32.9
+0.2      17,181.0         126.0        10,885.7            105.3
+0.3      38,008.0         294.0        35,834.6            210.5
+0.4      74,129.0         844.0        86,126.2            498.8
+0.5     191,496.0       1,937.0       133,946.3            827.0
+0.6     472,755.0       4,384.0       220,429.4          1,251.3
+0.7   1,041,111.0       9,646.0       293,737.4          1,697.6
+0.8   1,877,065.0      21,218.0       416,608.1          2,271.7
+0.9   5,641,992.0      62,288.0       512,388.4          3,155.9
+1.0 103,436,829.0   1,127,152.0       763,475.4          6,507.7
+</code></pre>
+      </li>
+    </ol>
+    <div class="note-one">
+      <p class="normal"><strong class="keyWord">Note</strong></p>
+      <p class="normal">Starting with pandas version 2.0.0, the default value for the <code class="inlineCode">numeric_only</code> parameter is <code class="inlineCode">False</code> for the <code class="inlineCode">quantile</code> function. We needed to set the <code class="inlineCode">numeric_only</code> value to <code class="inlineCode">True</code> to get <code class="inlineCode">quantile</code> to skip the <code class="inlineCode">location</code> column.</p>
+    </div>
+    <p class="normal-one">You should also show skewness<a id="_idIndexMarker249"/> and kurtosis. Skewness and kurtosis describe how symmetrical the distribution is and how fat the tails of the distribution are, respectively. Both measures, for <code class="inlineCode">total_cases</code> and <code class="inlineCode">total_deaths</code>, are significantly higher than we would expect if our variables were distributed normally:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">covidtotalsonly.skew(numeric_only=<span class="hljs-literal">True</span>)
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">total_cases       6.3
+total_deaths      7.1
+total_cases_pm    0.8
+total_deaths_pm   1.3
+dtype: float64
+</code></pre>
+    <pre class="programlisting code-one"><code class="hljs-code">covidtotalsonly.kurtosis(numeric_only=<span class="hljs-literal">True</span>)
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">total_cases       47.1
+total_deaths      61.7
+total_cases_pm    -0.4
+total_deaths_pm    1.3
+dtype: float64
+</code></pre>
+    <p class="normal-one">The prototypical normal<a id="_idIndexMarker250"/> distribution has a skewness of <code class="inlineCode">0</code> and a kurtosis of <code class="inlineCode">3</code>.</p>
+    <ol>
+      <li class="numberedList" value="4">Test the COVID-19 data for normality.</li>
+    </ol>
+    <p class="normal-one">Use the Shapiro-Wilk test from the <code class="inlineCode">scipy</code> library. Print out the <em class="italic">p</em>-value from the test (the <code class="inlineCode">null</code> hypothesis of a normal distribution can be rejected at the 95% level at any <em class="italic">p</em>-value below <code class="inlineCode">0.05</code>):</p>
+    <pre class="programlisting code-one"><code class="hljs-code"><span class="hljs-keyword">def</span> <span class="hljs-title">testnorm</span>(<span class="hljs-params">var, df</span>):
+  stat, p = scistat.shapiro(df[var])
+  <span class="hljs-keyword">return</span> p
+<span class="hljs-built_in">print</span>(<span class="hljs-string">"total cases: %.5f"</span> % testnorm(<span class="hljs-string">"total_cases"</span>, covidtotalsonly))
+<span class="hljs-built_in">print</span>(<span class="hljs-string">"total deaths: %.5f"</span> % testnorm(<span class="hljs-string">"total_deaths"</span>, covidtotalsonly))
+<span class="hljs-built_in">print</span>(<span class="hljs-string">"total cases pm: %.5f"</span> % testnorm(<span class="hljs-string">"total_cases_pm"</span>, covidtotalsonly))
+<span class="hljs-built_in">print</span>(<span class="hljs-string">"total deaths pm: %.5f"</span> % testnorm(<span class="hljs-string">"total_deaths_pm"</span>, covidtotalsonly))
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">total cases: 0.00000
+total deaths: 0.00000
+total cases pm: 0.00000
+total deaths pm: 0.00000
+</code></pre>
+    <ol>
+      <li class="numberedList" value="5">Show normal quantile-quantile plots (<code class="inlineCode">qqplots</code>) of total cases and total cases per million.</li>
+    </ol>
+    <p class="normal-one">The straight lines show what the distributions would look like if they were normal:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">sm.qqplot(covidtotalsonly[[<span class="hljs-string">'total_cases'</span>]]. \
+<span class="hljs-meta">... </span>  sort_values([<span class="hljs-string">'total_cases'</span>]), line=<span class="hljs-string">'s'</span>)
+plt.title(<span class="hljs-string">"QQ Plot of Total Cases"</span>)
+sm.qqplot(covidtotals[[<span class="hljs-string">'total_cases_pm'</span>]]. \
+<span class="hljs-meta">... </span>  sort_values([<span class="hljs-string">'total_cases_pm'</span>]), line=<span class="hljs-string">'s'</span>)
+plt.title(<span class="hljs-string">"QQ Plot of Total Cases Per Million"</span>)
+plt.show()
+</code></pre>
+    <p class="normal-one">This results in the following<a id="_idIndexMarker251"/> scatterplots:</p>
+    <figure class="mediaobject"><img src="../Images/B18596_04_01.png" alt="" role="presentation"/></figure>
+    <p class="packt_figref">Figure 4.1: Distribution of COVID-19 cases compared with a normal distribution</p>
+    <p class="normal-one">When adjusted by population with the total cases per million column, the distribution is closer to normal:</p>
+    <figure class="mediaobject"><img src="../Images/B18596_04_02.png" alt="" role="presentation"/></figure>
+    <p class="packt_figref">Figure 4.2: Distribution of COVID-19 cases per million compared with a normal distribution</p>
+    <ol>
+      <li class="numberedList" value="6">Show the outlier range for total cases.</li>
+    </ol>
+    <p class="normal-one">One way to define an outlier<a id="_idIndexMarker252"/> for a continuous variable is by the distance above the third quartile or below the first quartile. If that distance is more than 1.5 times the <em class="italic">interquartile range</em> (the distance between the first and third quartiles), that value is considered an outlier. The calculation in this step indicates that values above 3,197,208 can be considered outliers. In this case, we can ignore an outlier threshold that is less than 0, as that is not possible:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">thirdq, firstq = covidtotalsonly.total_cases.quantile(<span class="hljs-number">0.75</span>), covidtotalsonly.total_cases.quantile(<span class="hljs-number">0.25</span>)
+interquartilerange = <span class="hljs-number">1.5</span>*(thirdq-firstq)
+outlierhigh, outlierlow = interquartilerange+thirdq, firstq-interquartilerange
+<span class="hljs-built_in">print</span>(outlierlow, outlierhigh, sep=<span class="hljs-string">" &lt;--&gt; "</span>)
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">-1877250 &lt;--&gt; 3197208
+</code></pre>
+    <ol>
+      <li class="numberedList" value="7">Generate a DataFrame of outliers and write it to Excel.</li>
+    </ol>
+    <p class="normal-one">Iterate over the four COVID-19 case columns. Calculate the outlier thresholds for each column as we did in the previous step. From the DataFrame, select those rows above the high threshold or below the low threshold. Add columns<a id="_idIndexMarker253"/> that indicate the variable examined (<code class="inlineCode">varname</code>) for outliers and the threshold levels:</p>
+    <pre class="programlisting code-one"><code class="hljs-code"><span class="hljs-keyword">def</span> <span class="hljs-title">getoutliers</span>():
+<span class="hljs-meta">... </span>  dfout = pd.DataFrame(columns=covidtotals. \
+<span class="hljs-meta">... </span>    columns, data=<span class="hljs-literal">None</span>)
+<span class="hljs-meta">... </span>  <span class="hljs-keyword">for</span> col <span class="hljs-keyword">in</span> covidtotalsonly.columns[<span class="hljs-number">1</span>:]:
+<span class="hljs-meta">... </span>    thirdq, firstq = covidtotalsonly[col].\
+<span class="hljs-meta">... </span>      quantile(<span class="hljs-number">0.75</span>),covidtotalsonly[col].\
+<span class="hljs-meta">... </span>      quantile(<span class="hljs-number">0.25</span>)
+<span class="hljs-meta">... </span>    interquartilerange = <span class="hljs-number">1.5</span>*(thirdq-firstq)
+<span class="hljs-meta">... </span>    outlierhigh, outlierlow = \
+<span class="hljs-meta">... </span>      interquartilerange+thirdq, \
+<span class="hljs-meta">... </span>      firstq-interquartilerange
+<span class="hljs-meta">... </span>    df = covidtotals.loc[(covidtotals[col]&gt; \
+<span class="hljs-meta">... </span>      outlierhigh) | (covidtotals[col]&lt; \
+<span class="hljs-meta">... </span>      outlierlow)]
+<span class="hljs-meta">... </span>    df = df.assign(varname = col,
+<span class="hljs-meta">... </span>      threshlow = outlierlow,
+<span class="hljs-meta">... </span>      threshhigh = outlierhigh)
+<span class="hljs-meta">... </span>    dfout = pd.concat([dfout, df])
+<span class="hljs-meta">... </span>  <span class="hljs-keyword">return</span> dfout
+...
+outliers = getoutliers()
+outliers.varname.value_counts()
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">total_deaths          39
+total_cases           33
+total_deaths_pm        4
+Name: varname, dtype: int64
+</code></pre>
+    <pre class="programlisting code-one"><code class="hljs-code">outliers.to_excel(<span class="hljs-string">"views/outlierscases.xlsx"</span>)
+</code></pre>
+    <p class="normal-one">This produces the following Excel file (some columns are hidden to save space):</p>
+    <figure class="mediaobject"><img src="../Images/B18596_04_03.png" alt="outliers"/></figure>
+    <p class="packt_figref">Figure 4.3 Excel file with outlier cases</p>
+    <p class="normal-one">There were 39 countries<a id="_idIndexMarker254"/> identified as outliers in the <code class="inlineCode">total_deaths</code> values according to the interquartile method, and 33 <code class="inlineCode">total_cases</code> outliers. Notice that there were no outliers for <code class="inlineCode">total _cases_pm</code>.</p>
+    <ol>
+      <li class="numberedList" value="8">Look a little more closely at outliers for total deaths per million.</li>
+    </ol>
+    <p class="normal-one">Use the <code class="inlineCode">varname</code> column we created in the previous step to select the outliers for <code class="inlineCode">total_deaths_pm</code>. Show the columns <code class="inlineCode">(median_age</code> and <code class="inlineCode">hum_dev_ind</code>) that might help to explain the extreme values for those columns. We also show the 25<sup class="superscript">th</sup>, 50<sup class="superscript">th</sup>, and 75<sup class="superscript">th</sup> percentile for those columns for the whole dataset for comparison:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">outliers.loc[outliers.varname==<span class="hljs-string">"</span><span class="hljs-string">total_deaths_pm"</span>,
+  [<span class="hljs-string">'location'</span>,<span class="hljs-string">'total_deaths_pm'</span>,<span class="hljs-string">'total_cases_pm'</span>,
+   <span class="hljs-string">'median_age'</span>,<span class="hljs-string">'hum_dev_ind'</span>]]. \
+  sort_values([<span class="hljs-string">'total_deaths_pm'</span>], ascending=<span class="hljs-literal">False</span>)
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">                   location      total_deaths_pm  \
+PER                    Peru              6,507.7  
+BGR                Bulgaria              5,703.5  
+BIH  Bosnia and Herzegovina              5,066.3  
+HUN                 Hungary              4,918.3  
+           total_cases_pm    median_age    hum_dev_ind 
+PER             133,239.0          29.1            0.8 
+BGR             195,767.9          44.7            0.8 
+BIH             124,806.3          42.5            0.8 
+HUN             223,685.2          43.4            0.9
+</code></pre>
+    <pre class="programlisting code-one"><code class="hljs-code">covidtotals[[<span class="hljs-string">'total_deaths_pm'</span>,<span class="hljs-string">'</span><span class="hljs-string">median_age'</span>,
+  <span class="hljs-string">'hum_dev_ind'</span>]]. \
+  quantile([<span class="hljs-number">0.25</span>,<span class="hljs-number">0.5</span>,<span class="hljs-number">0.75</span>])
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">      total_deaths_pm  median_age  hum_dev_ind
+0.25           141.18       22.05         0.60
+0.50           827.05       29.60         0.74
+0.75         1,997.51       38.70         0.83
+</code></pre>
+    <p class="normal-one">All four countries<a id="_idIndexMarker255"/> are well beyond the 75<sup class="superscript">th</sup> percentile for deaths per million. Three of the four countries are near or above the 75<sup class="superscript">th</sup> percentile for both median age and the human development index. Surprisingly, there is a positive correlation between the human development index and deaths per million. We display a correlation matrix in the next recipe.</p>
+    <ol>
+      <li class="numberedList" value="9">Show a histogram of total cases:
+        <pre class="programlisting code-one"><code class="hljs-code">plt.hist(covidtotalsonly[<span class="hljs-string">'total_cases'</span>]/<span class="hljs-number">1000</span>, bins=<span class="hljs-number">7</span>)
+plt.title(<span class="hljs-string">"Total COVID-19 Cases (thousands)"</span>)
+plt.xlabel(<span class="hljs-string">'Cases'</span>)
+plt.ylabel(<span class="hljs-string">"Number of Countries"</span>)
+plt.show()
+</code></pre>
+      </li>
+    </ol>
+    <p class="normal-one">This code produces the following plot:</p>
+    <figure class="mediaobject"><img src="../Images/B18596_04_04.png" alt="" role="presentation"/></figure>
+    <p class="packt_figref">Figure 4.4: Histogram of total COVID-19 cases</p>
+    <ol>
+      <li class="numberedList" value="10">Perform a log transformation<a id="_idIndexMarker256"/> of the COVID-19 data. Show a histogram of the log transformation of total cases:
+        <pre class="programlisting code-one"><code class="hljs-code">covidlogs = covidtotalsonly.copy()
+<span class="hljs-keyword">for</span> col <span class="hljs-keyword">in</span> covidlogs.columns[<span class="hljs-number">1</span>:]:
+<span class="hljs-meta">... </span>  covidlogs[col] = np.log1p(covidlogs[col])
+plt.hist(covidlogs[<span class="hljs-string">'total_cases'</span>], bins=<span class="hljs-number">7</span>)
+plt.title(<span class="hljs-string">"Total COVID-19 Cases (log)"</span>)
+plt.xlabel(<span class="hljs-string">'Cases'</span>)
+plt.ylabel(<span class="hljs-string">"Number of Countries"</span>)
+plt.show()
+</code></pre>
+      </li>
+    </ol>
+    <p class="normal-one">This code produces the following:</p>
+    <figure class="mediaobject"><img src="../Images/B18596_04_05.png" alt="" role="presentation"/></figure>
+    <p class="packt_figref">Figure 4.5: Histogram of total COVID-19 cases with log transformation</p>
+    <p class="normal">The tools we used in the preceding<a id="_idIndexMarker257"/> steps tell us a fair bit about how COVID-19 cases and deaths are distributed, and about where outliers are located.</p>
+    <h2 id="_idParaDest-126" class="heading-2">How it works…</h2>
+    <p class="normal">The percentile data shown in <em class="italic">step 3</em> reflect the skewness of the cases and deaths data. If, for example, we look at the range of values between the 20<sup class="superscript">th</sup> and 30<sup class="superscript">th</sup> percentiles, and compare it with the range from the 70<sup class="superscript">th</sup> to the 80<sup class="superscript">th</sup> percentiles, we see that the range is much greater in the higher percentiles for each variable. This is confirmed by the very high values for skewness and kurtosis, compared with normal distribution values of <code class="inlineCode">0</code> and <code class="inlineCode">3</code>, respectively. We run formal tests of normality in <em class="italic">step 4</em>, which indicate that the distributions of the COVID-19 variables are not normal at high levels of significance.</p>
+    <p class="normal">This is consistent with the <code class="inlineCode">qqplots</code> that we ran in <em class="italic">step 5</em>. The distributions of both total cases and total cases per million differ significantly from normal, as represented by the straight line. Many cases hover around zero, and there is a dramatic increase in slope at the right tail.</p>
+    <p class="normal">We identify outliers in <em class="italic">steps 6 and 7</em>. Using 1.5 times the interquartile range to determine outliers is a reasonable rule of thumb. I like to output those values to an Excel file, along with the associated data, to see what patterns I can detect in the data. This often leads to more questions, of course. We will try to answer some of them in the next recipe, but one question we can consider now is what accounts for the countries with high deaths per million, as displayed in <em class="italic">step 8</em>. Median age and the human development index seem like they might be a part of the story. It is worth exploring these bivariate relationships further, which we do in subsequent recipes.</p>
+    <p class="normal">Our identification of outliers in <em class="italic">step 7</em> assumes a normal distribution, an assumption that we have shown to be unwarranted. Looking at the distribution of total cases in <em class="italic">step 9</em>, it seems much more like a log-normal distribution, with values clustered around <code class="inlineCode">0</code> and a right skew. We transform<a id="_idIndexMarker258"/> the data in <em class="italic">step 10</em> and plot the results of the transformation.</p>
+    <h2 id="_idParaDest-127" class="heading-2">There’s more…</h2>
+    <p class="normal">We could have also used standard deviation, rather than interquartile ranges, to identify outliers in <em class="italic">steps 6 and 7</em>.</p>
+    <p class="normal">I should add here that outliers are not necessarily data collection or measurement errors, and we may or may not need to make adjustments to the data. However, extreme values can have a meaningful and persistent impact on our analysis, particularly with small datasets like this one.</p>
+    <p class="normal">The overall impression we should have of the COVID-19 case data is that it is relatively clean; that is, there are not many invalid values, narrowly defined. Looking at each variable independently of how it moves with other variables does not identify much that screams out as a clear data error. However, the distribution of the variables is statistically quite problematic. Building statistical models dependent on these variables will be complicated, as we might have to rule out parametric tests.</p>
+    <p class="normal">It is also worth remembering that our sense of what constitutes an outlier is shaped by our assumption of a normal distribution. If, instead, we allow our expectations to be guided by the actual distribution of the data, we have a different understanding of extreme values. If our data reflects a social, or biological, or physical process that is inherently not normally distributed (uniform, logarithmic, exponential, Weibull, Poisson, and so on), our sense of what constitutes an outlier should adjust accordingly.</p>
+    <h2 id="_idParaDest-128" class="heading-2">See also</h2>
+    <p class="normal">Boxplots might have also been illuminating here. We do a box plot on this data in <em class="chapterRef">Chapter 5</em>, <em class="italic">Using Visualizations for the Identification of Unexpected Values</em>. We examine variable transformations in more detail in <em class="chapterRef">Chapter 8</em>, <em class="italic">Encoding, Transforming, and Scaling Features</em>.</p>
+    <p class="normal">We explore bivariate relationships in this same dataset in the next recipe for any insights they might provide about outliers and unexpected values. In subsequent chapters, we consider strategies for imputing values for missing data and for making adjustments to extreme values.</p>
+    <h1 id="_idParaDest-129" class="heading-1">Identifying outliers and unexpected values in bivariate relationships</h1>
+    <p class="normal">A value might be unexpected, even<a id="_idIndexMarker259"/> if it is not an extreme<a id="_idIndexMarker260"/> value, when it does not deviate<a id="_idIndexMarker261"/> significantly<a id="_idIndexMarker262"/> from the distribution mean. Some values for a variable are unexpected when a second variable has certain values. This is easy to illustrate when one variable is categorical and the other is continuous.</p>
+    <p class="normal">The following diagram illustrates the number of bird sightings per day over a period of several years, but shows different distributions for each of the two sites. One site has a mean sightings per day of 33, and the other 52. (This is fictional data.) The overall mean (not shown) is 42. What should we make of a value of 58 for daily sightings? Is that an outlier? That clearly depends on which of the two sites was being observed. </p>
+    <p class="normal">If there were 58 sightings on a day at site A, 58 would be an unusually high number. Not so for site B, where 58 sightings would not be very different from the mean for that site:</p>
+    <figure class="mediaobject"><img src="../Images/B18596_04_06.png" alt="" role="presentation"/></figure>
+    <p class="packt_figref">Figure 4.6: Daily bird sightings by site</p>
+    <p class="normal">This hints at a useful rule<a id="_idIndexMarker263"/> of thumb: whenever a variable<a id="_idIndexMarker264"/> of interest is significantly <a id="_idIndexMarker265"/>correlated with another<a id="_idIndexMarker266"/> variable, we should take that relationship into account when trying to identify outliers (or any statistical analysis with that variable actually). It is helpful to state this a little more precisely, and extend it to cases where both variables are continuous. If we assume a linear relationship between variable <em class="italic">x</em> and variable <em class="italic">y</em>, we can describe that relationship with the familiar <em class="italic">y</em> = <em class="italic">mx</em> + <em class="italic">b</em> equation, where <em class="italic">m</em> is the slope and <em class="italic">b</em> is the <em class="italic">y</em>-intercept. We can then expect <em class="italic">y</em> to increase by <em class="italic">m</em> for every 1 unit increase in <em class="italic">x</em>. Unexpected values are those that deviate substantially from this relationship, where the value of <em class="italic">y</em> is much higher or lower than what would be predicted given the value of <em class="italic">x</em>. This can be extended to multiple <em class="italic">x</em>, or predictor, variables.</p>
+    <p class="normal">In this recipe, we demonstrate how to identify outliers and unexpected values by examining the relationship of a variable to one other variable. In subsequent recipes in this chapter, we use multivariate techniques to make additional improvements in our outlier detection.</p>
+    <h2 id="_idParaDest-130" class="heading-2">Getting ready</h2>
+    <p class="normal">We use the <code class="inlineCode">matplotlib</code> and <code class="inlineCode">seaborn</code> libraries in this recipe. You can install them with <code class="inlineCode">pip</code> by entering <code class="inlineCode">pip install matplotlib</code> and <code class="inlineCode">pip install seaborn</code> with a terminal client or PowerShell (in Windows).</p>
+    <h2 id="_idParaDest-131" class="heading-2">How to do it...</h2>
+    <p class="normal">We examine the relationship<a id="_idIndexMarker267"/> between total cases<a id="_idIndexMarker268"/> and total deaths<a id="_idIndexMarker269"/> in the COVID-19 database. We take<a id="_idIndexMarker270"/> a closer look at those countries where deaths are higher or lower than expected given the number of cases:</p>
+    <ol>
+      <li class="numberedList" value="1">Load <code class="inlineCode">pandas</code>, <code class="inlineCode">matplotlib</code>, <code class="inlineCode">seaborn</code>, and the COVID-19 cumulative data:
+        <pre class="programlisting code-one"><code class="hljs-code"><span class="hljs-keyword">import</span> pandas <span class="hljs-keyword">as</span> pd
+<span class="hljs-keyword">import</span> matplotlib.pyplot <span class="hljs-keyword">as</span> plt
+<span class="hljs-keyword">import</span> seaborn <span class="hljs-keyword">as</span> sns
+covidtotals = pd.read_csv(<span class="hljs-string">"data/covidtotals.csv"</span>)
+covidtotals.set_index(<span class="hljs-string">"iso_code"</span>, inplace=<span class="hljs-literal">True</span>)
+</code></pre>
+      </li>
+      <li class="numberedList">Generate a correlation matrix for the cumulative and demographic columns.</li>
+    </ol>
+    <p class="normal-one">Unsurprisingly, there is a high correlation (<code class="inlineCode">0.76</code>) between total cases and total deaths and less of a correlation (<code class="inlineCode">0.44</code>) between total cases per million and total deaths per million. There is a strong (<code class="inlineCode">0.66</code>) relationship between GDP per capita and cases per million (Note that not all of the correlations are shown):</p>
+    <pre class="programlisting code-one"><code class="hljs-code">covidtotals.corr(method=<span class="hljs-string">"pearson"</span>, numeric_only=<span class="hljs-literal">True</span>)
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">                 total_cases  total_deaths  \
+total_cases             1.00          0.76  
+total_deaths            0.76          1.00  
+total_cases_pm          0.10          0.01  
+total_deaths_pm         0.15          0.27  
+population              0.70          0.47  
+pop_density            -0.03         -0.04  
+median_age              0.29          0.19  
+gdp_per_capita          0.19          0.13  
+hosp_beds               0.21          0.05  
+vac_per_hund            0.02         -0.07  
+aged_65_older           0.29          0.19  
+life_expectancy         0.19          0.11  
+hum_dev_ind             0.26          0.21  
+                 total_cases_pm  ...  aged_65_older  \
+total_cases                0.10  ...           0.29  
+total_deaths               0.01  ...           0.19  
+total_cases_pm             1.00  ...           0.72  
+total_deaths_pm            0.44  ...           0.68  
+population                -0.13  ...          -0.01  
+pop_density                0.19  ...           0.07  
+median_age                 0.74  ...           0.92  
+gdp_per_capita             0.66  ...           0.51  
+hosp_beds                  0.48  ...           0.65  
+vac_per_hund               0.24  ...           0.35  
+aged_65_older              0.72  ...           1.00  
+life_expectancy            0.69  ...           0.73  
+hum_dev_ind                0.76  ...           0.78  
+                 life_expectancy  hum_dev_ind 
+total_cases                 0.19         0.26 
+total_deaths                0.11         0.21 
+total_cases_pm              0.69         0.76 
+total_deaths_pm             0.49         0.60 
+population                 -0.04        -0.02 
+pop_density                 0.20         0.14 
+median_age                  0.83         0.90 
+gdp_per_capita              0.68         0.75 
+hosp_beds                   0.46         0.57 
+vac_per_hund                0.67         0.51 
+aged_65_older               0.73         0.78 
+life_expectancy             1.00         0.91 
+hum_dev_ind                 0.91         1.00 
+[13 rows x 13 columns]
+</code></pre>
+    <ol>
+      <li class="numberedList" value="3">Check to see whether<a id="_idIndexMarker271"/> some countries have unexpectedly<a id="_idIndexMarker272"/> high or low<a id="_idIndexMarker273"/> total deaths, given<a id="_idIndexMarker274"/> the total cases.</li>
+    </ol>
+    <p class="normal-one">Use <code class="inlineCode">qcut</code> to create a column that breaks the data into quantiles. Show a crosstab of total cases quantiles by total deaths quantiles:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">covidtotals[<span class="hljs-string">'total_cases_q'</span>] = pd.\
+<span class="hljs-meta">... </span>  qcut(covidtotals[<span class="hljs-string">'total_cases'</span>],
+<span class="hljs-meta">... </span>  labels=[<span class="hljs-string">'very low'</span>,<span class="hljs-string">'low'</span>,<span class="hljs-string">'medium'</span>,
+<span class="hljs-meta">... </span>  <span class="hljs-string">'high'</span>,<span class="hljs-string">'very high'</span>], q=<span class="hljs-number">5</span>, precision=<span class="hljs-number">0</span>)
+covidtotals[<span class="hljs-string">'total_deaths_q'</span>] = pd.\
+<span class="hljs-meta">... </span>  qcut(covidtotals[<span class="hljs-string">'total_deaths'</span>],
+<span class="hljs-meta">... </span>  labels=[<span class="hljs-string">'very low'</span>,<span class="hljs-string">'low'</span>,<span class="hljs-string">'medium'</span>,
+<span class="hljs-meta">... </span>  <span class="hljs-string">'high'</span>,<span class="hljs-string">'very high'</span>], q=<span class="hljs-number">5</span>, precision=<span class="hljs-number">0</span>)
+pd.crosstab(covidtotals.total_cases_q,
+<span class="hljs-meta">... </span>  covidtotals.total_deaths_q)
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">total_deaths_q  very low    low     medium    high    very high
+total_cases_q                                        
+very low              36     10          1       0            0
+low                   11     26          8       1            0
+medium                 0      9         27      10            0
+high                   0      1          8      31            6
+very high              0      0          2       4           40
+</code></pre>
+    <ol>
+      <li class="numberedList" value="4">Take a look at countries that do not fit along the diagonal.</li>
+    </ol>
+    <p class="normal-one">There is one country with high total cases but low total deaths. Since the <code class="inlineCode">covidtotals</code> and <code class="inlineCode">covidtotalsonly</code> DataFrames have the same index, we can use the Boolean series created from the latter to return selected rows from the former:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">covidtotals.loc[(covidtotals. \
+  total_cases_q==<span class="hljs-string">"high"</span>) &amp; \
+  (covidtotals.total_deaths_q==<span class="hljs-string">"low"</span>)].T
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">iso_code                QAT
+lastdate         2023-06-25
+location              Qatar
+total_cases      514,524.00
+total_deaths         690.00
+total_cases_pm   190,908.72
+total_deaths_pm      256.02
+population          2695131
+pop_density          227.32
+median_age            31.90
+gdp_per_capita   116,935.60
+hosp_beds              1.20
+vac_per_hund            NaN
+aged_65_older          1.31
+life_expectancy       80.23
+hum_dev_ind            0.85
+region            West Asia
+</code></pre>
+    <ol>
+      <li class="numberedList" value="5">Make a scatterplot of total cases by total deaths.</li>
+    </ol>
+    <p class="normal-one">Use Seaborn’s <code class="inlineCode">regplot</code> method<a id="_idIndexMarker275"/> to generate a linear<a id="_idIndexMarker276"/> regression<a id="_idIndexMarker277"/> line in addition<a id="_idIndexMarker278"/> to the scatterplot:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">ax = sns.regplot(x=covidtotals.total_cases/<span class="hljs-number">1000</span>, y=covidtotals.total_deaths)
+ax.<span class="hljs-built_in">set</span>(xlabel=<span class="hljs-string">"Cases (thousands)"</span>, ylabel=<span class="hljs-string">"Deaths"</span>, title=<span class="hljs-string">"Total COVID-19 Cases and Deaths by Country"</span>)
+plt.show()
+</code></pre>
+    <p class="normal-one">This produces the following scatterplot:</p>
+    <figure class="mediaobject"><img src="../Images/B18596_04_07.png" alt="" role="presentation"/></figure>
+    <p class="packt_figref">Figure 4.7: Scatterplot of total cases and deaths with a linear regression line</p>
+    <ol>
+      <li class="numberedList" value="6">Examine unexpected values above the regression line.</li>
+    </ol>
+    <p class="normal-one">It is good to take<a id="_idIndexMarker279"/> a closer look <a id="_idIndexMarker280"/>at countries<a id="_idIndexMarker281"/> with cases and deaths<a id="_idIndexMarker282"/> coordinates that are noticeably above or below the regression line through the data. There are two countries with fewer than 40 million cases and more than 400 thousand deaths:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">covidtotals.loc[(covidtotals.total_cases&lt;<span class="hljs-number">40000000</span>) \
+  &amp; (covidtotals.total_deaths&gt;<span class="hljs-number">400000</span>)].T
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">iso_code                   BRA             RUS
+lastdate            2023-10-01      2024-01-28
+location                Brazil          Russia
+total_cases      37,519,960.00   23,774,451.00
+total_deaths        702,116.00      401,884.00
+total_cases_pm      174,257.35      164,286.55
+total_deaths_pm       3,260.90        2,777.11
+population           215313504       144713312
+pop_density              25.04            8.82
+median_age               33.50           39.60
+gdp_per_capita       14,103.45       24,765.95
+hosp_beds                 2.20            8.05
+vac_per_hund               NaN             NaN
+aged_65_older             8.55           14.18
+life_expectancy          75.88           72.58
+hum_dev_ind               0.77            0.82
+region           South America  Eastern Europe 
+</code></pre>
+    <ol>
+      <li class="numberedList" value="7">Examine unexpected values below the regression line.</li>
+    </ol>
+    <p class="normal-one">There are two countries<a id="_idIndexMarker283"/> with more<a id="_idIndexMarker284"/> than 30 million cases<a id="_idIndexMarker285"/> but fewer than 100 thousand<a id="_idIndexMarker286"/> deaths:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">covidtotals.loc[(covidtotals.total_cases&gt;<span class="hljs-number">30000000</span>) \
+  &amp; (covidtotals.total_deaths&lt;<span class="hljs-number">100000</span>)].T
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">iso_code                  JPN           KOR
+lastdate           2023-05-14    2023-09-10
+location                Japan   South Korea
+total_cases     33,803,572.00 34,571,873.00
+total_deaths        74,694.00     35,934.00
+total_cases_pm     272,715.69    667,207.06
+total_deaths_pm        602.61        693.50
+population          123951696      51815808
+pop_density            347.78        527.97
+median_age              48.20         43.40
+gdp_per_capita      39,002.22     35,938.37
+hosp_beds               13.05         12.27
+vac_per_hund              NaN           NaN
+aged_65_older           27.05         13.91
+life_expectancy         84.63         83.03
+hum_dev_ind              0.92          0.92
+region              East Asia     East Asia
+</code></pre>
+    <ol>
+      <li class="numberedList" value="8">Make a scatterplot of total cases per million by total deaths per million:
+        <pre class="programlisting code-one"><code class="hljs-code">ax = sns.regplot(x=<span class="hljs-string">"</span><span class="hljs-string">total_cases_pm"</span>, y=<span class="hljs-string">"total_deaths_pm"</span>, data=covidtotals)
+ax.<span class="hljs-built_in">set</span>(xlabel=<span class="hljs-string">"Cases Per Million"</span>, ylabel=<span class="hljs-string">"Deaths Per Million"</span>, title=<span class="hljs-string">"Total COVID-19 Cases per Million and Deaths per Million by Country"</span>)
+plt.show()
+</code></pre>
+      </li>
+    </ol>
+    <p class="normal-one">This produces the following scatterplot:</p>
+    <figure class="mediaobject"><img src="../Images/B18596_04_08.png" alt="" role="presentation"/></figure>
+    <p class="packt_figref">Figure 4.8: Scatterplot of cases and deaths per million with a linear regression line</p>
+    <p class="normal">The preceding steps examined the relationship between variables in order to identify outliers.</p>
+    <h2 id="_idParaDest-132" class="heading-2">How it works…</h2>
+    <p class="normal">A number of questions <a id="_idIndexMarker287"/>are raised by looking<a id="_idIndexMarker288"/> at the bivariate relationships<a id="_idIndexMarker289"/> that did not surface in our univariate<a id="_idIndexMarker290"/> exploration in the previous recipe. There is confirmation of anticipated relationships, such as with the total cases and total deaths, but this makes deviations from this all the more curious. There are possible substantive explanations for unusually high death rates, given a certain number of cases, but measurement error or poor reporting of cases cannot be ruled out either.</p>
+    <p class="normal"><em class="italic">Step 2</em> shows a high correlation (0.76) between total cases and total deaths, but there is variation even there. We divide the cases and deaths into quantiles in <em class="italic">step 3</em> and then do a crosstab of the quantile values. Most countries are along the diagonal or close to it. However, one country has a very high number of cases but low deaths, Qatar. It is reasonable to wonder if there are potential reporting issues.</p>
+    <p class="normal">We make a scatterplot in <em class="italic">step 5</em> of the total cases and deaths. The strong upward sloping relationship between the two is confirmed, but there are a couple of countries whose deaths are above the regression line. We can see that two countries (Brazil and Russia) have higher deaths than would be predicted by the number of cases. Two countries, Japan and South Korea, have a much lower number of deaths.</p>
+    <p class="normal">Not surprisingly, there is even more scatter <a id="_idIndexMarker291"/>around the regression line in the scatterplot of cases per million<a id="_idIndexMarker292"/> and deaths per million. There is a positive<a id="_idIndexMarker293"/> relationship, but the slope<a id="_idIndexMarker294"/> of the line is not very steep.</p>
+    <h2 id="_idParaDest-133" class="heading-2">There’s more…</h2>
+    <p class="normal">We are beginning to get a good sense of what our data looks like, but the data in this form does not enable us to examine how the univariate distributions and bivariate relationships might change over time. For example, one reason why countries might have more deaths per million than the number of cases per million would indicate could be that more time has passed since the first confirmed cases. We are not able to explore that in the cumulative data. We need the daily data for that, which we will look at in subsequent chapters.</p>
+    <p class="normal">This recipe, and the previous one, show how much data cleaning can bleed into exploratory data analysis, even when you are first starting to get a sense of your data. I would definitely draw a distinction between data exploration and what we are doing here. We are trying to get a sense of how the data hangs together and why certain variables take on certain values in certain situations and not others. We want to get to the point where there are no huge surprises when we begin to do the analysis.</p>
+    <p class="normal">I find it helpful to do small things to formalize this process. I use different naming conventions for files that are not quite ready for analysis. If nothing else, this helps remind me that any numbers produced at this point are far from ready for distribution.</p>
+    <h2 id="_idParaDest-134" class="heading-2">See also</h2>
+    <p class="normal">We still have not done much to examine possible data issues that only become apparent when examining subsets of data; for example, positive wage income values for people who say they are not working (both variables are on the <strong class="keyWord">National Longitudinal Survey</strong> or <strong class="keyWord">NLS</strong>). We do that in the next recipe.</p>
+    <p class="normal">We do much more with Matplotlib and Seaborn in <em class="chapterRef">Chapter 5</em>, <em class="italic">Using Visualizations for the Identification of Unexpected Values</em>.</p>
+    <h1 id="_idParaDest-135" class="heading-1">Using subsetting to examine logical inconsistencies in variable relationships</h1>
+    <p class="normal">At a certain point, data issues<a id="_idIndexMarker295"/> come down to deductive<a id="_idIndexMarker296"/> logic problems, such as variable <em class="italic">x</em> has to be greater than some quantity <em class="italic">a</em> when variable <em class="italic">y</em> is less than some quantity <em class="italic">b</em>. Once we are through some initial data cleaning, it is important to check for logical inconsistencies. <code class="inlineCode">pandas</code> makes this kind of error checking relatively straightforward with subsetting tools such as <code class="inlineCode">loc</code> and Boolean indexing. This can be combined with summary methods on Series and DataFrames to allow us to easily compare values for a particular row with values for the whole dataset or some subset of rows. We can also easily aggregate over columns. Just about any question we might have about the logical relationships between variables can be answered with these tools. We work through some examples in this recipe.</p>
+    <h2 id="_idParaDest-136" class="heading-2">Getting ready</h2>
+    <p class="normal">We will work with the NLS data, mainly with data on employment and education. We use <code class="inlineCode">apply</code> and <code class="inlineCode">lambda</code> functions several times in this recipe, but go into more detail on their use in <em class="chapterRef">Chapter 9</em>, <em class="italic">Fixing Messy Data When Aggregating</em>. However, it is not necessary to review <em class="chapterRef">Chapter 9</em> to follow along, even if you have no experience with those tools.</p>
+    <div class="note">
+      <p class="normal"><strong class="keyWord">Data note</strong></p>
+      <p class="normal">The National Longitudinal Survey of Youth is conducted by the United States Bureau of Labor Statistics. This survey started with a cohort of individuals in 1997 who were born between 1980 and 1985, with annual follow-ups each year up until 2023. For this recipe, I pulled 106 variables on grades, employment, income, and attitudes toward government from the hundreds of data items on the survey. NLS data can be downloaded from <a href="https://nlsinfo.org"><span class="url">nlsinfo.org</span></a>.</p>
+    </div>
+    <h2 id="_idParaDest-137" class="heading-2">How to do it…</h2>
+    <p class="normal">We run a number of logical checks on the NLS data, such as individuals with post-graduate enrollment but no undergraduate enrollment, or those with wage income but no weeks worked. We also<a id="_idIndexMarker297"/> check for large changes<a id="_idIndexMarker298"/> in key values for a given individual from one period to the next:</p>
+    <ol>
+      <li class="numberedList" value="1">Import <code class="inlineCode">pandas</code> and then load the NLS data:
+        <pre class="programlisting code-one"><code class="hljs-code"><span class="hljs-keyword">import</span> pandas <span class="hljs-keyword">as</span> pd
+nls97 = pd.read_csv(<span class="hljs-string">"data/nls97f.csv"</span>, low_memory=<span class="hljs-literal">False</span>)
+nls97.set_index(<span class="hljs-string">"personid"</span>, inplace=<span class="hljs-literal">True</span>)
+</code></pre>
+      </li>
+      <li class="numberedList">Look at some of the employment and education data.</li>
+    </ol>
+    <p class="normal-one">The dataset has weeks worked each year from 2000 through 2023, and college enrollment status each month from February 1997 through October 2022. We use the ability of the <code class="inlineCode">loc</code> accessor to choose all columns from the column indicated on the left of the colon through to the column indicated on the right; for example, <code class="inlineCode">nls97.loc[:, "colenroct15":"colenrfeb22"]</code>:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">nls97[[<span class="hljs-string">'wageincome20'</span>,<span class="hljs-string">'highestgradecompleted'</span>,
+  <span class="hljs-string">'highestdegree'</span>]].head(<span class="hljs-number">3</span>).T
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">personid                     135335          999406  \
+wageincome20                    NaN         115,000  
+highestgradecompleted           NaN              14  
+highestdegree          4. Bachelors  2. High School  
+personid                     151672 
+wageincome20                    NaN 
+highestgradecompleted            16 
+highestdegree          4. Bachelors
+</code></pre>
+    <pre class="programlisting code-one"><code class="hljs-code">nls97.loc[:, <span class="hljs-string">"weeksworked18"</span>:<span class="hljs-string">"</span><span class="hljs-string">weeksworked22"</span>].head(<span class="hljs-number">3</span>).T
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">personid       135335  999406  151672
+weeksworked18     NaN      52      52
+weeksworked19     NaN      52       9
+weeksworked20     NaN      52       0
+weeksworked21     NaN      46       0
+weeksworked22     NaN     NaN       3
+</code></pre>
+    <pre class="programlisting code-one"><code class="hljs-code">nls97.loc[:, <span class="hljs-string">"colenroct15"</span>:<span class="hljs-string">"colenrfeb22"</span>].head(<span class="hljs-number">2</span>).T
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">personid              135335           999406
+colenroct15  1. Not enrolled  1. Not enrolled
+colenrfeb16              NaN  1. Not enrolled
+colenroct16              NaN  1. Not enrolled
+colenrfeb17              NaN  1. Not enrolled
+colenroct17              NaN  1. Not enrolled
+colenrfeb18              NaN  1. Not enrolled
+colenroct18              NaN  1. Not enrolled
+colenrfeb19              NaN  1. Not enrolled
+colenroct19              NaN  1. Not enrolled
+colenrfeb20              NaN  1. Not enrolled
+colenroct20              NaN  1. Not enrolled
+colenrfeb21              NaN  1. Not enrolled
+colenroct21              NaN  1. Not enrolled
+colenrfeb22              NaN              NaN
+</code></pre>
+    <p class="normal-one">Show individuals<a id="_idIndexMarker299"/> with wage income<a id="_idIndexMarker300"/> but no weeks worked:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">nls97.loc[(nls97.weeksworked20==<span class="hljs-number">0</span>) &amp;
+   (nls97.wageincome20&gt;<span class="hljs-number">0</span>),
+  [<span class="hljs-string">'</span><span class="hljs-string">weeksworked20'</span>,<span class="hljs-string">'wageincome20'</span>]]
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">          weeksworked20  wageincome20
+personid                            
+674877                0        40,000
+692251                0        12,000
+425230                0       150,000
+391939                0        10,000
+510545                0        72,000
+                    ...           ...
+947109                0         1,000
+706862                0        85,000
+956396                0       130,000
+907078                0        10,000
+274042                0       130,000
+[132 rows x 2 columns]
+</code></pre>
+    <ol>
+      <li class="numberedList" value="3">Check whether an individual<a id="_idIndexMarker301"/> was ever enrolled<a id="_idIndexMarker302"/> in a four-year college.</li>
+    </ol>
+    <p class="normal-one">Chain several methods. First, create a DataFrame with columns that start with <code class="inlineCode">colenr</code> (<code class="inlineCode">nls97.filter(like="colenr")</code>). These are the college enrollment columns for October and February of each year. Then, use <code class="inlineCode">apply</code> to run a <code class="inlineCode">lambda</code> function that examines the first character of each <code class="inlineCode">colenr</code> column (<code class="inlineCode">apply(lambda x: x.str[0:1]=='3')</code>). This returns a value of <code class="inlineCode">True</code> or <code class="inlineCode">False</code> for all of the college enrollment columns; <code class="inlineCode">True</code> if the first value of the string is <code class="inlineCode">3</code>, meaning enrollment at a four year college. Finally, use the <code class="inlineCode">any</code> function to test whether any of the values returned from the previous step has a value of <code class="inlineCode">True</code> (<code class="inlineCode">any(axis=1)</code>). This will identify whether the individual was enrolled in a four-year college between February 1997 and October 2022. The first statement here shows the results of the first two steps for explanatory purposes only. Only the second statement needs to be run to get the desired results, which are to see whether the individual was enrolled at a four-year college at some point:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">nls97.<span class="hljs-built_in">filter</span>(like=<span class="hljs-string">"colenr"</span>).\
+  apply(<span class="hljs-keyword">lambda</span> x: x.<span class="hljs-built_in">str</span>[<span class="hljs-number">0</span>:<span class="hljs-number">1</span>]==<span class="hljs-string">'3'</span>).\
+  head(<span class="hljs-number">2</span>).T
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">personid     135335  999406
+colenrfeb97   False   False
+colenroct97   False   False
+colenrfeb98   False   False
+colenroct98   False   False
+colenrfeb99   False   False
+colenroct99    True   False
+colenrfeb00    True   False
+colenroct00    True    True
+colenrfeb01    True    True
+colenroct01    True   False
+colenrfeb02    True   False
+colenroct02    True    True
+colenrfeb03    True    True
+</code></pre>
+    <pre class="programlisting code-one"><code class="hljs-code">nls97.<span class="hljs-built_in">filter</span>(like=<span class="hljs-string">"colenr"</span>).\
+  apply(<span class="hljs-keyword">lambda</span> x: x.<span class="hljs-built_in">str</span>[<span class="hljs-number">0</span>:<span class="hljs-number">1</span>]==<span class="hljs-string">'3'</span>).\
+  <span class="hljs-built_in">any</span>(axis=<span class="hljs-number">1</span>).head(<span class="hljs-number">2</span>)
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">personid
+135335    True
+999406    True
+dtype: bool
+</code></pre>
+    <ol>
+      <li class="numberedList" value="4">Show individuals with post-graduate<a id="_idIndexMarker303"/> enrollment but<a id="_idIndexMarker304"/> no bachelor’s enrollment.</li>
+    </ol>
+    <p class="normal-one">We can use what we tested in <em class="italic">step 4</em> to do some checking. We want individuals who have a <code class="inlineCode">4</code> (graduate enrollment) as the first character for <code class="inlineCode">colenr</code> of any month, but who never had a value of <code class="inlineCode">3</code> (bachelor enrollment). Note the ~ before the second half of the test, for negation. There are 24 individuals who fall into this category:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">nobach = nls97.loc[nls97.<span class="hljs-built_in">filter</span>(like=<span class="hljs-string">"colenr"</span>).\
+  apply(<span class="hljs-keyword">lambda</span> x: x.<span class="hljs-built_in">str</span>[<span class="hljs-number">0</span>:<span class="hljs-number">1</span>]==<span class="hljs-string">'4'</span>).\
+  <span class="hljs-built_in">any</span>(axis=<span class="hljs-number">1</span>) &amp; ~nls97.<span class="hljs-built_in">filter</span>(like=<span class="hljs-string">"colenr"</span>).\
+  apply(<span class="hljs-keyword">lambda</span> x: x.<span class="hljs-built_in">str</span>[<span class="hljs-number">0</span>:<span class="hljs-number">1</span>]==<span class="hljs-string">'3'</span>).\
+  <span class="hljs-built_in">any</span>(axis=<span class="hljs-number">1</span>), <span class="hljs-string">"</span><span class="hljs-string">colenrfeb17"</span>:<span class="hljs-string">"colenrfeb22"</span>]
+<span class="hljs-built_in">len</span>(nobach)
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">24
+</code></pre>
+    <pre class="programlisting code-one"><code class="hljs-code">nobach.head(<span class="hljs-number">2</span>).T
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">personid              793931               787976
+.....abbreviated to save space
+colenrfeb01        1. Not enrolled        1. Not enrolled
+colenroct01      2. 2-year college        1. Not enrolled
+colenrfeb02      2. 2-year college        1. Not enrolled
+colenroct02      2. 2-year college        1. Not enrolled
+colenrfeb03      2. 2-year college        1. Not enrolled
+colenroct03        1. Not enrolled        1. Not enrolled
+colenrfeb04      2. 2-year college        1. Not enrolled
+colenroct04    4. Graduate program        1. Not enrolled
+colenrfeb05    4. Graduate program        1. Not enrolled
+.....
+colenrfeb14        1. Not enrolled        1. Not enrolled
+colenroct14        1. Not enrolled      2. 2-year college
+colenrfeb15        1. Not enrolled      2. 2-year college
+colenroct15        1. Not enrolled      2. 2-year college
+colenrfeb16        1. Not enrolled        1. Not enrolled
+colenroct16        1. Not enrolled    4. Graduate program
+colenrfeb17        1. Not enrolled    4. Graduate program
+colenroct17        1. Not enrolled    4. Graduate program
+colenrfeb18        1. Not enrolled    4. Graduate program
+colenroct18        1. Not enrolled        1. Not enrolled
+.....
+</code></pre>
+    <ol>
+      <li class="numberedList" value="5">Show individuals with<a id="_idIndexMarker305"/> bachelor’s degrees<a id="_idIndexMarker306"/> or more, but no four-year college enrollment.</li>
+    </ol>
+    <p class="normal-one">Use <code class="inlineCode">isin</code> to compare the first character in <code class="inlineCode">highestdegree</code> with all of the values in a list (<code class="inlineCode">nls97.highestdegree.str[0:1].isin(['4','5','6','7'])</code>):</p>
+    <pre class="programlisting code-one"><code class="hljs-code">nls97.highestdegree.value_counts().sort_index()
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">highestdegree
+0. None             877
+1. GED             1167
+2. High School     3531
+3. Associates       766
+4. Bachelors       1713
+5. Masters          704
+6. PhD               64
+7. Professional     130
+Name: count, dtype: int64
+</code></pre>
+    <pre class="programlisting code-one"><code class="hljs-code">no4yearenrollment = \
+<span class="hljs-meta">... </span>  nls97.loc[nls97.highestdegree.<span class="hljs-built_in">str</span>[<span class="hljs-number">0</span>:<span class="hljs-number">1</span>].\
+<span class="hljs-meta">... </span>  isin([<span class="hljs-string">'4'</span>,<span class="hljs-string">'5'</span>,<span class="hljs-string">'6'</span>,<span class="hljs-string">'7'</span>]) &amp; \
+<span class="hljs-meta">... </span>  ~nls97.<span class="hljs-built_in">filter</span>(like=<span class="hljs-string">"colenr"</span>).\
+<span class="hljs-meta">... </span>  apply(<span class="hljs-keyword">lambda</span> x: x.<span class="hljs-built_in">str</span>[<span class="hljs-number">0</span>:<span class="hljs-number">1</span>]==<span class="hljs-string">'3'</span>).\
+<span class="hljs-meta">... </span>  <span class="hljs-built_in">any</span>(axis=<span class="hljs-number">1</span>), <span class="hljs-string">"colenrfeb97"</span>:<span class="hljs-string">"colenrfeb22"</span>]
+<span class="hljs-built_in">len</span>(no4yearenrollment)
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">42
+</code></pre>
+    <pre class="programlisting code-one"><code class="hljs-code">no4yearenrollment.head(<span class="hljs-number">2</span>).T
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">personid                 417244               124616
+.....abbreviated to save space
+colenroct04     1. Not enrolled    2. 2-year college
+colenrfeb05     1. Not enrolled    2. 2-year college
+colenroct05     1. Not enrolled      1. Not enrolled
+colenrfeb06     1. Not enrolled      1. Not enrolled
+colenroct06     1. Not enrolled      1. Not enrolled
+colenrfeb07     1. Not enrolled      1. Not enrolled
+colenroct07     1. Not enrolled      1. Not enrolled
+colenrfeb08     1. Not enrolled      1. Not enrolled
+colenroct08     1. Not enrolled      1. Not enrolled
+colenrfeb09   2. 2-year college      1. Not enrolled
+colenroct09   2. 2-year college      1. Not enrolled
+colenrfeb10   2. 2-year college      1. Not enrolled
+colenroct10   2. 2-year college      1. Not enrolled
+colenrfeb11   2. 2-year college      1. Not enrolled
+colenroct11   2. 2-year college      1. Not enrolled
+colenrfeb12   2. 2-year college      1. Not enrolled
+colenroct12     1. Not enrolled      1. Not enrolled
+colenrfeb13     1. Not enrolled      1. Not enrolled
+</code></pre>
+    <ol>
+      <li class="numberedList" value="6">Show individuals with a high wage income.</li>
+    </ol>
+    <p class="normal-one">Define high wages<a id="_idIndexMarker307"/> as three standard deviations<a id="_idIndexMarker308"/> above the mean. It looks as though wage income values have been truncated at $380,288:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">highwages = \
+ nls97.loc[nls97.wageincome20 &gt;
+ nls97.wageincome20.mean()+ \
+ (nls97.wageincome20.std()*<span class="hljs-number">3</span>),
+ [<span class="hljs-string">'</span><span class="hljs-string">wageincome20'</span>]]
+highwages
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">          wageincome20
+personid              
+989896         380,288
+718416         380,288
+693498         380,288
+811201         380,288
+553982         380,288
+               ...
+303838         380,288
+366297         380,288
+436132         380,288
+964406         380,288
+433818         380,288
+[104 rows x 1 columns]
+</code></pre>
+    <ol>
+      <li class="numberedList" value="7">Show individuals with large changes in weeks worked for the most recent year.</li>
+    </ol>
+    <p class="normal-one">Calculate the average<a id="_idIndexMarker309"/> value for weeks <a id="_idIndexMarker310"/>worked between 2016 and 2020 for each person (<code class="inlineCode">nls97.loc[:, "weeksworked16":"weeksworked20"].mean(axis=1)</code>). We indicate <code class="inlineCode">axis=1</code> to calculate the mean across columns for each individual, rather than over individuals. We then find rows where the mean is <em class="italic">not</em> between half and twice the number of weeks worked in 2021. (Notice our use of the <em class="italic">~</em> operator earlier.) We also indicate that we are not interested in rows that satisfy those criteria by being <code class="inlineCode">null</code> for weeks worked in 2021. There are 1,099 individuals with sharp changes in weeks worked in 2021, compared with the 2016 to 2020 average:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">workchanges = nls97.loc[~nls97.loc[:,
+  <span class="hljs-string">"weeksworked16"</span>:<span class="hljs-string">"weeksworked20"</span>].mean(axis=<span class="hljs-number">1</span>).\
+  between(nls97.weeksworked21*<span class="hljs-number">0.5</span>,\
+  nls97.weeksworked21*<span class="hljs-number">2</span>) \
+  &amp; ~nls97.weeksworked21.isnull(),
+  <span class="hljs-string">"weeksworked16"</span>:<span class="hljs-string">"weeksworked21"</span>]
+<span class="hljs-built_in">len</span>(workchanges)
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">1099
+</code></pre>
+    <pre class="programlisting code-one"><code class="hljs-code">workchanges.head(<span class="hljs-number">6</span>).T
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">personid       151672  620126  ...  692251  483488
+weeksworked16      53      45  ...       0      53
+weeksworked17      52       0  ...       0      52
+weeksworked18      52       0  ...       0      52
+weeksworked19       9       0  ...       0      52
+weeksworked20       0       0  ...       0      15
+weeksworked21       0       0  ...      51      13
+[6 rows x 6 columns]
+</code></pre>
+    <ol>
+      <li class="numberedList" value="8">Show inconsistencies<a id="_idIndexMarker311"/> in the highest grade completed<a id="_idIndexMarker312"/> and the highest degree.</li>
+    </ol>
+    <p class="normal-one">Use the <code class="inlineCode">crosstab</code> function to show <code class="inlineCode">highestgradecompleted</code> by <code class="inlineCode">highestdegree</code> for people with <code class="inlineCode">highestgradecompleted</code> less than 12. A good number of these individuals indicate that they have completed high school, which is unusual in the United States if the highest grade completed is less than 12:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">ltgrade12 = nls97.loc[nls97.highestgradecompleted&lt;<span class="hljs-number">12</span>, [<span class="hljs-string">'highestgradecompleted'</span>,<span class="hljs-string">'highestdegree'</span>]]
+pd.crosstab(ltgrade12.highestgradecompleted, ltgrade12.highestdegree)
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">highestdegree           0. None    1. GED  \
+highestgradecompleted                   
+5                             0         0  
+6                            11         4  
+7                            23         7  
+8                           108        82  
+9                            98       182  
+10                          105       207  
+11                          113       204  
+highestdegree          2. High School  3. Associates 
+highestgradecompleted                                
+5                                   1              0 
+6                                   0              1 
+7                                   1              0 
+8                                   7              0 
+9                                   8              1 
+10                                 14              1 
+11                                 42              2 
+</code></pre>
+    <p class="normal">These steps reveal several logical inconsistencies in the NLS data.</p>
+    <h2 id="_idParaDest-138" class="heading-2">How it works…</h2>
+    <p class="normal">The syntax required<a id="_idIndexMarker313"/> to do the kind of subsetting that we have<a id="_idIndexMarker314"/> done in this recipe may seem a little complicated if you are seeing it for the first time. You do get used to it, however, and it allows you to quickly run any query against the data that you might imagine.</p>
+    <p class="normal">Some of the inconsistencies or unexpected values suggest either respondent or entry error and warrants further investigation. It is hard to explain positive values for wage income when the <code class="inlineCode">weeks worked</code> value is <code class="inlineCode">0</code>. Other unexpected values might not be data problems at all, but suggest that we should be careful about how we use that data. For example, we might not want to use the weeks worked in 2021 by itself. Instead, we might consider using three-year averages in many analyses.</p>
+    <h2 id="_idParaDest-139" class="heading-2">See also</h2>
+    <p class="normal">The <em class="italic">Selecting and organizing columns</em> and <em class="italic">Selecting rows</em> recipes in <em class="chapterRef">Chapter 3</em>, <em class="italic">Taking the Measure of Your Data</em>, demonstrate some of the techniques for subsetting data used here. We examine the <code class="inlineCode">apply</code> functions in more detail in <em class="chapterRef">Chapter 9</em>, <em class="italic">Fixing Messy Data When Aggregating</em>.</p>
+    <h1 id="_idParaDest-140" class="heading-1">Using linear regression to identify data points with significant influence</h1>
+    <p class="normal">The remaining recipes in this chapter<a id="_idIndexMarker315"/> use statistical modeling<a id="_idIndexMarker316"/> to identify outliers. The advantage of these techniques is that they are less dependent on the distribution of the variable of concern, and take more into account than can be revealed in either univariate or bivariate analyses. This allows us to identify outliers that are not otherwise apparent. On the other hand, by taking more factors into account, multivariate techniques may provide evidence that a previously suspect value is actually within an expected range, and provides meaningful information.</p>
+    <p class="normal">In this recipe, we use linear regression to identify observations (rows) that have an out-sized influence on models of a target or dependent variable. This can indicate that one or more values for a few observations are so extreme that they compromise the model fit for all of the other observations.</p>
+    <h2 id="_idParaDest-141" class="heading-2">Getting ready</h2>
+    <p class="normal">The code in this recipe requires the <code class="inlineCode">matplotlib</code> and <code class="inlineCode">statsmodels</code> libraries. You can install them by entering <code class="inlineCode">pip install matplotlib</code> and <code class="inlineCode">pip install statsmodels</code> in a terminal window or PowerShell (in Windows).</p>
+    <p class="normal">We will be working with data on total COVID-19 cases and deaths per country.</p>
+    <h2 id="_idParaDest-142" class="heading-2">How to do it…</h2>
+    <p class="normal">We will use the statsmodels <code class="inlineCode">OLS</code> method to fit a linear regression model of the total cases per million of the population. We will then identify those countries that have the greatest influence on that model:</p>
+    <ol>
+      <li class="numberedList" value="1">Import <code class="inlineCode">pandas</code>, <code class="inlineCode">matplotlib</code>, and <code class="inlineCode">statsmodels</code>, and load the COVID-19 case data:
+        <pre class="programlisting code-one"><code class="hljs-code"><span class="hljs-keyword">import</span> pandas <span class="hljs-keyword">as</span> pd
+<span class="hljs-keyword">import</span> matplotlib.pyplot <span class="hljs-keyword">as</span> plt
+<span class="hljs-keyword">import</span> statsmodels.api <span class="hljs-keyword">as</span> sm
+covidtotals = pd.read_csv(<span class="hljs-string">"data/covidtotals.csv"</span>)
+covidtotals.set_index(<span class="hljs-string">"iso_code"</span>, inplace=<span class="hljs-literal">True</span>)
+</code></pre>
+      </li>
+      <li class="numberedList">Create an analysis file and generate descriptive statistics.</li>
+    </ol>
+    <p class="normal-one">Get just the columns<a id="_idIndexMarker317"/> required for analysis. Drop <a id="_idIndexMarker318"/>any row with missing data for the analysis columns:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">xvars = [<span class="hljs-string">'pop_density'</span>,<span class="hljs-string">'median_age'</span>,<span class="hljs-string">'gdp_per_capita'</span>]
+covidanalysis = covidtotals.loc[:,[<span class="hljs-string">'total_cases_pm'</span>] + xvars].dropna()
+covidanalysis.describe()
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">            total_cases_pm  pop_density  median_age  gdp_per_capita
+count                  180          180         180             180
+mean               167,765          204          30          18,290
+std                190,965          631           9          19,392
+min                    354            2          15             661
+25%                 11,931           36          22           3,790
+50%                 92,973           82          29          11,822
+75%                263,162          205          38          26,785
+max                763,475        7,916          48          116,936
+</code></pre>
+    <ol>
+      <li class="numberedList" value="3">Fit a linear regression model.</li>
+    </ol>
+    <p class="normal-one">There are good conceptual reasons to believe that population density, median age, and GDP per capita may be predictors of total cases per million. We use those three variables in our model:</p>
+    <pre class="programlisting code-one"><code class="hljs-code"><span class="hljs-keyword">def</span> <span class="hljs-title">getlm</span>(<span class="hljs-params">df</span>):
+<span class="hljs-meta">... </span>  Y = df.total_cases_pm
+<span class="hljs-meta">... </span>  X = df[[<span class="hljs-string">'pop_density'</span>,
+        <span class="hljs-string">'median_age'</span>,<span class="hljs-string">'gdp_per_capita'</span>]]
+<span class="hljs-meta">... </span>  X = sm.add_constant(X)
+<span class="hljs-meta">... </span>  <span class="hljs-keyword">return</span> sm.OLS(Y, X).fit()
+...
+lm = getlm(covidanalysis)
+lm.summary()
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">                         coef       std err         t      P&gt;|t|
+----------------------------------------------------------------
+Const              -2.382e+05      3.41e+04    -6.980      0.000
+pop_density           12.4060        14.664     0.846      0.399
+median_age              11570      1291.446     8.956      0.000
+gdp_per_capita         2.9674         0.621     4.777      0.000
+</code></pre>
+    <ol>
+      <li class="numberedList" value="4">Identify those countries<a id="_idIndexMarker319"/> with an out-sized<a id="_idIndexMarker320"/> influence on the model.</li>
+    </ol>
+    <p class="normal-one">Cook’s Distance values of greater than 0.5 should be scrutinized closely:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">influence = lm.get_influence().summary_frame()
+influence.loc[influence.cooks_d&gt;<span class="hljs-number">0.5</span>, [<span class="hljs-string">'cooks_d'</span>]]
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">          cooks_d
+iso_code         
+QAT          0.70
+SGP          3.12
+</code></pre>
+    <pre class="programlisting code-one"><code class="hljs-code">covidanalysis.loc[influence.cooks_d&gt;<span class="hljs-number">0.5</span>]
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">         total_cases_pm  pop_density  median_age  gdp_per_capita
+iso_code                                                        
+QAT             190,909          227          32         116,936
+SGP             531,184        7,916          42          85,535
+</code></pre>
+    <ol>
+      <li class="numberedList" value="5">Create an influence plot.</li>
+    </ol>
+    <p class="normal-one">Countries with higher<a id="_idIndexMarker321"/> Cook’s Distance values<a id="_idIndexMarker322"/> have larger circles:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">fig, ax = plt.subplots(figsize=(<span class="hljs-number">8</span>,<span class="hljs-number">8</span>))
+sm.graphics.influence_plot(lm, ax = ax, alpha=<span class="hljs-number">5</span>, criterion=<span class="hljs-string">"cooks"</span>)
+plt.show()
+</code></pre>
+    <p class="normal-one">This produces the following plot:</p>
+    <figure class="mediaobject"><img src="../Images/B18596_04_09.png" alt="" role="presentation"/></figure>
+    <p class="packt_figref">Figure 4.9: Influence plot, including countries with the highest Cook’s Distance</p>
+    <ol>
+      <li class="numberedList" value="6">Run the model without the two outliers.</li>
+    </ol>
+    <p class="normal-one">Removing these outliers impacts each coefficient of the model, but particularly population density (which is still not significant at the 95% confidence level):</p>
+    <pre class="programlisting code-one"><code class="hljs-code">covidanalysisminusoutliers = covidanalysis.loc[influence.cooks_d&lt;<span class="hljs-number">0.5</span>]
+lm = getlm(covidanalysisminusoutliers)
+lm.summary()
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">                         coef    std err          t      P&gt;|t|
+--------------------------------------------------------------
+const              -2.158e+05   3.43e+04     -6.288      0.000
+pop_density           61.2396     34.260      1.788      0.076
+median_age          9968.5170   1346.416      7.404      0.000
+gdp_per_capita         4.1112      0.704      5.841      0.000
+</code></pre>
+    <p class="normal">This gives us a sense of the countries<a id="_idIndexMarker323"/> that are most unlike the others in terms of the relationship between demographic <a id="_idIndexMarker324"/>variables and total cases per million in population.</p>
+    <h2 id="_idParaDest-143" class="heading-2">How it works...</h2>
+    <p class="normal">Cook’s Distance is a measure of how much each observation influences the model. The large impact of the two outliers is confirmed in <em class="italic">step 6</em> when we rerun the model without them. The question for the analyst is whether outliers such as these add important information or distort the model and limit its applicability. The coefficient of 11570 for median age in the first regression results indicates that every one-year increase in median age is associated with an 11570 increase in cases per million people. That number is substantially smaller in the model without outliers, 9969.</p>
+    <p class="normal">The <code class="inlineCode">P&gt;|t|</code> value in the regression output tells us whether the coefficient is significantly different from <code class="inlineCode">0</code>. In the first regression, the coefficients for <code class="inlineCode">median_age</code> and <code class="inlineCode">gdp_per_capita</code> are significant at the 99% level; that is, the <code class="inlineCode">P&gt;|t|</code> value is less than 0.01.</p>
+    <h2 id="_idParaDest-144" class="heading-2">There’s more…</h2>
+    <p class="normal">We ran a linear regression model in this recipe, not so much because we were interested in the parameter estimates of the model, but because we wanted to determine whether there were observations with potential out-sized influence on any multivariate analysis we might conduct. That definitely seems to be true in this case.</p>
+    <p class="normal">Often, it makes sense to remove the outliers, as we have done here, but that is not always true. When we have independent variables that do a good job of capturing what makes outliers different, then the parameter estimates for the other independent variables are less vulnerable to distortion. We also might consider transformations, such as the log transformation we did in a previous recipe, and the scaling we will do in the next two recipes. An appropriate transformation, given your data, can reduce the influence of outliers by limiting the size of residuals at the extremes.</p>
+    <h1 id="_idParaDest-145" class="heading-1">Using k-nearest neighbors to find outliers</h1>
+    <p class="normal">Unsupervised machine learning<a id="_idIndexMarker325"/> tools can help us identify<a id="_idIndexMarker326"/> observations that are unlike others when we have unlabeled data; that is, when there is no target or dependent variable. (In the previous recipe, we used total cases per million as the dependent variable.) Even when selecting targets and factors is relatively straightforward, it might be helpful to identify outliers without making any assumptions about relationships between variables. We can use <strong class="keyWord">k</strong><strong class="keyWord">-nearest neighbors</strong> (<strong class="keyWord">KNN</strong>) to find observations that are most unlike others, those where there is the greatest difference between their values and their nearest neighbors’ values.</p>
+    <h2 id="_idParaDest-146" class="heading-2">Getting ready</h2>
+    <p class="normal">You will need <strong class="keyWord">Python Outlier Detection</strong> (<strong class="keyWord">PyOD</strong>) and scikit-learn to run the code in this recipe. You can<a id="_idIndexMarker327"/> install both by entering <code class="inlineCode">pip install pyod</code> and <code class="inlineCode">pip install sklearn</code> in the terminal or PowerShell (in Windows).</p>
+    <h2 id="_idParaDest-147" class="heading-2">How to do it…</h2>
+    <p class="normal">We will use KNN to identify countries whose attributes indicate that they are most anomalous:</p>
+    <ol>
+      <li class="numberedList" value="1">Load <code class="inlineCode">pandas</code>, <code class="inlineCode">pyod</code>, and <code class="inlineCode">sklearn</code>, along with the COVID-19 case data:
+        <pre class="programlisting code-one"><code class="hljs-code"><span class="hljs-keyword">import</span> pandas <span class="hljs-keyword">as</span> pd
+<span class="hljs-keyword">from</span> pyod.models.knn <span class="hljs-keyword">import</span> KNN
+<span class="hljs-keyword">from</span> sklearn.preprocessing <span class="hljs-keyword">import</span> StandardScaler
+covidtotals = pd.read_csv(<span class="hljs-string">"data/covidtotals.csv"</span>)
+covidtotals.set_index(<span class="hljs-string">"iso_code"</span>, inplace=<span class="hljs-literal">True</span>)
+</code></pre>
+      </li>
+      <li class="numberedList">Create a standardized<a id="_idIndexMarker328"/> DataFrame for the analysis <a id="_idIndexMarker329"/>columns:
+        <pre class="programlisting code-one"><code class="hljs-code">standardizer = StandardScaler()
+analysisvars = [<span class="hljs-string">'location'</span>,<span class="hljs-string">'total_cases_pm'</span>,
+<span class="hljs-meta">... </span>  <span class="hljs-string">'total_deaths_pm'</span>,  <span class="hljs-string">'pop_density'</span>,
+<span class="hljs-meta">... </span>  <span class="hljs-string">'median_age'</span>,<span class="hljs-string">'gdp_per_capita'</span>]
+covidanalysis = covidtotals.loc[:, analysisvars].dropna()
+covidanalysisstand = standardizer.fit_transform(covidanalysis.iloc[:, <span class="hljs-number">1</span>:])
+</code></pre>
+      </li>
+      <li class="numberedList">Run the KNN model and generate anomaly scores.</li>
+    </ol>
+    <p class="normal-one">We create an arbitrary number of outliers by setting the contamination parameter to 0.1:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">clf_name = <span class="hljs-string">'KNN'</span>
+clf = KNN(contamination=<span class="hljs-number">0.1</span>)
+clf.fit(covidanalysisstand)
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">KNN(algorithm='auto', contamination=0.1, leaf_size=30, method='largest',
+  metric='minkowski', metric_params=None, n_jobs=1, n_neighbors=5, p=2,
+  radius=1.0)
+</code></pre>
+    <pre class="programlisting code-one"><code class="hljs-code">y_pred = clf.labels_
+y_scores = clf.decision_scores_
+</code></pre>
+    <ol>
+      <li class="numberedList" value="4">Show the predictions from the model.</li>
+    </ol>
+    <p class="normal-one">Create a DataFrame from the <code class="inlineCode">y_pred</code> and <code class="inlineCode">y_scores</code> NumPy arrays. Set the index to the <code class="inlineCode">covidanalysis</code> DataFrame index so that we can easily combine it with that DataFrame later. Notice that the decision scores for outliers are all higher than those for the inliers (outlier = 0):</p>
+    <pre class="programlisting code-one"><code class="hljs-code">pred = pd.DataFrame(<span class="hljs-built_in">zip</span>(y_pred, y_scores),
+<span class="hljs-meta">... </span>  columns=[<span class="hljs-string">'outlier'</span>,<span class="hljs-string">'scores'</span>],
+<span class="hljs-meta">... </span>  index=covidanalysis.index)
+pred.sample(<span class="hljs-number">10</span>, random_state=<span class="hljs-number">2</span>)
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">          outlier  scores
+iso_code                 
+BHR             1    2.69
+BRA             0    0.75
+ZWE             0    0.21
+BGR             1    1.62
+CHN             0    0.94
+BGD             1    1.52
+GRD             0    0.68
+UZB             0    0.37
+MMR             0    0.37
+ECU             0    0.58
+</code></pre>
+    <pre class="programlisting code-one"><code class="hljs-code">pred.outlier.value_counts()
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">0    162
+1     18
+Name: outlier, dtype: int64
+</code></pre>
+    <pre class="programlisting code-one"><code class="hljs-code">pred.groupby([<span class="hljs-string">'outlier'</span>])[[<span class="hljs-string">'scores'</span>]].agg([<span class="hljs-string">'</span><span class="hljs-string">min'</span>,<span class="hljs-string">'median'</span>,<span class="hljs-string">'max'</span>])
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">scores                      
+          min   median   max
+outlier                     
+0         0.08   0.60   1.40
+1         1.42   1.65  11.94
+</code></pre>
+    <ol>
+      <li class="numberedList" value="5">Show COVID-19 data<a id="_idIndexMarker330"/> for the <a id="_idIndexMarker331"/>outliers.</li>
+    </ol>
+    <p class="normal-one">First, merge the <code class="inlineCode">covidanalysis</code> and <code class="inlineCode">pred</code> DataFrames:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">covidanalysis.join(pred).\
+<span class="hljs-meta">... </span>  loc[pred.outlier==<span class="hljs-number">1</span>,\
+<span class="hljs-meta">... </span>  [<span class="hljs-string">'</span><span class="hljs-string">location'</span>,<span class="hljs-string">'total_cases_pm'</span>,
+<span class="hljs-meta">... </span>  <span class="hljs-string">'total_deaths_pm'</span>,<span class="hljs-string">'scores'</span>]].\
+<span class="hljs-meta">... </span>  sort_values([<span class="hljs-string">'scores'</span>],
+<span class="hljs-meta">... </span>  ascending=<span class="hljs-literal">False</span>).head(<span class="hljs-number">10</span>)
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">                      location  total_cases_pm  \
+iso_code                                        
+SGP                  Singapore      531,183.84  
+QAT                      Qatar      190,908.72  
+BHR                    Bahrain      473,167.02  
+LUX                 Luxembourg      603,439.46  
+PER                       Peru      133,239.00  
+BRN                     Brunei      763,475.44  
+MDV                   Maldives      356,423.66  
+MLT                      Malta      227,422.82  
+ARE       United Arab Emirates      113,019.21  
+BGR                   Bulgaria      195,767.89  
+          total_deaths_pm  scores 
+iso_code                          
+SGP                346.64   11.94 
+QAT                256.02    3.04 
+BHR              1,043.31    2.69 
+LUX              1,544.16    2.49 
+PER              6,507.66    2.27 
+BRN                396.44    2.26 
+MDV                603.29    1.98 
+MLT              1,687.63    1.96 
+ARE                248.81    1.69 
+BGR              5,703.52    1.62
+</code></pre>
+    <p class="normal">These steps show how we can use KNN to identify outliers based on multivariate relationships.</p>
+    <h2 id="_idParaDest-148" class="heading-2">How it works...</h2>
+    <p class="normal">PyOD is a package of Python<a id="_idIndexMarker332"/> outlier detection tools. We use<a id="_idIndexMarker333"/> it here as a wrapper around scikit-learn’s KNN package. This simplifies some tasks.</p>
+    <p class="normal">Our focus in this recipe is not on building a model, but on getting a sense of which observations (countries) are significant outliers once we take all the data we have into account. This analysis supports our developing sense that Singapore and Qatar are very different observations than the others in our dataset. They have very high decision scores. (The table in <em class="italic">step 5</em> is sorted in descending order of score.)</p>
+    <p class="normal">Countries such as Bahrain and Luxembourg might also be considered outliers, though that is less clear cut. The previous recipe did not indicate that they had an overwhelming influence on a regression model. However, that model did not take both cases per million and deaths per million into account at the same time. That could also explain why Singapore is even more of an outlier than Qatar here. It has both high cases per million and below-average deaths per million.</p>
+    <p class="normal">Scikit-learn makes scaling very easy. We used the standard scaler in <em class="italic">step 2</em>, which returned the <em class="italic">z</em>-score for each value in the DataFrame. The <em class="italic">z</em>-score subtracts the variable mean from each variable value and divides it by the standard deviation for the variable. Many machine learning tools<a id="_idIndexMarker334"/> require standardized data<a id="_idIndexMarker335"/> to run well.</p>
+    <h2 id="_idParaDest-149" class="heading-2">There’s more...</h2>
+    <p class="normal">KNN is a very popular machine learning algorithm. It is easy to run and interpret. Its main limitation is that it will run slowly on large datasets.</p>
+    <p class="normal">We have skipped steps we might usually take when building machine learning models. We did not create separate training and testing datasets, for example. PyOD allows this to be done easily, but this is not necessary for our purposes here.</p>
+    <h2 id="_idParaDest-150" class="heading-2">See also</h2>
+    <p class="normal">We go into detail on transforming data in <em class="chapterRef">Chapter 8</em>, <em class="italic">Encoding, Transforming, and Scaling Features</em>. A good resource on using KNN is <em class="italic">Data Cleaning and Exploration with Machine Learning</em>, also by me.</p>
+    <p class="normal">The PyOD toolkit has a large number of supervised and unsupervised learning techniques for detecting<a id="_idIndexMarker336"/> anomalies in data. You can get the documentation for this at <a href="https://pyod.readthedocs.io/en/latest/"><span class="url">https://pyod.readthedocs.io/en/latest/</span></a>.</p>
+    <h1 id="_idParaDest-151" class="heading-1">Using Isolation Forest to find anomalies</h1>
+    <p class="normal">Isolation Forest is a relatively<a id="_idIndexMarker337"/> new machine learning technique<a id="_idIndexMarker338"/> for identifying anomalies. It has quickly become popular, partly because its algorithm is optimized to find anomalies, rather than normal values. It finds outliers by successive partitioning of the data until a data point has been isolated. Points that require fewer partitions to be isolated receive higher anomaly scores. This process turns out to be fairly easy on system resources. In this recipe, we demonstrate how to use it to detect outlier COVID-19 cases and deaths.</p>
+    <h2 id="_idParaDest-152" class="heading-2">Getting ready</h2>
+    <p class="normal">You will need scikit-learn and Matplotlib to run the code<a id="_idIndexMarker339"/> in this recipe. You can install<a id="_idIndexMarker340"/> them by entering <code class="inlineCode">pip install sklearn</code> and <code class="inlineCode">pip install matplotlib</code> in the terminal or PowerShell (in Windows).</p>
+    <h2 id="_idParaDest-153" class="heading-2">How to do it...</h2>
+    <p class="normal">We will use Isolation Forest to find the countries whose attributes indicate that they are most anomalous:</p>
+    <ol>
+      <li class="numberedList" value="1">Load <code class="inlineCode">pandas</code>, <code class="inlineCode">matplotlib</code>, and the <code class="inlineCode">StandardScaler</code> and <code class="inlineCode">IsolationForest</code> modules from <code class="inlineCode">sklearn</code>:
+        <pre class="programlisting code-one"><code class="hljs-code"><span class="hljs-keyword">import</span> pandas <span class="hljs-keyword">as</span> pd
+<span class="hljs-keyword">import</span> matplotlib.pyplot <span class="hljs-keyword">as</span> plt
+<span class="hljs-keyword">from</span> sklearn.preprocessing <span class="hljs-keyword">import</span> StandardScaler
+<span class="hljs-keyword">from</span> sklearn.ensemble <span class="hljs-keyword">import</span> IsolationForest
+covidtotals = pd.read_csv(<span class="hljs-string">"data/covidtotals.csv"</span>)
+covidtotals.set_index(<span class="hljs-string">"iso_code"</span>, inplace=<span class="hljs-literal">True</span>)
+</code></pre>
+      </li>
+      <li class="numberedList">Create a standardized analysis DataFrame.</li>
+    </ol>
+    <p class="normal-one">First, remove all rows with missing data:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">analysisvars = [<span class="hljs-string">'</span><span class="hljs-string">location'</span>,<span class="hljs-string">'total_cases_pm'</span>,<span class="hljs-string">'total_deaths_pm'</span>,
+<span class="hljs-meta">... </span>  <span class="hljs-string">'pop_density'</span>,<span class="hljs-string">'median_age'</span>,<span class="hljs-string">'gdp_per_capita'</span>]
+standardizer = StandardScaler()
+covidtotals.isnull().<span class="hljs-built_in">sum</span>()
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">lastdate             0
+location             0
+total_cases          0
+total_deaths         0
+total_cases_pm       0
+total_deaths_pm      0
+population           0
+pop_density         11
+median_age          24
+gdp_per_capita      27
+hosp_beds           45
+region               0
+dtype: int64
+</code></pre>
+    <pre class="programlisting code-one"><code class="hljs-code">covidanalysis = covidtotals.loc[:, analysisvars].dropna()
+covidanalysisstand = standardizer.fit_transform(covidanalysis.iloc[:, <span class="hljs-number">1</span>:])
+</code></pre>
+    <ol>
+      <li class="numberedList" value="3">Run an Isolation Forest model to detect outliers.</li>
+    </ol>
+    <p class="normal-one">Pass the standardized<a id="_idIndexMarker341"/> data to the <code class="inlineCode">fit</code> method. 18 countries<a id="_idIndexMarker342"/> are identified as outliers. (These countries have anomaly values of <code class="inlineCode">-1</code>.) This is determined by the contamination number of <code class="inlineCode">0.1</code>:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">clf=IsolationForest(n_estimators=<span class="hljs-number">100</span>,
+  max_samples=<span class="hljs-string">'auto'</span>, contamination=<span class="hljs-number">.1</span>,
+  max_features=<span class="hljs-number">1.0</span>)
+clf.fit(covidanalysisstand)
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">IsolationForest(contamination=0.1)
+</code></pre>
+    <pre class="programlisting code-one"><code class="hljs-code">covidanalysis[<span class="hljs-string">'anomaly'</span>] = \
+  clf.predict(covidanalysisstand)
+covidanalysis[<span class="hljs-string">'scores'</span>] = \
+  clf.decision_function(covidanalysisstand)
+covidanalysis.anomaly.value_counts()
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">1          156
+-1          18
+Name: anomaly, dtype: int64
+</code></pre>
+    <ol>
+      <li class="numberedList" value="4">Create outlier and inlier DataFrames.</li>
+    </ol>
+    <p class="normal-one">List the top 10 outliers according to anomaly score:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">inlier, outlier = \
+  covidanalysis.loc[covidanalysis.anomaly==<span class="hljs-number">1</span>],\
+  covidanalysis.loc[covidanalysis.anomaly==-<span class="hljs-number">1</span>]
+outlier[[<span class="hljs-string">'location'</span>,<span class="hljs-string">'total_cases_pm'</span>,
+  <span class="hljs-string">'total_deaths_pm'</span>,<span class="hljs-string">'median_age'</span>,
+  <span class="hljs-string">'gdp_per_capita'</span>,<span class="hljs-string">'scores'</span>]].\
+  sort_values([<span class="hljs-string">'scores'</span>]).\
+  head(<span class="hljs-number">10</span>)
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">            location  total_cases_pm  total_deaths_pm  \
+iso_code                                               
+SGP        Singapore      531,183.84           346.64  
+BHR          Bahrain      473,167.02         1,043.31  
+BRN           Brunei      763,475.44           396.44  
+QAT            Qatar      190,908.72           256.02  
+PER             Peru      133,239.00         6,507.66  
+MLT            Malta      227,422.82         1,687.63  
+MDV         Maldives      356,423.66           603.29  
+LUX       Luxembourg      603,439.46         1,544.16  
+BGR         Bulgaria      195,767.89         5,703.52  
+BGD       Bangladesh       11,959.46           172.22  
+          median_age  gdp_per_capita  scores 
+iso_code                                     
+SGP            42.40       85,535.38   -0.26 
+BHR            32.40       43,290.71   -0.09 
+BRN            32.40       71,809.25   -0.09 
+QAT            31.90      116,935.60   -0.08 
+PER            29.10       12,236.71   -0.08 
+MLT            42.40       36,513.32   -0.06 
+MDV            30.60       15,183.62   -0.06 
+LUX            39.70       94,277.96   -0.06 
+BGR            44.70       18,563.31   -0.04 
+BGD            27.50        3,523.98   -0.04 
+</code></pre>
+    <ol>
+      <li class="numberedList" value="5">Plot the outliers<a id="_idIndexMarker343"/> and<a id="_idIndexMarker344"/> inliers:
+        <pre class="programlisting code-one"><code class="hljs-code">ax = plt.axes(projection=<span class="hljs-string">'3d'</span>)
+ax.set_title(<span class="hljs-string">'Isolation Forest Anomaly Detection'</span>)
+ax.set_zlabel(<span class="hljs-string">"Cases Per Million"</span>)
+ax.set_xlabel(<span class="hljs-string">"GDP Per Capita"</span>)
+ax.set_ylabel(<span class="hljs-string">"Median Age"</span>)
+ax.scatter3D(inlier.gdp_per_capita, inlier.median_age, inlier.total_cases_pm, label=<span class="hljs-string">"</span><span class="hljs-string">inliers"</span>, c=<span class="hljs-string">"blue"</span>)
+ax.scatter3D(outlier.gdp_per_capita, outlier.median_age, outlier.total_cases_pm, label=<span class="hljs-string">"outliers"</span>, c=<span class="hljs-string">"red"</span>)
+ax.legend()
+plt.tight_layout()
+plt.show()
+</code></pre>
+      </li>
+    </ol>
+    <p class="normal-one">This produces the following plot:</p>
+    <figure class="mediaobject"><img src="../Images/B18596_04_10.png" alt="" role="presentation"/></figure>
+    <p class="packt_figref">Figure 4.10: Inlier and outlier countries by GDP, median age, and cases per million</p>
+    <p class="normal">The preceding steps demonstrate<a id="_idIndexMarker345"/> the use of Isolation Forest as an alternative<a id="_idIndexMarker346"/> to KNN for anomaly detection.</p>
+    <h2 id="_idParaDest-154" class="heading-2">How it works…</h2>
+    <p class="normal">We used Isolation Forest in this recipe much like we used KNN in the previous recipe. In <em class="italic">step 3</em>, we passed a standardized dataset to the Isolation Forest <code class="inlineCode">fit</code> method, and then used its <code class="inlineCode">predict</code> and <code class="inlineCode">decision_function</code> methods to get the anomaly flag and score, respectively. We used the anomaly flag in <em class="italic">step 4</em> to separate the data into inliers and outliers.</p>
+    <p class="normal">We plot the inliers and outliers in <em class="italic">step 5</em>. Since there are only three dimensions in the plot, it does not quite capture all of the features in our Isolation Forest model, but the outliers (the red dots) clearly have a higher GDP per capita and median age; these are typically to the right of, and behind, the inliers.</p>
+    <p class="normal">The results from Isolation Forest <a id="_idIndexMarker347"/>are quite similar to the KNN results. Singapore, Bahrain, and Qatar have three<a id="_idIndexMarker348"/> of the four highest (most negative) anomaly scores.</p>
+    <h2 id="_idParaDest-155" class="heading-2">There’s more…</h2>
+    <p class="normal">Isolation Forest is a good alternative to KNN, particularly when working with large datasets. The efficiency of its algorithm allows it to handle large samples and a high number of variables.</p>
+    <p class="normal">The anomaly detection techniques we have used in the last three recipes were designed to improve multivariate analyses and the training of machine learning models. However, we might want to exclude the outliers they helped us identify much earlier in the analysis process. For example, if it makes sense to exclude Qatar from our modeling, it might also make sense to exclude Qatar from some descriptive statistics.</p>
+    <h2 id="_idParaDest-156" class="heading-2">See also</h2>
+    <p class="normal">In addition to being useful for anomaly detection, the Isolation Forest algorithm is quite satisfying intuitively. (I think the same could be said about KNN.) You can read more about Isolation Forest here: <a href="https://cs.nju.edu.cn/zhouzh/zhouzh.files/publication/icdm08b.pdf"><span class="url">https://cs.nju.edu.cn/zhouzh/zhouzh.files/publication/icdm08b.pdf</span></a>.</p>
+    <h1 id="_idParaDest-157" class="heading-1">Using PandasAI to identify outliers</h1>
+    <p class="normal">We can use PandasAI to support<a id="_idIndexMarker349"/> some of the work we have done<a id="_idIndexMarker350"/> in this chapter to identify outliers. We can check for extreme values based on a univariate analysis. We can look at bivariate and multivariate relationships as well. PandasAI will also help us generate visualizations easily.</p>
+    <h2 id="_idParaDest-158" class="heading-2">Getting ready</h2>
+    <p class="normal">You need to install PandasAI to run the code in this recipe. You can do that with <code class="inlineCode">pip install pandasai</code>. We will work with the COVID-19 data again, which is available in the GitHub repository, as well as the code.</p>
+    <p class="normal">You will also need an API key from OpenAI. You can get one at <a href="https://platform.openai.com"><span class="url">platform.openai.com</span></a>. You will need to setup an account and then click on your profile in the upper-right corner and then View API keys.</p>
+    <p class="normal">The PandasAI library is improving rapidly, and some things have changed, even since I began writing this book. I have used PandasAI version 2.0.30 in this recipe. It also matters which version of pandas you use with it. I have use pandas version 2.2.1 in this recipe.</p>
+    <h2 id="_idParaDest-159" class="heading-2">How to do it...</h2>
+    <p class="normal">We create a PandasAI instance<a id="_idIndexMarker351"/> in the following steps and use it to look <a id="_idIndexMarker352"/>for extreme and unexpected values in the COVID-19 data:</p>
+    <ol>
+      <li class="numberedList" value="1">We import <code class="inlineCode">pandas</code> and the <code class="inlineCode">PandasAI</code> library:
+        <pre class="programlisting code-one"><code class="hljs-code"><span class="hljs-keyword">import</span> pandas <span class="hljs-keyword">as</span> pd
+<span class="hljs-keyword">from</span> pandasai.llm.openai <span class="hljs-keyword">import</span> OpenAI
+<span class="hljs-keyword">from</span> pandasai <span class="hljs-keyword">import</span> SmartDataframe
+llm = OpenAI(api_token=<span class="hljs-string">"Your API key"</span>)
+</code></pre>
+      </li>
+      <li class="numberedList">We load the COVID-19 data and create a <code class="inlineCode">PandasAI SmartDataframe</code>:
+        <pre class="programlisting code-one"><code class="hljs-code">covidtotals = pd.read_csv(<span class="hljs-string">"data/covidtotals.csv"</span>)
+covidtotalssdf = SmartDataframe(covidtotals, config={<span class="hljs-string">"llm"</span>: llm})
+</code></pre>
+      </li>
+      <li class="numberedList">We can pass natural language queries to the <code class="inlineCode">chat</code> method of the <code class="inlineCode">SmartDataframe</code>. This includes plotting:
+        <pre class="programlisting code-one"><code class="hljs-code">covidtotalssdf.chat(<span class="hljs-string">"Plot histogram of total cases per million"</span>)
+</code></pre>
+      </li>
+    </ol>
+    <p class="normal-one">This produces the following plot:</p>
+    <figure class="mediaobject"><img src="../Images/B18596_04_11.png" alt="" role="presentation"/></figure>
+    <p class="packt_figref">Figure 4.11: Histogram of total cases per million</p>
+    <ol>
+      <li class="numberedList" value="4">We can also <a id="_idIndexMarker353"/>create<a id="_idIndexMarker354"/> a boxplot:
+        <pre class="programlisting code-one"><code class="hljs-code">covidtotalssdf.chat(<span class="hljs-string">"Show box plot of total cases per million"</span>)
+</code></pre>
+      </li>
+    </ol>
+    <p class="normal-one">This produces the following plot:</p>
+    <figure class="mediaobject"><img src="../Images/B18596_04_12.png" alt="" role="presentation"/></figure>
+    <p class="packt_figref">Figure 4.12: Boxplot of total cases per million</p>
+    <ol>
+      <li class="numberedList" value="5">We can also show a scatterplot<a id="_idIndexMarker355"/> of the relationship between cases<a id="_idIndexMarker356"/> and deaths. We indicate that we want to use <code class="inlineCode">regplot</code> to make sure that we get a regression line:
+        <pre class="programlisting code-one"><code class="hljs-code">covidtotalssdf.chat(<span class="hljs-string">"regplot total_deaths_pm on total_cases_pm"</span>)
+</code></pre>
+      </li>
+    </ol>
+    <p class="normal-one">This produces the following plot:</p>
+    <figure class="mediaobject"><img src="../Images/B18596_04_13.png" alt="" role="presentation"/></figure>
+    <p class="packt_figref">Figure 4.13: Scatterplot of the relationship between cases and deaths</p>
+    <ol>
+      <li class="numberedList" value="6">Show high<a id="_idIndexMarker357"/> and low values<a id="_idIndexMarker358"/> for total cases:
+        <pre class="programlisting code-one"><code class="hljs-code">covidtotalssdf.chat(<span class="hljs-string">"Show total cases per million for 7 highest values and 7 lowest values of total cases per million sorted by total cases per million"</span>)
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">    iso_code                       location             total_cases_pm
+190      SVN                       Slovenia                    639,408
+67       FRO                 Faeroe Islands                    652,484
+194      KOR                    South Korea                    667,207
+12       AUT                        Austria                    680,263
+180      SMR                     San Marino                    750,727
+52       CYP                         Cyprus                    760,161
+30       BRN                         Brunei                    763,475
+228      YEM                          Yemen                        354
+148      NER                          Niger                        363
+40       TCD                           Chad                        434
+204      TZA                       Tanzania                        660
+186      SLE                   Sierra Leone                        904
+32       BFA                   Burkina Faso                        975
+54       COD   Democratic Republic of Congo                      1,003
+</code></pre>
+      </li>
+    </ol>
+    <p class="normal-one">This sorted the data in ascending order for the high group, and then sorted the data in ascending order for the low group.</p>
+    <ol>
+      <li class="numberedList" value="7">We can find the countries<a id="_idIndexMarker359"/> with the highest number of cases<a id="_idIndexMarker360"/> for each region:
+        <pre class="programlisting code-one"><code class="hljs-code">covidtotalssdf.chat(<span class="hljs-string">"Show total cases per million for locations with highest total cases per million in each region"</span>)
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">                                  location       total_cases_pm
+region                                              
+Caribbean                       Martinique              626,793
+Central Africa       Sao Tome and Principe               29,614
+Central America                 Costa Rica              237,539
+Central Asia                       Armenia              162,356
+East Africa                        Reunion              507,765
+East Asia                           Brunei              763,475
+Eastern Europe                      Cyprus              760,161
+North Africa                       Tunisia               93,343
+North America    Saint Pierre and Miquelon              582,158
+Oceania / Aus                          Niue             508,709
+South America              Falkland Islands             505,919
+South Asia                          Bahrain             473,167
+Southern Africa                Saint Helena             401,037
+West Africa                      Cape Verde             108,695
+West Asia                            Israel             512,388
+Western Europe                   San Marino             750,727
+</code></pre>
+      </li>
+      <li class="numberedList">We can get <code class="inlineCode">chat</code> to show us countries where the number of cases was high but the number of deaths was relatively low:
+        <pre class="programlisting code-one"><code class="hljs-code">covidtotalssdf.chat(<span class="hljs-string">"Show total cases per million and total deaths per million for locations with high total_cases_pm and low total_deaths_pm"</span>)
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">            location       total_cases_pm  total_deaths_pm
+30            Brunei              763,475              396
+46      Cook Islands              422,910              117
+68  Falkland Islands              505,919                0
+81         Greenland              211,899              372
+93           Iceland              562,822              499
+126 Marshall Islands              387,998              409
+142            Nauru              424,947               79
+150             Niue              508,709                0
+156            Palau              346,439              498
+167            Qatar              190,909              256
+172 Saint Barthelemy              500,910              455
+173     Saint Helena              401,037                0
+177 Saint Pierre and Miquelon     582,158              340
+187        Singapore              531,184              347
+209            Tonga              158,608              112
+214           Tuvalu              259,638               88
+217 United Arab Emirates          113,019              249
+226          Vietnam              118,387              440
+</code></pre>
+      </li>
+    </ol>
+    <p class="normal">These were just a few examples of how PandasAI can be used to help us find outliers or unexpected values with very little code.</p>
+    <h2 id="_idParaDest-160" class="heading-2">How it works…</h2>
+    <p class="normal">We used PandasAI with the large language<a id="_idIndexMarker361"/> model provided by OpenAI<a id="_idIndexMarker362"/> in this recipe. You just need an API token. You can get one from <a href="https://platform.openai.com"><span class="url">platform.openai.com</span></a>. After you have a token, all you need to do to get started with sending natural language queries to a database is import the OpenAI and <code class="inlineCode">SmartDataframe</code> modules and instantiate a <code class="inlineCode">SmartDataframe</code> object.</p>
+    <p class="normal">We created a <code class="inlineCode">SmartDataframe</code> object in <em class="italic">step 2</em> with <code class="inlineCode">covidtotalssdf = SmartDataframe(covidtotals, config={"llm": llm})</code>. Once we have a <code class="inlineCode">SmartDataframe</code>, we can pass a variety of natural language instructions to its <code class="inlineCode">chat</code> method. In this recipe, this ranged from requesting visualizations and finding the highest and lowest values to examining values for subsets of the data.</p>
+    <p class="normal">It is a good idea to regularly check the <code class="inlineCode">pandasai.log</code> file, which will be in the same folder as your Python script. Here is the code PandasAI generated in response to <code class="inlineCode">covidtotalssdf.chat("Show total cases per million and total deaths per million for locationss with high total_cases_pm and low total_deaths_pm")</code>:</p>
+    <pre class="programlisting code"><code class="hljs-code"><span class="hljs-keyword">import</span> pandas <span class="hljs-keyword">as</span> pd
+<span class="hljs-comment"># Filter rows with high total_cases_pm and low total_deaths_pm</span>
+filtered_df = dfs[<span class="hljs-number">0</span>][(dfs[<span class="hljs-number">0</span>][<span class="hljs-string">'total_cases_pm'</span>] &gt; <span class="hljs-number">100000</span>) &amp; (dfs[<span class="hljs-number">0</span>][<span class="hljs-string">'total_deaths_pm'</span>] &lt; <span class="hljs-number">500</span>)]
+<span class="hljs-comment"># Select only the required columns</span>
+result_df = filtered_df[[<span class="hljs-string">'location'</span>, <span class="hljs-string">'total_cases_pm'</span>, <span class="hljs-string">'</span><span class="hljs-string">total_deaths_pm'</span>]]
+result = {<span class="hljs-string">"type"</span>: <span class="hljs-string">"dataframe"</span>, <span class="hljs-string">"value"</span>: result_df}
+            ```
+           
+</code></pre>
+    <pre class="programlisting con"><code class="hljs-con">2024-04-18 09:30:01 [INFO] Executing Step 4: CachePopulation
+2024-04-18 09:30:01 [INFO] Executing Step 5: CodeCleaning
+2024-04-18 09:30:01 [INFO]
+Code running:
+```
+filtered_df = dfs[0][(dfs[0]['total_cases_pm'] &gt; 100000) &amp; (dfs[0]['total_deaths_pm'] &lt; 500)]
+result_df = filtered_df[['location', 'total_cases_pm', 'total_deaths_pm']]
+result = {'type': 'dataframe', 'value': result_df}
+</code></pre>
+    <h2 id="_idParaDest-161" class="heading-2">There’s more...</h2>
+    <p class="normal">We generated a boxplot in <em class="italic">step 4</em>, which is an incredibly useful tool for visualizing the distribution of a continuous variable. The box shows the interquartile range, which is the distance between the first and third quartiles. The line in the box shows the median. We go into much more detail on boxplots in <em class="chapterRef">Chapter 5</em>, <em class="italic">Using Visualizations for the Identification of Unexpected Values</em>.</p>
+    <h2 id="_idParaDest-162" class="heading-2">See also</h2>
+    <p class="normal">The <em class="italic">Using generative AI to create descriptive statistics</em> recipe in <em class="chapterRef">Chapter 3</em>, <em class="italic">Taking the Measure of Your Data</em>, provides some additional information on how PandasAI uses OpenAI, and on generating overall and by-group statistics and visualizations. We use PandasAI throughout this book whenever it is a good tool for improving our data preparation work or making it easier.</p>
+    <h1 id="_idParaDest-163" class="heading-1">Summary</h1>
+    <p class="normal">This chapter introduced pandas tools for identifying outliers in our data. We explored a variety of univariate, bivariate, and multivariate approaches to detect observations sufficiently out of range, or otherwise unusual enough, to distort our analysis. These approaches included using the interquartile range to identify extreme values, investigating relationships with a correlated variable, and using parametric and non-parametric multivariate techniques such as linear regression and KNN respectively. We also saw how visualizations can help us get a better feel for how a variable is distributed, and how it moves with a correlated variable. We will go into much greater detail on how to create and interpret visualizations in the next chapter.</p>
+    <h1 class="heading-1">Join our community on Discord</h1>
+    <p class="normal">Join our community’s Discord space for discussions with the author and other readers:</p>
+    <p class="normal"><a href="https://discord.gg/p8uSgEAETX "><span class="url">https://discord.gg/p8uSgEAETX</span></a></p>
+    <p class="normal"><img src="../Images/QR_Code10336218961138498953.png" alt="" role="presentation"/></p>
+  </div>
+</body></html>

@@ -1,0 +1,1260 @@
+<html><head></head><body>
+  <div id="_idContainer038" class="Basic-Text-Frame">
+    <h1 class="chapterNumber">3</h1>
+    <h1 id="_idParaDest-85" class="chapterTitle">Taking the Measure of Your Data</h1>
+    <p class="normal">Within a week of receiving a new dataset, at least one person is likely to ask us a familiar question – “so, how does it look?” This is not always asked relaxedly, and others are not usually excited to hear about all of the red flags we have already found. There might be a sense of urgency to declare the data ready for analysis. Of course, if we sign off on it too soon, this can create much larger problems; the presentation of invalid results, the misinterpretation of variable relationships, and having to redo major chunks of our analysis. The key is sorting out what we need to know about the data before we explore anything else in the data. The recipes in this chapter offer techniques for determining if the data is in good enough shape to begin the analysis, so that even if we cannot say, “it looks fine,” we can at least say, “I’m pretty sure I have identified the main issues, and here they are.”</p>
+    <p class="normal">Often our domain knowledge is quite limited, or at least not nearly as good as those who created the data. We have to quickly get a sense of what we are looking at even when we have little substantive understanding of the individuals or events reflected in the data. Many times (for some of us, most of the time) there is not anything like a data dictionary or codebook accompanying the receipt of the data.</p>
+    <p class="normal">Quick. Ask yourself what the first few things you try to find out in this situation are; that is, when you first get data about which you know little. It is probably something like this:</p>
+    <ul>
+      <li class="bulletList">How are the rows of the dataset uniquely identified? (What is the unit of analysis?)</li>
+      <li class="bulletList">How many rows and columns are in the dataset?</li>
+      <li class="bulletList">What are the key categorical variables and the frequencies of each value?</li>
+      <li class="bulletList">How are important continuous variables distributed?</li>
+      <li class="bulletList">How might variables be related to each other – for example, how might the distribution of continuous variables vary according to categories in the data?</li>
+      <li class="bulletList">What variable values are out of expected ranges, and how are missing values distributed?</li>
+    </ul>
+    <p class="normal">We go over essential tools and strategies for answering the first four questions in this chapter. We look into the last two questions in the following chapter.</p>
+    <p class="normal">I should point out that this first take on our data is important even when the structure of the data is familiar; when, for example, we receive data for a new month or year with the same column names and data types as in previous periods. It is hard to guard against the sense that we can just rerun our old programs; it’s difficult to be as vigilant as we were the first few times we prepared the data for analysis. Most of us have probably been in situations where we receive new data with a familiar structure, but the answers to the preceding questions are meaningfully different: new valid values for key categorical variables; rare values that have always been permissible but that have not been seen for several periods; and unexpected changes in the status of clients/students/customers. It is important to build routines for understanding our data and follow them, regardless of our familiarity with it.</p>
+    <p class="normal">Specifically, we will cover the following topics in this chapter:</p>
+    <ul>
+      <li class="bulletList">Getting a first look at your data</li>
+      <li class="bulletList">Selecting and organizing columns</li>
+      <li class="bulletList">Selecting rows</li>
+      <li class="bulletList">Generating frequencies for categorical variables</li>
+      <li class="bulletList">Generating summary statistics for continuous variables</li>
+      <li class="bulletList">Using generative AI to display descriptive statistics</li>
+    </ul>
+    <h1 id="_idParaDest-86" class="heading-1">Technical requirements</h1>
+    <p class="normal">You will need pandas, Numpy, and Matplotlib to complete the recipes in this chapter. I used pandas 2.1.4, but the code will run on pandas 1.5.3 or later.</p>
+    <p class="normal">The code in this chapter can be downloaded from the book’s github repository, <a href="https://github.com/PacktPublishing/Python-Data-Cleaning-Cookbook-Second-Edition"><span class="url">https://github.com/PacktPublishing/Python-Data-Cleaning-Cookbook-Second-Edition</span></a>.</p>
+    <h1 id="_idParaDest-87" class="heading-1">Getting a first look at your data</h1>
+    <p class="normal">We will work with two datasets <a id="_idIndexMarker151"/>in this chapter: <em class="italic">The National Longitudinal Survey of Youth for 1997</em>, a survey conducted by the United States government that surveyed the same group of individuals from 1997 through 2023; and the counts of COVID-19 cases and deaths by country from <em class="italic">Our World in Data</em>.</p>
+    <h2 id="_idParaDest-88" class="heading-2">Getting ready…</h2>
+    <p class="normal">We will mainly be using the pandas library for this recipe. We will use pandas<a id="_idIndexMarker152"/> tools to take a closer look at the <strong class="keyWord">National Longitudinal Survey</strong> (<strong class="keyWord">NLS</strong>) and COVID-19 case data.</p>
+    <div class="note">
+      <p class="normal"><strong class="keyWord">Data note</strong></p>
+      <p class="normal">The NLS of Youth was conducted by the United States Bureau of Labor Statistics. This survey started with a cohort of individuals in 1997 who were born between 1980 and 1985, with annual follow-ups each year through to 2023. For this recipe, I pulled 89 variables on grades, employment, income, and attitudes toward government from the hundreds of data items in the survey. Separate files for SPSS, Stata, and SAS<a id="_idIndexMarker153"/> can be downloaded from the repository. The NLS data can be downloaded from <a href="https://www.nlsinfo.org"><span class="url">https://www.nlsinfo.org</span></a>. You must create an investigator account to download the data, but there is no charge.</p>
+      <p class="normal">Our World in Data provides<a id="_idIndexMarker154"/> COVID-19 public use data at <a href="https://ourworldindata.org/covid-cases"><span class="url">https://ourworldindata.org/covid-cases</span></a>. The dataset includes total cases and deaths, tests administered, hospital beds, and demographic data such as median age, gross domestic product, and a human development index, which is a composite measure of standard of living, educational levels, and life expectancy. The dataset used in this recipe was downloaded on March 3, 2024</p>
+    </div>
+    <h2 id="_idParaDest-89" class="heading-2">How to do it…</h2>
+    <p class="normal">We will get an initial<a id="_idIndexMarker155"/> look at the<a id="_idIndexMarker156"/> NLS and COVID-19 data, including the number of rows and columns, and the data types:</p>
+    <ol>
+      <li class="numberedList" value="1">Import the required libraries and load the DataFrames:
+        <pre class="programlisting code-one"><code class="hljs-code"><span class="hljs-keyword">import</span> pandas <span class="hljs-keyword">as</span> pd
+<span class="hljs-keyword">import</span> numpy <span class="hljs-keyword">as</span> np
+nls97 = pd.read_csv(<span class="hljs-string">"data/nls97.csv"</span>)
+covidtotals = pd.read_csv(<span class="hljs-string">"data/covidtotals.csv"</span>,
+...   parse_dates=[<span class="hljs-string">'lastdate'</span>])
+</code></pre>
+      </li>
+      <li class="numberedList">Set and show <a id="_idIndexMarker157"/>the index and the size<a id="_idIndexMarker158"/> of the <code class="inlineCode">nls97</code> data.</li>
+    </ol>
+    <p class="normal-one">Also, check to see whether the index values are unique:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">nls97.set_index(<span class="hljs-string">"personid"</span>, inplace=<span class="hljs-literal">True</span>)
+nls97.index
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">Index([100061, 100139, 100284, 100292, 100583, 100833,             		...
+            999543, 999698, 999963],
+           dtype='int64', name='personid', length=8984)
+</code></pre>
+    <pre class="programlisting code-one"><code class="hljs-code">nls97.shape
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">(8984, 88)
+</code></pre>
+    <pre class="programlisting code-one"><code class="hljs-code">nls97.index.nunique()
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">8984
+</code></pre>
+    <ol>
+      <li class="numberedList" value="3">Show the data types and <code class="inlineCode">non-null</code> value counts:
+        <pre class="programlisting code-one"><code class="hljs-code">nls97.info()
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">&lt;class 'pandas.core.frame.DataFrame'&gt;
+Int64Index: 8984 entries, 100061 to 999963
+Data columns (total 88 columns):
+ #   Column                Non-Null Count		Dtype 
+---  ------                --------------		----- 
+ 0   gender			8984 non-null		object
+ 1   birthmonth		8984 non-null		int64 
+ 2   birthyear		8984 non-null		int64 
+ 3   highestgradecompleted	6663 non-null		float64
+ 4   maritalstatus		6672 non-null		object
+ 5   childathome		4791 non-null		float64
+ 6   childnotathome		4791 non-null		float64
+ 7   wageincome		5091 non-null		float64
+ 8   weeklyhrscomputer	6710 non-null		object
+ 9   weeklyhrstv		6711 non-null		object
+ 10  nightlyhrssleep	6706 non-null		float64
+ 11  satverbal		1406 non-null		float64
+ 12  satmath			1407 non-null		float64
+...
+ 83  colenroct15		7469 non-null		object
+ 84  colenrfeb16		7036 non-null		object
+ 85  colenroct16		6733 non-null		object
+ 86  colenrfeb17		6733 non-null		object
+ 87  colenroct17		6734 non-null		object
+dtypes: float64(29), int64(2), object(57)
+memory usage: 6.1+ MB
+</code></pre>
+      </li>
+      <li class="numberedList">Show the first 2 rows of the <code class="inlineCode">nls97</code> data.</li>
+    </ol>
+    <p class="normal-one">Use transpose<a id="_idIndexMarker159"/> to show a little<a id="_idIndexMarker160"/> more of the output:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">nls97.head(<span class="hljs-number">2</span>).T
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">personid			100061			100139
+gender			Female			Male
+birthmonth			5			9
+birthyear			1980			1983
+highestgradecompleted	13			12
+maritalstatus		Married			Married
+...	                     	...           		...
+colenroct15			1. Not enrolled	1. Not enrolled
+colenrfeb16			1. Not enrolled	1. Not enrolled
+colenroct16			1. Not enrolled	1. Not enrolled
+colenrfeb17			1. Not enrolled	1. Not enrolled
+colenroct17			1. Not enrolled	1. Not enrolled
+</code></pre>
+    <ol>
+      <li class="numberedList" value="5">Set and show the index and size for the COVID-19 data.</li>
+    </ol>
+    <p class="normal-one">Also, check to see whether the index values are unique:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">covidtotals.set_index(<span class="hljs-string">"iso_code"</span>, inplace=<span class="hljs-literal">True</span>)
+covidtotals.index
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">Index(['AFG', 'ALB', 'DZA', 'ASM', 'AND', 'AGO', 'AIA', 'ATG', 'ARG',
+       'ARM',
+       ...
+       'URY', 'UZB', 'VUT', 'VAT', 'VEN', 'VNM', 'WLF', 'YEM', 'ZMB',
+       'ZWE'],
+      dtype='object', name='iso_code', length=231)
+</code></pre>
+    <pre class="programlisting code-one"><code class="hljs-code">covidtotals.shape
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">(231, 16)
+</code></pre>
+    <pre class="programlisting code-one"><code class="hljs-code">covidtotals.index.nunique()
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">231
+</code></pre>
+    <ol>
+      <li class="numberedList" value="6">Show the data<a id="_idIndexMarker161"/> types and <code class="inlineCode">non-null</code> value<a id="_idIndexMarker162"/> counts:
+        <pre class="programlisting code-one"><code class="hljs-code">covidtotals.info()
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">&lt;class 'pandas.core.frame.DataFrame'&gt;
+Index: 231 entries, AFG to ZWE
+Data columns (total 16 columns):
+ #	Column			Non-Null Count  	Dtype        
+---  ------			--------------  	-----        
+ 0	lastdate		231 non-null		datetime64[ns]
+ 1	location		231 non-null		object       
+ 2	total_cases		231 non-null		float64      
+ 3	total_deaths		231 non-null		float64      
+ 4	total_cases_pm		231 non-null		float64      
+ 5	total_deaths_pm	231 non-null		float64      
+ 6	population		231 non-null		int64        
+ 7	pop_density		209 non-null		float64      
+ 8	median_age		194 non-null		float64      
+ 9	gdp_per_capita		191 non-null		float64      
+ 10	hosp_beds		170 non-null		float64      
+ 11	vac_per_hund		13 non-null		float64      
+ 12	aged_65_older		188 non-null		float64      
+ 13	life_expectancy	227 non-null		float64      
+ 14	hum_dev_ind		187 non-null		float64      
+ 15	region			231 non-null		object       
+dtypes: datetime64[ns](1), float64(12), int64(1), object(2)
+memory usage: 38.8+ KB
+</code></pre>
+      </li>
+      <li class="numberedList">Show a sample<a id="_idIndexMarker163"/> of 2 rows<a id="_idIndexMarker164"/> of the COVID-19 data:
+        <pre class="programlisting code-one"><code class="hljs-code">covidtotals.sample(<span class="hljs-number">2</span>, random_state=<span class="hljs-number">1</span>).T
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">iso_code		GHA		NIU
+lastdate		2023-12-03	2023-12-31
+location		Ghana		Niue
+total_cases		171,834		993
+total_deaths		1,462		0
+total_cases_pm	5,133		508,709
+total_deaths_pm	44		0
+population		33475870	1952
+pop_density		127		NaN
+median_age		21		NaN
+gdp_per_capita	4,228		NaN
+hosp_beds		1		NaN
+vac_per_hund		NaN		NaN
+aged_65_older	3		NaN
+life_expectancy	64		74
+hum_dev_ind		1		NaN
+region		West Africa	Oceania / Aus
+</code></pre>
+      </li>
+    </ol>
+    <p class="normal">This has given us a good foundation for understanding our DataFrames, including their sizes and column data types.</p>
+    <h2 id="_idParaDest-90" class="heading-2">How it works…</h2>
+    <p class="normal">We set and display the index of the <code class="inlineCode">nls97</code> DataFrame, which is called <code class="inlineCode">personid</code>, in <em class="italic">Step 2</em>. It is a more meaningful index than the default pandas <code class="inlineCode">RangeIndex</code>, which is essentially the row numbers with zero base. Often there is a unique identifier when working with individuals as the unit of analysis. This is a good candidate for an index. It makes selecting a row by that identifier easier. Rather than using the <code class="inlineCode">nls97.loc[personid==1000061]</code> statement to get the row for that person, we can use <code class="inlineCode">nls97.loc[1000061]</code>. We will try this out in the next recipe.</p>
+    <p class="normal">pandas makes it easy to view the number of rows and columns, the data type and numbers of non-missing values for each column, and the values of the columns for a few rows of your data. This can be accomplished by using the <code class="inlineCode">shape</code> attribute and calling the <code class="inlineCode">info</code> method, followed by either the <code class="inlineCode">head</code> or <code class="inlineCode">sample</code> methods. Using the <code class="inlineCode">head(2)</code> method shows the first two rows, but sometimes it is helpful to grab a row from anywhere in the DataFrame, in which case we would use <code class="inlineCode">sample</code>. (We set the seed when we call <code class="inlineCode">sample</code> (<code class="inlineCode">random_state=1</code>) to get the same results whenever we run the code.) We can chain our call to <code class="inlineCode">head</code> or <code class="inlineCode">sample</code> with a <code class="inlineCode">T</code> to transpose it. This reverses the display of rows and columns. That is helpful when there are more columns than can be shown horizontally and you want to be able to see all of them. By transposing the rows and columns we are able to see all of the columns.</p>
+    <p class="normal">The <code class="inlineCode">shape</code> attribute of the <code class="inlineCode">nls97</code> DataFrame tells us that there are 8,984 rows and 88 non-index columns. Since <code class="inlineCode">personid</code> is the index, it is not included in the column count. The <code class="inlineCode">info</code> method shows us that many of the columns have object data types and that some have a large number of missing values. <code class="inlineCode">satverbal</code> and <code class="inlineCode">satmath</code> have only about 1,400 valid values.</p>
+    <p class="normal">The <code class="inlineCode">shape</code> attribute<a id="_idIndexMarker165"/> of the <code class="inlineCode">covidtotals</code> DataFrame<a id="_idIndexMarker166"/> tells us that there are 231 rows and 16 columns, which does not include the country <code class="inlineCode">iso_code</code> column used for the index (<code class="inlineCode">iso_code</code> is a unique three-digit identifier for each country). The key variables for most analyses we would do are <code class="inlineCode">total_cases</code>, <code class="inlineCode">total_deaths</code>, <code class="inlineCode">total_cases_pm,</code> and <code class="inlineCode">total_deaths_pm</code>. <code class="inlineCode">total_cases</code> and <code class="inlineCode">total_deaths</code> are present for each country, but <code class="inlineCode">total_cases_pm</code> and <code class="inlineCode">total_deaths_pm</code> are missing for one country.</p>
+    <h2 id="_idParaDest-91" class="heading-2">There’s more...</h2>
+    <p class="normal">I find that thinking through the index when working with a data file can remind me of the unit of analysis. That is not obvious with the NLS data, as it is actually panel data disguised as person-level data. Panel, or longitudinal, datasets have data for the same individuals over some regular duration. In this case, data was collected for each person over a 26-year span, from 1997 till 2023. The administrators of the survey have flattened it for analysis purposes by creating columns for certain responses over the years, such as college enrollment (<code class="inlineCode">colenroct15</code> through <code class="inlineCode">colenroct17</code>). This is a fairly standard practice, but it is likely that we will need to do some reshaping for some analyses.</p>
+    <p class="normal">One thing I pay careful attention to when receiving any panel data is any drop-off in responses to key variables over time. Notice the drop off in valid values from <code class="inlineCode">colenroct15</code> to <code class="inlineCode">colenroct17</code>. By October of 2017, only 75% of respondents provided a valid response (6,734/8,984). That is definitely worth keeping in mind during subsequent analysis, since the 6,734 remaining respondents may be different in important ways from the overall sample of 8,984.</p>
+    <h2 id="_idParaDest-92" class="heading-2">See also</h2>
+    <p class="normal">A recipe in <em class="chapterRef">Chapter 1</em>, <em class="italic">Anticipating Data Cleaning Issues When Importing Tabular Data with pandas</em>, shows how to persist pandas DataFrames as feather or pickle files. In later recipes in this chapter, we will look at descriptives and frequencies for these two DataFrames.</p>
+    <p class="normal">We reshape the NLS data in <em class="chapterRef">Chapter 11</em>,<em class="italic"> Tidying and Reshaping Data</em>, recovering some of its actual structure as panel data. This is necessary for statistical methods such as survival analysis, and is closer to tidy data ideals.</p>
+    <h1 id="_idParaDest-93" class="heading-1">Selecting and organizing columns</h1>
+    <p class="normal">We explore several ways<a id="_idIndexMarker167"/> to select one or more columns<a id="_idIndexMarker168"/> from your DataFrame in this recipe. We can select columns by passing a list of column names to the <code class="inlineCode">[]</code> bracket operator, or by using the pandas-specific <code class="inlineCode">loc</code> and <code class="inlineCode">iloc</code> data accessors.</p>
+    <p class="normal">When cleaning data or doing exploratory or statistical analyses, it is helpful to focus on the variables that are relevant to the issue or analysis at hand. This makes it important to group columns according to their substantive or statistical relationships with each other, or to limit the columns we are investigating at any one time. How many times have we said to ourselves something like, <em class="italic">“Why does variable A have a value of x when variable B has a value of y?”</em> We can only do that when the amount of data we are viewing at a given moment does not exceed our perceptive abilities at that moment.</p>
+    <h2 id="_idParaDest-94" class="heading-2">Getting ready…</h2>
+    <p class="normal">We will continue working with the <strong class="keyWord">National Longitudinal Survey</strong> (<strong class="keyWord">NLS</strong>) data in this recipe.</p>
+    <h2 id="_idParaDest-95" class="heading-2">How to do it…</h2>
+    <p class="normal">We will explore several ways to select columns:</p>
+    <ol>
+      <li class="numberedList" value="1">Import the <code class="inlineCode">pandas</code> library and load the NLS data into pandas.</li>
+    </ol>
+    <p class="normal-one">Also, convert all columns<a id="_idIndexMarker169"/> in the NLS data of the object data type to the<a id="_idIndexMarker170"/> category data type. Do this by selecting object data type columns with <code class="inlineCode">select_dtypes</code> and using <code class="inlineCode">transform</code> plus a <code class="inlineCode">lambda</code> function to change the data type to <code class="inlineCode">category</code>:</p>
+    <pre class="programlisting code-one"><code class="hljs-code"><span class="hljs-keyword">import</span> pandas <span class="hljs-keyword">as</span> pd
+<span class="hljs-keyword">import</span> numpy <span class="hljs-keyword">as</span> np
+nls97 = pd.read_csv(<span class="hljs-string">"data/nls97.csv"</span>)
+nls97.set_index(<span class="hljs-string">"personid"</span>, inplace=<span class="hljs-literal">True</span>)
+nls97[nls97.select_dtypes([<span class="hljs-string">'object'</span>]).columns] = \
+  nls97.select_dtypes([<span class="hljs-string">'object'</span>]). \
+  transform(<span class="hljs-keyword">lambda</span> x: x.astype(<span class="hljs-string">'category'</span>))
+</code></pre>
+    <ol>
+      <li class="numberedList" value="2">Select a column using the pandas <code class="inlineCode">[]</code> bracket operator and the <code class="inlineCode">loc</code> and <code class="inlineCode">iloc</code> accessors.</li>
+    </ol>
+    <p class="normal-one">We pass a string matching a column name to the bracket operator to return a pandas series. If we pass a list of one element with that column name (<code class="inlineCode">nls97[['gender']]</code>), a DataFrame is returned. We can also use the <code class="inlineCode">loc</code> and <code class="inlineCode">iloc</code> accessors to select columns:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">analysisdemo = nls97[<span class="hljs-string">'gender'</span>]
+<span class="hljs-built_in">type</span>(analysisdemo)
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">&lt;class 'pandas.core.series.Series'&gt;
+</code></pre>
+    <pre class="programlisting code-one"><code class="hljs-code">analysisdemo = nls97[[<span class="hljs-string">'gender'</span>]]
+<span class="hljs-built_in">type</span>(analysisdemo)
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">&lt;class 'pandas.core.frame.DataFrame'&gt;
+</code></pre>
+    <pre class="programlisting code-one"><code class="hljs-code">analysisdemo = nls97.loc[:,[<span class="hljs-string">'gender'</span>]]
+<span class="hljs-built_in">type</span>(analysisdemo)
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">&lt;class 'pandas.core.frame.DataFrame'&gt;
+</code></pre>
+    <pre class="programlisting code-one"><code class="hljs-code">analysisdemo = nls97.iloc[:,[<span class="hljs-number">0</span>]]
+<span class="hljs-built_in">type</span>(analysisdemo)
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">&lt;class 'pandas.core.frame.DataFrame'&gt;
+</code></pre>
+    <ol>
+      <li class="numberedList" value="3">Select multiple columns<a id="_idIndexMarker171"/> from a pandas<a id="_idIndexMarker172"/> DataFrame.</li>
+    </ol>
+    <p class="normal-one">Use the bracket operator and <code class="inlineCode">loc</code> to select a few columns:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">analysisdemo = nls97[[<span class="hljs-string">'gender'</span>,<span class="hljs-string">'maritalstatus'</span>,
+...  <span class="hljs-string">'highestgradecompleted'</span>]]
+analysisdemo.shape
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">(8984, 3)
+</code></pre>
+    <pre class="programlisting code-one"><code class="hljs-code">analysisdemo.head()
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">          	gender		maritalstatus		highestgradecompleted
+personid                                             
+100061	Female		Married			13
+100139	Male		Married			12
+100284	Male		Never-married		7
+100292	Male		NaN			nan
+100583	Male		Married			13
+</code></pre>
+    <pre class="programlisting code-one"><code class="hljs-code">analysisdemo = nls97.loc[:,[<span class="hljs-string">'gender'</span>,<span class="hljs-string">'maritalstatus'</span>,
+...  <span class="hljs-string">'highestgradecompleted'</span>]]
+analysisdemo.shape
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">(8984, 3)
+</code></pre>
+    <pre class="programlisting code-one"><code class="hljs-code">analysisdemo.head()
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">          	gender  	maritalstatus		highestgradecompleted
+personid                                             
+100061	Female		Married			13
+100139	Male		Married			12
+100284	Male		Never-married		7
+100292	Male		NaN			nan
+100583	Male		Married			13
+</code></pre>
+    <ol>
+      <li class="numberedList" value="4">Select multiple columns based on a list of columns.</li>
+    </ol>
+    <p class="normal-one">If you are selecting more than a few columns, it is helpful to create a list of column names separately. Here, we create a <code class="inlineCode">keyvars</code> list of key variables for analysis:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">keyvars = [<span class="hljs-string">'gender'</span>,<span class="hljs-string">'maritalstatus'</span>,
+...  <span class="hljs-string">'highestgradecompleted'</span>,<span class="hljs-string">'wageincome'</span>,
+...  <span class="hljs-string">'gpaoverall'</span>,<span class="hljs-string">'weeksworked17'</span>,<span class="hljs-string">'colenroct17'</span>]
+analysiskeys = nls97[keyvars]
+analysiskeys.info()
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">&lt;class 'pandas.core.frame.DataFrame'&gt;
+Int64Index: 8984 entries, 100061 to 999963
+Data columns (total 7 columns):
+ #   Column			Non-Null Count		Dtype  
+---  ------			--------------		-----  
+ 0   gender			8984 non-null		category
+ 1   maritalstatus		6672 non-null		category
+ 2   highestgradecompleted	6663 non-null		float64
+ 3   wageincome		5091 non-null		float64
+ 4   gpaoverall		6004 non-null		float64
+ 5   weeksworked17		6670 non-null		float64
+ 6   colenroct17		6734 non-null		category
+dtypes: category(3), float64(4)
+memory usage: 377.7 KB
+</code></pre>
+    <ol>
+      <li class="numberedList" value="5">Select one or more columns<a id="_idIndexMarker173"/> by filtering<a id="_idIndexMarker174"/> by column name.</li>
+    </ol>
+    <p class="normal-one">Select all of the <code class="inlineCode">weeksworked##</code> columns using the <code class="inlineCode">filter</code> operator:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">analysiswork = nls97.<span class="hljs-built_in">filter</span>(like=<span class="hljs-string">"weeksworked"</span>)
+analysiswork.info()
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">&lt;class 'pandas.core.frame.DataFrame'&gt;
+Int64Index: 8984 entries, 100061 to 999963
+Data columns (total 18 columns):
+ #   Column         Non-Null Count  Dtype 
+---  ------         --------------  ----- 
+ 0   weeksworked00  8603 non-null   float64
+ 1   weeksworked01  8564 non-null   float64
+ 2   weeksworked02  8556 non-null   float64
+ 3   weeksworked03  8490 non-null   float64
+ 4   weeksworked04  8458 non-null   float64
+ 5   weeksworked05  8403 non-null   float64
+ 6   weeksworked06  8340 non-null   float64
+ 7   weeksworked07  8272 non-null   float64
+ 8   weeksworked08  8186 non-null   float64
+ 9   weeksworked09  8146 non-null   float64
+ 10  weeksworked10  8054 non-null   float64
+ 11  weeksworked11  7968 non-null   float64
+ 12  weeksworked12  7747 non-null   float64
+ 13  weeksworked13  7680 non-null   float64
+ 14  weeksworked14  7612 non-null   float64
+ 15  weeksworked15  7389 non-null   float64
+ 16  weeksworked16  7068 non-null   float64
+ 17  weeksworked17  6670 non-null   float64
+dtypes: float64(18)
+memory usage: 1.3 MB
+</code></pre>
+    <ol>
+      <li class="numberedList" value="6">Select all columns of the category data type.</li>
+    </ol>
+    <p class="normal-one">Use the <code class="inlineCode">select_dtypes</code> method<a id="_idIndexMarker175"/> to select columns<a id="_idIndexMarker176"/> by data type:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">analysiscats = nls97.select_dtypes(include=[<span class="hljs-string">"category"</span>])
+analysiscats.info()
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">&lt;class 'pandas.core.frame.DataFrame'&gt;
+Int64Index: 8984 entries, 100061 to 999963
+Data columns (total 57 columns):
+ #   Column			Non-Null Count		Dtype  
+---  ------			--------------		-----  
+ 0   gender			8984 non-null		category
+ 1   maritalstatus		6672 non-null		category
+ 2   weeklyhrscomputer	6710 non-null		category
+ 3   weeklyhrstv		6711 non-null		category
+ 4   highestdegree		8953 non-null		category
+...
+ 49  colenrfeb14		7624 non-null		category
+ 50  colenroct14		7469 non-null		category
+ 51  colenrfeb15		7469 non-null		category
+ 52  colenroct15		7469 non-null		category
+ 53  colenrfeb16		7036 non-null		category
+ 54  colenroct16		6733 non-null		category
+ 55  colenrfeb17		6733 non-null		category
+ 56  colenroct17		6734 non-null		category
+dtypes: category(57)
+memory usage: 580.0 KB
+</code></pre>
+    <ol>
+      <li class="numberedList" value="7">Organize columns using lists of column names.</li>
+    </ol>
+    <p class="normal-one">Use lists to organize<a id="_idIndexMarker177"/> the columns<a id="_idIndexMarker178"/> in your DataFrame. You can easily change the order of columns or exclude some columns in this way. Here, we move the columns in the <code class="inlineCode">demoadult</code> list to the front:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">demo = [<span class="hljs-string">'gender'</span>,<span class="hljs-string">'birthmonth'</span>,<span class="hljs-string">'birthyear'</span>]
+highschoolrecord = [<span class="hljs-string">'satverbal'</span>,<span class="hljs-string">'satmath'</span>,<span class="hljs-string">'gpaoverall'</span>,
+...  <span class="hljs-string">'</span><span class="hljs-string">gpaenglish'</span>,<span class="hljs-string">'gpamath'</span>,<span class="hljs-string">'gpascience'</span>]
+govresp = [<span class="hljs-string">'govprovidejobs'</span>,<span class="hljs-string">'govpricecontrols'</span>,
+...   <span class="hljs-string">'govhealthcare'</span>,<span class="hljs-string">'govelderliving'</span>,<span class="hljs-string">'govindhelp'</span>,
+...   <span class="hljs-string">'</span><span class="hljs-string">govunemp'</span>,<span class="hljs-string">'govincomediff'</span>,<span class="hljs-string">'govcollegefinance'</span>,
+...   <span class="hljs-string">'govdecenthousing'</span>,<span class="hljs-string">'govprotectenvironment'</span>]
+demoadult = [<span class="hljs-string">'highestgradecompleted'</span>,<span class="hljs-string">'maritalstatus'</span>,
+...   <span class="hljs-string">'childathome'</span>,<span class="hljs-string">'</span><span class="hljs-string">childnotathome'</span>,<span class="hljs-string">'wageincome'</span>,
+...   <span class="hljs-string">'weeklyhrscomputer'</span>,<span class="hljs-string">'weeklyhrstv'</span>,<span class="hljs-string">'nightlyhrssleep'</span>,
+...   <span class="hljs-string">'highestdegree'</span>]
+weeksworked = [<span class="hljs-string">'weeksworked00'</span>,<span class="hljs-string">'weeksworked01'</span>,
+...   <span class="hljs-string">'weeksworked02'</span>,<span class="hljs-string">'weeksworked03'</span>,<span class="hljs-string">'weeksworked04'</span>,
+       ...
+      <span class="hljs-string">'weeksworked14'</span>,<span class="hljs-string">'weeksworked15'</span>,<span class="hljs-string">'weeksworked16'</span>,
+...   <span class="hljs-string">'weeksworked17'</span>]
+colenr = [<span class="hljs-string">'colenrfeb97'</span>,<span class="hljs-string">'</span><span class="hljs-string">colenroct97'</span>,<span class="hljs-string">'colenrfeb98'</span>,
+...   <span class="hljs-string">'colenroct98'</span>,<span class="hljs-string">'colenrfeb99'</span>,<span class="hljs-string">'colenroct99'</span>,
+       .
+...   <span class="hljs-string">'colenrfeb15'</span>,<span class="hljs-string">'colenroct15'</span>,<span class="hljs-string">'colenrfeb16'</span>,...   <span class="hljs-string">'</span><span class="hljs-string">colenroct16'</span>,<span class="hljs-string">'colenrfeb17'</span>,<span class="hljs-string">'colenroct17'</span>]
+</code></pre>
+    <ol>
+      <li class="numberedList" value="8">Create the new reorganized DataFrame:
+        <pre class="programlisting code-one"><code class="hljs-code">nls97 = nls97[demoadult + demo + highschoolrecord + \
+...   govresp + weeksworked + colenr]
+nls97.dtypes
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">highestgradecompleted	float64
+maritalstatus		category
+childathome			float64
+childnotathome		float64
+wageincome			float64
+                           ...  
+colenroct15			category
+colenrfeb16			category
+colenroct16			category
+colenrfeb17			category
+colenroct17			category
+Length: 88, dtype: object
+</code></pre>
+      </li>
+    </ol>
+    <p class="normal">The preceding steps showed how to select columns and change the order of columns in a <code class="inlineCode">pandas</code> DataFrame.</p>
+    <h2 id="_idParaDest-96" class="heading-2">How it works…</h2>
+    <p class="normal">Both the <code class="inlineCode">[]</code> bracket operator<a id="_idIndexMarker179"/> and the <code class="inlineCode">loc</code> data accessor<a id="_idIndexMarker180"/> are very handy for selecting and organizing columns. Each returns a DataFrame when passed a list of names of columns. The columns will be ordered according to the passed list of column names.</p>
+    <p class="normal">In <em class="italic">Step 1</em>, we use <code class="inlineCode">nls97.select_dtypes(['object'])</code> to select columns with object data type and chain that with <code class="inlineCode">transform</code> and a <code class="inlineCode">lambda</code> function (<code class="inlineCode">transform(lambda x: x.astype('category'))</code>) to change those columns to category. We use the <code class="inlineCode">loc</code> accessor to only update columns with the object data type (<code class="inlineCode">nls97.loc[:, nls97.dtypes == 'object']</code>). We go into much more detail on the use of <code class="inlineCode">transform</code>, <code class="inlineCode">apply</code> (which works similarly to <code class="inlineCode">transform</code>), and <code class="inlineCode">lambda</code> functions in <em class="chapterRef">Chapter 6</em>, <em class="italic">Cleaning and Exploring Data with Series Operations</em>.</p>
+    <p class="normal">We select columns by data type in <em class="italic">Step 6</em>. <code class="inlineCode">select_dtypes</code> becomes quite useful when passing columns to methods such as <code class="inlineCode">describe</code> or <code class="inlineCode">value_counts</code>, when you want to limit the analysis to continuous or categorical variables.</p>
+    <p class="normal">In <em class="italic">Step 8</em>, we concatenate six different lists when using the bracket operator. This moves the column names in <code class="inlineCode">demoadult</code> to the front and organizes all of the columns by those six groups. There are now clear <em class="italic">high school record</em> and <em class="italic">weeks worked</em> sections in our DataFrame’s columns.</p>
+    <h2 id="_idParaDest-97" class="heading-2">There’s more…</h2>
+    <p class="normal">We can also use <code class="inlineCode">select_dtypes</code> to exclude<a id="_idIndexMarker181"/> data types. Also, if we are just interested in the <code class="inlineCode">info</code> results, we can chain the <code class="inlineCode">select_dtypes</code> call with the <code class="inlineCode">info</code> method:</p>
+    <pre class="programlisting code"><code class="hljs-code">nls97.select_dtypes(exclude=[<span class="hljs-string">"category"</span>]).info()
+</code></pre>
+    <pre class="programlisting con"><code class="hljs-con">&lt;class 'pandas.core.frame.DataFrame'&gt;
+Int64Index: 8984 entries, 100061 to 999963
+Data columns (total 31 columns):
+ #   Column				Non-Null Count		Dtype 
+---  ------				--------------		----- 
+ 0   highestgradecompleted		6663 non-null		float64
+ 1   childathome			4791 non-null		float64
+ 2   childnotathome		4	791 non-null		float64
+ 3   wageincome			5091 non-null		float64
+ 4   nightlyhrssleep		6706 non-null		float64
+ 5   birthmonth			8984 non-null		int64 
+ 6   birthyear			8984 non-null		int64 
+...
+ 25  weeksworked12			7747 non-null		float64
+ 26  weeksworked13			7680 non-null		float64
+ 27  weeksworked14			7612 non-null		float64
+ 28  weeksworked15			7389 non-null		float64
+ 29  weeksworked16			7068 non-null		float64
+ 30  weeksworked17			6670 non-null		float64
+dtypes: float64(29), int64(2)
+memory usage: 2.2 MB
+</code></pre>
+    <p class="normal">The <code class="inlineCode">filter</code> operator can also take a regular<a id="_idIndexMarker182"/> expression. For example, you can return the columns that have <code class="inlineCode">income</code> in their names:</p>
+    <pre class="programlisting code"><code class="hljs-code">nls97.<span class="hljs-built_in">filter</span>(regex=<span class="hljs-string">'income'</span>)
+</code></pre>
+    <pre class="programlisting con"><code class="hljs-con">		wageincome	govincomediff
+personid                         
+100061	12,500		NaN
+100139	120,000		NaN
+100284	58,000		NaN
+100292	nan		NaN
+100583	30,000		NaN
+...		...		...
+999291	35,000		NaN
+999406	116,000		NaN
+999543	nan		NaN
+999698	nan		NaN
+999963	50,000		NaN
+</code></pre>
+    <h2 id="_idParaDest-98" class="heading-2">See also</h2>
+    <p class="normal">Many of these techniques can be used to create <code class="inlineCode">pandas</code> Series as well as DataFrames. We demonstrate this in <em class="chapterRef">Chapter 6</em>, <em class="italic">Cleaning and Exploring Data with Series Operations</em>.</p>
+    <h1 id="_idParaDest-99" class="heading-1">Selecting rows</h1>
+    <p class="normal">When we are taking the measure<a id="_idIndexMarker183"/> of our data and otherwise answering the question, <em class="italic">“How does it look?”</em>, we constantly zoom in and out and look at aggregated numbers and particular rows. But there are also important data issues that are only obvious at an intermediate-zoom level, issues that we only notice when looking at some subset of rows. This recipe demonstrates how to use pandas tools to detect data issues in subsets of our data.</p>
+    <h2 id="_idParaDest-100" class="heading-2">Getting ready...</h2>
+    <p class="normal">We will continue working with the NLS data in this recipe.</p>
+    <h2 id="_idParaDest-101" class="heading-2">How to do it...</h2>
+    <p class="normal">We will go over several techniques for selecting rows in a <code class="inlineCode">pandas</code> DataFrame:</p>
+    <ol>
+      <li class="numberedList" value="1">Import <code class="inlineCode">pandas</code> and <code class="inlineCode">numpy</code>, and load the <code class="inlineCode">nls97</code> data:
+        <pre class="programlisting code-one"><code class="hljs-code"><span class="hljs-keyword">import</span> pandas <span class="hljs-keyword">as</span> pd
+<span class="hljs-keyword">import</span> numpy <span class="hljs-keyword">as</span> np
+nls97 = pd.read_csv(<span class="hljs-string">"</span><span class="hljs-string">data/nls97.csv"</span>)
+nls97.set_index(<span class="hljs-string">"personid"</span>, inplace=<span class="hljs-literal">True</span>)
+</code></pre>
+      </li>
+      <li class="numberedList">Use slicing to start at the 1001<sup class="superscript">st</sup> row and go to the 1004<sup class="superscript">th</sup> row.</li>
+    </ol>
+    <p class="normal-one"><code class="inlineCode">nls97[1000:1004]</code> selects every row starting from the row indicated by the integer to the left of the colon (<code class="inlineCode">1000</code>, in this case) to, but not including, the row indicated by the integer to the right of the colon (<code class="inlineCode">1004</code>). The row at <code class="inlineCode">1000</code> is actually the 1001<sup class="superscript">st</sup> row because of zero-based indexing. Each row appears as a column in the output since we have transposed the resulting DataFrame:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">nls97[<span class="hljs-number">1000</span>:<span class="hljs-number">1004</span>].T
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">personid                 195884  195891           195970           195996
+gender                   Male    Male             Female           Female
+birthmonth               12      9                3                9
+birthyear                1981    1980             1982             1980
+highestgradecompleted    NaN     12               17               NaN
+maritalstatus            NaN     Never-married    Never-married    NaN
+...                      ...     ...              ...              ...colenroct15              NaN     1. Not enrolled  1. Not enrolled  NaN
+colenrfeb16              NaN     1. Not enrolled  1. Not enrolled  NaN
+colenroct16              NaN     1. Not enrolled  1. Not enrolled  NaN
+colenrfeb17              NaN     1. Not enrolled  1. Not enrolled  NaN
+colenroct17              NaN     1. Not enrolled  1. Not enrolled  NaN
+</code></pre>
+    <ol>
+      <li class="numberedList" value="3">Use slicing to start<a id="_idIndexMarker184"/> at the 1001<sup class="superscript">st</sup> row and go to the 1004<sup class="superscript">th</sup> row, skipping every other row.</li>
+    </ol>
+    <p class="normal-one">The integer after the second colon (<code class="inlineCode">2</code> in this case) indicates the size of the step. When the step is excluded it is assumed to be 1. Notice that by setting the value of the step to <code class="inlineCode">2</code>, we are skipping every other row:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">nls97[<span class="hljs-number">1000</span>:<span class="hljs-number">1004</span>:<span class="hljs-number">2</span>].T
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">personid			195884		195970
+gender			Male		Female
+birthmonth			12		3
+birthyear			1981		1982
+highestgradecompleted	NaN		17
+maritalstatus		NaN		Never-married
+...				...		...
+colenroct15			NaN		1. Not enrolled
+colenrfeb16			NaN		1. Not enrolled
+colenroct16			NaN		1. Not enrolled
+colenrfeb17			NaN		1. Not enrolled
+colenroct17			NaN		1. Not enrolled
+</code></pre>
+    <ol>
+      <li class="numberedList" value="4">Select the first three rows using <code class="inlineCode">[]</code> operator slicing.</li>
+    </ol>
+    <p class="normal-one">By not providing a value to the left of the colon in <code class="inlineCode">[:3]</code>, we are telling the operator to get rows from the start of the DataFrame:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">nls97[:<span class="hljs-number">3</span>].T
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">personid	100061           100139           100284
+gender	Female           Male             Male
+birthmonth	5                9                11
+birthyear	1980             1983             1984
+...          ...              ...              ...
+colenroct15	1. Not enrolled  1. Not enrolled  1. Not enrolled
+colenrfeb16  1. Not enrolled  1. Not enrolled  1. Not enrolled
+colenroct16  1. Not enrolled  1. Not enrolled  1. Not enrolled
+colenrfeb17  1. Not enrolled  1. Not enrolled  1. Not enrolled
+colenroct17  1. Not enrolled  1. Not enrolled  1. Not enrolled
+</code></pre>
+    <p class="normal-one">Note that <code class="inlineCode">nls97[:3]</code> returns<a id="_idIndexMarker185"/> the same DataFrame as <code class="inlineCode">nls97.head(3)</code> would have returned.</p>
+    <ol>
+      <li class="numberedList" value="5">Select the last three rows using <code class="inlineCode">[]</code> operator slicing:
+        <pre class="programlisting code-one"><code class="hljs-code">nls97[-<span class="hljs-number">3</span>:].T
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">personid	999543	999698	999963
+gender	Female	Female	Female
+birthmonth	8	5	9
+birthyear	1984	1983	1982
+...                      ...              ...              ...
+colenroct15  1. Not enrolled  1. Not enrolled  1. Not enrolled
+colenrfeb16  1. Not enrolled  1. Not enrolled  1. Not enrolled
+colenroct16  1. Not enrolled  1. Not enrolled  1. Not enrolled
+colenrfeb17  1. Not enrolled  1. Not enrolled  1. Not enrolled
+colenroct17  1. Not enrolled  1. Not enrolled  1. Not enrolled
+</code></pre>
+      </li>
+    </ol>
+    <p class="normal-one">Note that <code class="inlineCode">nls97[-3:]</code> returns the same DataFrame as <code class="inlineCode">nls97.tail(3)</code> would have returned.</p>
+    <ol>
+      <li class="numberedList" value="6">Select a few rows<a id="_idIndexMarker186"/> using the <code class="inlineCode">loc</code> data accessor.</li>
+    </ol>
+    <p class="normal-one">Use the <code class="inlineCode">loc</code> accessor to select by <code class="inlineCode">index</code> label. We can pass a list of index labels or we can specify a range of labels. (Recall that we have set <code class="inlineCode">personid</code> as the index.) Note that <code class="inlineCode">nls97.loc[[195884,195891,195970]]</code> and <code class="inlineCode">nls97.loc[195884:195970]</code> return the same DataFrame, since those rows are contiguous:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">nls97.loc[[<span class="hljs-number">195884</span>,<span class="hljs-number">195891</span>,<span class="hljs-number">195970</span>]].T
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">personid		     195884 195891		195970
+gender		     Male   Male		Female
+birthmonth		     12     9			3
+birthyear		     1981   1980		1982
+highestgradecompleted    NaN    12			17
+maritalstatus            NaN    Never-married    Never-married
+...                      ...   ...              ...
+colenroct15              NaN    1. Not enrolled  1. Not enrolled
+colenrfeb16              NaN    1. Not enrolled  1. Not enrolled
+colenroct16              NaN    1. Not enrolled  1. Not enrolled
+colenrfeb17              NaN    1. Not enrolled  1. Not enrolled
+colenroct17              NaN    1. Not enrolled  1. Not enrolled
+</code></pre>
+    <pre class="programlisting code-one"><code class="hljs-code">nls97.loc[<span class="hljs-number">195884</span>:<span class="hljs-number">195970</span>].T
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">personid		     195884  195891		 195970
+gender		     Male    Male		 Female
+birthmonth		     12      9			 3
+birthyear		     1981    1980		 1982
+highestgradecompleted    NaN     12		 17
+maritalstatus            NaN     Never-married    Never-married
+...                      ...     ...              ...
+colenroct15              NaN     1. Not enrolled  1. Not enrolled
+colenrfeb16              NaN     1. Not enrolled  1. Not enrolled
+colenroct16              NaN     1. Not enrolled  1. Not enrolled
+colenrfeb17              NaN     1. Not enrolled  1. Not enrolled
+colenroct17              NaN     1. Not enrolled  1. Not enrolled
+</code></pre>
+    <ol>
+      <li class="numberedList" value="7">Select a row from the beginning of the DataFrame with the <code class="inlineCode">iloc</code> data accessor.</li>
+    </ol>
+    <p class="normal-one"><code class="inlineCode">iloc</code> differs from <code class="inlineCode">loc</code> in that it takes<a id="_idIndexMarker187"/> a list of row position integers, rather than index labels. For that reason, it works similarly to bracket operator slicing. In this step, we first pass a one-item list with the value of <code class="inlineCode">0</code>. That returns a DataFrame with the first row: </p>
+    <pre class="programlisting code-one"><code class="hljs-code">nls97.iloc[[<span class="hljs-number">0</span>]].T
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">personid			100061
+gender			Female
+birthmonth			5
+birthyear			1980
+highestgradecompleted	13
+maritalstatus		Married
+...                                ...
+colenroct15			1. Not enrolled
+colenrfeb16			1. Not enrolled
+colenroct16			1. Not enrolled
+colenrfeb17			1. Not enrolled
+colenroct17			1. Not enrolled
+</code></pre>
+    <ol>
+      <li class="numberedList" value="8">Select a few rows from the beginning of the DataFrame with the <code class="inlineCode">iloc</code> data accessor.</li>
+    </ol>
+    <p class="normal-one">We pass a three-item list, <code class="inlineCode">[0,1,2]</code>, to return a DataFrame of the first three rows of <code class="inlineCode">nls97</code>:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">nls97.iloc[[<span class="hljs-number">0</span>,<span class="hljs-number">1</span>,<span class="hljs-number">2</span>]].T
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">personid      100061            100139            100284
+gender        Female            Male              Male
+birthmonth    5                 9                 11
+birthyear     1980              1983              1984
+...           ...               ...               ...
+colenroct15   1. Not enrolled   1. Not enrolled   1. Not enrolled
+colenrfeb16   1. Not enrolled   1. Not enrolled   1. Not enrolled
+colenroct16   1. Not enrolled   1. Not enrolled   1. Not enrolled
+colenrfeb17   1. Not enrolled   1. Not enrolled   1. Not enrolled
+colenroct17   1. Not enrolled   1. Not enrolled   1. Not enrolled
+</code></pre>
+    <p class="normal-one">We would get the same result if we passed <code class="inlineCode">[0:3]</code> to the accessor.</p>
+    <ol>
+      <li class="numberedList" value="9">Select a few rows from the end of the DataFrame<a id="_idIndexMarker188"/> with the <code class="inlineCode">iloc</code> data accessor.</li>
+    </ol>
+    <p class="normal-one">Use <code class="inlineCode">nls97.iloc[[-3,-2,-1]]</code> to retrieve the last three rows of the DataFrame:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">nls97.iloc[[-<span class="hljs-number">3</span>,-<span class="hljs-number">2</span>,-<span class="hljs-number">1</span>]].T
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">personid	999543           999698           999963
+gender	Female           Female           Female
+birthmonth	8                5                9
+birthyear	1984             1983             1982
+...          ...              ...              ...
+colenroct15  1. Not enrolled  1. Not enrolled  1. Not enrolled
+colenrfeb16  1. Not enrolled  1. Not enrolled  1. Not enrolled
+colenroct16  1. Not enrolled  1. Not enrolled  1. Not enrolled
+colenrfeb17  1. Not enrolled  1. Not enrolled  1. Not enrolled
+colenroct17  1. Not enrolled  1. Not enrolled  1. Not enrolled
+</code></pre>
+    <p class="normal-one">We would have gotten the same result with <code class="inlineCode">nls97.iloc[-3:]</code>. By not providing a value to the right of the colon in <code class="inlineCode">[-3:]</code>, we are telling the accessor to get all rows from the third-to-last row to the end of the DataFrame.</p>
+    <ol>
+      <li class="numberedList" value="10">Select multiple rows conditionally using boolean indexing.</li>
+    </ol>
+    <p class="normal-one">Create a DataFrame of just <a id="_idIndexMarker189"/>individuals receiving very little sleep. About 5% of survey respondents got 4 or fewer hours of sleep per night, of the 6,706 individuals who responded to that question. Test who is getting 4 or fewer hours of sleep with <code class="inlineCode">nls97.nightlyhrssleep&lt;=4</code>, which generates a pandas Series of <code class="inlineCode">True</code> and <code class="inlineCode">False</code> values that we assign to <code class="inlineCode">sleepcheckbool</code>. Pass that Series to the <code class="inlineCode">loc</code> accessor to create a <code class="inlineCode">lowsleep</code> DataFrame. <code class="inlineCode">lowsleep</code> has approximately the number of rows we are expecting. We do not need to do the extra step of assigning the boolean Series to a variable. This is done here only for explanatory purposes:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">nls97.nightlyhrssleep.quantile(<span class="hljs-number">0.05</span>)
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">4.0
+</code></pre>
+    <pre class="programlisting code-one"><code class="hljs-code">nls97.nightlyhrssleep.count()
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">6706
+</code></pre>
+    <pre class="programlisting code-one"><code class="hljs-code">sleepcheckbool = nls97.nightlyhrssleep&lt;=<span class="hljs-number">4</span>
+sleepcheckbool
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">personid
+100061    False
+100139    False
+100284    False
+100292    False
+100583    False
+          ... 
+999291    False
+999406    False
+999543    False
+999698    False
+999963    False
+Name: nightlyhrssleep, Length: 8984, dtype: bool
+</code></pre>
+    <pre class="programlisting code-one"><code class="hljs-code">lowsleep = nls97.loc[sleepcheckbool]
+lowsleep.shape
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">(364, 88)
+</code></pre>
+    <ol>
+      <li class="numberedList" value="11">Select rows based on multiple conditions.</li>
+    </ol>
+    <p class="normal-one">It may be that folks who are not getting<a id="_idIndexMarker190"/> a lot of sleep also have a fair number of children who live with them. Use <code class="inlineCode">describe</code> to get a sense of the distribution of the number of children for those who have <code class="inlineCode">lowsleep</code>. About a quarter have three or more children. Create a new DataFrame with individuals who have <code class="inlineCode">nightlyhrssleep</code> of 4 or less and number of children at home of 3 or more. The <code class="inlineCode">&amp;</code> is the logical <em class="italic">and</em> operator in pandas and indicates that both conditions have to be true for the row to be selected:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">lowsleep.childathome.describe()
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">count		293.00
+mean		1.79
+std		1.40
+min		0.00
+25%		1.00
+50%		2.00
+75%		3.00
+max		9.00
+</code></pre>
+    <pre class="programlisting code-one"><code class="hljs-code">lowsleep3pluschildren = nls97.loc[(nls97.nightlyhrssleep&lt;=<span class="hljs-number">4</span>) &amp; (nls97.childathome&gt;=<span class="hljs-number">3</span>)]
+lowsleep3pluschildren.shape
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">(82, 88)
+</code></pre>
+    <p class="normal-one">We would have gotten the same result if we worked from the <code class="inlineCode">lowsleep</code> DataFrame – <code class="inlineCode">lowsleep3pluschildren = lowsleep.loc[lowsleep.childathome&gt;=3]</code> – but then we would not have been able to demonstrate testing multiple conditions.</p>
+    <ol>
+      <li class="numberedList" value="12">Select rows and columns based on multiple conditions.</li>
+    </ol>
+    <p class="normal-one">Pass the condition to the <code class="inlineCode">loc</code> accessor to select rows. Also, pass a list of column names to select:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">lowsleep3pluschildren = nls97.loc[(nls97.nightlyhrssleep&lt;=<span class="hljs-number">4</span>) &amp; (nls97.childathome&gt;=<span class="hljs-number">3</span>), [<span class="hljs-string">'nightlyhrssleep'</span>,<span class="hljs-string">'childathome'</span>]]
+lowsleep3pluschildren
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">             nightlyhrssleep	childathome
+personid                             
+119754	4			4
+141531	4			5
+152706	4			4
+156823	1			3
+158355	4			4
+...         ...			...
+905774	4			3
+907315	4			3
+955166	3			3
+956100	4			6
+991756	4			3
+</code></pre>
+    <p class="normal">The preceding steps demonstrated the key techniques for selecting rows in pandas.</p>
+    <h2 id="_idParaDest-102" class="heading-2">How it works…</h2>
+    <p class="normal">We used the <code class="inlineCode">[]</code> bracket operator<a id="_idIndexMarker191"/> in <em class="italic">Steps 2 </em>through<em class="italic"> 5</em> to do standard Python-like slicing to select rows. That operator allows us to easily select rows based on a list or a range of values indicated with slice notation. This notation takes the form of <code class="inlineCode">[start:end:step]</code>, where a value of <code class="inlineCode">1</code> for <code class="inlineCode">step</code> is assumed if no value is provided. When a negative number is used for <code class="inlineCode">start</code>, it represents the number of rows from the end of the DataFrame.</p>
+    <p class="normal">The <code class="inlineCode">loc</code> accessor, used in <em class="italic">Step 6</em>, selects rows based on row index labels. Since <code class="inlineCode">personid</code> is the index for the DataFrame, we can pass a list of one or more <code class="inlineCode">personid</code> values to the <code class="inlineCode">loc</code> accessor to get a DataFrame with rows for those index labels. We can also pass a range of index labels to the accessor, which will return a DataFrame with all rows having index labels between the label to the left of the colon and the label to the right (inclusive); so, <code class="inlineCode">nls97.loc[195884:195970]</code> returns a DataFrame for rows with <code class="inlineCode">personid</code> between <code class="inlineCode">195884</code> and <code class="inlineCode">195970</code>, including those two values.</p>
+    <p class="normal">The <code class="inlineCode">iloc</code> accessor works very much like the bracket operator. We see this in <em class="italic">Steps 7 </em>through<em class="italic"> 9</em>. We can pass either a list of integers or a range using slicing notation.</p>
+    <p class="normal">One of the most valuable pandas capabilities is boolean indexing. It makes it easy to select rows conditionally. We see this in <em class="italic">Step 10</em>. A test returns a boolean series. The <code class="inlineCode">loc</code> accessor selects all rows for which the test is <code class="inlineCode">True</code>. We actually didn’t need to assign the boolean data Series to the variable that we then passed to the <code class="inlineCode">loc</code> operator. We could have just passed the test to the <code class="inlineCode">loc</code> accessor with <code class="inlineCode">nls97.loc[nls97.nightlyhrssleep&lt;=4]</code>.</p>
+    <p class="normal">We should take a closer look at how we used the <code class="inlineCode">loc</code> accessor to select rows in <em class="italic">Step 11</em>. Each condition in <code class="inlineCode">nls97.loc[(nls97.nightlyhrssleep&lt;=4) &amp; (nls97.childathome&gt;=3)]</code> is placed in parentheses. An error will be generated if the parentheses are excluded. The <code class="inlineCode">&amp;</code> operator is the equivalent of <code class="inlineCode">and</code> in standard Python, meaning that <em class="italic">both</em> conditions have to be <code class="inlineCode">True</code> for the given row to be selected. We would have used <code class="inlineCode">|</code> for <code class="inlineCode">or</code> if we had wanted to select the rows where <em class="italic">either</em> condition was <code class="inlineCode">True</code>.</p>
+    <p class="normal">Finally, <em class="italic">Step 12</em> demonstrates how to select both rows and columns in one call to the <code class="inlineCode">loc</code> accessor. The criteria for rows appear before the comma and the columns to select appear after the comma, as in the following statement:</p>
+    <pre class="programlisting code"><code class="hljs-code">nls97.loc[(nls97.nightlyhrssleep&lt;=<span class="hljs-number">4</span>) &amp; (nls97.childathome&gt;=<span class="hljs-number">3</span>), [<span class="hljs-string">'nightlyhrssleep'</span>,<span class="hljs-string">'childathome'</span>]]
+</code></pre>
+    <p class="normal">This returns the <code class="inlineCode">nightlyhrssleep</code> and <code class="inlineCode">childathome</code> columns for all rows where the individual has <code class="inlineCode">nightlyhrssleep</code> of less than or equal<a id="_idIndexMarker192"/> to 4, and <code class="inlineCode">childathome</code> greater than or equal to 3.</p>
+    <h2 id="_idParaDest-103" class="heading-2">There’s more…</h2>
+    <p class="normal">We used three different tools to select rows from a pandas DataFrame in this recipe: the <code class="inlineCode">[]</code> bracket operator, and two pandas-specific accessors, <code class="inlineCode">loc</code> and <code class="inlineCode">iloc</code>. This is a little confusing if you are new to pandas, but it becomes clear which tool to use in which situation after just a few months. If you came to pandas with a fair bit of Python and NumPy experience, you likely find the <code class="inlineCode">[]</code> operator most familiar. However, the pandas documentation recommends against using the <code class="inlineCode">[]</code> operator for production code. I have settled on a routine of using that operator only for selecting columns from a DataFrame. I use the <code class="inlineCode">loc</code> accessor when selecting rows by boolean indexing or by index label, and the <code class="inlineCode">iloc</code> accessor for selecting rows by row number. Since my workflow has me using a fair bit of boolean indexing, I use <code class="inlineCode">loc</code> much more than the other methods.</p>
+    <h2 id="_idParaDest-104" class="heading-2">See also</h2>
+    <p class="normal">The recipe immediately preceding this one, <em class="italic">Selecting and organizing columns</em>, has a more detailed discussion on selecting columns.</p>
+    <h1 id="_idParaDest-105" class="heading-1">Generating frequencies for categorical variables</h1>
+    <p class="normal">Many years ago, a very seasoned<a id="_idIndexMarker193"/> researcher said to me, <em class="italic">“90% of what we’re going to find, we’ll see in the frequency distributions</em>.<em class="italic">”</em> That message<a id="_idIndexMarker194"/> has stayed with me. The more one-way and two-way frequency distributions (crosstabs) I do on a DataFrame, the better I understand it. We will do one-way distributions in this recipe, and crosstabs in subsequent recipes.</p>
+    <h2 id="_idParaDest-106" class="heading-2">Getting ready…</h2>
+    <p class="normal">We continue our work with the NLS. We will also be doing a fair bit of column selection using filter methods. It is not necessary to review the recipe in this chapter on column selection, but it might be helpful.</p>
+    <h2 id="_idParaDest-107" class="heading-2">How to do it…</h2>
+    <p class="normal">We use pandas tools to generate frequencies, particularly the very handy <code class="inlineCode">value_counts</code>:</p>
+    <ol>
+      <li class="numberedList" value="1">Load the <code class="inlineCode">pandas</code> library and the <code class="inlineCode">nls97</code> file.</li>
+    </ol>
+    <p class="normal-one">Also, convert the columns of object data type to the category data type:</p>
+    <pre class="programlisting code-one"><code class="hljs-code"><span class="hljs-keyword">import</span> pandas <span class="hljs-keyword">as</span> pd
+nls97 = pd.read_csv(<span class="hljs-string">"data/nls97.csv"</span>)
+nls97.set_index(<span class="hljs-string">"personid"</span>, inplace=<span class="hljs-literal">True</span>)
+nls97[nls97.select_dtypes([<span class="hljs-string">'object'</span>]).columns] = \
+  nls97.select_dtypes([<span class="hljs-string">'object'</span>]). \
+  transform(<span class="hljs-keyword">lambda</span> x: x.astype(<span class="hljs-string">'category'</span>))
+</code></pre>
+    <ol>
+      <li class="numberedList" value="2">Show the names of the columns of the category data type and check for the number of missing values.</li>
+    </ol>
+    <p class="normal-one">Note that there are no missing values for <code class="inlineCode">gender</code> and only a few for <code class="inlineCode">highestdegree</code>, but many for <code class="inlineCode">maritalstatus</code> and other columns:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">catcols = nls97.select_dtypes(include=[<span class="hljs-string">"category"</span>]).columns
+nls97[catcols].isnull().<span class="hljs-built_in">sum</span>()
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">gender		0
+maritalstatus	2312
+weeklyhrscomputer	2274
+weeklyhrstv		2273
+highestdegree	31
+                    ...
+colenroct15		1515
+colenrfeb16		1948
+colenroct16		2251
+colenrfeb17		2251
+colenroct17		2250
+Length: 57, dtype: int64
+</code></pre>
+    <ol>
+      <li class="numberedList" value="3">Show the frequencies<a id="_idIndexMarker195"/> for marital<a id="_idIndexMarker196"/> status:
+        <pre class="programlisting code-one"><code class="hljs-code">nls97.maritalstatus.value_counts()
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">Married		3066
+Never-married	2766
+Divorced		663
+Separated		154
+Widowed		23
+Name: maritalstatus, dtype: int64
+</code></pre>
+      </li>
+      <li class="numberedList">Turn off sorting by frequency:
+        <pre class="programlisting code-one"><code class="hljs-code">nls97.maritalstatus.value_counts(sort=<span class="hljs-literal">False</span>)
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">Divorced		663
+Married		3066
+Never-married	2766
+Separated		154
+Widowed		23
+Name: maritalstatus, dtype: int64
+</code></pre>
+      </li>
+      <li class="numberedList">Show percentages instead of counts:
+        <pre class="programlisting code-one"><code class="hljs-code">nls97.maritalstatus.value_counts(sort=<span class="hljs-literal">False</span>, normalize=<span class="hljs-literal">True</span>)
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">Divorced		0.10
+Married		0.46
+Never-married	0.41
+Separated		0.02
+Widowed		0.00
+Name: maritalstatus, dtype: float64
+</code></pre>
+      </li>
+      <li class="numberedList">Show the percentages for all government responsibility columns.</li>
+    </ol>
+    <p class="normal-one">Filter the DataFrame<a id="_idIndexMarker197"/> for just the government responsibility<a id="_idIndexMarker198"/> columns, then use <code class="inlineCode">apply</code> to run <code class="inlineCode">value_counts</code> on all columns in that DataFrame:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">nls97.<span class="hljs-built_in">filter</span>(like=<span class="hljs-string">"gov"</span>).apply(pd.Series.value_counts, normalize=<span class="hljs-literal">True</span>)
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">                    govprovidejobs		govpricecontrols	...  \
+1. Definitely	0.25			0.54			...  
+2. Probably		0.34			0.33			...  
+3. Probably not	0.25			0.09			...  
+4. Definitely not	0.16			0.04			...  
+                    govdecenthousing	govprotectenvironment 
+1. Definitely	0.44			0.67 
+2. Probably		0.43			0.29 
+3. Probably not	0.10			0.03 
+4. Definitely not	0.02			0.02
+</code></pre>
+    <ol>
+      <li class="numberedList" value="7">Find the percentages, for all government responsibility columns, of people who are married.</li>
+    </ol>
+    <p class="normal-one">Do what we did in <em class="italic">Step 6</em>, but first select only rows with marital status equal to <code class="inlineCode">Married</code>:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">nls97[nls97.maritalstatus==<span class="hljs-string">"Married"</span>].\
+... <span class="hljs-built_in">filter</span>(like=<span class="hljs-string">"gov"</span>).\
+... apply(pd.Series.value_counts, normalize=<span class="hljs-literal">True</span>)
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">                    govprovidejobs		govpricecontrols	...  \
+1. Definitely	0.17			0.46			...  
+2. Probably		0.33			0.38			...  
+3. Probably not	0.31			0.11			...  
+4. Definitely not	0.18			0.05			...  
+                    govdecenthousing	govprotectenvironment 
+1. Definitely	0.36			0.64 
+2. Probably		0.49			0.31 
+3. Probably not	0.12			0.03 
+4. Definitely not	0.03			0.01
+</code></pre>
+    <ol>
+      <li class="numberedList" value="8">Find the frequencies<a id="_idIndexMarker199"/> and percentages for all category<a id="_idIndexMarker200"/> columns in the DataFrame.</li>
+    </ol>
+    <p class="normal-one">First, open a file to write out the frequencies:</p>
+    <pre class="programlisting code-one"><code class="hljs-code"><span class="hljs-keyword">for</span> col <span class="hljs-keyword">in</span> nls97.\
+  select_dtypes(include=[<span class="hljs-string">"category"</span>]):
+    <span class="hljs-built_in">print</span>(col, <span class="hljs-string">"----------------------"</span>,
+      <span class="hljs-string">"frequencies"</span>,
+    nls97[col].value_counts(sort=<span class="hljs-literal">False</span>),
+      <span class="hljs-string">"percentages"</span>,
+    nls97[col].value_counts(normalize=<span class="hljs-literal">True</span>,
+      sort=<span class="hljs-literal">False</span>),
+    sep=<span class="hljs-string">"</span><span class="hljs-string">\n\n"</span>, end=<span class="hljs-string">"\n\n\n"</span>, file=freqout)
+freqout.close()
+</code></pre>
+    <p class="normal-one">This generates a file, the beginning of which looks like this:</p>
+    <pre class="programlisting con-one"><code class="hljs-con">gender
+----------------------
+frequencies
+Female	4385
+Male		4599
+Name: gender, dtype: int64
+percentages
+Female	0.49
+Male		0.51
+Name: gender, dtype: float64
+</code></pre>
+    <p class="normal">As these steps demonstrate, <code class="inlineCode">value_counts</code> is quite useful when we need to generate frequencies for one or more columns of a DataFrame.</p>
+    <h2 id="_idParaDest-108" class="heading-2">How it works…</h2>
+    <p class="normal">Most of the columns in the <code class="inlineCode">nls97</code> DataFrame (57 out of 88) have the object data type. If we are working with data that is logically categorical, but does not have a category data type in pandas, there are good reasons to convert it to the category type. Not only does this save memory; it also makes data cleaning a little easier, as we saw in this recipe.</p>
+    <p class="normal">The star of the show for this recipe is the <code class="inlineCode">value_counts</code> method. It can generate frequencies for a Series, as we did with <code class="inlineCode">nls97.maritalstatus.value_counts</code>. It can also be run on a whole DataFrame as we did with <code class="inlineCode">nls97.filter(like="gov").apply(pd.Series.value_counts, normalize=True)</code>. We first create a DataFrame with just the government responsibility columns and then pass the resulting DataFrame to <code class="inlineCode">value_counts</code> with <code class="inlineCode">apply</code>.</p>
+    <p class="normal">You probably noticed that in <em class="italic">Step 7</em>, I split the chaining over several lines to make it easier to read. There is no rule about when it makes sense to do that. I generally try to do that whenever the chaining involves three or more operations.</p>
+    <p class="normal">In <em class="italic">Step 8</em>, we iterated over all of the columns with the category data type: <code class="inlineCode">for col in nls97.select_dtypes(include=["category"])</code>. For each of those columns, we ran <code class="inlineCode">value_counts</code> to get frequencies and <code class="inlineCode">value_counts</code> again to get percentages. We used a <code class="inlineCode">print</code> function to generate the carriage returns necessary to make the output readable. All of this is saved to the <code class="inlineCode">frequencies.txt</code> file in the <code class="inlineCode">views</code> subfolder. I find it handy to have a bunch of one-way frequencies<a id="_idIndexMarker201"/> around just to check before<a id="_idIndexMarker202"/> doing any work with categorical variables. <em class="italic">Step 8</em> accomplishes that.</p>
+    <h2 id="_idParaDest-109" class="heading-2">There’s more…</h2>
+    <p class="normal">Frequency distributions may be the most important statistical tool for discovering potential data issues with categorical data. The one-way frequencies we generated in this recipe are a good foundation for further insights.</p>
+    <p class="normal">However, we often only detect problems once we examine the relationships between categorical variables and other variables, categorical or continuous. Although we stopped short of doing two-way frequencies in this recipe, we did start the process of splitting up the data for investigation in <em class="italic">Step 7</em>. In that step, we looked at government responsibility responses for married individuals and saw that those responses differed from those for the sample overall.</p>
+    <p class="normal">This raises several questions about our data that we need to explore. Are there important differences in response rates by marital status, and might this matter for the distribution of the government responsibility variables? We also want to be careful about drawing conclusions before considering potential confounding variables. Are married respondents likely to be older or to have more children, and are those more important factors in their government responsibility answers?</p>
+    <p class="normal">I am using the marital status variable as an example of the kind of queries that producing one-way frequencies, like the ones in this recipe, are likely to generate. It is always good to have some bivariate analyses (a correlation matrix, some crosstabs, or a few scatter plots) at the ready should questions like these come up. We will generate those in the next two chapters.</p>
+    <h1 id="_idParaDest-110" class="heading-1">Generating summary statistics for continuous variables</h1>
+    <p class="normal">pandas has a good number<a id="_idIndexMarker203"/> of tools we can use to get a sense<a id="_idIndexMarker204"/> of the distribution of continuous variables. We will focus on the splendid functionality of <code class="inlineCode">describe</code> in this recipe and demonstrate the usefulness of histograms for visualizing variable distributions.</p>
+    <p class="normal">Before doing any analysis with a continuous variable, it is important to have a good understanding of how it is distributed – its central tendency, its spread, and its skewness. This understanding greatly informs our efforts to identify outliers and unexpected values. But it is also crucial information in and of itself. I do not think it overstates the case to say that we understand a particular variable well if we have a good understanding of how it is distributed, and any interpretation without that understanding will be incomplete or flawed in some way.</p>
+    <h2 id="_idParaDest-111" class="heading-2">Getting ready…</h2>
+    <p class="normal">We will work with the COVID-19 totals data in this recipe. You will need <strong class="keyWord">Matplotlib</strong> to run this. If it is not installed<a id="_idIndexMarker205"/> on your machine already, you can install it in the terminal by entering <code class="inlineCode">pip install matplotlib</code>.</p>
+    <h2 id="_idParaDest-112" class="heading-2">How to do it…</h2>
+    <p class="normal">Let’s take a look<a id="_idIndexMarker206"/> at the distribution of a few key continuous<a id="_idIndexMarker207"/> variables:</p>
+    <ol>
+      <li class="numberedList" value="1">Import <code class="inlineCode">pandas</code>, <code class="inlineCode">numpy</code>, and <code class="inlineCode">matplotlib</code>, and load the COVID-19 case totals data:
+        <pre class="programlisting code-one"><code class="hljs-code"><span class="hljs-keyword">import</span> pandas <span class="hljs-keyword">as</span> pd
+<span class="hljs-keyword">import</span> numpy <span class="hljs-keyword">as</span> np
+<span class="hljs-keyword">import</span> matplotlib.pyplot <span class="hljs-keyword">as</span> plt
+covidtotals = pd.read_csv(<span class="hljs-string">"data/covidtotals.csv"</span>,
+...   parse_dates=[<span class="hljs-string">'</span><span class="hljs-string">lastdate'</span>])
+covidtotals.set_index(<span class="hljs-string">"iso_code"</span>, inplace=<span class="hljs-literal">True</span>)
+</code></pre>
+      </li>
+      <li class="numberedList">Let’s remind ourselves of the structure of the data:
+        <pre class="programlisting code-one"><code class="hljs-code">covidtotals.shape
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">(231, 16)
+</code></pre>
+        <pre class="programlisting code-one"><code class="hljs-code">covidtotals.sample(<span class="hljs-number">1</span>, random_state=<span class="hljs-number">1</span>).T
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">iso_code		GHA  \
+lastdate		2023-12-03 00:00:00  
+location		Ghana  
+total_cases		171,834.00  
+total_deaths		1,462.00  
+total_cases_pm	5,133.07  
+total_deaths_pm	43.67  
+population		33475870  
+pop_density		126.72  
+median_age		21.10  
+gdp_per_capita	4,227.63  
+hosp_beds		0.90  
+vac_per_hund		NaN  
+aged_65_older	3.38  
+life_expectancy	64.07  
+hum_dev_ind		0.61  
+region		West Africa
+</code></pre>
+        <pre class="programlisting code-one"><code class="hljs-code">covidtotals.dtypes
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">lastdate		datetime64[ns]
+location		object
+total_cases		float64
+total_deaths		float64
+total_cases_pm	float64
+total_deaths_pm	float64
+population		int64
+pop_density		float64
+median_age		float64
+gdp_per_capita	float64
+hosp_beds		float64
+vac_per_hund		float64
+aged_65_older	float64
+life_expectancy	float64
+hum_dev_ind		float64
+region		object
+dtype: object
+</code></pre>
+      </li>
+      <li class="numberedList">Get the descriptive statistics on the COVID-19 totals columns:
+        <pre class="programlisting code-one"><code class="hljs-code">totvars = [<span class="hljs-string">'total_cases'</span>,
+  <span class="hljs-string">'total_deaths'</span>,<span class="hljs-string">'total_cases_pm'</span>,
+  <span class="hljs-string">'total_deaths_pm'</span>]
+covidtotals[totvars].describe()
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">        total_cases  total_deaths  total_cases_pm  total_deaths_pm
+count         231.0         231.0           231.0            231.0
+mean    3,351,598.6      30,214.2       206,177.8          1,261.8
+std    11,483,211.8     104,778.9       203,858.1          1,315.0
+min             4.0           0.0           354.5              0.0
+25%        25,671.5         177.5        21,821.9            141.2
+50%       191,496.0       1,937.0       133,946.3            827.0
+75%     1,294,286.0      14,150.0       345,689.8          1,997.5
+max   103,436,829.0   1,127,152.0       763,475.4          6,507.7
+</code></pre>
+      </li>
+      <li class="numberedList">Take a closer look<a id="_idIndexMarker208"/> at the distribution of values<a id="_idIndexMarker209"/> for the cases and deaths columns.</li>
+    </ol>
+    <p class="normal-one">Use NumPy’s <code class="inlineCode">arange</code> method to pass a list of floats from 0 to 1.0 to the <code class="inlineCode">quantile</code> method of the DataFrame:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">covidtotals[totvars].\
+  quantile(np.arange(<span class="hljs-number">0.0</span>, <span class="hljs-number">1.1</span>, <span class="hljs-number">0.1</span>))
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">		total_cases		total_deaths		total_cases_pm \
+0.0		4.0			0.0			354.5  
+0.1		8,359.0			31.0			3,138.6  
+0.2		17,181.0		126.0			10,885.7  
+0.3		38,008.0		294.0			35,834.6  
+0.4		74,129.0		844.0			86,126.2  
+0.5		191,496.0		1,937.0			133,946.3  
+0.6		472,755.0		4,384.0			220,429.4  
+0.7		1,041,111.0		9,646.0			293,737.4  
+0.8		1,877,065.0		21,218.0		416,608.1  
+0.9		5,641,992.0		62,288.0		512,388.4  
+1.0		103,436,829.0		1,127,152.0		763,475.4  
+		total_deaths_pm 
+0.0		0.0 
+0.1		32.9 
+0.2		105.3 
+0.3		210.5 
+0.4		498.8 
+0.5		827.0 
+0.6		1,251.3 
+0.7		1,697.6 
+0.8		2,271.7 
+0.9		3,155.9 
+1.0		6,507.7
+</code></pre>
+    <ol>
+      <li class="numberedList" value="5">View the distribution<a id="_idIndexMarker210"/> of total <a id="_idIndexMarker211"/>cases:
+        <pre class="programlisting code-one"><code class="hljs-code">plt.hist(covidtotals[<span class="hljs-string">'total_cases'</span>]/<span class="hljs-number">1000</span>, bins=<span class="hljs-number">12</span>)
+plt.title(<span class="hljs-string">"Total COVID-19 Cases (in thousands)"</span>)
+plt.xlabel(<span class="hljs-string">'Cases'</span>)
+plt.ylabel(<span class="hljs-string">"Number of Countries"</span>)
+plt.show()
+</code></pre>
+      </li>
+    </ol>
+    <figure class="mediaobject"><img src="../Images/B18596_03_01.png" alt="fig"/></figure>
+    <p class="packt_figref">Figure 3.1: A plot of total COVID-19 cases</p>
+    <p class="normal">The preceding steps demonstrated the use of <code class="inlineCode">describe</code> and Matplotlib’s <code class="inlineCode">hist</code> method, which are essential tools when working with continuous variables.</p>
+    <h2 id="_idParaDest-113" class="heading-2">How it works…</h2>
+    <p class="normal">We used the <code class="inlineCode">describe</code> method in <em class="italic">Step 3</em> to examine<a id="_idIndexMarker212"/> some summary statistics<a id="_idIndexMarker213"/> and the distribution of the key variables. It is often a red flag when the mean and median (the value at the 50<sup class="superscript">th</sup> percentile) have dramatically different values. Cases and deaths are heavily skewed to the right (reflected in the mean being much higher than the median). This alerts us to the presence of outliers at the upper end. This is true even with the adjustment for population size, as both <code class="inlineCode">total_cases_pm</code> and <code class="inlineCode">total_deaths_pm</code> show this same skew. We do more analysis of outliers in the next chapter.</p>
+    <p class="normal">The more detailed percentile data in <em class="italic">Step 4</em> further supports this sense of skewness. For instance, the gap between the 90<sup class="superscript">th</sup>-percentile and 100<sup class="superscript">th</sup>-percentile values for cases and deaths is substantial. These are good first indicators that we are not dealing with normally distributed data here. Even if this is not due to errors, this matters for the statistical testing we will do down the road. On the list of things we want to note when asked, <em class="italic">“How does the data look?”</em>, this is one of the first things we want to say.</p>
+    <p class="normal">The histogram of total cases confirms that much of the distribution is between 0 and 100,000, with a few outliers and 1 extreme outlier. Visually, the distribution looks much more log-normal than normal. Log-normal distributions<a id="_idIndexMarker214"/> have fatter tails<a id="_idIndexMarker215"/> and do not have negative values.</p>
+    <h2 id="_idParaDest-114" class="heading-2">See also</h2>
+    <p class="normal">We take a closer look at outliers and unexpected values in the next chapter. We do much more with visualizations in <em class="chapterRef">Chapter 5</em>, <em class="italic">Using Visualizations for the Identification of Unexpected Values</em>.</p>
+    <h1 id="_idParaDest-115" class="heading-1">Using generative AI to display descriptive statistics</h1>
+    <p class="normal">Generative AI tools provide<a id="_idIndexMarker216"/> data scientists with a great opportunity<a id="_idIndexMarker217"/> to streamline the data cleaning and exploration parts of our workflow. Large language models, in particular, have the potential to make this work much easier and more intuitive. Using these tools, we can select rows and columns by criteria, generate summary statistics, and plot variables.</p>
+    <p class="normal">A simple way to introduce generative AI tools into your data exploration is with PandasAI. PandasAI uses the OpenAI API to translate natural language queries into data selection and operations that pandas can understand. As of July 2023, OpenAI is the only large language model API that can be used with PandasAI, though the developers of the library anticipate adding other APIs.</p>
+    <p class="normal">We can use PandasAI<a id="_idIndexMarker218"/> to substantially reduce the lines<a id="_idIndexMarker219"/> of code we need to write to produce some of the tabulations and visualizations we have created so far in this chapter. The steps in this recipe show how you can do that.</p>
+    <h2 id="_idParaDest-116" class="heading-2">Getting ready…</h2>
+    <p class="normal">You need to install PandasAI to run the code in this recipe. You can do that with <code class="inlineCode">pip install pandasai</code>. We will work with the COVID-19 data again, which is available in the GitHub repository, as is the code.</p>
+    <p class="normal">You will also need an API key from OpenAI. You can get one at <a href="https://platform.openai.com"><span class="url">platform.openai.com</span></a>. You will need to set up an account and then click on your<a id="_idIndexMarker220"/> profile in the upper-right corner, followed by <strong class="keyWord">View API keys</strong>.</p>
+    <h2 id="_idParaDest-117" class="heading-2">How to do it…</h2>
+    <p class="normal">We create a PandasAI instance in the following steps and use it to take a look at the COVID-19 data:</p>
+    <ol>
+      <li class="numberedList" value="1">We start by importing<a id="_idIndexMarker221"/> <code class="inlineCode">pandas</code> and the <code class="inlineCode">PandasAI</code> library:
+        <pre class="programlisting code-one"><code class="hljs-code"><span class="hljs-keyword">import</span> pandas <span class="hljs-keyword">as</span> pd
+<span class="hljs-keyword">from</span> pandasai.llm.openai <span class="hljs-keyword">import</span> OpenAI
+<span class="hljs-keyword">from</span> pandasai <span class="hljs-keyword">import</span> SmartDataframe
+</code></pre>
+      </li>
+      <li class="numberedList">Next, we load the COVID-19<a id="_idIndexMarker222"/> data and instantiate a <code class="inlineCode">PandasAI SmartDataframe</code> object. The <code class="inlineCode">SmartDataframe</code> object will allow us to work with our data using natural language:
+        <pre class="programlisting code-one"><code class="hljs-code">covidtotals = pd.read_csv(<span class="hljs-string">"data/covidtotals.csv"</span>,
+  parse_dates=[<span class="hljs-string">'lastdate'</span>])
+covidtotals.set_index(<span class="hljs-string">"iso_code"</span>, inplace=<span class="hljs-literal">True</span>)
+llm = OpenAI(api_token=<span class="hljs-string">"Your API Key"</span>)
+covidtotalssdf = SmartDataframe(covidtotals, config={<span class="hljs-string">"llm"</span>: llm})
+</code></pre>
+      </li>
+      <li class="numberedList">Let’s look at the structure<a id="_idIndexMarker223"/> of the COVID-19 data. We can<a id="_idIndexMarker224"/> do this by passing natural language instructions to the SmartDataframe’s <code class="inlineCode">chat</code> method:
+        <pre class="programlisting code-one"><code class="hljs-code">covidtotalssdf.chat(<span class="hljs-string">"Show me some information about the data"</span>)
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">&lt;class 'pandas.core.frame.DataFrame'&gt;
+RangeIndex: 231 entries, 0 to 230
+Data columns (total 17 columns):
+ #   Column           Non-Null Count  Dtype        
+---  ------           --------------  -----        
+ 0   iso_code         231 non-null    object       
+ 1   lastdate         231 non-null    datetime64[ns]
+ 2   location         231 non-null    object       
+ 3   total_cases      231 non-null    float64      
+ 4   total_deaths     231 non-null    float64      
+ 5   total_cases_pm   231 non-null    float64      
+ 6   total_deaths_pm  231 non-null    float64      
+ 7   population       231 non-null    int64        
+ 8   pop_density      209 non-null    float64      
+ 9   median_age       194 non-null    float64      
+ 10  gdp_per_capita   191 non-null    float64      
+ 11  hosp_beds        170 non-null    float64      
+ 12  vac_per_hund     13 non-null     float64      
+ 13  aged_65_older    188 non-null    float64      
+ 14  life_expectancy  227 non-null    float64      
+ 15  hum_dev_ind      187 non-null    float64      
+ 16  region           231 non-null    object       
+dtypes: datetime64[ns](1), float64(12), int64(1), object(3)
+memory usage: 30.8+ KB
+</code></pre>
+      </li>
+      <li class="numberedList">It is also straightforward to see the first few rows:
+        <pre class="programlisting code-one"><code class="hljs-code">covidtotalssdf.chat(<span class="hljs-string">"Show first five rows."</span>)
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">		lastdate	    location  		total_cases       ...  \
+iso_code                                                           ...  
+AFG		2024-02-04	    Afghanistan	231,539           ...  
+ALB		2024-01-28	    Albania		334,863           ...  
+DZA		2023-12-03	    Algeria		272,010           ...  
+ASM		2023-09-17	    American Samoa	8,359             ...  
+AND		2023-05-07	    Andorra		48,015            ...  
+		life_expectancy   hum_dev_ind		region 
+iso_code                                               
+AFG		65		   1			South Asia 
+ALB		79		   1			Eastern Europe 
+DZA		77		   1			North Africa 
+ASM		74		   NaN			Oceania / Aus 
+AND		84		   1			Western Europe 
+[5 rows x 16 columns]
+</code></pre>
+      </li>
+      <li class="numberedList">We can see which<a id="_idIndexMarker225"/> locations (countries) have the highest<a id="_idIndexMarker226"/> total cases:
+        <pre class="programlisting code-one"><code class="hljs-code">covidtotalssdf.chat(<span class="hljs-string">"Show total cases for locations with the five most total cases."</span>)
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">             location		total_cases
+iso_code                           
+USA		United States		103,436,829
+CHN		China			99,329,249
+IND		India			45,026,139
+FRA		France			38,997,490
+DEU		Germany			38,437,756
+</code></pre>
+      </li>
+      <li class="numberedList">We can show the highest total cases per million as well, and also show other columns.</li>
+    </ol>
+    <p class="normal-one">Notice that we do not need to add the underscores in <code class="inlineCode">total_cases_pm</code> or <code class="inlineCode">total_deaths_pm</code>. The chat method figures out that that is what we meant:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">covidtotalssdf.chat(<span class="hljs-string">"</span><span class="hljs-string">Show total cases pm, total deaths pm, and location for locations with the 10 highest total cases pm."</span>)
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">        total_cases_pm	  total_deaths_pm	location
+iso_code                                                
+BRN	  763,475		  396			Brunei
+CYP	  760,161		  1,523			Cyprus
+SMR	  750,727		  3,740			San Marino
+AUT	  680,263		  2,521			Austria
+KOR	  667,207		  693			South Korea
+FRO	  652,484		  527			Faeroe Islands
+SVN	  639,408		  4,697			Slovenia
+GIB	  628,883		  3,458			Gibraltar
+MTQ	  626,793		  3,004			Martinique
+LUX	  603,439		  1,544			Luxembourg
+</code></pre>
+    <ol>
+      <li class="numberedList" value="7">We can also create a <code class="inlineCode">SmartDataframe</code><a id="_idIndexMarker227"/> with selected<a id="_idIndexMarker228"/> columns. When we use the <code class="inlineCode">chat</code> method in this step, it figures out that a <code class="inlineCode">SmartDataframe</code> should be returned:
+        <pre class="programlisting code-one"><code class="hljs-code">covidtotalsabb = covidtotalssdf.chat(<span class="hljs-string">"Select total cases pm, total deaths pm, and location."</span>)
+<span class="hljs-built_in">type</span>(covidtotalsabb)
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">pandasai.smart_dataframe.SmartDataframe
+</code></pre>
+        <pre class="programlisting code-one"><code class="hljs-code">covidtotalsabb
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">            total_cases_pm	  total_deaths_pm	location
+iso_code                                                   
+AFG		5,630		  194			Afghanistan
+ALB		117,813		  1,268			Albania
+DZA		6,058		  153			Algeria
+ASM		188,712		  768			American Samoa
+AND		601,368		  1,991			Andorra
+		...		  ...			...
+VNM		118,387		  440			Vietnam
+WLF		306,140		  690			Wallis and Futuna
+YEM		354		  64			Yemen
+ZMB		17,450		  203			Zambia
+ZWE		16,315		  352			Zimbabwe
+[231 rows x 3 columns]
+</code></pre>
+      </li>
+      <li class="numberedList">We do not need to be very<a id="_idIndexMarker229"/> precise in the language<a id="_idIndexMarker230"/> we pass to PandasAI. Instead of writing <code class="inlineCode">Select</code>, we could have written <code class="inlineCode">Get</code> or <code class="inlineCode">Grab</code>:
+        <pre class="programlisting code-one"><code class="hljs-code">covidtotalsabb = covidtotalssdf.chat(<span class="hljs-string">"Grab total cases pm, total deaths pm, and location."</span>)
+covidtotalsabb
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">	  total_cases_pm	total_deaths_pm	location
+iso_code                                                   
+AFG	  5,630			194			Afghanistan
+ALB	  117,813		1,268			Albania
+DZA	  6,058			153			Algeria
+ASM	  188,712		768			American Samoa
+AND	  601,368		1,991			Andorra
+	  ...			...			...
+VNM	  118,387		440			Vietnam
+WLF	  306,140		690			Wallis and Futuna
+YEM	  354			64			Yemen
+ZMB	  17,450		203			Zambia
+ZWE	  16,315		352			Zimbabwe
+[231 rows x 3 columns]
+</code></pre>
+      </li>
+      <li class="numberedList">We can select rows by summary statistic. For example, we can choose those rows where the total cases per million is greater than the 95<sup class="superscript">th</sup> percentile. Note that this might take a little while to run on your machine:
+        <pre class="programlisting code-one"><code class="hljs-code">covidtotalssdf.chat(<span class="hljs-string">"Show total cases pm and location where total cases pm greater than 95th percentile."</span>)
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">		location	total_cases_pm
+iso_code                               
+AND		Andorra		601,368
+AUT		Austria		680,263
+BRN		Brunei		763,475
+CYP		Cyprus		760,161
+FRO		Faeroe		Islands	652,484
+FRA		France		603,428
+GIB		Gibraltar	628,883
+LUX		Luxembourg	603,439
+MTQ		Martinique	626,793
+SMR		San Marino	750,727
+SVN		Slovenia	639,408
+KOR		South Korea	667,207
+</code></pre>
+      </li>
+      <li class="numberedList">We can see how continuous<a id="_idIndexMarker231"/> variables are distributed<a id="_idIndexMarker232"/> by asking for their distribution:
+        <pre class="programlisting code-one"><code class="hljs-code">covidtotalssdf.chat(<span class="hljs-string">"Summarize values for total cases pm and total deaths pm."</span>).T
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">		total_cases_pm		total_deaths_pm
+count		231			231
+mean		206,178			1,262
+std		203,858			1,315
+min		354			0
+25%		21,822			141
+50%		133,946			827
+75%		345,690			1,998
+max		763,475			6,508
+</code></pre>
+      </li>
+      <li class="numberedList">We can also get group<a id="_idIndexMarker233"/> totals. Let’s get the total <a id="_idIndexMarker234"/>cases and deaths by region:
+        <pre class="programlisting code-one"><code class="hljs-code">covidtotalssdf.chat(<span class="hljs-string">"Show sum of total cases and total deaths by region."</span>)
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">	region			total_cases	total_deaths
+0	Caribbean		4,258,031	32,584
+1	Central Africa		640,579		8,128
+2	Central America	4,285,644	54,500
+3	Central Asia		3,070,921	40,365
+4	East Africa		2,186,107	28,519
+5	East Asia		205,704,775	604,355
+6	Eastern Europe		62,360,832	969,011
+7	North Africa		3,727,507	83,872
+8	North America		115,917,286	1,516,239
+9	Oceania / Aus		14,741,706	31,730
+10	South America		68,751,186	1,354,440
+11	South Asia		51,507,806	632,374
+12	Southern Africa	5,627,277	126,376
+13	West Africa		953,756		12,184
+14	West Asia		41,080,675	360,258
+15	Western Europe		189,405,185	1,124,545
+</code></pre>
+      </li>
+      <li class="numberedList">We can easily generate plots on the COVID-19 data:
+        <pre class="programlisting code-one"><code class="hljs-code">covidtotalssdf.chat(<span class="hljs-string">"Plot the total_cases_pm column data distribution"</span>)
+</code></pre>
+      </li>
+    </ol>
+    <p class="normal-one">This code generates the following plot:</p>
+    <figure class="mediaobject"><img src="../Images/B18596_03_02.png" alt="temp_chart"/></figure>
+    <p class="packt_figref">Figure 3.2: Distribution of total cases per million</p>
+    <ol>
+      <li class="numberedList" value="13">We can also generate<a id="_idIndexMarker235"/> a scatterplot. Let’s look<a id="_idIndexMarker236"/> at total cases per million against total deaths per million:
+        <pre class="programlisting code-one"><code class="hljs-code">covidtotalssdf.chat( <span class="hljs-string">"Plot total cases pm values against total deaths pm values"</span>)
+</code></pre>
+      </li>
+    </ol>
+    <p class="normal-one">This code produces the following plot:</p>
+    <figure class="mediaobject"><img src="../Images/B18596_03_03.png" alt="temp_chart"/></figure>
+    <p class="packt_figref">Figure 3.3: Scatterplot of total cases per million against total deaths per million</p>
+    <ol>
+      <li class="numberedList" value="14">We can indicate which<a id="_idIndexMarker237"/> plotting tool we want<a id="_idIndexMarker238"/> to use. Using <code class="inlineCode">regplot</code> here might be helpful to give us a better sense of the relationship between cases and deaths:
+        <pre class="programlisting code-one"><code class="hljs-code">covidtotalssdf.chat(<span class="hljs-string">"Use regplot to show total deaths pm against total cases pm"</span>)
+</code></pre>
+      </li>
+    </ol>
+    <p class="normal-one">This code produces the following plot:</p>
+    <figure class="mediaobject"><img src="../Images/B18596_03_04.png" alt="temp_chart"/></figure>
+    <p class="packt_figref">Figure 3.4: Regression plot</p>
+    <ol>
+      <li class="numberedList" value="15">The extreme values<a id="_idIndexMarker239"/> for cases or deaths <a id="_idIndexMarker240"/>make it harder to visualize the relationship between the two for much of the range. Let’s also ask PandasAI to remove the extreme values:
+        <pre class="programlisting code-one"><code class="hljs-code">covidtotalssdf.chat(<span class="hljs-string">"Use regplot to show total deaths pm against total cases pm without extreme values"</span>)
+</code></pre>
+      </li>
+    </ol>
+    <p class="normal-one">This produces the following plot:</p>
+    <figure class="mediaobject"><img src="../Images/B18596_03_05.png" alt="temp_chart"/></figure>
+    <p class="packt_figref">Figure 3.5: Regression plot without the extreme values</p>
+    <p class="normal-one">This removed deaths per million above 350 and cases per million above 20,000. It is easier to see the slope of the relationship over much of the data. We will work more with <code class="inlineCode">regplot</code> and many other plotting tools in <em class="chapterRef">Chapter 5</em>, <em class="italic">Using Visualizations for the Identification of Unexpected Values</em>.</p>
+    <h2 id="_idParaDest-118" class="heading-2">How it works…</h2>
+    <p class="normal">These examples demonstrate<a id="_idIndexMarker241"/> how intuitive<a id="_idIndexMarker242"/> it is to use PandasAI. Generative AI tools like PandasAI have the potential to improve our exploratory work by making it possible to interact with the data nearly as quickly as we can imagine new analyses. We only need to pass natural language queries to the PandasAI object to get the results we want.</p>
+    <p class="normal">The queries we pass are not commands. We can use any language we want that conveys our intent. Recall, for example, that we were able to write <code class="inlineCode">select</code>, <code class="inlineCode">get</code>, or even <code class="inlineCode">grab</code> to choose columns. OpenAI’s large language model is generally very good at understanding what we mean.</p>
+    <p class="normal">It is a good idea to check the PandasAI log file to see the code that is generated when you pass instructions to the SmartDataframe <code class="inlineCode">chat</code> method. The pandasai.log file will be in the same folder as your Python code.</p>
+    <p class="normal">A tool that helps us move more swiftly from question to answer can improve our thinking and analysis. It is definitely worth experimenting with if you have not done so already, even<a id="_idIndexMarker243"/> if you have well-established routines<a id="_idIndexMarker244"/> for looking at your data.</p>
+    <h2 id="_idParaDest-119" class="heading-2">See also</h2>
+    <p class="normal">The PandasAI GitHub repository is a great place to go for more information and to keep apprised of updates in the library. You can get to it here: <a href="https://github.com/gventuri/pandas-ai"><span class="url">https://github.com/gventuri/pandas-ai</span></a>. We will return to the PandasAI library in recipes throughout this book.</p>
+    <h1 id="_idParaDest-120" class="heading-1">Summary</h1>
+    <p class="normal">This chapter covered key steps we need to take the day after we convert our raw data into a pandas DataFrame. We explored techniques for examining the structure of our data, including the number of rows and columns, and data types. We also learned how to generate frequencies for categorical variables, and began to look at how values for one variable change with the values of another variable. Finally, we saw how to examine the distribution of continuous variables, including with sample statistics such as the mean, minimum, and max, and by plotting. This sets us up for the topics in the next chapter, where we will use techniques to identify outliers in our data.</p>
+    <h1 class="heading-1">Join our community on Discord</h1>
+    <p class="normal">Join our community’s Discord space for discussions with the author and other readers:</p>
+    <p class="normal"><a href="https://discord.gg/p8uSgEAETX "><span class="url">https://discord.gg/p8uSgEAETX</span></a></p>
+    <p class="normal"><img src="../Images/QR_Code10336218961138498953.png" alt="" role="presentation"/></p>
+  </div>
+</body></html>

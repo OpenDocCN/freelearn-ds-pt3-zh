@@ -1,0 +1,1010 @@
+<html><head></head><body>
+  <div id="_idContainer084" class="Basic-Text-Frame">
+    <h1 class="chapterNumber">5</h1>
+    <h1 id="_idParaDest-164" class="chapterTitle">Using Visualizations for the Identification of Unexpected Values</h1>
+    <p class="normal">We dipped our toes in the water on visualizations in several recipes in the previous chapter. We used histograms and QQ plots to examine the distribution of a single variable, and scatter plots to view how two variables are related. But we were just scratching the surface of the rich visualization tools available in the Matplotlib and Seaborn libraries. Getting comfortable with these tools, and their seemingly inexhaustible capabilities, can help us uncover patterns and oddities that are not obvious when we run the standard battery of descriptives.</p>
+    <p class="normal">Boxplots, for example, are a great tool for visualizing values outside of a certain range. These can be extended with grouped boxplots or violin plots that allow us to compare distributions across subsets of data. We can also do much more with scatter plots than we did in the last chapter, including getting some sense of multivariate relationships. Histograms, too, can sometimes offer additional insight if we display several histograms on one plot or create a stacked histogram. We explore all of these capabilities in this chapter.</p>
+    <p class="normal">Specifically, the recipes in this chapter demonstrate the following topics:</p>
+    <ul>
+      <li class="bulletList">Using histograms to examine the distribution of continuous variables</li>
+      <li class="bulletList">Using boxplots to identify outliers for continuous variables</li>
+      <li class="bulletList">Using grouped boxplots to uncover unexpected values in a particular group</li>
+      <li class="bulletList">Examining both distribution shape and outliers with violin plots</li>
+      <li class="bulletList">Using scatter plots to view bivariate relationships</li>
+      <li class="bulletList">Using line plots to examine trends in continuous variables</li>
+      <li class="bulletList">Generating a heat map based on a correlation matrix</li>
+    </ul>
+    <h1 id="_idParaDest-165" class="heading-1">Technical requirements</h1>
+    <p class="normal">You will need Pandas, Numpy, Matplotlib, and Seaborn to complete the recipes in this chapter. I used <code class="inlineCode">pandas 2.1.4</code>, but the code will run on <code class="inlineCode">pandas 1.5.3</code> or later.</p>
+    <p class="normal">The code in this chapter can be downloaded from the book’s GitHub repository, <code class="inlineCode">https://github.com/PacktPublishing/Python-Data-Cleaning-Cookbook-Second-Edition</code>.</p>
+    <h1 id="_idParaDest-166" class="heading-1">Using histograms to examine the distribution of continuous variables</h1>
+    <p class="normal">The go-to visualization tool<a id="_idIndexMarker363"/> for statisticians trying<a id="_idIndexMarker364"/> to understand how single variables are distributed is the histogram. Histograms plot a continuous variable on the <em class="italic">x</em> axis in bins determined by the researcher, and the frequency of occurrence on the <em class="italic">y</em> axis.</p>
+    <p class="normal">Histograms provide a clear and meaningful illustration of the shape of a distribution, including central tendency, skewness (symmetry), excess kurtosis (relatively fat tails), and spread. This matters for statistical testing, as many tests make assumptions about a variable’s distribution. Moreover, our expectation of what data values to expect should be guided by our understanding of the distribution’s shape. For example, a value at the 90<sup class="superscript">th</sup> percentile has very different implications when it comes from a normal distribution rather than from a uniform distribution.</p>
+    <p class="normal">One of the first tasks I ask introductory statistics students to do is to construct a histogram manually from a small sample. We do boxplots in the following class. Together, histograms and boxplots provide a solid foundation for subsequent analysis. In my data science work, I try to remember to construct histograms and boxplots on all continuous variables of interest shortly after the initial importing and cleaning of data. We create histograms in this recipe, and boxplots in the following two recipes.</p>
+    <h2 id="_idParaDest-167" class="heading-2">Getting ready</h2>
+    <p class="normal">We will use the <code class="inlineCode">Matplotlib</code> library<a id="_idIndexMarker365"/> to generate histograms. Some tasks<a id="_idIndexMarker366"/> can be done quickly and straightforwardly in Matplotlib. Histograms are one of those tasks. We will switch between Matplotlib and Seaborn (which is built on Matplotlib) in this chapter depending on which tool gets us to the required graphic more easily.</p>
+    <p class="normal">We will also use the <code class="inlineCode">statsmodels</code> library. You can install Matplotlib and statsmodels with pip using <code class="inlineCode">pip install matplotlib </code>and <code class="inlineCode">pip install statsmodels</code>.</p>
+    <p class="normal">We will work with data covering Earth surface temperatures and COVID-19 cases in this recipe. The surface temperature DataFrame has one row per weather station. The COVID-19 DataFrame has one row per country with total cases and demographic information.</p>
+    <div class="note">
+      <p class="normal"><strong class="keyWord">Note</strong></p>
+      <p class="normal">The surface temperature DataFrame has the average temperature reading (in °C) in 2023 from over 12,000 stations across the world, though a majority of the stations are in the United States. The raw data was retrieved from the Global Historical Climatology Network integrated database. It is made available for public use by the United States National Oceanic and Atmospheric Administration at <a href="https://www.ncei.noaa.gov/products/land-based-station/global-historical-climatology-network-monthly"><span class="url">https://www.ncei.noaa.gov/products/land-based-station/global-historical-climatology-network-monthly</span></a>.</p>
+      <p class="normal"><em class="italic">Our World in Data</em> provides COVID data for public use at <a href="https://ourworldindata.org/covid-cases"><span class="url">https://ourworldindata.org/covid-cases</span></a>. The data used in this recipe was downloaded on March 3, 2024.</p>
+    </div>
+    <h2 id="_idParaDest-168" class="heading-2">How to do it…</h2>
+    <p class="normal">We take a close look at the distribution of surface temperatures by weather station in 2023 and total COVID-19 cases per million in population for each country. We start with a few descriptive statistics before doing a QQ plot, histograms, and stacked histograms:</p>
+    <ol>
+      <li class="numberedList" value="1">Import the <code class="inlineCode">pandas</code>, <code class="inlineCode">matplotlib</code>, and <code class="inlineCode">statsmodels</code> libraries.</li>
+    </ol>
+    <p class="normal-one">Also, load the data on surface temperatures and COVID-19 cases:</p>
+    <pre class="programlisting code-one"><code class="hljs-code"><span class="hljs-keyword">import</span> pandas <span class="hljs-keyword">as</span> pd
+<span class="hljs-keyword">import</span> matplotlib.pyplot <span class="hljs-keyword">as</span> plt
+<span class="hljs-keyword">import</span> statsmodels.api <span class="hljs-keyword">as</span> sm
+landtemps = pd.read_csv(<span class="hljs-string">"data/landtemps2023avgs.csv"</span>)
+covidtotals = pd.read_csv(<span class="hljs-string">"data/covidtotals.csv"</span>, parse_dates=[<span class="hljs-string">"lastdate"</span>])
+covidtotals.set_index(<span class="hljs-string">"iso_code"</span>, inplace=<span class="hljs-literal">True</span>)
+</code></pre>
+    <ol>
+      <li class="numberedList" value="2">Show some of the station temperature rows.</li>
+    </ol>
+    <p class="normal-one">The <code class="inlineCode">latabs</code> column<a id="_idIndexMarker367"/> is the value of latitude<a id="_idIndexMarker368"/> without the north or south indicators; so, Cairo, Egypt at approximately 30 degrees north, and Porto Alegre, Brazil at about 30 degrees south have the same value:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">landtemps[[<span class="hljs-string">'station'</span>,<span class="hljs-string">'country'</span>,<span class="hljs-string">'latabs'</span>,
+...   <span class="hljs-string">'elevation'</span>,<span class="hljs-string">'avgtemp'</span>]].\
+...   sample(<span class="hljs-number">10</span>, random_state=<span class="hljs-number">1</span>)
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">                        station        country  \
+11924         WOLF_POINT_29_ENE  United States  
+10671             LITTLE_GRASSY  United States  
+10278  FLOWERY_TRAIL_WASHINGTON  United States  
+8436                ROCKSPRINGS  United States  
+1715               PETERBOROUGH         Canada  
+5650          TRACY_PUMPING_PLT  United States  
+335              NEPTUNE_ISLAND      Australia  
+372                     EUDUNDA      Australia  
+2987                  KOZHIKODE          India  
+7588                      TRYON  United States  
+       latabs  elevation  avgtemp 
+11924      48        636        6 
+10671      37      1,859       10 
+10278      48        792        8 
+8436       30        726       20 
+1715       44        191        8 
+5650       38         19       18 
+335        35         32       16 
+372        34        415       16 
+2987       11          5       30 
+7588       35        366       16
+</code></pre>
+    <ol>
+      <li class="numberedList" value="3">Show some descriptive statistics.</li>
+    </ol>
+    <p class="normal-one">Also, look<a id="_idIndexMarker369"/> at skewness <a id="_idIndexMarker370"/>and kurtosis:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">landtemps.describe()
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">       latabs  elevation  avgtemp
+count  12,137     12,137   12,137
+mean       40        598       12
+std        13        775        8
+min         0       -350      -57
+25%        35         78        6
+50%        41        271       11
+75%        47        824       17
+max        90      9,999       34
+</code></pre>
+    <pre class="programlisting code-one"><code class="hljs-code">landtemps.avgtemp.skew()
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">-0.3856060165979757
+</code></pre>
+    <pre class="programlisting code-one"><code class="hljs-code">landtemps.avgtemp.kurtosis()
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">2.7939884544586033
+</code></pre>
+    <ol>
+      <li class="numberedList" value="4">Do a histogram of average temperatures.</li>
+    </ol>
+    <p class="normal-one">Also, draw a line at the overall mean:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">plt.hist(landtemps.avgtemp)
+plt.axvline(landtemps.avgtemp.mean(), color=<span class="hljs-string">'red'</span>, linestyle=<span class="hljs-string">'dashed'</span>, linewidth=<span class="hljs-number">1</span>)
+plt.title(<span class="hljs-string">"Histogram of Average Temperatures (Celsius)"</span>)
+plt.xlabel(<span class="hljs-string">"Average Temperature"</span>)
+plt.ylabel(<span class="hljs-string">"Frequency"</span>)
+plt.show()
+</code></pre>
+    <p class="normal-one">This results in the following histogram:</p>
+    <figure class="mediaobject"><img src="../Images/B18596_05_01.png" alt="" role="presentation"/></figure>
+    <p class="packt_figref">Figure 5.1: Histogram of average temperatures across weather stations in 2019</p>
+    <ol>
+      <li class="numberedList" value="5">Run a QQ plot<a id="_idIndexMarker371"/> to examine where the distribution<a id="_idIndexMarker372"/> deviates from a normal distribution.</li>
+    </ol>
+    <p class="normal-one">Notice that much of the distribution of temperatures falls along the red line (all dots would fall on the red line if the distribution were perfectly normal, but the tails fall off dramatically from normal):</p>
+    <pre class="programlisting code-one"><code class="hljs-code">sm.qqplot(landtemps[[<span class="hljs-string">'avgtemp'</span>]].sort_values([<span class="hljs-string">'avgtemp'</span>]), line=<span class="hljs-string">'</span><span class="hljs-string">s'</span>)
+plt.title(<span class="hljs-string">"QQ Plot of Average Temperatures"</span>)
+plt.show()
+</code></pre>
+    <p class="normal-one">This results in the following QQ plot:</p>
+    <figure class="mediaobject"><img src="../Images/B18596_05_02.png" alt="" role="presentation"/></figure>
+    <p class="packt_figref">Figure 5.2: Plot of average temperature by station compared with a normal distribution</p>
+    <ol>
+      <li class="numberedList" value="6">Show the skewness <a id="_idIndexMarker373"/>and kurtosis for total COVID-19 cases<a id="_idIndexMarker374"/> per million.</li>
+    </ol>
+    <p class="normal-one">This is from the COVID-19 DataFrame, which has one row for each country:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">covidtotals.total_cases_pm.skew()
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">0.8349032460009967
+</code></pre>
+    <pre class="programlisting code-one"><code class="hljs-code">covidtotals.total_cases_pm.kurtosis()
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">-0.4280595203351645
+</code></pre>
+    <ol>
+      <li class="numberedList" value="7">Do a stacked histogram of the COVID-19 case data.</li>
+    </ol>
+    <p class="normal-one">Select data from four of the regions. (Stacked histograms can get messy with any more categories than that.) Define a <code class="inlineCode">getcases</code> function that returns a Series for <code class="inlineCode">total_cases_pm</code> for the countries of a region. Pass those Series to the <code class="inlineCode">hist</code> method (<code class="inlineCode">[getcases(k) for k in showregions]</code>) to create the stacked histogram. Notice how much unlike the other regions Western Europe is, accounting<a id="_idIndexMarker375"/> for almost all countries<a id="_idIndexMarker376"/> with cases per million above 500,000:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">showregions = [<span class="hljs-string">'Oceania / Aus'</span>,<span class="hljs-string">'East Asia'</span>,<span class="hljs-string">'Southern Africa'</span>,
+...   <span class="hljs-string">'Western Europe'</span>]
+<span class="hljs-keyword">def</span> <span class="hljs-title">getcases</span>(<span class="hljs-params">regiondesc</span>):
+...   <span class="hljs-keyword">return</span> covidtotals.loc[covidtotals.\
+...     region==regiondesc,
+...     <span class="hljs-string">'total_cases_pm'</span>]
+...
+plt.hist([getcases(k) <span class="hljs-keyword">for</span> k <span class="hljs-keyword">in</span> showregions],\
+...   color=[<span class="hljs-string">'blue'</span>,<span class="hljs-string">'</span><span class="hljs-string">mediumslateblue'</span>,<span class="hljs-string">'plum'</span>,<span class="hljs-string">'mediumvioletred'</span>],\
+...   label=showregions,\
+...   stacked=<span class="hljs-literal">True</span>)
+plt.title(<span class="hljs-string">"Stacked Histogram of Cases Per Million for Selected Regions"</span>)
+plt.xlabel(<span class="hljs-string">"Cases Per Million"</span>)
+plt.ylabel(<span class="hljs-string">"Frequency"</span>)
+plt.legend()
+plt.show()
+</code></pre>
+    <p class="normal-one">This results in the following stacked histogram:</p>
+    <figure class="mediaobject"><img src="../Images/B18596_05_03.png" alt="" role="presentation"/></figure>
+    <p class="packt_figref">Figure 5.3: Stacked histogram of the number of countries per region at different levels of cases per million</p>
+    <ol>
+      <li class="numberedList" value="8">Show multiple histograms on one figure.</li>
+    </ol>
+    <p class="normal-one">This allows different <em class="italic">x</em> and <em class="italic">y</em> axis values. We need to loop<a id="_idIndexMarker377"/> through each axis<a id="_idIndexMarker378"/> and select a different region from <code class="inlineCode">showregions</code> for each subplot:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">fig, axes = plt.subplots(<span class="hljs-number">2</span>, <span class="hljs-number">2</span>)
+fig.suptitle(<span class="hljs-string">"Histograms of COVID-19 Cases Per Million by Selected Regions"</span>)
+axes = axes.ravel()
+<span class="hljs-keyword">for</span> j, ax <span class="hljs-keyword">in</span> <span class="hljs-built_in">enumerate</span>(axes):
+...   ax.hist(covidtotals.loc[covidtotals.region==showregions[j]].\
+...     total_cases_pm, bins=<span class="hljs-number">7</span>)
+...   ax.set_title(showregions[j], fontsize=<span class="hljs-number">10</span>)
+...   <span class="hljs-keyword">for</span> tick <span class="hljs-keyword">in</span> ax.get_xticklabels():
+...     tick.set_rotation(<span class="hljs-number">45</span>)
+...
+plt.tight_layout()
+fig.subplots_adjust(top=<span class="hljs-number">0.88</span>)
+plt.show()
+</code></pre>
+    <p class="normal-one">This results in the following histograms:</p>
+    <figure class="mediaobject"><img src="../Images/B18596_05_04.png" alt="" role="presentation"/></figure>
+    <p class="packt_figref">Figure 5.4: Histograms of numbers of countries by region at different levels of cases per million</p>
+    <p class="normal">The preceding steps demonstrated<a id="_idIndexMarker379"/> how to visualize<a id="_idIndexMarker380"/> the distribution of a continuous variable using histograms and QQ plots.</p>
+    <h2 id="_idParaDest-169" class="heading-2">How it works…</h2>
+    <p class="normal"><em class="italic">Step 4</em> shows how easy it is to display a histogram. This can be done by passing a Series to the <code class="inlineCode">hist</code> method of Matplotlib’s <code class="inlineCode">pyplot</code> module. (We use an alias of <code class="inlineCode">plt</code> for Matplotlib.) We could have also passed any <code class="inlineCode">ndarray</code>, or even a list of data Series.</p>
+    <p class="normal">We also get great access to the attributes of the figure and its axes. We can set the labels for each axis, as well as the tick marks and tick labels. We can also specify the content and look and feel of the legend. We will be taking advantage of this functionality often in this chapter.</p>
+    <p class="normal">We pass multiple Series to the <code class="inlineCode">hist</code> method in <em class="italic">Step 7</em> to produce the stacked histogram. Each Series is the <code class="inlineCode">total_cases_pm</code> (cases per million of the population) value for the countries in a region. To get the Series for each region, we call the <code class="inlineCode">getcases</code> function for each item in <code class="inlineCode">showregions</code>. We choose colors for each Series rather than allowing them to be applied automatically. We also use the <code class="inlineCode">showregions</code> list to select labels for the legend.</p>
+    <p class="normal">In <em class="italic">Step 8</em>, we start by indicating that we want four subplots, in two rows and two columns. That is what we get with <code class="inlineCode">plt.subplots(2, 2)</code>, which returns both a figure and the four axes. We loop through the axes with <code class="inlineCode">for j, ax in enumerate(axes)</code>. Within each loop, we select a different region for the histogram from <code class="inlineCode">showregions</code>. Within each axis, we loop through the tick labels and change the rotation. We also adjust the start of the subplots to make enough room for the figure title. Note that we need<a id="_idIndexMarker381"/> to use <code class="inlineCode">suptitle</code> to add a title<a id="_idIndexMarker382"/> in this case. Using <code class="inlineCode">title</code> would add the title to a subplot.</p>
+    <h2 id="_idParaDest-170" class="heading-2">There’s more...</h2>
+    <p class="normal">The land temperature data is not quite normally distributed, as the histograms and the skew and kurtosis measures in <em class="italic">Steps 3-5</em> show. It is skewed to the left (skew of <code class="inlineCode">-0.39</code>) and has tails that are close to normal (kurtosis of 2.79, compared with 3). Although there are some extreme values, there are not that many of them relative to the overall size of the dataset. While it is not perfectly bell-shaped, the land temperature DataFrame is a fair bit easier to deal with than the COVID-19 case data.</p>
+    <p class="normal">The skew and kurtosis of the COVID-19 <code class="inlineCode">cases per million</code> variable show that it is some distance from normal. The skew of 0.83 and kurtosis of -0.43 indicate a somewhat positive skew and much skinnier tails than with a normal distribution. This is also reflected in the histograms, even when we look at the numbers by region. There are a number of countries at very low levels of cases per million in most regions, and just a few countries with high levels of cases. The <em class="italic">Using grouped boxplots to uncover unexpected values in a particular group</em> recipe in this chapter shows that there are outliers in almost every region.</p>
+    <p class="normal">If you work through all of the recipes in this chapter, and you are relatively new to Matplotlib and Seaborn, you will find those libraries either usefully flexible or confusingly flexible. It is difficult to even pick one strategy and stick with it because you might need to set up your figure and axes in a particular way to get the visualization you want. It is helpful to keep two things in mind when working through these recipes: first, you will generally need to create a figure and one or more subplots; and second, the main plotting functions work similarly regardless, so <code class="inlineCode">plt.hist</code> and <code class="inlineCode">ax.hist</code> will both often work.</p>
+    <h1 id="_idParaDest-171" class="heading-1">Using boxplots to identify outliers for continuous variables</h1>
+    <p class="normal">Boxplots are essentially<a id="_idIndexMarker383"/> a graphical representation<a id="_idIndexMarker384"/> of our work in the <em class="italic">Identifying outliers with one variable</em> recipe in <em class="chapterRef">Chapter 4</em>, <em class="italic">Identifying Outliers in Subsets of Data</em>. There, we used the concept of <strong class="keyWord">interquartile range</strong> (<strong class="keyWord">IQR</strong>)—the distance between the value<a id="_idIndexMarker385"/> at the first quartile and the value at the third quartile—to determine outliers. Any value greater than (<code class="inlineCode">1.5 * IQR</code>) + the third quartile value, or less than the first quartile value – (<code class="inlineCode">1.5 * IQR</code>), was considered an outlier. That is precisely what is revealed in a boxplot.</p>
+    <h2 id="_idParaDest-172" class="heading-2">Getting ready</h2>
+    <p class="normal">We will work with cumulative data on COVID-19 cases and deaths by country, and the <strong class="keyWord">National Longitudinal Surveys</strong> (<strong class="keyWord">NLS</strong>) data. You will need the Matplotlib library to run the code on your computer.</p>
+    <h2 id="_idParaDest-173" class="heading-2">How to do it…</h2>
+    <p class="normal">We use boxplots<a id="_idIndexMarker386"/> to show the shape and spread of <strong class="keyWord">Scholastic Assessment Test</strong> (<strong class="keyWord">SAT</strong>) scores, weeks worked, and COVID-19 cases and deaths:</p>
+    <ol>
+      <li class="numberedList" value="1">Load the <code class="inlineCode">pandas</code> and <code class="inlineCode">matplotlib</code> libraries.</li>
+    </ol>
+    <p class="normal-one">Also, load the NLS and COVID-19 data:</p>
+    <pre class="programlisting code-one"><code class="hljs-code"><span class="hljs-keyword">import</span> pandas <span class="hljs-keyword">as</span> pd
+<span class="hljs-keyword">import</span> matplotlib.pyplot <span class="hljs-keyword">as</span> plt
+nls97 = pd.read_csv(<span class="hljs-string">"data/nls97f.csv"</span>, low_memory=<span class="hljs-literal">False</span>)
+nls97.set_index(<span class="hljs-string">"personid"</span>, inplace=<span class="hljs-literal">True</span>)
+covidtotals = pd.read_csv(<span class="hljs-string">"data/covidtotals.csv"</span>, parse_dates=[<span class="hljs-string">"lastdate"</span>])
+covidtotals.set_index(<span class="hljs-string">"iso_code"</span>, inplace=<span class="hljs-literal">True</span>)
+</code></pre>
+    <ol>
+      <li class="numberedList" value="2">Do a boxplot of SAT verbal scores.</li>
+    </ol>
+    <p class="normal-one">Produce some descriptives<a id="_idIndexMarker387"/> first. The <code class="inlineCode">boxplot</code> method<a id="_idIndexMarker388"/> produces a rectangle that represents the IQR, the values between the first and third quartile. The whiskers go from that rectangle to 1.5 times the IQR. Any values above or below the whiskers (what we have labeled the outlier threshold) are considered outliers (we use <code class="inlineCode">annotate</code> to point to the first and third quartile points, the median, and to the outlier thresholds):</p>
+    <pre class="programlisting code-one"><code class="hljs-code">nls97.satverbal.describe()
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">count	1,406
+mean	500
+std	112
+min	14
+25%	430
+50%	500
+75%	570
+max	800
+Name: satverbal, dtype: float64
+</code></pre>
+    <pre class="programlisting code-one"><code class="hljs-code">plt.boxplot(nls97.satverbal.dropna(), labels=[<span class="hljs-string">'SAT Verbal'</span>])
+plt.annotate(<span class="hljs-string">'outlier threshold'</span>, xy=(<span class="hljs-number">1.05</span>,<span class="hljs-number">780</span>), xytext=(<span class="hljs-number">1.15</span>,<span class="hljs-number">780</span>), size=<span class="hljs-number">7</span>, arrowprops=<span class="hljs-built_in">dict</span>(facecolor=<span class="hljs-string">'black'</span>, headwidth=<span class="hljs-number">2</span>, width=<span class="hljs-number">0.5</span>, shrink=<span class="hljs-number">0.02</span>))
+plt.annotate(<span class="hljs-string">'3rd quartile'</span>, xy=(<span class="hljs-number">1.08</span>,<span class="hljs-number">570</span>), xytext=(<span class="hljs-number">1.15</span>,<span class="hljs-number">570</span>), size=<span class="hljs-number">7</span>, arrowprops=<span class="hljs-built_in">dict</span>(facecolor=<span class="hljs-string">'black'</span>, headwidth=<span class="hljs-number">2</span>, width=<span class="hljs-number">0.5</span>, shrink=<span class="hljs-number">0.02</span>))
+plt.annotate(<span class="hljs-string">'median'</span>, xy=(<span class="hljs-number">1.08</span>,<span class="hljs-number">500</span>), xytext=(<span class="hljs-number">1.15</span>,<span class="hljs-number">500</span>), size=<span class="hljs-number">7</span>, arrowprops=<span class="hljs-built_in">dict</span>(facecolor=<span class="hljs-string">'black'</span>, headwidth=<span class="hljs-number">2</span>, width=<span class="hljs-number">0.5</span>, shrink=<span class="hljs-number">0.02</span>))
+plt.annotate(<span class="hljs-string">'1st quartile'</span>, xy=(<span class="hljs-number">1.08</span>,<span class="hljs-number">430</span>), xytext=(<span class="hljs-number">1.15</span>,<span class="hljs-number">430</span>), size=<span class="hljs-number">7</span>, arrowprops=<span class="hljs-built_in">dict</span>(facecolor=<span class="hljs-string">'black'</span>, headwidth=<span class="hljs-number">2</span>, width=<span class="hljs-number">0.5</span>, shrink=<span class="hljs-number">0.02</span>))
+plt.annotate(<span class="hljs-string">'outlier threshold'</span>, xy=(<span class="hljs-number">1.05</span>,<span class="hljs-number">220</span>), xytext=(<span class="hljs-number">1.15</span>,<span class="hljs-number">220</span>), size=<span class="hljs-number">7</span>, arrowprops=<span class="hljs-built_in">dict</span>(facecolor=<span class="hljs-string">'black'</span>, headwidth=<span class="hljs-number">2</span>, width=<span class="hljs-number">0.5</span>, shrink=<span class="hljs-number">0.02</span>))
+plt.title(<span class="hljs-string">"Boxplot of SAT Verbal Score"</span>)
+plt.show()
+</code></pre>
+    <p class="normal-one">This results in the following boxplot:</p>
+    <figure class="mediaobject"><img src="../Images/B18596_05_05.png" alt="" role="presentation"/></figure>
+    <p class="packt_figref">Figure 5.5: Boxplot of SAT verbal scores with labels for interquartile range and outliers</p>
+    <ol>
+      <li class="numberedList" value="3">Next, show some<a id="_idIndexMarker389"/> descriptives on weeks<a id="_idIndexMarker390"/> worked:
+        <pre class="programlisting code-one"><code class="hljs-code">weeksworked = nls97.loc[:, [<span class="hljs-string">'highestdegree'</span>,
+  <span class="hljs-string">'weeksworked20'</span>,<span class="hljs-string">'weeksworked21'</span>]]
+weeksworked.describe()
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">       weeksworked20  weeksworked21
+count          6,971          6,627
+mean              38             36
+std               21             18
+min                0              0
+25%               21             35
+50%               52             43
+75%               52             50
+max               52             52
+</code></pre>
+      </li>
+      <li class="numberedList">Do boxplots<a id="_idIndexMarker391"/> of weeks <a id="_idIndexMarker392"/>worked:
+        <pre class="programlisting code-one"><code class="hljs-code">plt.boxplot([weeksworked.weeksworked20.dropna(),
+  weeksworked.weeksworked21.dropna()],
+  labels=[<span class="hljs-string">'Weeks Worked 2020'</span>,<span class="hljs-string">'Weeks Worked 2021'</span>])
+plt.title(<span class="hljs-string">"Boxplots of Weeks Worked"</span>)
+plt.tight_layout()
+plt.show()
+</code></pre>
+      </li>
+    </ol>
+    <p class="normal-one">This results in the following boxplots:</p>
+    <figure class="mediaobject"><img src="../Images/B18596_05_06.png" alt="" role="presentation"/></figure>
+    <p class="packt_figref">Figure 5.6: Boxplots of two variables side by side</p>
+    <ol>
+      <li class="numberedList" value="5">Show some descriptives for the COVID-19 data.</li>
+    </ol>
+    <p class="normal-one">Create a list of labels (<code class="inlineCode">totvarslabels</code>) for columns to use in a later step:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">totvars = [<span class="hljs-string">'total_cases'</span>,<span class="hljs-string">'total_deaths'</span>,
+...   <span class="hljs-string">'total_cases_pm'</span>,<span class="hljs-string">'total_deaths_pm'</span>]
+totvarslabels = [<span class="hljs-string">'cases'</span>,<span class="hljs-string">'deaths'</span>,
+...   <span class="hljs-string">'cases per million'</span>,<span class="hljs-string">'</span><span class="hljs-string">deaths per million'</span>]
+covidtotalsonly = covidtotals[totvars]
+covidtotalsonly.describe()
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">       total_cases  total_deaths  total_cases_pm  total_deaths_pm
+count          231           231             231              231
+mean     3,351,599        30,214         206,178            1,262
+std     11,483,212       104,779         203,858            1,315
+min              4             0             354                0
+25%         25,672           178          21,822              141
+50%        191,496         1,937         133,946              827
+75%      1,294,286        14,150         345,690            1,998
+max    103,436,829     1,127,152         763,475            6,508
+</code></pre>
+    <ol>
+      <li class="numberedList" value="6">Do a boxplot<a id="_idIndexMarker393"/> of cases and deaths<a id="_idIndexMarker394"/> per million:
+        <pre class="programlisting code-one"><code class="hljs-code">fig, ax = plt.subplots()
+plt.title(<span class="hljs-string">"Boxplots of COVID-19 Cases and Deaths Per Million"</span>)
+ax.boxplot([covidtotalsonly.total_cases_pm,covidtotalsonly.total_deaths_pm],\
+...   labels=[<span class="hljs-string">'cases per million'</span>,<span class="hljs-string">'deaths per million'</span>])
+plt.tight_layout()
+plt.show()
+</code></pre>
+      </li>
+    </ol>
+    <p class="normal-one">This results in the following boxplots:</p>
+    <figure class="mediaobject"><img src="../Images/B18596_05_07.png" alt="" role="presentation"/></figure>
+    <p class="packt_figref">Figure 5.7: Boxplots of two variables side by side</p>
+    <ol>
+      <li class="numberedList" value="7">Show boxplots<a id="_idIndexMarker395"/> as separate subplots<a id="_idIndexMarker396"/> on one figure.</li>
+    </ol>
+    <p class="normal-one">It is hard to view multiple boxplots on one figure when the variable values are very different, as is true for COVID-19 cases and deaths. Fortunately, Matplotlib allows us to create multiple subplots on each figure, each of which can use different <em class="italic">x</em> and <em class="italic">y</em> axes. We can also present the data in thousands to improve readability:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">fig, axes = plt.subplots(<span class="hljs-number">2</span>, <span class="hljs-number">2</span>)
+fig.suptitle(<span class="hljs-string">"Boxplots of COVID-19 Cases and Deaths in Thousands"</span>)
+axes = axes.ravel()
+<span class="hljs-keyword">for</span> j, ax <span class="hljs-keyword">in</span> <span class="hljs-built_in">enumerate</span>(axes):
+  ax.boxplot(covidtotalsonly.iloc[:, j]/<span class="hljs-number">1000</span>, labels=[totvarslabels[j]])
+plt.tight_layout()
+fig.subplots_adjust(top=<span class="hljs-number">0.9</span>)
+plt.show()
+</code></pre>
+    <p class="normal-one">This results in the following boxplots:</p>
+    <figure class="mediaobject"><img src="../Images/B18596_05_08.png" alt="" role="presentation"/></figure>
+    <p class="packt_figref">Figure 5.8: Boxplots with different y axes</p>
+    <p class="normal">Boxplots are a relatively<a id="_idIndexMarker397"/> straightforward but exceedingly<a id="_idIndexMarker398"/> useful way to view how variables are distributed. They make it easy to visualize spread, central tendency, and outliers, all in one graphic.</p>
+    <h2 id="_idParaDest-174" class="heading-2">How it works...</h2>
+    <p class="normal">It is fairly easy to create a boxplot with Matplotlib, as <em class="italic">Step 2</em> shows. Passing a series to pyplot is all that is required (we use the <code class="inlineCode">plt</code> alias). We call pyplot’s <code class="inlineCode">show</code> method to show the figure. This step also demonstrates how to use <code class="inlineCode">annotate</code> to add text and symbols to your figure. We show multiple boxplots in <em class="italic">Step 4</em> by passing multiple series to pyplot.</p>
+    <p class="normal">It can be difficult to show multiple boxplots in a single figure when the scales are very different, as is the case with the COVID-19 outcome data (cases, deaths, cases per million, and deaths per million). <em class="italic">Step 7</em> shows one way to deal with that. We can create several subplots on one plot. We start by indicating that we want four subplots, in two columns and two rows. That is what we get with <code class="inlineCode">plt.subplots(2, 2)</code>, which returns both a figure and the four axes. We can then loop through the axes, calling <code class="inlineCode">boxplot</code> on each one. Nifty!</p>
+    <p class="normal">However, it is still hard to see the IQR<a id="_idIndexMarker399"/> for cases and deaths<a id="_idIndexMarker400"/> because of some of the extreme values. In the next recipe, we remove some of the extreme values to give us a better visualization of the remaining data.</p>
+    <h2 id="_idParaDest-175" class="heading-2">There’s more...</h2>
+    <p class="normal">The boxplot of SAT verbal scores in <em class="italic">Step 2</em> suggests a relatively normal distribution. The median is close to the center of the IQR. This is not surprising given that the descriptives we ran show that the mean and median have the same value. There is, however, substantially more room for outliers at the lower end than at the upper end. (Indeed, the very low SAT verbal scores seem implausible and should be checked.)</p>
+    <p class="normal">The boxplots of weeks worked in 2020 and 2021 in <em class="italic">Step 4</em> show variables that are distributed much differently than SAT scores. The medians are much higher than the mean. This suggests a negative skew. Also, notice that there are no whiskers or outliers at the upper end of the distribution for the 2020 value as the median is at, or near, the maximum.</p>
+    <h2 id="_idParaDest-176" class="heading-2">See also</h2>
+    <p class="normal">Some of these boxplots suggest that the data we are examining is not normally distributed. The <em class="italic">Identifying outliers with one variable</em> recipe in <em class="italic">Chapter 4</em> covers some normal distribution tests. It also shows how to take a closer look at the values outside of the outlier thresholds: the circles in the boxplots.</p>
+    <h1 id="_idParaDest-177" class="heading-1">Using grouped boxplots to uncover unexpected values in a particular group</h1>
+    <p class="normal">We saw in the previous recipe<a id="_idIndexMarker401"/> that boxplots are a great<a id="_idIndexMarker402"/> tool for examining the distribution of continuous variables. They can also be useful when we want to see if those variables are distributed differently for parts of our dataset, such as salaries for different age groups, number of children by marital status, or litter sizes of different mammal species. Grouped boxplots are a handy and intuitive way to view differences in variable distribution by categories in our data.</p>
+    <h2 id="_idParaDest-178" class="heading-2">Getting ready</h2>
+    <p class="normal">We will work with the NLS<a id="_idIndexMarker403"/> and the COVID-19 case<a id="_idIndexMarker404"/> data. You will need Matplotlib and Seaborn installed on your computer to run the code in this recipe.</p>
+    <h2 id="_idParaDest-179" class="heading-2">How to do it...</h2>
+    <p class="normal">We generate descriptive statistics of weeks worked by highest degree earned. We then use grouped boxplots to visualize the spread of the weeks worked distribution by degree, and of COVID-19 cases by region:</p>
+    <ol>
+      <li class="numberedList" value="1">Import the <code class="inlineCode">pandas</code>, <code class="inlineCode">matplotlib</code>, and <code class="inlineCode">seaborn</code> libraries:
+        <pre class="programlisting code-one"><code class="hljs-code"><span class="hljs-keyword">import</span> pandas <span class="hljs-keyword">as</span> pd
+<span class="hljs-keyword">import</span> matplotlib.pyplot <span class="hljs-keyword">as</span> plt
+<span class="hljs-keyword">import</span> seaborn <span class="hljs-keyword">as</span> sns
+nls97 = pd.read_csv(<span class="hljs-string">"data/nls97f.csv"</span>, low_memory=<span class="hljs-literal">False</span>)
+nls97.set_index(<span class="hljs-string">"personid"</span>, inplace=<span class="hljs-literal">True</span>)
+covidtotals = pd.read_csv(<span class="hljs-string">"data/covidtotals.csv"</span>, 
+                           parse_dates=[<span class="hljs-string">"lastdate"</span>])
+covidtotals.set_index(<span class="hljs-string">"iso_code"</span>, inplace=<span class="hljs-literal">True</span>)
+</code></pre>
+      </li>
+      <li class="numberedList">View the median, and first and third quartile values for weeks worked for each degree attainment level.</li>
+    </ol>
+    <p class="normal-one">First, define a function that returns those values as a Series, then use <code class="inlineCode">apply</code> to call it for each group:</p>
+    <pre class="programlisting code-one"><code class="hljs-code"><span class="hljs-keyword">def</span> <span class="hljs-title">gettots</span>(<span class="hljs-params">x</span>):
+...   out = {}
+...   out[<span class="hljs-string">'min'</span>] = x.<span class="hljs-built_in">min</span>()
+...   out[<span class="hljs-string">'qr1'</span>] = x.quantile(<span class="hljs-number">0.25</span>)
+...   out[<span class="hljs-string">'med'</span>] = x.median()
+...   out[<span class="hljs-string">'qr3'</span>] = x.quantile(<span class="hljs-number">0.75</span>)
+...   out[<span class="hljs-string">'max'</span>] = x.<span class="hljs-built_in">max</span>()
+...   out[<span class="hljs-string">'</span><span class="hljs-string">count'</span>] = x.count()
+...   <span class="hljs-keyword">return</span> pd.Series(out)
+...
+nls97.groupby([<span class="hljs-string">'highestdegree'</span>])[<span class="hljs-string">'weeksworked21'</span>].\
+  apply(gettots).unstack()
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">                 min  qr1  med  qr3  max  count
+highestdegree                                 
+0. None            0    0   39   49   52    487
+1. GED             0    7   42   50   52    853
+2. High School     0   27   42   50   52  2,529
+3. Associates      0   38   43   49   52    614
+4. Bachelors       0   40   43   50   52  1,344
+5. Masters         0   41   45   52   52    614
+6. PhD             0   41   44   49   52     59
+7. Professional    0   41   45   51   52    105
+</code></pre>
+    <ol>
+      <li class="numberedList" value="3">Do a boxplot of weeks worked by highest degree earned.</li>
+    </ol>
+    <p class="normal-one">Use Seaborn for these<a id="_idIndexMarker405"/> boxplots. First, create <a id="_idIndexMarker406"/>a subplot and name it <code class="inlineCode">myplt</code>. This makes it easier to access subplot attributes later. Use the <code class="inlineCode">order</code> parameter of <code class="inlineCode">boxplot</code> to order by highest degree earned. Notice that there are no outliers or whiskers at the lower end for individuals with no degree ever received. This is because the IQR for those individuals covers almost all of the range of values. The value at the 25<sup class="superscript">th</sup> percentile is 0:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">myplt = \
+  sns.boxplot(x=<span class="hljs-string">'highestdegree'</span>,y=<span class="hljs-string">'weeksworked21'</span>,
+  data=nls97,
+  order=<span class="hljs-built_in">sorted</span>(nls97.highestdegree.dropna().unique()))
+myplt.set_title(<span class="hljs-string">"Boxplots of Weeks Worked by Highest Degree"</span>)
+myplt.set_xlabel(<span class="hljs-string">'Highest Degree Attained'</span>)
+myplt.set_ylabel(<span class="hljs-string">'Weeks Worked 2021'</span>)
+myplt.set_xticklabels(myplt.get_xticklabels(), rotation=<span class="hljs-number">60</span>, horizontalalignment=<span class="hljs-string">'right'</span>)
+plt.tight_layout()
+plt.show()
+</code></pre>
+    <p class="normal-one">This results in the following boxplots:</p>
+    <figure class="mediaobject"><img src="../Images/B18596_05_09.png" alt="" role="presentation"/></figure>
+    <p class="packt_figref">Figure 5.9: Boxplots of weeks worked with IQR and outliers by highest degree</p>
+    <ol>
+      <li class="numberedList" value="4">View the minimum, maximum, median, and first- and third-quartile<a id="_idIndexMarker407"/> values for total cases<a id="_idIndexMarker408"/> per million by region.</li>
+    </ol>
+    <p class="normal-one">Use the <code class="inlineCode">gettots</code> function defined in <em class="italic">Step 2</em>:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">covidtotals.groupby([<span class="hljs-string">'region'</span>])[<span class="hljs-string">'total_cases_pm'</span>].\
+  apply(gettots).unstack()
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">              min     qr1     med     qr3     max  count
+region                                                       
+Caribbean   2,979 128,448 237,966 390,758 626,793  26
+Central Af    434   2,888   4,232   9,948  29,614  11
+Central Am  2,319  38,585  70,070 206,306 237,539   7
+Central As  1,787   7,146  45,454  79,795 162,356   6
+East Africa   660   2,018   4,062  71,435 507,765  15
+East Asia   8,295  26,930  69,661 285,173 763,475  15
+East. Eu  104,252 166,930 223,685 459,646 760,161  21
+North Afr   4,649   6,058  34,141  74,463  93,343   5
+North Am   60,412 108,218 214,958 374,862 582,158   4
+Oceania/Aus 4,620  75,769 259,196 356,829 508,709  24
+South Am   19,529 101,490 133,367 259,942 505,919  14
+South As    5,630  11,959  31,772  80,128 473,167   9
+South. Af   4,370  15,832  40,011  67,775 401,037  10
+West Af       363   1,407   2,961   4,783 108,695  16
+West Asia     354  78,447 123,483 192,995 512,388  16
+West. Eu   32,178 289,756 465,940 587,523 750,727  32
+</code></pre>
+    <ol>
+      <li class="numberedList" value="5">Do boxplots of cases per million by region.</li>
+    </ol>
+    <p class="normal-one">Flip the axes since<a id="_idIndexMarker409"/> there are a large number<a id="_idIndexMarker410"/> of regions. Also, do a swarm plot to give some sense of the number of countries by region. The swarm plot displays a dot for each country in each region. Some of the IQRs are hard to see because of the extreme values:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">sns.boxplot(x=<span class="hljs-string">'total_cases_pm'</span>, y=<span class="hljs-string">'</span><span class="hljs-string">region'</span>, data=covidtotals)
+sns.swarmplot(y=<span class="hljs-string">"region"</span>, x=<span class="hljs-string">"total_cases_pm"</span>, data=covidtotals, size=<span class="hljs-number">2</span>, color=<span class="hljs-string">".3"</span>, linewidth=<span class="hljs-number">0</span>)
+plt.title(<span class="hljs-string">"Boxplots of Total Cases Per Million by Region"</span>)
+plt.xlabel(<span class="hljs-string">"Cases Per Million"</span>)
+plt.ylabel(<span class="hljs-string">"Region"</span>)
+plt.xticks(rotation=<span class="hljs-number">45</span>)
+plt.tight_layout()
+plt.show()
+</code></pre>
+    <p class="normal-one">This results in the following boxplots:</p>
+    <figure class="mediaobject"><img src="../Images/B18596_05_10.png" alt="" role="presentation"/></figure>
+    <p class="packt_figref">Figure 5.10: Boxplots and swarm plots of cases per million by region, with IQR and outliers</p>
+    <ol>
+      <li class="numberedList" value="6">Show the highest<a id="_idIndexMarker411"/> values for cases<a id="_idIndexMarker412"/> per million:
+        <pre class="programlisting code-one"><code class="hljs-code">highvalue = covidtotals.total_cases_pm.quantile(<span class="hljs-number">0.9</span>)
+highvalue
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">512388.401
+</code></pre>
+        <pre class="programlisting code-one"><code class="hljs-code">covidtotals.loc[covidtotals.total_cases_pm&gt;=highvalue,\
+  [<span class="hljs-string">'location'</span>,<span class="hljs-string">'total_cases_pm'</span>]]
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">                           location  total_cases_pm
+iso_code                                          
+AND                         Andorra       601,367.7
+AUT                         Austria       680,262.6
+BRN                          Brunei       763,475.4
+CYP                          Cyprus       760,161.5
+DNK                         Denmark       583,624.9
+FRO                  Faeroe Islands       652,484.1
+FRA                          France       603,427.6
+GIB                       Gibraltar       628,882.7
+GRC                          Greece       540,380.1
+GLP                      Guadeloupe       513,528.3
+GGY                        Guernsey       557,817.1
+ISL                         Iceland       562,822.0
+ISR                          Israel       512,388.4
+JEY                          Jersey       599,218.4
+LVA                          Latvia       528,300.3
+LIE                   Liechtenstein       548,113.3
+LUX                      Luxembourg       603,439.5
+MTQ                      Martinique       626,793.1
+PRT                        Portugal       549,320.5
+SPM       Saint Pierre and Miquelon       582,158.0
+SMR                      San Marino       750,727.2
+SGP                       Singapore       531,183.8
+SVN                        Slovenia       639,407.7
+KOR                     South Korea       667,207.1
+</code></pre>
+      </li>
+      <li class="numberedList">Redo the boxplots<a id="_idIndexMarker413"/> without the extreme<a id="_idIndexMarker414"/> values:
+        <pre class="programlisting code-one"><code class="hljs-code">sns.boxplot(x=<span class="hljs-string">'total_cases_pm'</span>, y=<span class="hljs-string">'region'</span>, data=covidtotals.loc[covidtotals.total_cases_pm&lt;highvalue])
+sns.swarmplot(y=<span class="hljs-string">"region"</span>, x=<span class="hljs-string">"total_cases_pm"</span>, data=covidtotals.loc[covidtotals.total_cases_pm&lt;highvalue], size=<span class="hljs-number">3</span>, color=<span class="hljs-string">".3"</span>, linewidth=<span class="hljs-number">0</span>)
+plt.title(<span class="hljs-string">"Total Cases Without Extreme Values"</span>)
+plt.xlabel(<span class="hljs-string">"Cases Per Million"</span>)
+plt.ylabel(<span class="hljs-string">"Region"</span>)
+plt.tight_layout()
+plt.show()
+</code></pre>
+      </li>
+    </ol>
+    <p class="normal-one">This results in the following boxplots:</p>
+    <figure class="mediaobject"><img src="../Images/B18596_05_11.png" alt="" role="presentation"/></figure>
+    <p class="packt_figref">Figure 5.11: Boxplots of cases per million by region without the extreme values</p>
+    <p class="normal">These grouped boxplots<a id="_idIndexMarker415"/> reveal how much the distribution<a id="_idIndexMarker416"/> of cases, adjusted by population, varies by region.</p>
+    <h2 id="_idParaDest-180" class="heading-2">How it works...</h2>
+    <p class="normal">We use Seaborn for the figures we create in this recipe. We could have also used Matplotlib. Seaborn is actually built on top of Matplotlib, extending it in some areas, and making some things easier. It sometimes produces more aesthetically pleasing figures with the default settings than Matplotlib does.</p>
+    <p class="normal">It is a good idea to have some descriptives in front of us before creating figures with multiple boxplots. In <em class="italic">Step</em><em class="italic"> 2</em>, we get the first and third quartile values, and the median, for each degree attainment level. We do this by first creating a function called <code class="inlineCode">gettots</code>, which returns a series with those values. We apply <code class="inlineCode">gettots</code> to each group in the DataFrame with the following statement:</p>
+    <pre class="programlisting code"><code class="hljs-code">nls97.groupby([<span class="hljs-string">'highestdegree'</span>])[<span class="hljs-string">'weeksworked21'</span>].apply(gettots).unstack()
+</code></pre>
+    <p class="normal">The <code class="inlineCode">groupby</code> method creates a DataFrame with grouping information, which is passed to the <code class="inlineCode">apply</code> function. <code class="inlineCode">gettots</code> then calculates summary values for each group. <code class="inlineCode">unstack</code> reshapes the returned rows, from multiple rows per group (one for each summary statistic) to one row per group, with columns for each summary statistic.</p>
+    <p class="normal">In <em class="italic">Step</em><em class="italic"> 3</em>, we generate a boxplot for each degree attainment level. We do not normally need to name the subplot object we create when we use Seaborn’s <code class="inlineCode">boxplot</code> method. We do so in this step, naming it <code class="inlineCode">myplt</code>, so that we can easily change attributes—such as tick labels—later. We rotate the labels on the <em class="italic">x</em> axis using <code class="inlineCode">set_xticklabels</code> so that the labels do not run into each other.</p>
+    <p class="normal">We flip the axes for the boxplots in <em class="italic">Step 5</em> since there are more group levels (regions) than there are ticks for the continuous variable, cases per million. We do that by making <code class="inlineCode">total_cases_pm</code> the value for the first argument, rather than the second. We also do a swarm plot to give some sense of the number of observations (countries) in each region.</p>
+    <p class="normal">Extreme values can sometimes<a id="_idIndexMarker417"/> make it difficult<a id="_idIndexMarker418"/> to view a boxplot. Boxplots show both the outliers and the IQR, but the IQR rectangle will be so small that it is not viewable when outliers are several times the third or first quartile value. In <em class="italic">Step 7</em>, we remove all values of <code class="inlineCode">total_cases_pm</code> greater than or equal to 512,388. This improves the presentation of some details on the visualization.</p>
+    <h2 id="_idParaDest-181" class="heading-2">There’s more…</h2>
+    <p class="normal">The boxplots of weeks worked by educational attainment in <em class="italic">Step</em><em class="italic"> 3</em> reveal high variation in weeks worked, something that is not obvious in univariate analysis. The lower the educational attainment level, the greater the spread in weeks worked. There is substantial variability in weeks worked in 2021 for individuals with less than a high-school degree, and very little variability for individuals with college degrees. </p>
+    <p class="normal">This is quite relevant, of course, to our understanding of what an outlier is in terms of weeks worked. For example, someone with a college degree who worked 20 weeks is an outlier, but they would not be an outlier if they had less than a high-school diploma.</p>
+    <p class="normal">The <em class="italic">Cases Per Million</em> boxplots also invite us to think more flexibly about what an outlier is. For example, none of the outliers for cases per million in North Africa would be a high outlier for the dataset as a whole. The maximum value for North Africa is actually lower than the first quartile value for Western Europe.</p>
+    <p class="normal">One of the first things I notice when looking at a boxplot is where the median is in the IQR. When the median is not at all close to the center, I know I am not dealing with a normally distributed variable. It also gives me a good sense of the direction of the skew. If it is near the bottom of the IQR, meaning that the median is much closer to the first quartile than the third, then there is a positive skew. Compare the boxplot for Eastern Europe to that of Western Europe. A large number of low values and a few high values bring the median close to the first quartile value for Eastern Europe.</p>
+    <h2 id="_idParaDest-182" class="heading-2">See also</h2>
+    <p class="normal">We work much more with <code class="inlineCode">groupby</code> in <em class="chapterRef">Chapter 9</em>, <em class="italic">Fixing Messy Data When Aggregating</em>. We work more with <code class="inlineCode">stack</code> and <code class="inlineCode">unstack</code> in <em class="chapterRef">Chapter 11</em>, <em class="italic">Tidying and Reshaping Data</em>.</p>
+    <h1 id="_idParaDest-183" class="heading-1">Examining both distribution shape and outliers with violin plots</h1>
+    <p class="normal">Violin plots combine histograms<a id="_idIndexMarker419"/> and boxplots in one plot. They show<a id="_idIndexMarker420"/> the IQR, median, and whiskers, as well as the frequency of observations at all ranges of values. It is hard to visualize how that is possible without seeing an actual violin plot. We generate a few violin plots on the same data we used for boxplots in the previous recipe, to make it easier to grasp how they work.</p>
+    <h2 id="_idParaDest-184" class="heading-2">Getting ready</h2>
+    <p class="normal">We will work with the NLS data. You need Matplotlib and Seaborn installed on your computer to run the code in this recipe.</p>
+    <h2 id="_idParaDest-185" class="heading-2">How to do it…</h2>
+    <p class="normal">We do violin plots to view both the spread and shape of the distribution on the same graphic. We then do violin plots by groups:</p>
+    <ol>
+      <li class="numberedList" value="1">Load <code class="inlineCode">pandas</code>, <code class="inlineCode">matplotlib</code>, and <code class="inlineCode">seaborn</code>, and the NLS data:
+        <pre class="programlisting code-one"><code class="hljs-code"><span class="hljs-keyword">import</span> pandas <span class="hljs-keyword">as</span> pd
+<span class="hljs-keyword">import</span> numpy <span class="hljs-keyword">as</span> np
+<span class="hljs-keyword">import</span> matplotlib.pyplot <span class="hljs-keyword">as</span> plt
+<span class="hljs-keyword">import</span> seaborn <span class="hljs-keyword">as</span> sns
+nls97 = pd.read_csv(<span class="hljs-string">"data/nls97f.csv"</span>, low_memory=<span class="hljs-literal">False</span>)
+nls97.set_index(<span class="hljs-string">"personid"</span>, inplace=<span class="hljs-literal">True</span>)
+</code></pre>
+      </li>
+      <li class="numberedList">Do a violin plot<a id="_idIndexMarker421"/> of the SAT verbal<a id="_idIndexMarker422"/> score:
+        <pre class="programlisting code-one"><code class="hljs-code">sns.violinplot(y=nls97.satverbal, color=<span class="hljs-string">"wheat"</span>, orient=<span class="hljs-string">"v"</span>)
+plt.title(<span class="hljs-string">"Violin Plot of SAT Verbal Score"</span>)
+plt.ylabel(<span class="hljs-string">"SAT Verbal"</span>)
+plt.text(<span class="hljs-number">0.08</span>, <span class="hljs-number">780</span>, <span class="hljs-string">'outlier threshold'</span>, horizontalalignment=<span class="hljs-string">'center'</span>, size=<span class="hljs-string">'x-small'</span>)
+plt.text(<span class="hljs-number">0.065</span>, nls97.satverbal.quantile(<span class="hljs-number">0.75</span>), <span class="hljs-string">'3rd quartile'</span>, horizontalalignment=<span class="hljs-string">'center'</span>, size=<span class="hljs-string">'x-small'</span>)
+plt.text(<span class="hljs-number">0.05</span>, nls97.satverbal.median(), <span class="hljs-string">'Median'</span>, horizontalalignment=<span class="hljs-string">'center'</span>, size=<span class="hljs-string">'x-small'</span>)
+plt.text(<span class="hljs-number">0.065</span>, nls97.satverbal.quantile(<span class="hljs-number">0.25</span>), <span class="hljs-string">'</span><span class="hljs-string">1st quartile'</span>, horizontalalignment=<span class="hljs-string">'center'</span>, size=<span class="hljs-string">'x-small'</span>)
+plt.text(<span class="hljs-number">0.08</span>, <span class="hljs-number">210</span>, <span class="hljs-string">'outlier threshold'</span>, horizontalalignment=<span class="hljs-string">'center'</span>, size=<span class="hljs-string">'x-small'</span>)
+plt.text(-<span class="hljs-number">0.4</span>, <span class="hljs-number">500</span>, <span class="hljs-string">'</span><span class="hljs-string">frequency'</span>, horizontalalignment=<span class="hljs-string">'center'</span>, size=<span class="hljs-string">'x-small'</span>)
+plt.show()
+</code></pre>
+      </li>
+    </ol>
+    <p class="normal-one">This results in the following violin plot:</p>
+    <figure class="mediaobject"><img src="../Images/B18596_05_12.png" alt="" role="presentation"/></figure>
+    <p class="packt_figref">Figure 5.12: Violin plot of SAT verbal score with labels for IQR and outlier threshold</p>
+    <ol>
+      <li class="numberedList" value="3">Get some descriptives for weeks worked:
+        <pre class="programlisting code-one"><code class="hljs-code">nls97.loc[:, [<span class="hljs-string">'weeksworked20'</span>,<span class="hljs-string">'weeksworked21'</span>]].describe()
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">       weeksworked20  weeksworked21
+count          6,971          6,627
+mean              38             36
+std               21             18
+min                0              0
+25%               21             35
+50%               52             43
+75%               52             50
+max               52             52
+</code></pre>
+      </li>
+      <li class="numberedList">Show weeks worked for 2020 and 2021.</li>
+    </ol>
+    <p class="normal-one">Use a more object-oriented<a id="_idIndexMarker423"/> approach to make<a id="_idIndexMarker424"/> it easier to access some axes’ attributes. Notice that the <code class="inlineCode">weeksworked</code> distributions are bimodal, with bulges near the top and the bottom of the distribution. Also, note the very different IQR for 2020 and 2021:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">myplt = sns.violinplot(data=nls97.loc[:, [<span class="hljs-string">'weeksworked20'</span>,<span class="hljs-string">'weeksworked21'</span>]])
+myplt.set_title(<span class="hljs-string">"Violin Plots of Weeks Worked"</span>)
+myplt.set_xticklabels([<span class="hljs-string">"Weeks Worked 2020"</span>,<span class="hljs-string">"Weeks Worked 2021"</span>])
+plt.show()
+</code></pre>
+    <p class="normal-one">This results in the following violin plots:</p>
+    <figure class="mediaobject"><img src="../Images/B18596_05_13.png" alt="" role="presentation"/></figure>
+    <p class="packt_figref">Figure 5.13: Violin plots showing the spread and shape of the distribution for two variables side by side</p>
+    <ol>
+      <li class="numberedList" value="5">Do a violin plot<a id="_idIndexMarker425"/> of wage income by gender<a id="_idIndexMarker426"/> and marital status.</li>
+    </ol>
+    <p class="normal-one">First, create a collapsed marital status column. Specify gender for the <em class="italic">x</em> axis, salary for the <em class="italic">y</em> axis, and a new collapsed marital status column for <code class="inlineCode">hue</code>. The <code class="inlineCode">hue</code> parameter is used for grouping, which will be added to any grouping already used for the <em class="italic">x</em> axis. We also indicate <code class="inlineCode">scale="count"</code> to generate violin plots sized according to the number of observations in each category:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">nls97[<span class="hljs-string">"maritalstatuscollapsed"</span>] = \
+  nls97.maritalstatus.replace([<span class="hljs-string">'Married'</span>,
+   <span class="hljs-string">'Never-married'</span>,<span class="hljs-string">'Divorced'</span>,<span class="hljs-string">'Separated'</span>,
+   <span class="hljs-string">'Widowed'</span>],\
+  [<span class="hljs-string">'Married'</span>,<span class="hljs-string">'Never Married'</span>,<span class="hljs-string">'Not Married'</span>,
+   <span class="hljs-string">'Not Married'</span>,<span class="hljs-string">'Not Married'</span>])
+sns.violinplot(x=<span class="hljs-string">"gender"</span>, y=<span class="hljs-string">"wageincome20"</span>, hue=<span class="hljs-string">"maritalstatuscollapsed"</span>,
+  data=nls97, scale=<span class="hljs-string">"count"</span>)
+plt.title(<span class="hljs-string">"Violin Plots of Wage Income by Gender and Marital Status"</span>)
+plt.xlabel(<span class="hljs-string">'Gender'</span>)
+plt.ylabel(<span class="hljs-string">'Wage Income 2020'</span>)
+plt.legend(title=<span class="hljs-string">""</span>, loc=<span class="hljs-string">"upper center"</span>, framealpha=<span class="hljs-number">0</span>, fontsize=<span class="hljs-number">8</span>)
+plt.tight_layout()
+plt.show()
+</code></pre>
+    <p class="normal-one">This results<a id="_idIndexMarker427"/> in the following violin<a id="_idIndexMarker428"/> plots:</p>
+    <figure class="mediaobject"><img src="../Images/B18596_05_14.png" alt="" role="presentation"/></figure>
+    <p class="packt_figref">Figure 5.14: Violin plots showing the spread and shape of the distribution across two different groups</p>
+    <ol>
+      <li class="numberedList" value="6">Do violin plots<a id="_idIndexMarker429"/> of weeks worked<a id="_idIndexMarker430"/> by highest degree attained:
+        <pre class="programlisting code-one"><code class="hljs-code">nls97 = nls97.sort_values([<span class="hljs-string">'highestdegree'</span>])
+myplt = sns.violinplot(x=<span class="hljs-string">'highestdegree'</span>,y=<span class="hljs-string">'weeksworked21'</span>, data=nls97)
+myplt.set_xticklabels(myplt.get_xticklabels(), rotation=<span class="hljs-number">60</span>, horizontalalignment=<span class="hljs-string">'right'</span>)
+myplt.set_title(<span class="hljs-string">"Violin Plots of Weeks Worked by Highest Degree"</span>)
+myplt.set_xlabel(<span class="hljs-string">'Highest Degree Attained'</span>)
+myplt.set_ylabel(<span class="hljs-string">'Weeks Worked 2021'</span>)
+plt.tight_layout()
+plt.show()
+</code></pre>
+      </li>
+    </ol>
+    <p class="normal-one">This results in the following violin plots:</p>
+    <figure class="mediaobject"><img src="../Images/B18596_05_15.png" alt="" role="presentation"/></figure>
+    <p class="packt_figref">Figure 5.15: Violin plots showing the spread and shape of the distribution by group</p>
+    <p class="normal">These steps show just how much violin plots can tell us about how continuous variables in our DataFrame are distributed, and how that might vary by group.</p>
+    <h2 id="_idParaDest-186" class="heading-2">How it works…</h2>
+    <p class="normal">Similar to boxplots, violin plots show the median, the first and third quartiles, and the whiskers. They also show the relative frequency of variable values. (When the violin plot is displayed vertically, the relative frequency is the width at a given point.) The violin plot produced in <em class="italic">Step 2</em>, and the associated annotations, provide a good illustration. We can tell from the violin plot that the distribution of SAT verbal scores is not dramatically different from normal, other than the extreme values at the lower end. The greatest bulge (greatest width) is at the median, declining fairly symmetrically from there. The median is relatively equidistant from the first and third quartiles.</p>
+    <p class="normal">We can create a violin plot in Seaborn by passing one or more data Series to the <code class="inlineCode">violinplot</code> method. We can also pass a whole DataFrame of one or more columns. We do that in <em class="italic">Step 4</em> because we want to plot more than one continuous variable.</p>
+    <p class="normal">We sometimes need to experiment<a id="_idIndexMarker431"/> with the legend a bit to get<a id="_idIndexMarker432"/> it to be both informative and unobtrusive. In <em class="italic">Step 5</em>, we used the following command to remove the legend title (since it is clear from the values), locate the legend in the best place on the figure, and make the box transparent (<code class="inlineCode">framealpha=0</code>):</p>
+    <pre class="programlisting gen"><code class="hljs">plt.legend(title=<span class="hljs-string">""</span>, loc=<span class="hljs-string">"upper center"</span>, framealpha=<span class="hljs-number">0</span>, fontsize=<span class="hljs-number">8</span>)
+</code></pre>
+    <h2 id="_idParaDest-187" class="heading-2">There’s more…</h2>
+    <p class="normal">Once you get the hang of violin plots, you will appreciate the enormous amount of information they make available on one figure. We get a sense of the shape of the distribution, its central tendency, and its spread. We can also easily show that information for different subsets of our data.</p>
+    <p class="normal">The distribution of weeks worked in 2020 is different enough from weeks worked in 2021 to give the careful analyst pause. The IQR is quite different—31 for 2020 (21 to 52) and 15 for 2021 (35 to 50). (The weeks worked in 2020 distribution was likely impacted by the pandemic.)</p>
+    <p class="normal">An unusual fact about the distribution of wage income is revealed when examining the violin plots produced in <em class="italic">Step 5</em>. There is a bunching-up of incomes at the top of the distribution for married males, and somewhat for married females. That is quite unusual for a wage income distribution. As it turns out, it looks like there is a ceiling on wage income of $380,288. This is something that we definitely want to take into account in future analyses that include wage income.</p>
+    <p class="normal">The income distributions have a similar shape across gender and marital status, with bulges slightly below the median and extended positive tails. The IQRs have relatively similar lengths. However, the distribution for married males is noticeably higher (or to the right, depending on chosen orientation) than that for the other groups.</p>
+    <p class="normal">The violin plots of weeks worked by degree attained show very different distributions by group, as we also discovered in the boxplots of the same data in the previous recipe. What is more clear here, though, is the bimodal nature of the distribution at lower levels of education. There is a bunching at low levels of weeks worked for individuals without college degrees. Individuals without high-school diplomas were nearly as likely to work 5 or fewer weeks in 2021 as they were to work 50 or more weeks.</p>
+    <p class="normal">We used Seaborn exclusively to produce violin plots in this recipe. Violin plots can also be produced with Matplotlib. However, the default graphics in Matplotlib for violin plots look very different from those for Seaborn.</p>
+    <h2 id="_idParaDest-188" class="heading-2">See also</h2>
+    <p class="normal">It might be helpful to compare the violin plots in this recipe to histograms, boxplots, and grouped boxplots in the previous recipes in this chapter.</p>
+    <h1 id="_idParaDest-189" class="heading-1">Using scatter plots to view bivariate relationships</h1>
+    <p class="normal">My sense is that there are few plots<a id="_idIndexMarker433"/> that data analysts rely more<a id="_idIndexMarker434"/> on than scatter plots, with the possible exception of histograms. We are all very used to looking at relationships that can be illustrated in two dimensions. Scatter plots capture important real-world phenomena (the relationship between variables) and are quite intuitive for most people. This makes them a valuable addition to our visualization toolkit.</p>
+    <h2 id="_idParaDest-190" class="heading-2">Getting ready</h2>
+    <p class="normal">You will need Matplotlib and Seaborn for this recipe. We will be working with the <code class="inlineCode">landtemps</code> dataset, which provides the average temperature in 2023 for 12,137 weather stations across the world.</p>
+    <h2 id="_idParaDest-191" class="heading-2">How to do it...</h2>
+    <p class="normal">We level up our scatter<a id="_idIndexMarker435"/> plot skills from the previous chapter<a id="_idIndexMarker436"/> and visualize more complicated relationships. We display the relationship between average temperature, latitude, and elevation by showing multiple scatter plots on one chart, creating 3D scatter plots, and showing multiple regression lines:</p>
+    <ol>
+      <li class="numberedList" value="1">Load <code class="inlineCode">pandas</code>, <code class="inlineCode">numpy</code>, <code class="inlineCode">matplotlib</code> and <code class="inlineCode">seaborn</code>:
+        <pre class="programlisting code-one"><code class="hljs-code"><span class="hljs-keyword">import</span> pandas <span class="hljs-keyword">as</span> pd
+<span class="hljs-keyword">import</span> numpy <span class="hljs-keyword">as</span> np
+<span class="hljs-keyword">import</span> matplotlib.pyplot <span class="hljs-keyword">as</span> plt
+<span class="hljs-keyword">import</span> seaborn <span class="hljs-keyword">as</span> sns
+landtemps = pd.read_csv(<span class="hljs-string">"data/landtemps2023avgs.csv"</span>)
+</code></pre>
+      </li>
+      <li class="numberedList">Run a scatter plot of latitude (<code class="inlineCode">latabs</code>) by average temperature:
+        <pre class="programlisting code-one"><code class="hljs-code">plt.scatter(x=<span class="hljs-string">"latabs"</span>, y=<span class="hljs-string">"</span><span class="hljs-string">avgtemp"</span>, data=landtemps)
+plt.xlabel(<span class="hljs-string">"Latitude (N or S)"</span>)
+plt.ylabel(<span class="hljs-string">"Average Temperature (Celsius)"</span>)
+plt.yticks(np.arange(-<span class="hljs-number">60</span>, <span class="hljs-number">40</span>, step=<span class="hljs-number">20</span>))
+plt.title(<span class="hljs-string">"Latitude and Average Temperature in 2023"</span>)
+plt.show()
+</code></pre>
+      </li>
+    </ol>
+    <p class="normal-one">This results in the following scatter plot:</p>
+    <figure class="mediaobject"><img src="../Images/B18596_05_16.png" alt="" role="presentation"/></figure>
+    <p class="packt_figref">Figure 5.16: Scatter plot of latitude by average temperature</p>
+    <ol>
+      <li class="numberedList" value="3">Show the high elevation points in red.</li>
+    </ol>
+    <p class="normal-one">Create low and high<a id="_idIndexMarker437"/> elevation DataFrames. Notice<a id="_idIndexMarker438"/> that the high elevation points are generally lower (that is, cooler) on the figure at each latitude:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">low, high = landtemps.loc[landtemps.elevation&lt;=<span class="hljs-number">1000</span>], landtemps.loc[landtemps.elevation&gt;<span class="hljs-number">1000</span>]
+plt.scatter(x=<span class="hljs-string">"latabs"</span>, y=<span class="hljs-string">"avgtemp"</span>, c=<span class="hljs-string">"blue"</span>, data=low)
+plt.scatter(x=<span class="hljs-string">"latabs"</span>, y=<span class="hljs-string">"avgtemp"</span>, c=<span class="hljs-string">"red"</span>, data=high)
+plt.legend((<span class="hljs-string">'low elevation'</span>, <span class="hljs-string">'</span><span class="hljs-string">high elevation'</span>))
+plt.xlabel(<span class="hljs-string">"Latitude (N or S)"</span>)
+plt.ylabel(<span class="hljs-string">"Average Temperature (Celsius)"</span>)
+plt.title(<span class="hljs-string">"Latitude and Average Temperature in 2023"</span>)
+plt.show()
+</code></pre>
+    <p class="normal-one">This results in the following scatter plot:</p>
+    <figure class="mediaobject"><img src="../Images/B18596_05_17.png" alt="" role="presentation"/></figure>
+    <p class="packt_figref">Figure 5.17: Scatter plot of latitude by average temperature and elevation</p>
+    <ol>
+      <li class="numberedList" value="4">View a three-dimensional<a id="_idIndexMarker439"/> plot of temperature, latitude, and<a id="_idIndexMarker440"/> elevation.</li>
+    </ol>
+    <p class="normal-one">It looks like there is a somewhat steeper decline in temperature, with increases in latitude for high-elevation stations:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">fig = plt.figure()
+plt.suptitle(<span class="hljs-string">"Latitude, Temperature, and Elevation in 2023"</span>)
+ax = plt.axes(projection=<span class="hljs-string">'3d'</span>)
+ax.set_xlabel(<span class="hljs-string">"</span><span class="hljs-string">Elevation"</span>)
+ax.set_ylabel(<span class="hljs-string">"Latitude"</span>)
+ax.set_zlabel(<span class="hljs-string">"Avg Temp"</span>)
+ax.scatter3D(low.elevation, low.latabs, low.avgtemp, label=<span class="hljs-string">"low elevation"</span>, c=<span class="hljs-string">"blue"</span>)
+ax.scatter3D(high.elevation, high.latabs, high.avgtemp, label=<span class="hljs-string">"high elevation"</span>, c=<span class="hljs-string">"red"</span>)
+ax.legend()
+plt.show()
+</code></pre>
+    <p class="normal-one">This results in the following scatter plot:</p>
+    <figure class="mediaobject"><img src="../Images/B18596_05_18.png" alt="" role="presentation"/></figure>
+    <p class="packt_figref">Figure 5.18: 3D scatter plot of latitude and elevation by average temperature</p>
+    <ol>
+      <li class="numberedList" value="5">Show a regression<a id="_idIndexMarker441"/> line of latitude<a id="_idIndexMarker442"/> on temperature.</li>
+    </ol>
+    <p class="normal-one">Use <code class="inlineCode">regplot</code> to get a regression line:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">sns.regplot(x=<span class="hljs-string">"latabs"</span>, y=<span class="hljs-string">"avgtemp"</span>, color=<span class="hljs-string">"blue"</span>, data=landtemps)
+plt.title(<span class="hljs-string">"Latitude and Average Temperature in 2023"</span>)
+plt.xlabel(<span class="hljs-string">"Latitude (N or S)"</span>)
+plt.ylabel(<span class="hljs-string">"Average Temperature"</span>)
+plt.show()
+</code></pre>
+    <p class="normal-one">This results in the following scatter plot:</p>
+    <figure class="mediaobject"><img src="../Images/B18596_05_19.png" alt="" role="presentation"/></figure>
+    <p class="packt_figref">Figure 5.19: Scatter plot of latitude by average temperature with regression line</p>
+    <ol>
+      <li class="numberedList" value="6">Show separate regression<a id="_idIndexMarker443"/> lines for low- and high-elevation<a id="_idIndexMarker444"/> stations.</li>
+    </ol>
+    <p class="normal-one">We use <code class="inlineCode">lmplot</code> this time instead of <code class="inlineCode">regplot</code>. The two methods have similar functionality. Unsurprisingly, high-elevation stations appear to have both lower intercepts (where the line crosses the <em class="italic">y</em> axis) and steeper negative slopes:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">landtemps[<span class="hljs-string">'elevation'</span>] = np.where(landtemps.elevation&lt;=<span class="hljs-number">1000</span>,<span class="hljs-string">'low'</span>,<span class="hljs-string">'high'</span>)
+sns.lmplot(x=<span class="hljs-string">"latabs"</span>, y=<span class="hljs-string">"</span><span class="hljs-string">avgtemp"</span>, hue=<span class="hljs-string">"elevation"</span>, palette=<span class="hljs-built_in">dict</span>(low=<span class="hljs-string">"blue"</span>, high=<span class="hljs-string">"red"</span>),  facet_kws=<span class="hljs-built_in">dict</span>(legend_out=<span class="hljs-literal">False</span>), data=landtemps)
+plt.xlabel(<span class="hljs-string">"Latitude (N or S)"</span>)
+plt.ylabel(<span class="hljs-string">"Average Temperature"</span>)
+plt.yticks(np.arange(-<span class="hljs-number">60</span>, <span class="hljs-number">40</span>, step=<span class="hljs-number">20</span>))
+plt.title(<span class="hljs-string">"Latitude and Average Temperature in 2023"</span>)
+plt.show()
+</code></pre>
+    <p class="normal-one">This results in the following scatter plot:</p>
+    <figure class="mediaobject"><img src="../Images/B18596_05_20.png" alt="" role="presentation"/></figure>
+    <p class="packt_figref">Figure 5.20: Scatter plot of latitude by temperature with separate regression lines for elevation</p>
+    <ol>
+      <li class="numberedList" value="7">Show some stations<a id="_idIndexMarker445"/> above the low- and high-elevation<a id="_idIndexMarker446"/> regression lines. We can use the <code class="inlineCode">high</code> and <code class="inlineCode">low</code> DataFrames we created in <em class="italic">Step 3</em>:
+        <pre class="programlisting code-one"><code class="hljs-code">high.loc[(high.latabs&gt;<span class="hljs-number">38</span>) &amp; \
+...   (high.avgtemp&gt;=<span class="hljs-number">18</span>),
+...   [<span class="hljs-string">'station'</span>,<span class="hljs-string">'country'</span>,<span class="hljs-string">'latabs'</span>,
+...   <span class="hljs-string">'elevation'</span>,<span class="hljs-string">'avgtemp'</span>]]
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">       station   country  latabs  elevation  avgtemp
+82     YEREVAN   Armenia      40      1,113       19
+3968  LAJES_AB  Portugal      39      1,016       19
+</code></pre>
+        <pre class="programlisting code-one"><code class="hljs-code">low.loc[(low.latabs&gt;<span class="hljs-number">47</span>) &amp; \
+...   (low.avgtemp&gt;=<span class="hljs-number">14</span>),
+...   [<span class="hljs-string">'station'</span>,<span class="hljs-string">'country'</span>,<span class="hljs-string">'latabs'</span>,
+...   <span class="hljs-string">'elevation'</span>,<span class="hljs-string">'avgtemp'</span>]]
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">                    station        country  latabs  elevation  avgtemp
+1026    COURTENAY_PUNTLEDGE         Canada      50         40       16
+1055    HOWE_SOUNDPAM_ROCKS         Canada      49          5       14
+1318  FORESTBURG_PLANT_SITE         Canada      52        663       18
+2573        POINTE_DU_TALUT         France      47         43       14
+2574      NANTES_ATLANTIQUE         France      47         27       14
+4449           USTORDYNSKIJ         Russia      53        526       17
+6810   WALKER_AH_GWAH_CHING  United States      47        430       20
+7050     MEDICINE_LAKE_3_SE  United States      48        592       16
+8736                 QUINCY  United States      47        392       14
+9914       WINDIGO_MICHIGAN  United States      48        213       16
+</code></pre>
+      </li>
+    </ol>
+    <p class="normal">Scatter plots are a great<a id="_idIndexMarker447"/> way to view the relationship<a id="_idIndexMarker448"/> between two variables. These steps also show how we can display that relationship for different subsets of our data.</p>
+    <h2 id="_idParaDest-192" class="heading-2">How it works…</h2>
+    <p class="normal">We can run a scatter plot by just providing column names for <code class="inlineCode">x</code> and <code class="inlineCode">y</code> and a DataFrame. Nothing more is required. We get the same access to the attributes of the figure and its axes as we get when we run histograms and boxplots—titles, axis labels, tick marks and labels, and so on. Note that to access attributes such as labels on an axis (rather than on the figure), we use <code class="inlineCode">set_xlabels</code> or <code class="inlineCode">set_ylabels</code>, not <code class="inlineCode">xlabels</code> or <code class="inlineCode">ylabels</code>.</p>
+    <p class="normal">3D plots are a little more complicated. First we set the projection of our axes to <code class="inlineCode">3d</code>—<code class="inlineCode">plt.axes(projection='3d')</code>, as we did in <em class="italic">Step 4</em>. We can then use the <code class="inlineCode">scatter3D</code> method for each subplot.</p>
+    <p class="normal">Since scatter plots are designed to illustrate the relationship between a regressor (the <code class="inlineCode">x</code> variable) and a dependent variable, it is quite helpful to see a least-squares regression line on the scatter plot. Seaborn provides two methods for doing that: <code class="inlineCode">regplot</code> and <code class="inlineCode">lmplot</code>. I use <code class="inlineCode">regplot</code> typically, since it is less resource-intensive. But sometimes, I need the features of <code class="inlineCode">lmplot</code>. We use <code class="inlineCode">lmplot</code> and its <code class="inlineCode">hue</code> attribute in <em class="italic">Step 6</em> to generate separate regression lines for each elevation level.</p>
+    <p class="normal">In <em class="italic">Step 7</em>, we view some of the outliers: those stations<a id="_idIndexMarker449"/> with temperatures<a id="_idIndexMarker450"/> much higher than the regression line for their group. We would want to investigate the data for the <code class="inlineCode">LAJES_AB</code> station in Portugal and the <code class="inlineCode">YEREVAN</code> station in Armenia (<code class="inlineCode">(high.latabs&gt;38) &amp; (high.avgtemp&gt;=18)</code>). The average temperatures are higher than would be predicted at the given latitude and elevation level.</p>
+    <h2 id="_idParaDest-193" class="heading-2">There’s more...</h2>
+    <p class="normal">We see the expected relationship between latitude and average temperatures. Temperatures fall as latitude increases. But elevation is another important factor. Being able to visualize all three variables at once helps us identify outliers more easily. Of course, there are additional factors that matter for temperatures, such as warm ocean currents. That data is not in this dataset, unfortunately.</p>
+    <p class="normal">Scatter plots are great for visualizing the relationship between two continuous variables. With some tweaking, Matplotlib’s and Seaborn’s scatter plot tools can also provide some sense of relationships between three variables—by adding a third dimension, via the creative use of colors (when the third dimension is categorical), or by changing the size of the dots (the <em class="italic">Using linear regression to identify data points with high influence</em> recipe in <em class="chapterRef">Chapter 4</em>, <em class="italic">Identifying Outliers in Subsets of Data</em>, provides an example of that).</p>
+    <h2 id="_idParaDest-194" class="heading-2">See also</h2>
+    <p class="normal">This is a chapter on visualization, and identifying unexpected values through visualizations. But these figures also scream out for the kind of multivariate analyses we did in <em class="chapterRef">Chapter 4</em>, <em class="italic">Identifying Outliers in Subsets of Data</em>. In particular, linear regression analysis, and a close look at the residuals, would be useful for identifying outliers.</p>
+    <h1 id="_idParaDest-195" class="heading-1">Using line plots to examine trends in continuous variables</h1>
+    <p class="normal">A typical way to visualize values<a id="_idIndexMarker451"/> for a continuous variable<a id="_idIndexMarker452"/> over regular intervals of time is through a line plot, though sometimes bar charts are used for small numbers of intervals. We will use line plots in this recipe to display variable trends and examine sudden deviations in trends and differences in values over time by groups.</p>
+    <h2 id="_idParaDest-196" class="heading-2">Getting ready</h2>
+    <p class="normal">We will work with daily COVID-19 case data in this recipe. In previous recipes, we have used totals by country. The daily data provides us with the number of new cases and new deaths each day by country, in addition to the same demographic variables we used in other recipes. You will need Matplotlib installed to run the code in this recipe.</p>
+    <h2 id="_idParaDest-197" class="heading-2">How to do it…</h2>
+    <p class="normal">We use line plots to visualize trends in daily COVID-19 cases and deaths. We create line plots by region, and stacked plots to get a better sense of how much one country can drive the number of cases for a whole region:</p>
+    <ol>
+      <li class="numberedList" value="1">Import <code class="inlineCode">pandas</code>, <code class="inlineCode">matplotlib</code>, and the <code class="inlineCode">matplotlib.dates</code> and date-formatting utilities:
+        <pre class="programlisting code-one"><code class="hljs-code"><span class="hljs-keyword">import</span> pandas <span class="hljs-keyword">as</span> pd
+<span class="hljs-keyword">import</span> numpy <span class="hljs-keyword">as</span> np
+<span class="hljs-keyword">import</span> matplotlib.pyplot <span class="hljs-keyword">as</span> plt
+<span class="hljs-keyword">import</span> matplotlib.dates <span class="hljs-keyword">as</span> mdates
+<span class="hljs-keyword">from</span> matplotlib.dates <span class="hljs-keyword">import</span> DateFormatter
+coviddaily = pd.read_csv(<span class="hljs-string">"data/coviddaily.csv"</span>, parse_dates=[<span class="hljs-string">"casedate"</span>])
+</code></pre>
+      </li>
+      <li class="numberedList">View a couple of rows of the COVID-19 daily data:
+        <pre class="programlisting code-one"><code class="hljs-code">coviddaily.sample(<span class="hljs-number">2</span>, random_state=<span class="hljs-number">1</span>).T
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">                          628             26980
+iso_code                    AND             PRT
+casedate             2020-03-15      2022-12-04
+location                Andorra        Portugal
+continent                Europe          Europe
+new_cases                     1           3,963
+new_deaths                    0              69
+population                79843        10270857
+pop_density                 164             112
+median_age                  NaN              46
+gdp_per_capita              NaN          27,937
+hosp_beds                   NaN               3
+vac_per_hund                NaN             NaN
+aged_65_older               NaN              22
+life_expectancy              84              82
+hum_dev_ind                   1               1
+region           Western Europe  Western Europe
+</code></pre>
+      </li>
+      <li class="numberedList">Calculate new cases and deaths by day.</li>
+    </ol>
+    <p class="normal-one">Select dates<a id="_idIndexMarker453"/> between July 1, 2023, and March 3, 2024, and then<a id="_idIndexMarker454"/> use <code class="inlineCode">groupby</code> to summarize cases and deaths across all countries for each day:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">coviddailytotals = \
+  coviddaily.loc[coviddaily.casedate.\
+    between(<span class="hljs-string">'2023-07-01'</span>,<span class="hljs-string">'2024-03-03'</span>)].\
+  groupby([<span class="hljs-string">'casedate'</span>])[[<span class="hljs-string">'new_cases'</span>,<span class="hljs-string">'new_deaths'</span>]].\
+  <span class="hljs-built_in">sum</span>().\
+  reset_index()
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">coviddailytotals.sample(7, random_state=1)
+     casedate  new_cases  new_deaths
+27 2024-01-07    181,487       1,353
+3  2023-07-23    254,984         596
+22 2023-12-03    282,319       1,535
+18 2023-11-05    158,346       1,162
+23 2023-12-10    333,155       1,658
+17 2023-10-29    144,325         905
+21 2023-11-26    238,282       1,287
+</code></pre>
+    <ol>
+      <li class="numberedList" value="4">Show line plots<a id="_idIndexMarker455"/> for new cases<a id="_idIndexMarker456"/> and new deaths by day.</li>
+    </ol>
+    <p class="normal-one">Show the cases and deaths on different subplots:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">fig = plt.figure()
+plt.suptitle(<span class="hljs-string">"New COVID-19 Cases and Deaths By Day Worldwide 2023-2024"</span>)
+ax1 = plt.subplot(<span class="hljs-number">2</span>,<span class="hljs-number">1</span>,<span class="hljs-number">1</span>)
+ax1.plot(coviddailytotals.casedate, coviddailytotals.new_cases)
+ax1.xaxis.set_major_formatter(DateFormatter(<span class="hljs-string">"%b"</span>))
+ax1.set_xlabel(<span class="hljs-string">"New Cases"</span>)
+ax2 = plt.subplot(<span class="hljs-number">2</span>,<span class="hljs-number">1</span>,<span class="hljs-number">2</span>)
+ax2.plot(coviddailytotals.casedate, coviddailytotals.new_deaths)
+ax2.xaxis.set_major_formatter(DateFormatter(<span class="hljs-string">"%b"</span>))
+ax2.set_xlabel(<span class="hljs-string">"New Deaths"</span>)
+plt.tight_layout()
+fig.subplots_adjust(top=<span class="hljs-number">0.88</span>)
+plt.show()
+</code></pre>
+    <p class="normal-one">This results in the following line plots:</p>
+    <figure class="mediaobject"><img src="../Images/B18596_05_21.png" alt="" role="presentation"/></figure>
+    <p class="packt_figref">Figure 5.21: Daily trend lines of worldwide COVID-19 cases and deaths</p>
+    <ol>
+      <li class="numberedList" value="5">Calculate new cases<a id="_idIndexMarker457"/> and deaths by day<a id="_idIndexMarker458"/> and region:
+        <pre class="programlisting code-one"><code class="hljs-code">regiontotals = \
+  coviddaily.loc[coviddaily.casedate.\
+    between(<span class="hljs-string">'2023-07-01'</span>,<span class="hljs-string">'</span><span class="hljs-string">2024-03-03'</span>)].\
+  groupby([<span class="hljs-string">'casedate'</span>,<span class="hljs-string">'region'</span>])\
+    [[<span class="hljs-string">'new_cases'</span>,<span class="hljs-string">'new_deaths'</span>]].\
+  <span class="hljs-built_in">sum</span>().\
+  reset_index()
+regiontotals.sample(<span class="hljs-number">7</span>, random_state=<span class="hljs-number">1</span>)
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">      casedate         region  new_cases  new_deaths
+110 2023-08-13      West Asia      2,313          25
+147 2023-09-03   Central Asia        600           7
+494 2024-02-04  Oceania / Aus     12,594          38
+325 2023-11-19      East Asia     20,088          15
+189 2023-09-17    West Africa         85           0
+218 2023-10-01  South America      4,203          54
+469 2024-01-21  Oceania / Aus     17,503         129
+</code></pre>
+      </li>
+      <li class="numberedList">Show line plots of new cases by selected regions.</li>
+    </ol>
+    <p class="normal-one">Loop through the regions<a id="_idIndexMarker459"/> in <code class="inlineCode">showregions</code>. Do a line plot<a id="_idIndexMarker460"/> of the total <code class="inlineCode">new_cases</code> by day for each region. Use the <code class="inlineCode">gca</code> method to get the <em class="italic">x</em> axis and set the date format:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">showregions = [<span class="hljs-string">'East Asia'</span>,<span class="hljs-string">'Southern Africa'</span>,
+...   <span class="hljs-string">'North America'</span>,<span class="hljs-string">'Western Europe'</span>]
+<span class="hljs-keyword">for</span> j <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(<span class="hljs-built_in">len</span>(showregions)):
+...   rt = regiontotals.loc[regiontotals.\
+...     region==showregions[j],
+...     [<span class="hljs-string">'casedate'</span>,<span class="hljs-string">'new_cases'</span>]]
+...   plt.plot(rt.casedate, rt.new_cases,
+...     label=showregions[j])
+plt.title(<span class="hljs-string">"</span><span class="hljs-string">New COVID-19 Cases By Day and Region in 2023-2024"</span>)
+plt.gca().get_xaxis().set_major_formatter(DateFormatter(<span class="hljs-string">"%b"</span>))
+plt.ylabel(<span class="hljs-string">"New Cases"</span>)
+plt.legend()
+plt.show()
+</code></pre>
+    <p class="normal-one">This results in the following line plots:</p>
+    <figure class="mediaobject"><img src="../Images/B18596_05_22.png" alt="" role="presentation"/></figure>
+    <figure class="mediaobject">Figure 5.22: Daily trend lines of COVID-19 cases by region</figure>
+    <ol>
+      <li class="numberedList" value="7">Use a stacked plot<a id="_idIndexMarker461"/> to examine the trend<a id="_idIndexMarker462"/> in a region more closely.</li>
+    </ol>
+    <p class="normal-one">See if one country (Brazil) in South America is driving the trend line. Create a DataFrame (<code class="inlineCode">sa</code>) for <code class="inlineCode">new_cases</code> by day for South America. Add a Series for <code class="inlineCode">new_cases</code> in Brazil to the <code class="inlineCode">sa</code> DataFrame. Then, create a new Series in the <code class="inlineCode">sa</code> DataFrame for South America cases minus Brazil cases (<code class="inlineCode">sacasesnobr</code>):</p>
+    <pre class="programlisting code-one"><code class="hljs-code">sa = \
+  coviddaily.loc[(coviddaily.casedate.\
+    between(<span class="hljs-string">'2023-01-01'</span>,<span class="hljs-string">'2023-10-31'</span>)) &amp; \
+    (coviddaily.region==<span class="hljs-string">'South America'</span>),
+    [<span class="hljs-string">'casedate'</span>,<span class="hljs-string">'new_cases'</span>]].\
+  groupby([<span class="hljs-string">'casedate'</span>])\
+    [[<span class="hljs-string">'new_cases'</span>]].\
+  <span class="hljs-built_in">sum</span>().\
+  reset_index().\
+  rename(columns={<span class="hljs-string">'new_cases'</span>:<span class="hljs-string">'sacases'</span>})
+br = coviddaily.loc[(coviddaily.\
+  location==<span class="hljs-string">'Brazil'</span>) &amp; \
+  (coviddaily.casedate. \
+  between(<span class="hljs-string">'2023-01-01'</span>,<span class="hljs-string">'2023-10-31'</span>)),
+  [<span class="hljs-string">'casedate'</span>,<span class="hljs-string">'new_cases'</span>]].\
+  rename(columns={<span class="hljs-string">'new_cases'</span>:<span class="hljs-string">'brcases'</span>})
+sa = pd.merge(sa, br, left_on=[<span class="hljs-string">'</span><span class="hljs-string">casedate'</span>], right_on=[<span class="hljs-string">'casedate'</span>], how=<span class="hljs-string">"left"</span>)
+sa.fillna({<span class="hljs-string">"sacases"</span>: <span class="hljs-number">0</span>},
+  inplace=<span class="hljs-literal">True</span>)
+sa[<span class="hljs-string">'sacasesnobr'</span>] = sa.sacases-sa.brcases
+fig = plt.figure()
+ax = plt.subplot()
+ax.stackplot(sa.casedate, sa.sacases, sa.sacasesnobr, labels=[<span class="hljs-string">'Brazil'</span>,<span class="hljs-string">'Other South America'</span>])
+ax.xaxis.set_major_formatter(DateFormatter(<span class="hljs-string">"%m-%d"</span>))
+plt.title(<span class="hljs-string">"</span><span class="hljs-string">New COVID-19 Cases in South America in 2023"</span>)
+plt.tight_layout()
+plt.legend(loc=<span class="hljs-string">"upper left"</span>)
+plt.show()
+</code></pre>
+    <p class="normal-one">This results<a id="_idIndexMarker463"/> in the following<a id="_idIndexMarker464"/> stacked plot:</p>
+    <figure class="mediaobject"><img src="../Images/B18596_05_23.png" alt="" role="presentation"/></figure>
+    <p class="packt_figref">Figure 5.23 – Stacked daily trends of cases in Brazil and the rest of South America</p>
+    <p class="normal">These steps show how to use<a id="_idIndexMarker465"/> line plots to examine trends<a id="_idIndexMarker466"/> in a variable over time, and how to display trends for different groups on one figure.</p>
+    <h2 id="_idParaDest-198" class="heading-2">How it works...</h2>
+    <p class="normal">We need to do some manipulation of the daily COVID-19 data before we do the line charts. We use <code class="inlineCode">groupby</code> in <em class="italic">Step 3</em> to summarize new cases and deaths over all countries for each day. We use <code class="inlineCode">groupby</code> in <em class="italic">Step 5</em> to summarize cases and deaths for each region and day.</p>
+    <p class="normal">In <em class="italic">Step</em><em class="italic"> 4</em>, we set up our first subplot with <code class="inlineCode">plt.subplot(2,1,1)</code>. That will give us a figure with two rows and one column. The <code class="inlineCode">1</code> for the third argument indicates that this subplot will be the first, or top, subplot. We can pass a data Series for date and for the values for the <em class="italic">y</em> axis. So far, this is pretty much what we have done with the <code class="inlineCode">hist</code>, <code class="inlineCode">scatterplot</code>, <code class="inlineCode">boxplot</code>, and <code class="inlineCode">violinplot</code> methods. But since we are working with dates here, we take advantage of Matplotlib’s utilities for date formatting and indicate that we want only the month to show, with <code class="inlineCode">xaxis.set_major_formatter(DateFormatter("%b"))</code>. Since we are working with subplots, we use <code class="inlineCode">set_xlabel</code> rather than <code class="inlineCode">xlabel</code> to indicate the label we want for the <em class="italic">x</em> axis.</p>
+    <p class="normal">We show line plots for four selected regions in <em class="italic">Step 6</em>. We do this by calling <code class="inlineCode">plot</code> for each region that we want plotted. We could have done it for all of the regions, but it would have been too difficult to view.</p>
+    <p class="normal">We have to do some additional manipulation in <em class="italic">Step 7</em> to pull the new Brazil cases out of the cases for South America. Once we do that, we can do a stacked plot with the South America cases (minus Brazil) and Brazil. This figure suggests that the trends in new cases in South America in 2023 were largely driven by trends in Brazil.</p>
+    <h2 id="_idParaDest-199" class="heading-2">There’s more…</h2>
+    <p class="normal">The figure produced in <em class="italic">Step 6</em> reveals a couple of potential data issues. There is an unusual spike in April of 2023 in East Asia. It is important to examine these totals to check whether there is a data collection error.</p>
+    <p class="normal">It is difficult to miss how much the trends differ by region. There are substantive reasons for this, of course. The different lines reflect what we know to be reality about different rates of spread by country and region. However, it is worth exploring any significant change in the direction or slope of trend lines to make sure that we can confirm that the data is accurate.</p>
+    <h2 id="_idParaDest-200" class="heading-2">See also</h2>
+    <p class="normal">We cover <code class="inlineCode">groupby</code> in more detail in <em class="chapterRef">Chapter 9</em>, <em class="italic">Fixing Messy Data When Aggregating</em>. We go over merging data, as we did in <em class="italic">Step 7</em>, in <em class="chapterRef">Chapter 10</em>, <em class="italic">Addressing Data Issues When Combining Data Frames</em>.</p>
+    <h1 id="_idParaDest-201" class="heading-1">Generating a heat map based on a correlation matrix</h1>
+    <p class="normal">The correlation between two variables<a id="_idIndexMarker467"/> is a measure of how much<a id="_idIndexMarker468"/> they move together. A correlation of 1 means that the two variables are perfectly positively correlated. As one variable increases in size, so does the other. A value of -1 means that they are perfectly negatively correlated. As one variable increases in size, the other decreases. Correlations of 1 or -1 only rarely happen, but correlations above 0.5 or below -0.5 might still be meaningful. There are several tests that can tell us whether the relationship is statistically significant (such as Pearson, Spearman, and Kendall). Since this is a chapter on visualizations, we will focus on viewing important correlations.</p>
+    <h2 id="_idParaDest-202" class="heading-2">Getting ready</h2>
+    <p class="normal">You will need Matplotlib and Seaborn installed to run the code in this recipe. Both can be installed by using <code class="inlineCode">pip</code>, with the <code class="inlineCode">pip install matplotlib</code> and <code class="inlineCode">pip install seaborn</code> commands.</p>
+    <h2 id="_idParaDest-203" class="heading-2">How to do it…</h2>
+    <p class="normal">We first show part of a correlation matrix of the COVID-19 data, and scatter plots of some key relationships. We then show a heat map of the correlation matrix to visualize the correlations between all variables:</p>
+    <ol>
+      <li class="numberedList" value="1">Import <code class="inlineCode">matplotlib</code> and <code class="inlineCode">seaborn</code>, and load<a id="_idIndexMarker469"/> the COVID-19 totals<a id="_idIndexMarker470"/> data:
+        <pre class="programlisting code-one"><code class="hljs-code"><span class="hljs-keyword">import</span> pandas <span class="hljs-keyword">as</span> pd
+<span class="hljs-keyword">import</span> numpy <span class="hljs-keyword">as</span> np
+<span class="hljs-keyword">import</span> matplotlib.pyplot <span class="hljs-keyword">as</span> plt
+<span class="hljs-keyword">import</span> seaborn <span class="hljs-keyword">as</span> sns
+covidtotals = pd.read_csv(<span class="hljs-string">"data/covidtotals.csv"</span>, parse_dates=[<span class="hljs-string">"lastdate"</span>])
+</code></pre>
+      </li>
+      <li class="numberedList">Generate a correlation matrix.</li>
+    </ol>
+    <p class="normal-one">View part of the matrix:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">corr = covidtotals.corr(numeric_only=<span class="hljs-literal">True</span>)
+corr[[<span class="hljs-string">'total_cases'</span>,<span class="hljs-string">'total_deaths'</span>,
+  <span class="hljs-string">'total_cases_pm'</span>,<span class="hljs-string">'total_deaths_pm'</span>]]
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">                 total_cases  total_deaths  \
+total_cases             1.00          0.76  
+total_deaths            0.76          1.00  
+total_cases_pm          0.10          0.01  
+total_deaths_pm         0.15          0.27  
+population              0.70          0.47  
+pop_density            -0.03         -0.04  
+median_age              0.29          0.19  
+gdp_per_capita          0.19          0.13  
+hosp_beds               0.21          0.05  
+vac_per_hund            0.02         -0.07  
+aged_65_older           0.29          0.19  
+life_expectancy         0.19          0.11  
+hum_dev_ind             0.26          0.21  
+                 total_cases_pm  total_deaths_pm 
+total_cases                0.10             0.15 
+total_deaths               0.01             0.27 
+total_cases_pm             1.00             0.44 
+total_deaths_pm            0.44             1.00 
+population                -0.13            -0.07 
+pop_density                0.19             0.02 
+median_age                 0.74             0.69 
+gdp_per_capita             0.66             0.29 
+hosp_beds                  0.48             0.39 
+vac_per_hund               0.24            -0.07 
+aged_65_older              0.72             0.68 
+life_expectancy            0.69             0.49 
+hum_dev_ind                0.76             0.60
+</code></pre>
+    <ol>
+      <li class="numberedList" value="3">Show scatter plots of median age and <strong class="keyWord">gross domestic product</strong> (<strong class="keyWord">GDP</strong>) per capita by cases per million.</li>
+    </ol>
+    <p class="normal-one">Indicate that we<a id="_idIndexMarker471"/> want the subplots<a id="_idIndexMarker472"/> to share <em class="italic">y</em>-axis values with <code class="inlineCode">sharey=True</code>:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">fig, axes = plt.subplots(<span class="hljs-number">1</span>,<span class="hljs-number">2</span>, sharey=<span class="hljs-literal">True</span>)
+sns.regplot(x=<span class="hljs-string">"median_age"</span>, y=<span class="hljs-string">"total_cases_pm"</span>, data=covidtotals, ax=axes[<span class="hljs-number">0</span>])
+sns.regplot(x=<span class="hljs-string">"gdp_per_capita"</span>, y=<span class="hljs-string">"total_cases_pm"</span>, data=covidtotals, ax=axes[<span class="hljs-number">1</span>])
+axes[<span class="hljs-number">0</span>].set_xlabel(<span class="hljs-string">"Median Age"</span>)
+axes[<span class="hljs-number">0</span>].set_ylabel(<span class="hljs-string">"Cases Per Million"</span>)
+axes[<span class="hljs-number">1</span>].set_xlabel(<span class="hljs-string">"GDP Per Capita"</span>)
+axes[<span class="hljs-number">1</span>].set_ylabel(<span class="hljs-string">""</span>)
+plt.suptitle(<span class="hljs-string">"Scatter Plots of Age and GDP with Cases Per Million"</span>)
+plt.tight_layout()
+fig.subplots_adjust(top=<span class="hljs-number">0.92</span>)
+plt.show()
+</code></pre>
+    <p class="normal-one">This results in the following scatter plots:</p>
+    <figure class="mediaobject"><img src="../Images/B18596_05_24.png" alt="" role="presentation"/></figure>
+    <p class="packt_figref">Figure 5.24: Scatter plots of median age and GDP by cases per million side by side</p>
+    <ol>
+      <li class="numberedList" value="4">Generate a heat<a id="_idIndexMarker473"/> map of the correlation<a id="_idIndexMarker474"/> matrix:
+        <pre class="programlisting code-one"><code class="hljs-code">sns.heatmap(corr, xticklabels=corr.columns, yticklabels=corr.columns, cmap=<span class="hljs-string">"coolwarm"</span>)
+plt.title(<span class="hljs-string">'Heat Map of Correlation Matrix'</span>)
+plt.tight_layout()
+plt.show()
+</code></pre>
+      </li>
+    </ol>
+    <p class="normal-one">This results in the following heat map:</p>
+    <figure class="mediaobject"><img src="../Images/B18596_05_25.png" alt="" role="presentation"/></figure>
+    <p class="packt_figref">Figure 5.25: Heat map of COVID-19 data, with strongest correlations in red and peach</p>
+    <p class="normal">Heat maps are a great way to visualize how all key variables in our DataFrame are correlated with one another.</p>
+    <h2 id="_idParaDest-204" class="heading-2">How it works…</h2>
+    <p class="normal">The <code class="inlineCode">corr</code> method of a DataFrame generates<a id="_idIndexMarker475"/> correlation coefficients<a id="_idIndexMarker476"/> of all numeric variables by all other numeric variables. We display part of that matrix in <em class="italic">Step 2</em>. In <em class="italic">Step 3</em>, we make scatter plots of median age by cases per million, and GDP per capita by cases per million. These plots give a sense of what it looks like when the correlation is 0.74 (median age and cases per million) and when it is 0.66 (GDP per capita and cases per million). Countries with higher median ages or higher GDP per capita tend to have higher cases per million of population.</p>
+    <p class="normal">The heat map provides a visualization of the correlation matrix we created in <em class="italic">Step 2</em>. All of the red squares are correlations of 1.0 (which is the correlation of the variable with itself). The peach rectangles indicate the substantially positive correlations, such as those between median age, GDP per capita, and human development index and cases per million. The dark rectangles indicate that the relationships are strongly negative, such as that between vaccinations<a id="_idIndexMarker477"/> per 100,000 of the population<a id="_idIndexMarker478"/> and deaths per million.</p>
+    <h2 id="_idParaDest-205" class="heading-2">There’s more…</h2>
+    <p class="normal">I find it helpful to always have a correlation matrix or heat map close by when I am doing exploratory analysis or statistical modeling. I understand the data much better when I am able to keep these bivariate relationships in mind.</p>
+    <h2 id="_idParaDest-206" class="heading-2">See also</h2>
+    <p class="normal">We go over tools for examining the relationship between two variables in more detail in the <em class="italic">Identifying outliers and unexpected values in bivariate relationships</em> recipe in <em class="chapterRef">Chapter 4</em>, <em class="italic">Identifying Outliers in Subsets of Data</em>.</p>
+    <h1 id="_idParaDest-207" class="heading-1">Summary</h1>
+    <p class="normal">Histograms, boxplots, scatter plots, violin plots, line plots, and heat maps are all essential tools for understanding how variables are distributed. Scatter plots, violin plots, and heat maps can also help us better understand relationships between variables, whether they are continuous or categorical. We created visualizations with all of those tools in this chapter. In the next chapter, we will examine how to create new Series in pandas, or modify values in an existing Series.</p>
+    <h1 class="heading-1">Leave a review!</h1>
+    <p class="normal">Enjoying this book? Help readers like you by leaving an Amazon review. Scan the QR code below to get a free eBook of your choice.</p>
+    <p class="normal"><img src="../Images/Review_copy.png" style="width:10em" alt="" role="presentation"/></p>
+  </div>
+</body></html>

@@ -1,0 +1,934 @@
+<html><head></head><body>
+  <div id="_idContainer096" class="Basic-Text-Frame">
+    <h1 class="chapterNumber">7</h1>
+    <h1 id="_idParaDest-249" class="chapterTitle">Identifying and Fixing Missing Values</h1>
+    <p class="normal">I think I speak for many data analysts and scientists when I write, rarely is there something so seemingly small and trivial that is of as much consequence as a missing value. We spend a good deal of our time worrying about missing values because they can have a dramatic, and surprising, effect on our analysis. This is most likely to happen when missing values are not random, but are correlated with a dependent variable. For example, if we are doing a longitudinal study of earnings, but individuals with lower education are more likely to skip the earnings question each year, there is a decent chance that this will bias our parameter estimate for education.</p>
+    <p class="normal">Of course, identifying missing values is not even half of the battle. We then need to decide how to handle them. Do we remove any observation with a missing value for one or more variables? Do we impute a value based on a sample-wide statistic like the mean? Or assign a value based on a more targeted statistic, like the mean for those in a certain class? Do we think of this differently for time series or longitudinal data where the nearest temporal value might make the most sense? Or should we use a more complex multivariate technique for imputing values, perhaps based on regression or <em class="italic">k</em>-nearest neighbors?</p>
+    <p class="normal">The answer to all of the preceding questions is, “yes.” At some point we will want to use each of these techniques. We will want to be able to answer why or why not to all of these possibilities when making a final choice about missing value imputation. Each will make sense depending on the situation.</p>
+    <p class="normal">We will go over techniques in this chapter for identifying the missing values for each variable, and for observations where values for a large number of the variables are absent. We will then explore strategies for imputing values, such as setting values to the overall mean, to the mean for a given category, and forward filling. We also examine multivariate techniques for imputing values and discuss when they are appropriate.</p>
+    <p class="normal">Specifically, we will explore the following recipes in this chapter:</p>
+    <ul>
+      <li class="bulletList">Identifying missing values</li>
+      <li class="bulletList">Cleaning missing values</li>
+      <li class="bulletList">Imputing values with regression</li>
+      <li class="bulletList">Using <em class="italic">k</em>-nearest neighbors for imputation</li>
+      <li class="bulletList">Using random forest for imputation</li>
+      <li class="bulletList">Using PandasAI for imputation</li>
+    </ul>
+    <h1 id="_idParaDest-250" class="heading-1">Technical requirements</h1>
+    <p class="normal">You will need pandas, NumPy, and Matplotlib to complete the recipes in this chapter. I used pandas 2.1.4, but the code will run on pandas 1.5.3 or later.</p>
+    <p class="normal">The code in this chapter can be downloaded from the book’s GitHub repository, <a href="https://github.com/PacktPublishing/Python-Data-Cleaning-Cookbook-Second-Edition"><span class="url">https://github.com/PacktPublishing/Python-Data-Cleaning-Cookbook-Second-Edition</span></a>.</p>
+    <h1 id="_idParaDest-251" class="heading-1">Identifying missing values</h1>
+    <p class="normal">Since identifying missing values<a id="_idIndexMarker564"/> is such an important part of the workflow of analysts, any tool we use needs to make it easy to regularly check for such values. Fortunately, pandas makes it quite simple to identify missing values.</p>
+    <h2 id="_idParaDest-252" class="heading-2">Getting ready</h2>
+    <p class="normal">We will work with the <strong class="keyWord">National Longitudinal Survey</strong> (<strong class="keyWord">NLS</strong>) data in this chapter. The NLS data has one observation<a id="_idIndexMarker565"/> per survey respondent. Data for employment, earnings, and college enrollment for each year are stored in columns with suffixes representing the year, such as <code class="inlineCode">weeksworked21</code> and <code class="inlineCode">weeksworked22</code> for weeks worked in <code class="inlineCode">2021</code> and <code class="inlineCode">2022</code> respectively.</p>
+    <p class="normal">We will also work with the COVID-19 data again. This dataset has one observation for each country with total COVID-19 cases and deaths, as well as some demographic data for each country.</p>
+    <div class="note">
+      <p class="normal"><strong class="keyWord">Data note</strong></p>
+      <p class="normal">The National Longitudinal Survey of Youth is conducted by the United States Bureau of Labor Statistics. This survey started with a cohort of individuals in 1997 who were born between 1980 and 1985, with annual follow-ups each year through 2023. For this recipe, I pulled 104 variables on grades, employment, income, and attitudes toward the government from the hundreds of data items on the survey. NLS data can be downloaded from <a href="https://nlsinfo.org"><span class="url">nlsinfo.org/</span></a>.</p>
+      <p class="normal"><em class="italic">Our World in Data</em> provides COVID-19 data for public use at <a href="https://ourworldindata.org/covid-cases"><span class="url">https://ourworldindata.org/covid-cases</span></a>. The dataset includes total cases and deaths, tests administered, hospital beds, and demographic data such as median age, gross domestic product, and life expectancy. The dataset used in this recipe was downloaded on March 3, 2024.</p>
+    </div>
+    <h2 id="_idParaDest-253" class="heading-2">How to do it...</h2>
+    <p class="normal">We will use pandas functions<a id="_idIndexMarker566"/> to identify both missing values and logical missing values (non-missing values that nonetheless connote missing values).</p>
+    <ol>
+      <li class="numberedList" value="1">Let’s start by loading the NLS and COVID-19 data:
+        <pre class="programlisting code-one"><code class="hljs-code"><span class="hljs-keyword">import</span> pandas <span class="hljs-keyword">as</span> pd
+<span class="hljs-keyword">import</span> numpy <span class="hljs-keyword">as</span> np
+nls97 = pd.read_csv(<span class="hljs-string">"data/nls97g.csv"</span>,
+    low_memory=<span class="hljs-literal">False</span>)
+nls97.set_index(<span class="hljs-string">"personid"</span>, inplace=<span class="hljs-literal">True</span>)
+covidtotals = pd.read_csv(<span class="hljs-string">"data/covidtotalswithmissings.csv"</span>,
+    low_memory=<span class="hljs-literal">False</span>)
+covidtotals.set_index(<span class="hljs-string">"iso_code"</span>, inplace=<span class="hljs-literal">True</span>)
+</code></pre>
+      </li>
+      <li class="numberedList">Next, we count the number of missing values for each variable. We can use the <code class="inlineCode">isnull</code> method to test if each value is missing. It will return True if the value is missing and False if not. We can then use <code class="inlineCode">sum</code> to count the number of True values, since <code class="inlineCode">sum</code> will treat each True value as 1 and False value as 0. We indicate <code class="inlineCode">axis=0</code> to sum over columns rather than across rows:
+        <pre class="programlisting code-one"><code class="hljs-code">covidtotals.shape
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">(231, 16)
+</code></pre>
+        <pre class="programlisting code-one"><code class="hljs-code">demovars = [<span class="hljs-string">'pop_density'</span>,<span class="hljs-string">'aged_65_older'</span>,
+   <span class="hljs-string">'gdp_per_capita'</span>,<span class="hljs-string">'life_expectancy'</span>,<span class="hljs-string">'hum_dev_ind'</span>]
+covidtotals[demovars].isnull().<span class="hljs-built_in">sum</span>(axis=<span class="hljs-number">0</span>)
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">pop_density        22
+aged_65_older      43
+gdp_per_capita     40
+life_expectancy     4
+hum_dev_ind        44
+dtype: int64
+</code></pre>
+      </li>
+    </ol>
+    <p class="normal-one">43 of the 231 countries have null values for <code class="inlineCode">aged_65_older</code>. We have <code class="inlineCode">life_expectancy</code> for almost all countries.</p>
+    <ol>
+      <li class="numberedList" value="3">If we want the number of missing values<a id="_idIndexMarker567"/> for each row, we can specify <code class="inlineCode">axis=1</code> when summing. The following code creates a Series, <code class="inlineCode">demovarsmisscnt</code>, with the number of missing values for the demographic variables for each country. 178 countries have values for all of the variables, but 16 are missing values for 4 of the 5 variables, and 4 are missing values for all of the variables:
+        <pre class="programlisting code-one"><code class="hljs-code">demovarsmisscnt = covidtotals[demovars].isnull().<span class="hljs-built_in">sum</span>(axis=<span class="hljs-number">1</span>)
+demovarsmisscnt.value_counts().sort_index()
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">0    178
+1      8
+2     14
+3     11
+4     16
+5      4
+Name: count, dtype: int64
+</code></pre>
+      </li>
+      <li class="numberedList">Let’s take a look at a few of the countries with 4 or more missing values. There is very little demographic data available for these countries:
+        <pre class="programlisting code-one"><code class="hljs-code">covidtotals.loc[demovarsmisscnt&gt;=<span class="hljs-number">4</span>, [<span class="hljs-string">'location'</span>] + demovars].\
+  sample(<span class="hljs-number">5</span>, random_state=<span class="hljs-number">1</span>).T
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">iso_code                      FLK                       SPM  \
+location         Falkland Islands  Saint Pierre and Miquelon 
+pop_density                   NaN                        NaN 
+aged_65_older                 NaN                        NaN 
+gdp_per_capita                NaN                        NaN 
+life_expectancy                81                         81 
+hum_dev_ind                   NaN                        NaN 
+iso_code              GGY         MSR           COK
+location         Guernsey  Montserrat  Cook Islands
+pop_density           NaN         NaN           NaN
+aged_65_older         NaN         NaN           NaN
+gdp_per_capita        NaN         NaN           NaN
+life_expectancy       NaN          74            76
+hum_dev_ind           NaN         NaN           NaN
+</code></pre>
+      </li>
+      <li class="numberedList">Let’s also check the missing<a id="_idIndexMarker568"/> values for total cases and deaths. There is one missing value for cases per million of the population and one missing value for deaths per million:
+        <pre class="programlisting code-one"><code class="hljs-code">totvars = [<span class="hljs-string">'location'</span>,<span class="hljs-string">'total_cases_pm'</span>,<span class="hljs-string">'</span><span class="hljs-string">total_deaths_pm'</span>]
+covidtotals[totvars].isnull().<span class="hljs-built_in">sum</span>(axis=<span class="hljs-number">0</span>)
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">location           0
+total_cases_pm     1
+total_deaths_pm    1
+dtype: int64
+</code></pre>
+      </li>
+      <li class="numberedList">We can easily check if one country is missing both cases per million and deaths per million. We see that <code class="inlineCode">230</code> countries are not missing either, and just one country is missing both:
+        <pre class="programlisting code-one"><code class="hljs-code">totvarsmisscnt = covidtotals[totvars].isnull().<span class="hljs-built_in">sum</span>(axis=<span class="hljs-number">1</span>)
+totvarsmisscnt.value_counts().sort_index()
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">0    230
+2      1
+Name: count, dtype: int64
+</code></pre>
+      </li>
+    </ol>
+    <p class="normal-one">Sometimes we have logical missing values that we need to transform into actual missing values. This happens when the dataset designers use valid values as codes for missing values. These are often values like 9, 99, or 999, based on the allowable number of digits for the variable. Or it might be a more complicated coding scheme where there are codes for different reasons for there being missing values. For example, on the NLS dataset the codes reveal why the respondent did not provide an answer for a question: -3 is an invalid skip, -4 is a valid skip, and -5 is a non-interview.</p>
+    <ol>
+      <li class="numberedList" value="7">The last 4 columns<a id="_idIndexMarker569"/> on the NLS DataFrame have data on the highest grade completed for the respondent’s mother and father, parental income, and the mother’s age when the respondent was born. Let’s examine logical missing values for those columns, starting with <code class="inlineCode">motherhighgrade</code>.
+        <pre class="programlisting code-one"><code class="hljs-code">nlsparents = nls97.iloc[:,-<span class="hljs-number">4</span>:]
+nlsparents.loc[nlsparents.motherhighgrade.between(-<span class="hljs-number">5</span>,-<span class="hljs-number">1</span>),
+   <span class="hljs-string">'motherhighgrade'</span>].value_counts()
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">motherhighgrade
+-3    523
+-4    165
+Name: count, dtype: int64
+</code></pre>
+      </li>
+      <li class="numberedList">There are 523 invalid skips and 165 valid skips. Let’s look at a few individuals that have at least one of these non-response values for these four variables:
+        <pre class="programlisting code-one"><code class="hljs-code">nlsparents.loc[nlsparents.transform(<span class="hljs-keyword">lambda</span> x: x.between(-<span class="hljs-number">5</span>,-<span class="hljs-number">1</span>)).<span class="hljs-built_in">any</span>(axis=<span class="hljs-number">1</span>)]
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">            motherage   parentincome   fatherhighgrade   motherhighgrade
+personid                                                         
+135335             26             -3                16                 8
+999406             19             -4                17                15
+151672             26          63000                -3                12
+781297             34             -3                12                12
+613800             25             -3                -3                12
+                  ...            ...               ...               ...
+209909             22           6100                -3                11
+505861             21             -3                -4                13
+368078             19             -3                13                11
+643085             21          23000                -3                14
+713757             22          23000                -3                14
+[3831 rows x 4 columns]
+</code></pre>
+      </li>
+      <li class="numberedList">For our analysis, the reason<a id="_idIndexMarker570"/> why there is a non-response is not important. Let’s just count the number of non-responses for each of the columns, regardless of the reason for the non-response:
+        <pre class="programlisting code-one"><code class="hljs-code">nlsparents.transform(<span class="hljs-keyword">lambda</span> x: x.between(-<span class="hljs-number">5</span>,-<span class="hljs-number">1</span>)).<span class="hljs-built_in">sum</span>()
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">motherage            608
+parentincome        2396
+fatherhighgrade     1856
+motherhighgrade      688
+dtype: int64
+</code></pre>
+      </li>
+      <li class="numberedList">We should set these values to missing before using these columns in our analysis. We can use <code class="inlineCode">replace</code> to set all values between -5 and -1 to missing. When we check for actual missing values we get the expected counts:
+        <pre class="programlisting code-one"><code class="hljs-code">nlsparents.replace(<span class="hljs-built_in">list</span>(<span class="hljs-built_in">range</span>(-<span class="hljs-number">5</span>,<span class="hljs-number">0</span>)), np.nan, inplace=<span class="hljs-literal">True</span>)
+nlsparents.isnull().<span class="hljs-built_in">sum</span>()
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">motherage             608
+parentincome         2396
+fatherhighgrade      1856
+motherhighgrade       688
+dtype: int64
+</code></pre>
+      </li>
+    </ol>
+    <h2 id="_idParaDest-254" class="heading-2">How it works...</h2>
+    <p class="normal">We made good use of lambda functions and <code class="inlineCode">transform</code> in <em class="italic">step 8</em> and <em class="italic">step 9</em> to search for values in a specified range across multiple columns. <code class="inlineCode">transform</code> works in much the same way as <code class="inlineCode">apply</code>. Both are methods of DataFrames or of Series, allowing us to pass one or more columns of data to a function. In this case, we use a lambda function, but we could have also used a named function, as we did in the <em class="italic">Changing Series values conditionally</em> recipe in <em class="chapterRef">Chapter 6</em>, <em class="italic">Cleaning and Exploring Data with Series Operations</em>.</p>
+    <p class="normal">This recipe demonstrated some very handy pandas techniques to identify the number of missing values for each variable, and observations with a large number of missing values. We also examined how to find logical missing values and convert them to actual missing values. Next, we will take our first<a id="_idIndexMarker571"/> look at cleaning missing values.</p>
+    <h1 id="_idParaDest-255" class="heading-1">Cleaning missing values</h1>
+    <p class="normal">We go over some of the most straightforward<a id="_idIndexMarker572"/> approaches for handling missing values in this recipe. This includes dropping observations where there are missing values; assigning a sample-wide summary statistic, such as the mean, to the missing values; and assigning values based on the mean value for an appropriate subset of the data.</p>
+    <h2 id="_idParaDest-256" class="heading-2">How to do it...</h2>
+    <p class="normal">We will find and then remove observations from the NLS data that have mainly missing data for key variables. We will also use pandas methods to assign alternative values to missing values, such as the variable mean:</p>
+    <ol>
+      <li class="numberedList" value="1">Let’s load the NLS data and select some of the educational data.
+        <pre class="programlisting code-one"><code class="hljs-code"><span class="hljs-keyword">import</span> pandas <span class="hljs-keyword">as</span> pd
+nls97 = pd.read_csv(<span class="hljs-string">"data/nls97g.csv"</span>, low_memory=<span class="hljs-literal">False</span>)
+nls97.set_index(<span class="hljs-string">"personid"</span>, inplace=<span class="hljs-literal">True</span>)
+schoolrecordlist = [<span class="hljs-string">'satverbal'</span>,<span class="hljs-string">'</span><span class="hljs-string">satmath'</span>,<span class="hljs-string">'gpaoverall'</span>,
+  <span class="hljs-string">'gpaenglish'</span>,  <span class="hljs-string">'gpamath'</span>,<span class="hljs-string">'gpascience'</span>,<span class="hljs-string">'highestdegree'</span>,
+  <span class="hljs-string">'highestgradecompleted'</span>]
+schoolrecord = nls97[schoolrecordlist]
+schoolrecord.shape
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">(8984, 8)
+</code></pre>
+      </li>
+      <li class="numberedList">We can use the techniques<a id="_idIndexMarker573"/> we explored in the previous recipe to identify missing values. <code class="inlineCode">schoolrecord.isnull().sum(axis=0)</code> gives us the number of missing values for each column. The overwhelming majority of observations have missing values for <code class="inlineCode">satverbal</code>, 7,578 out of 8,984. Only 31 observations have missing values for <code class="inlineCode">highestdegree</code>:
+        <pre class="programlisting code-one"><code class="hljs-code">schoolrecord.isnull().<span class="hljs-built_in">sum</span>(axis=<span class="hljs-number">0</span>)
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">satverbal			7578
+satmath			7577
+gpaoverall			2980
+gpaenglish			3186
+gpamath			3218
+gpascience			3300
+highestdegree		31
+highestgradecompleted	2321
+dtype: int64
+</code></pre>
+      </li>
+      <li class="numberedList">We can create a Series, <code class="inlineCode">misscnt</code>, with the number of missing variables for each observation with <code class="inlineCode">misscnt = schoolrecord.isnull().sum(axis=1)</code>. 949 observations have 7 missing values for the educational data, and 10 are missing values for all 8 columns. In the following code we also take a look at a few observations with 7 or more missing values. It looks like <code class="inlineCode">highestdegree</code> is often the one variable that is present, which is not surprising given that we have already discovered that <code class="inlineCode">highestdegree</code> is rarely missing:
+        <pre class="programlisting code-one"><code class="hljs-code">misscnt = schoolrecord.isnull().<span class="hljs-built_in">sum</span>(axis=<span class="hljs-number">1</span>)
+misscnt.value_counts().sort_index()
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">0	1087
+1	312
+2	3210
+3	1102
+4	176
+5	101
+6	2037
+7	949
+8	10
+dtype: int64
+</code></pre>
+        <pre class="programlisting code-one"><code class="hljs-code">schoolrecord.loc[misscnt&gt;=<span class="hljs-number">7</span>].head(<span class="hljs-number">4</span>).T
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">personid               403743  101705   943703   406679
+satverbal                 NaN     NaN      NaN      NaN
+satmath                   NaN     NaN      NaN      NaN
+gpaoverall                NaN     NaN      NaN      NaN
+gpaenglish                NaN     NaN      NaN      NaN
+gpamath                   NaN     NaN      NaN      NaN
+gpascience                NaN     NaN      NaN      NaN
+highestdegree          1. GED  1. GED  0. None  0. None
+highestgradecompleted     NaN     NaN      NaN      NaN
+</code></pre>
+      </li>
+      <li class="numberedList">Let’s drop observations<a id="_idIndexMarker574"/> that have missing values for 7 or more variables, out of 8. We can accomplish this by setting the <code class="inlineCode">thresh</code> parameter of <code class="inlineCode">dropna</code> to <code class="inlineCode">2</code>. This will drop observations that have fewer than 2 non-missing values. We get the expected number of observations after the <code class="inlineCode">dropna</code>; <code class="inlineCode">8984</code>-<code class="inlineCode">949</code>-<code class="inlineCode">10</code> = <code class="inlineCode">8025</code>:
+        <pre class="programlisting code-one"><code class="hljs-code">schoolrecord = schoolrecord.dropna(thresh=<span class="hljs-number">2</span>)
+schoolrecord.shape
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">(8025, 8)
+</code></pre>
+        <pre class="programlisting code-one"><code class="hljs-code">schoolrecord.isnull().<span class="hljs-built_in">sum</span>(axis=<span class="hljs-number">1</span>).value_counts().sort_index()
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">0	1087
+1	312
+2	3210
+3	1102
+4	176
+5	101
+6	2037
+dtype: int64
+</code></pre>
+      </li>
+    </ol>
+    <p class="normal-one">There are a fair number of missing values for <code class="inlineCode">gpaoverall</code>, 2,980, though we have valid values for two-thirds of the observations <code class="inlineCode">((8984-2980)/8984)</code>. We might be able to salvage this as a variable if we do a good job of imputing missing values. This is likely more desirable than just removing these observations. We do not want to lose that data if we can avoid it, particularly if individuals with a missing <code class="inlineCode">gpaoverall</code> are different from others in ways that will matter for our predictions.</p>
+    <ol>
+      <li class="numberedList" value="5">The most straightforward approach<a id="_idIndexMarker575"/> is to assign the overall mean for <code class="inlineCode">gpaoverall</code> to the missing values. The following code uses the pandas Series <code class="inlineCode">fillna</code> method to assign all missing values of <code class="inlineCode">gpaoverall</code> to the Series mean value. The first argument to <code class="inlineCode">fillna</code> is the value you want for all missing values, in this case, <code class="inlineCode">schoolrecord.gpaoverall.mean()</code>. Note that we need to remember to set the <code class="inlineCode">inplace</code> parameter to True to actually overwrite the existing values:
+        <pre class="programlisting code-one"><code class="hljs-code">schoolrecord = nls97[schoolrecordlist]
+schoolrecord.gpaoverall.agg([<span class="hljs-string">'mean'</span>,<span class="hljs-string">'std'</span>,<span class="hljs-string">'count'</span>])
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">mean      282
+std        62
+count   6,004
+Name: gpaoverall, dtype: float64
+</code></pre>
+        <pre class="programlisting code-one"><code class="hljs-code">schoolrecord.fillna({<span class="hljs-string">"gpaoverall"</span>:\
+ schoolrecord.gpaoverall.mean()},
+ inplace=<span class="hljs-literal">True</span>)
+schoolrecord.gpaoverall.isnull().<span class="hljs-built_in">sum</span>()
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">0
+</code></pre>
+        <pre class="programlisting code-one"><code class="hljs-code">schoolrecord.gpaoverall.agg([<span class="hljs-string">'mean'</span>,<span class="hljs-string">'std'</span>,<span class="hljs-string">'count'</span>])
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">mean      282
+std        50
+count   8,984
+Name: gpaoverall, dtype: float64
+</code></pre>
+      </li>
+    </ol>
+    <p class="normal-one">The mean is unchanged, of course, but there is a substantial reduction in the standard deviation, from 62 to 50. This is a disadvantage of using the dataset mean for all missing values.</p>
+    <ol>
+      <li class="numberedList" value="6">The NLS data also has a fair number of missing values for <code class="inlineCode">wageincome20</code>. The following code shows that 3,783 observations have missing values. We make a deep copy with the <code class="inlineCode">copy</code> method, setting <code class="inlineCode">deep</code> to True. We would not normally do this, but in this case we don’t want to change the values of <code class="inlineCode">wageincome20</code> in the underlying DataFrame. We don’t want to do that here because we will try a different<a id="_idIndexMarker576"/> method of imputing values in the next couple of code blocks:
+        <pre class="programlisting code-one"><code class="hljs-code">wageincome20 = nls97.wageincome20.copy(deep=<span class="hljs-literal">True</span>)
+wageincome20.isnull().<span class="hljs-built_in">sum</span>()
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">3783
+</code></pre>
+        <pre class="programlisting code-one"><code class="hljs-code">wageincome20.head().T
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">personid
+135335       NaN
+999406   115,000
+151672       NaN
+750699    45,000
+781297   150,000
+Name: wageincome20, dtype: float64
+</code></pre>
+      </li>
+      <li class="numberedList">Rather than assigning the mean value of <code class="inlineCode">wageincome</code> to the missing values, we could use another common technique for imputing values. We could assign the nearest non-missing value from a preceding observation. We can use the <code class="inlineCode">ffill</code> method of the Series object to do this (note that this does not impute a value for the first observation as there is no preceding value to use):
+        <pre class="programlisting code-one"><code class="hljs-code">wageincome20.ffill(inplace=<span class="hljs-literal">True</span>)
+wageincome20.head().T
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">personid
+135335       NaN
+999406   115,000
+151672   115,000
+750699    45,000
+781297   150,000
+Name: wageincome20, dtype: float64
+</code></pre>
+        <pre class="programlisting code-one"><code class="hljs-code">wageincome20.isnull().<span class="hljs-built_in">sum</span>()
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">1
+</code></pre>
+      </li>
+    </ol>
+    <div class="note-one">
+      <p class="normal"><strong class="keyWord">Note</strong></p>
+      <p class="normal">If you have used <code class="inlineCode">ffill</code> in pandas versions prior to 2.2.0, you might remember the following syntax:</p>
+      <p class="normal"><code class="inlineCode">wageincome.fillna(method="ffill", inplace=True)</code></p>
+      <p class="normal">This syntax was deprecated, starting with pandas 2.2.0. That is also true for the backward fill syntax, which we will use next.</p>
+    </div>
+    <ol>
+      <li class="numberedList" value="8">We could have done<a id="_idIndexMarker577"/> a backward fill instead by using the <code class="inlineCode">bfill</code> method. This sets missing values to the nearest following value. This produces the following:
+        <pre class="programlisting code-one"><code class="hljs-code">wageincome20 = nls97.wageincome20.copy(deep=<span class="hljs-literal">True</span>)
+wageincome20.head().T
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">personid
+135335       NaN
+999406   115,000
+151672       NaN
+750699    45,000
+781297   150,000
+Name: wageincome20, dtype: float64
+</code></pre>
+        <pre class="programlisting code-one"><code class="hljs-code">wageincome20.std()
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">59616.290306039584
+</code></pre>
+        <pre class="programlisting code-one"><code class="hljs-code">wageincome20.bfill(inplace=<span class="hljs-literal">True</span>)
+wageincome20.head().T
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">personid
+135335   115,000
+999406   115,000
+151672    45,000
+750699    45,000
+781297   150,000
+Name: wageincome20, dtype: float64
+</code></pre>
+        <pre class="programlisting code-one"><code class="hljs-code">wageincome20.std()
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">58199.4895818016
+</code></pre>
+      </li>
+    </ol>
+    <p class="normal-one">If missing values are randomly distributed then forward or backward filling has one advantage over using the mean. It is more likely to approximate the distribution of the non-missing values for the variable. Notice that the standard deviation did not drop much after backward filling.</p>
+    <p class="normal-one">There are times when it makes<a id="_idIndexMarker578"/> sense to base our imputation of values on the mean or median value for similar observations; say those that have the same value for a related variable. Let’s try that in the next step.</p>
+    <ol>
+      <li class="numberedList" value="9">In the NLS DataFrame, weeks worked in 2020 is correlated with highest degree earned. The following code shows how the mean value of weeks worked changes with degree attainment. The mean for weeks worked is 38, but it is much lower for those without a degree (28) and much higher for those with a professional degree (48). In this case, it may be a better choice to assign 28 to missing values for weeks worked for individuals who have not attained a degree, rather than 38:
+        <pre class="programlisting code-one"><code class="hljs-code">nls97.weeksworked20.mean()
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">38.35403815808349
+</code></pre>
+        <pre class="programlisting code-one"><code class="hljs-code">nls97.groupby([<span class="hljs-string">'highestdegree'</span>])[<span class="hljs-string">'weeksworked20'</span>].mean()
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">highestdegree
+0. None           28
+1. GED            34
+2. High School    37
+3. Associates     41
+4. Bachelors      42
+5. Masters        45
+6. PhD            47
+7. Professional   48
+Name: weeksworked20, dtype: float64
+</code></pre>
+      </li>
+      <li class="numberedList">The following code assigns the mean value of weeks worked across observations with the same degree attainment level for those observations missing weeks worked. We do this by using <code class="inlineCode">groupby</code> to create a groupby DataFrame, <code class="inlineCode">groupby(['highestdegree'])['weeksworked20']</code>. We then use <code class="inlineCode">fillna</code> within <code class="inlineCode">transform</code> to fill missing<a id="_idIndexMarker579"/> values with the mean for the highest degree group. Notice that we make sure to only do this imputation for observations where the highest degree information is not missing, <code class="inlineCode">nls97.highestdegree.notnull()</code>. We will still have missing values for observations missing both highest degree and weeks worked:
+        <pre class="programlisting code-one"><code class="hljs-code">nls97.loc[nls97.highestdegree.notnull(), <span class="hljs-string">'weeksworked20imp'</span>] = \
+  nls97.loc[nls97.highestdegree.notnull()].\
+  groupby([<span class="hljs-string">'highestdegree'</span>])[<span class="hljs-string">'</span><span class="hljs-string">weeksworked20'</span>].\
+  transform(<span class="hljs-keyword">lambda</span> x: x.fillna(x.mean()))
+nls97[[<span class="hljs-string">'weeksworked20imp'</span>,<span class="hljs-string">'weeksworked20'</span>,<span class="hljs-string">'highestdegree'</span>]].\
+  head(<span class="hljs-number">10</span>)
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">          weeksworked20imp  weeksworked20      highestdegree
+personid                                               
+135335                  42            NaN       4. Bachelors
+999406                  52             52     2. High School
+151672                   0              0       4. Bachelors
+750699                  52             52     2. High School
+781297                  52             52     2. High School
+613800                  52             52     2. High School
+403743                  34            NaN             1. GED
+474817                  51             51         5. Masters
+530234                  52             52         5. Masters
+351406                  52             52       4. Bachelors
+</code></pre>
+      </li>
+    </ol>
+    <h2 id="_idParaDest-257" class="heading-2">How it works...</h2>
+    <p class="normal">When there is very little data available it can make sense to remove an observation from our analysis. We did that in <em class="italic">step 4</em>. Another common approach is the one we used in <em class="italic">step 5</em>, assigning the overall dataset mean for the variable to missing values. We saw in that example one of the disadvantages of that approach. We can end up with a significantly reduced variance in our variable.</p>
+    <p class="normal">In <em class="italic">step 9</em> we assigned values based on the mean value of that variable for a subset of our data. If we are imputing values for variable X<sub class="subscript">1</sub>, and X<sub class="subscript">1</sub> is correlated with X<sub class="subscript">2</sub>, we can use the relationship between X<sub class="subscript">1</sub> and X<sub class="subscript">2</sub> to impute a value for X<sub class="subscript">1</sub> that might make more sense than the dataset mean. This is pretty straightforward when X<sub class="subscript">2</sub> is categorical. In this case we can impute the mean value of X<sub class="subscript">1</sub> for the associated value of X<sub class="subscript">2</sub>.</p>
+    <p class="normal">These imputation strategies—removing observations with missing values, assigning a dataset mean or median, using forward or backward filling, or using a group mean for a correlated variable—are fine for many predictive analytics projects. They work best when the missing values are not correlated with a target or dependent variable. When that is true, imputing values allows us to retain the other information from those observations without biasing our estimates.</p>
+    <p class="normal">Sometimes, however, that is not the case<a id="_idIndexMarker580"/> and more complicated imputation strategies are required. The next few recipes explore multivariate techniques for cleaning missing data.</p>
+    <h2 id="_idParaDest-258" class="heading-2">See also</h2>
+    <p class="normal">Don’t worry if your understanding of what we did in <em class="italic">step 10</em>, using <code class="inlineCode">groupby</code> and <code class="inlineCode">transform</code>, is still a little shaky. We do much more with <code class="inlineCode">groupby</code>, <code class="inlineCode">transform</code>, and <code class="inlineCode">apply</code> in <em class="chapterRef">Chapter 9</em>, <em class="italic">Fixing Messy Data When Aggregating</em>.</p>
+    <h1 id="_idParaDest-259" class="heading-1">Imputing values with regression</h1>
+    <p class="normal">We ended the previous recipe<a id="_idIndexMarker581"/> by assigning a group mean to missing values<a id="_idIndexMarker582"/> rather than the overall sample mean. As we discussed, this is useful when the variable that determines the groups is correlated with the variable that has the missing values. Using regression to impute values is conceptually similiar to this, but we typically use it when the imputation will be based on two or more variables.</p>
+    <p class="normal">Regression imputation replaces a variable’s missing values with values predicted by a regression model of correlated variables. This particular <a id="_idIndexMarker583"/>kind of imputation is known as deterministic regression imputation, since the imputed values all lie on the regression line, and no error or randomness is introduced.</p>
+    <p class="normal">One potential drawback of this approach is that it can substantially reduce the variance of the variable with missing values. We can use stochastic regression imputation to address this drawback. We explore both approaches in this recipe.</p>
+    <h2 id="_idParaDest-260" class="heading-2">Getting ready</h2>
+    <p class="normal">We will work with the <code class="inlineCode">statsmodels</code> module<a id="_idIndexMarker584"/> to run a linear regression model<a id="_idIndexMarker585"/> in this recipe. <code class="inlineCode">statsmodels</code> is typically included with scientific distributions of Python, but if you do not already have it, you can install it with <code class="inlineCode">pip install statsmodels</code>.</p>
+    <h2 id="_idParaDest-261" class="heading-2">How to do it...</h2>
+    <p class="normal">The <code class="inlineCode">wageincome20</code> column on the NLS dataset has a number of missing values. We can use linear regression to impute values. The wage income value is the reported earnings for 2020.</p>
+    <ol>
+      <li class="numberedList" value="1">We start by loading the NLS data again and checking for missing values for <code class="inlineCode">wageincome20</code> and columns that might be correlated with <code class="inlineCode">wageincome20</code>. We also load the <code class="inlineCode">statsmodels</code> library:
+        <pre class="programlisting code-one"><code class="hljs-code"><span class="hljs-keyword">import</span> pandas <span class="hljs-keyword">as</span> pd
+<span class="hljs-keyword">import</span> numpy <span class="hljs-keyword">as</span> np
+<span class="hljs-keyword">import</span> statsmodels.api <span class="hljs-keyword">as</span> sm
+nls97 = pd.read_csv(<span class="hljs-string">"data/nls97g.csv"</span>, low_memory=<span class="hljs-literal">False</span>)
+nls97.set_index(<span class="hljs-string">"personid"</span>, inplace=<span class="hljs-literal">True</span>)
+nls97[[<span class="hljs-string">'wageincome20'</span>,<span class="hljs-string">'highestdegree'</span>,<span class="hljs-string">'weeksworked20'</span>,<span class="hljs-string">'parentincome'</span>]].info()
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">&lt;class 'pandas.core.frame.DataFrame'&gt;
+Index: 8984 entries, 135335 to 713757
+Data columns (total 4 columns):
+ #   Column         Non-Null Count  Dtype
+---  ------         --------------  -----
+ 0   wageincome20   5201 non-null   float64
+ 1   highestdegree  8952 non-null   object
+ 2   weeksworked20  6971 non-null   float64
+ 3   parentincome   6588 non-null   float64
+dtypes: float64(3), object(1)
+memory usage: 350.9+ KB
+</code></pre>
+      </li>
+      <li class="numberedList">We are missing values for <code class="inlineCode">wageincome20</code> for more than 3,000 observations. There are fewer missing values for the other variables. Let’s convert the <code class="inlineCode">highestdegree</code> column<a id="_idIndexMarker586"/> to numeric so that we can use<a id="_idIndexMarker587"/> it in a regression model:
+        <pre class="programlisting code-one"><code class="hljs-code">nls97[<span class="hljs-string">'hdegnum'</span>] = nls97.highestdegree.<span class="hljs-built_in">str</span>[<span class="hljs-number">0</span>:<span class="hljs-number">1</span>].astype(<span class="hljs-string">'float'</span>)
+nls97.groupby([<span class="hljs-string">'highestdegree'</span>,<span class="hljs-string">'hdegnum'</span>]).size()
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">highestdegree    hdegnum
+0. None          0                877
+1. GED           1                1167
+2. High School   2                3531
+3. Associates    3                766
+4. Bachelors     4                1713
+5. Masters       5                704
+6. PhD           6                64
+7. Professional  7                130
+dtype: int64
+</code></pre>
+      </li>
+      <li class="numberedList">As we have already discovered, we need to replace logical missing values for <code class="inlineCode">parentincome</code> with actual missing values. After that, we can run some correlations. Each of the variables has some positive correlation with <code class="inlineCode">wageincome20</code>, particularly <code class="inlineCode">hdegnum</code>:
+        <pre class="programlisting code-one"><code class="hljs-code">nls97.parentincome.replace(<span class="hljs-built_in">list</span>(<span class="hljs-built_in">range</span>(-<span class="hljs-number">5</span>,<span class="hljs-number">0</span>)), np.nan, inplace=<span class="hljs-literal">True</span>)
+nls97[[<span class="hljs-string">'wageincome20'</span>,<span class="hljs-string">'hdegnum'</span>,<span class="hljs-string">'weeksworked20'</span>,<span class="hljs-string">'parentincome'</span>]].corr()
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">          wageincome20  hdegnum  weeksworked20  parentincome
+wageincome20      1.00     0.38           0.22          0.27
+hdegnum           0.38     1.00           0.22          0.32
+weeksworked20     0.22     0.22           1.00          0.09
+parentincome      0.27     0.32           0.09          1.00
+</code></pre>
+      </li>
+      <li class="numberedList">We should check to see if observations with missing values for wage income are different in some important way from those with non-missing values. The following code shows that these observations have significantly lower degree attainment levels, parental income, and weeks worked. This is a clear case where assigning the overall mean would not be the best choice:
+        <pre class="programlisting code-one"><code class="hljs-code">nls97weeksworked = nls97.loc[nls97.weeksworked20&gt;<span class="hljs-number">0</span>]
+nls97weeksworked.shape
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">(5889, 111)
+</code></pre>
+        <pre class="programlisting code-one"><code class="hljs-code">nls97weeksworked[<span class="hljs-string">'missingwageincome'</span>] = \
+  np.where(nls97weeksworked.wageincome20.isnull(),<span class="hljs-number">1</span>,<span class="hljs-number">0</span>)
+nls97weeksworked.groupby([<span class="hljs-string">'</span><span class="hljs-string">missingwageincome'</span>])[[<span class="hljs-string">'hdegnum'</span>,
+  <span class="hljs-string">'parentincome'</span>,<span class="hljs-string">'weeksworked20'</span>]].\
+  agg([<span class="hljs-string">'mean'</span>,<span class="hljs-string">'count'</span>])
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">             hdegnum       parentincome        weeksworked20
+          mean count         mean count           mean count
+missingwageincome                                          
+0         2.81  4997    48,270.85  3731          47.97  5012
+1         2.31   875    40,436.23   611          30.70   877
+</code></pre>
+      </li>
+    </ol>
+    <p class="normal-one">Notice that we just work here with rows that have positive values for weeks worked. It does not make sense for someone who did not work in 2020 to have a wage income in 2020.</p>
+    <ol>
+      <li class="numberedList" value="5">Let’s try regression imputation<a id="_idIndexMarker588"/> instead. We start by replacing<a id="_idIndexMarker589"/> missing <code class="inlineCode">parentincome</code> values with the mean. We collapse <code class="inlineCode">hdegnum</code> into those attaining less than a college degree, those with a college degree, and those with a post-graduate degree. We set those up as dummy variables, with <code class="inlineCode">0</code> or <code class="inlineCode">1</code> values when <code class="inlineCode">False</code> or <code class="inlineCode">True</code>. This is a tried and true method for treating categorical data in regression analysis. It allows us to estimate different y-intercepts based on group membership.</li>
+    </ol>
+    <p class="normal-one">(<em class="italic">Scikit-learn</em> has preprocessing features that can help us with tasks like these. We go over some of them in the next chapter.)</p>
+    <pre class="programlisting code-one"><code class="hljs-code">nls97weeksworked.parentincome. \
+  fillna(nls97weeksworked.parentincome.mean(), inplace=<span class="hljs-literal">True</span>)
+nls97weeksworked[<span class="hljs-string">'degltcol'</span>] = \
+  np.where(nls97weeksworked.hdegnum&lt;=<span class="hljs-number">2</span>,<span class="hljs-number">1</span>,<span class="hljs-number">0</span>)
+nls97weeksworked[<span class="hljs-string">'degcol'</span>] = \
+  np.where(nls97weeksworked.hdegnum.between(<span class="hljs-number">3</span>,<span class="hljs-number">4</span>),<span class="hljs-number">1</span>,<span class="hljs-number">0</span>)
+nls97weeksworked[<span class="hljs-string">'degadv'</span>] = \
+  np.where(nls97weeksworked.hdegnum&gt;<span class="hljs-number">4</span>,<span class="hljs-number">1</span>,<span class="hljs-number">0</span>)
+</code></pre>
+    <ol>
+      <li class="numberedList" value="6">Next, we define a function, <code class="inlineCode">getlm</code>, to run a linear model using the <code class="inlineCode">statsmodels</code> module. The function has parameters for the name of the target or dependent variable, <code class="inlineCode">ycolname</code>, and for the names of the features or independent variables, <code class="inlineCode">xcolnames</code>. Much of the work is done by the <code class="inlineCode">statsmodels</code> <code class="inlineCode">fit</code> method, <code class="inlineCode">OLS(y, X).fit()</code>:
+        <pre class="programlisting code-one"><code class="hljs-code"><span class="hljs-keyword">def</span> <span class="hljs-title">getlm</span>(<span class="hljs-params">df, ycolname, xcolnames</span>):
+  df = df[[ycolname] + xcolnames].dropna()
+  y = df[ycolname]
+  X = df[xcolnames]
+  X = sm.add_constant(X)
+  lm = sm.OLS(y, X).fit()
+  coefficients = pd.DataFrame(<span class="hljs-built_in">zip</span>([<span class="hljs-string">'constant'</span>] + xcolnames,
+    lm.params, lm.pvalues), columns=[<span class="hljs-string">'features'</span>,<span class="hljs-string">'params'</span>,
+    <span class="hljs-string">'pvalues'</span>])
+  <span class="hljs-keyword">return</span> coefficients, lm
+</code></pre>
+      </li>
+      <li class="numberedList">Now we can use the <code class="inlineCode">getlm</code> function<a id="_idIndexMarker590"/> to get the parameter estimates<a id="_idIndexMarker591"/> and the model summary. All of the coefficients are positive and significant at the 95% level, having <em class="italic">p</em>-values less than <code class="inlineCode">0.05</code>. As expected, wage income increases with number of weeks worked and with parental income. Having a college degree gives a $18.5K boost to earnings, compared with not having a college degree. A post-graduate degree bumps up the earnings prediction even more, almost $45.6K more than for those with less than a college degree. (The coefficients on <code class="inlineCode">degcol</code> and <code class="inlineCode">degadv</code> are interpreted as relative to those without a college degree since that is the omitted dummy variable.)
+        <pre class="programlisting code-one"><code class="hljs-code">xvars = [<span class="hljs-string">'weeksworked20'</span>,<span class="hljs-string">'parentincome'</span>,<span class="hljs-string">'degcol'</span>,<span class="hljs-string">'degadv'</span>]
+coefficients, lm = getlm(nls97weeksworked, <span class="hljs-string">'wageincome20'</span>, xvars)
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">coefficients
+                  features     params  pvalues
+0                 constant -22,868.00     0.00
+1            weeksworked20   1,281.84     0.00
+2             parentincome       0.26     0.00
+3                   degcol  18,549.57     0.00
+4                   degadv  45,595.94     0.00
+</code></pre>
+      </li>
+      <li class="numberedList">We use this model to impute values for wage income where they are missing. We need to add a constant<a id="_idIndexMarker592"/> for the predictions since our model<a id="_idIndexMarker593"/> included a constant. We can convert the predictions to a DataFrame and then join it with the rest of the NLS data. Let’s also take a look at some of the predictions to see if they make sense.
+        <pre class="programlisting code-one"><code class="hljs-code">pred = lm.predict(sm.add_constant(nls97weeksworked[xvars])).\
+  to_frame().rename(columns= {<span class="hljs-number">0</span>: <span class="hljs-string">'pred'</span>})
+nls97weeksworked = nls97weeksworked.join(pred)
+nls97weeksworked[<span class="hljs-string">'wageincomeimp'</span>] = \
+  np.where(nls97weeksworked.wageincome20.isnull(),\
+  nls97weeksworked.pred, nls97weeksworked.wageincome20)
+nls97weeksworked[[<span class="hljs-string">'wageincomeimp'</span>,<span class="hljs-string">'wageincome20'</span>] + xvars].\
+  sample(<span class="hljs-number">10</span>, random_state=<span class="hljs-number">7</span>)
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">    wageincomeimp  wageincome20  weeksworked20  parentincome  \
+personid                                                    
+696721   380,288       380,288             52        81,300 
+928568    38,000        38,000             41        47,168 
+738731    38,000        38,000             51        17,000 
+274325    40,698           NaN              7        34,800 
+644266    63,954           NaN             52        78,000 
+438934    70,000        70,000             52        31,000 
+194288     1,500         1,500             13        39,000 
+882066    52,061           NaN             52        32,000 
+169452   110,000       110,000             52        48,600 
+284731    25,000        25,000             52        47,168 
+          degcol  degadv
+personid                
+696721         1       0
+928568         0       0
+738731         1       0
+274325         0       1
+644266         0       0
+438934         1       0
+194288         0       0
+882066         0       0
+169452         1       0
+284731         0       0
+</code></pre>
+      </li>
+      <li class="numberedList">We should look at some summary statistics for our wage income imputation and compare that with the actual wage income values. (Remember that the <code class="inlineCode">wageincomeimp</code> column has the actual value for <code class="inlineCode">wageincome20</code> when it was not missing, and imputed values otherwise.) The mean for <code class="inlineCode">wageincomeimp</code> is somewhat less than that for <code class="inlineCode">wageincome20</code>, which we anticipated given that folks with missing wage income had lower values for correlated variables. But the standard deviation is also lower. This can happen with deterministic regression imputation:
+        <pre class="programlisting code-one"><code class="hljs-code">nls97weeksworked[[<span class="hljs-string">'wageincomeimp'</span>,<span class="hljs-string">'wageincome20'</span>]].\
+  agg([<span class="hljs-string">'count'</span>,<span class="hljs-string">'mean'</span>,<span class="hljs-string">'std'</span>])
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">       wageincomeimp  wageincome20
+count          5,889         5,012
+mean          59,290        63,424
+std           57,529        60,011
+</code></pre>
+      </li>
+      <li class="numberedList">Stochastic regression<a id="_idIndexMarker594"/> imputation adds a normally distributed<a id="_idIndexMarker595"/> error to the predictions based on the residuals from our model. We want this error to have a mean of zero with the same standard deviation as our residuals. We can use NumPy’s normal function for that with <code class="inlineCode">np.random.normal(0, lm.resid.std(), nls97.shape[0])</code>. The <code class="inlineCode">lm.resid.std()</code> gets us the standard deviation of the residuals from our model. The final parameter value, <code class="inlineCode">nls97.shape[0]</code>, indicates how many values to create; in this case we want a value for every row in our data.</li>
+    </ol>
+    <p class="normal-one">We can join those values with our data and then add the error, <code class="inlineCode">randomadd</code>, to our prediction. We set a seed so that we can reproduce the results:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">np.random.seed(<span class="hljs-number">0</span>)
+randomadd = np.random.normal(<span class="hljs-number">0</span>, lm.resid.std(),
+   nls97weeksworked.shape[<span class="hljs-number">0</span>])
+randomadddf = pd.DataFrame(randomadd, columns=[<span class="hljs-string">'randomadd'</span>],
+   index=nls97weeksworked.index)
+nls97weeksworked = nls97weeksworked.join(randomadddf)
+nls97weeksworked[<span class="hljs-string">'stochasticpred'</span>] = \
+   nls97weeksworked.pred + nls97weeksworked.randomadd
+</code></pre>
+    <ol>
+      <li class="numberedList" value="11">This should increase the variance but not have much of an effect on the mean. Let’s confirm that. We first need to replace missing wage income values with the stochastic prediction:
+        <pre class="programlisting code-one"><code class="hljs-code">nls97weeksworked[<span class="hljs-string">'wageincomeimpstoc'</span>] = \
+ np.where(nls97weeksworked.wageincome20.isnull(),
+ nls97weeksworked.stochasticpred, nls97weeksworked.wageincome20)
+nls97weeksworked[[<span class="hljs-string">'wageincomeimpstoc'</span>,<span class="hljs-string">'</span><span class="hljs-string">wageincome20'</span>]].\
+ agg([<span class="hljs-string">'count'</span>,<span class="hljs-string">'mean'</span>,<span class="hljs-string">'std'</span>])
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">               wageincomeimpstoc wageincome20
+count                      5,889        5,012
+mean                      59,485       63,424
+std                       60,773       60,011
+</code></pre>
+      </li>
+    </ol>
+    <p class="normal-one">That seems to have worked. The imputed variable based on our stochastic prediction has pretty much the same standard deviation as the wage income variable.</p>
+    <h2 id="_idParaDest-262" class="heading-2">How it works...</h2>
+    <p class="normal">Regression imputation<a id="_idIndexMarker596"/> is a good way to take advantage of all the data<a id="_idIndexMarker597"/> we have to impute values for a column. It is often superior to the imputation methods we examined in the previous recipe, particularly when missing values are not random. Deterministic regression imputation does, however, have two important limitations: it assumes a linear relationship between the regressors (our predictor variables) and the variable to be imputed, and it can substantially reduce the variance of the imputed variable, as we saw in <em class="italic">steps 8 and 9</em>.</p>
+    <p class="normal">If we use stochastic regression imputation we will not artificially reduce our variance. We did this in <em class="italic">step 10</em>. This gave us better results, though it did not address the possible issue of a non-linear relationship between regressors and the imputed variable.</p>
+    <p class="normal">Before we started using machine learning widely for this work, regression imputation was our go to multivariate approach for imputation. We now have the option of using algorithms like <em class="italic">k</em>-nearest neighbors and random forest for this task, which have advantages over regression imputation in some cases. KNN imputation, unlike regression imputation, does not assume a linear relationship between variables, or that those variables <a id="_idIndexMarker598"/>are normally<a id="_idIndexMarker599"/> distributed. We explore KNN imputation in the next recipe.</p>
+    <h1 id="_idParaDest-263" class="heading-1">Using k-nearest neighbors for imputation</h1>
+    <p class="normal"><strong class="keyWord">k-Nearest Neighbors</strong> (<strong class="keyWord">KNN</strong>) is a popular machine learning<a id="_idIndexMarker600"/> technique because it is intuitive<a id="_idIndexMarker601"/> and easy to run and yields good results when there is not a large number of variables and observations. For the same reasons, it is often used to impute missing values. As its name suggests, KNN identifies the <em class="italic">k</em> observations whose variables are most similar to each observation. When used to impute missing values, KNN uses the nearest neighbors to determine what fill values to use.</p>
+    <h2 id="_idParaDest-264" class="heading-2">Getting ready</h2>
+    <p class="normal">We will work with the KNN imputer from scikit-learn version 1.3.0. If you do not already have scikit-learn, you can install it with <code class="inlineCode">pip install scikit-learn</code>.</p>
+    <h2 id="_idParaDest-265" class="heading-2">How to do it...</h2>
+    <p class="normal">We can use KNN imputation to do the same imputation we did in the previous recipe on regression imputation.</p>
+    <ol>
+      <li class="numberedList" value="1">We start by importing the <code class="inlineCode">KNNImputer</code> from <code class="inlineCode">scikit-learn</code> and loading the NLS data again:
+        <pre class="programlisting code-one"><code class="hljs-code"><span class="hljs-keyword">import</span> pandas <span class="hljs-keyword">as</span> pd
+<span class="hljs-keyword">import</span> numpy <span class="hljs-keyword">as</span> np
+<span class="hljs-keyword">from</span> sklearn.impute <span class="hljs-keyword">import</span> KNNImputer
+nls97 = pd.read_csv(<span class="hljs-string">"data/nls97g.csv"</span>, low_memory=<span class="hljs-literal">False</span>)
+nls97.set_index(<span class="hljs-string">"personid"</span>, inplace=<span class="hljs-literal">True</span>)
+</code></pre>
+      </li>
+      <li class="numberedList">Next, we prepare the variables. We collapse degree attainment into three categories—less than college, college, and post-college degree—each category represented by a different dummy variable. We also convert logical missing values for parent income to actual missing values:
+        <pre class="programlisting code-one"><code class="hljs-code">nls97[<span class="hljs-string">'hdegnum'</span>] = \
+ nls97.highestdegree.<span class="hljs-built_in">str</span>[<span class="hljs-number">0</span>:<span class="hljs-number">1</span>].astype(<span class="hljs-string">'float'</span>)
+nls97[<span class="hljs-string">'parentincome'</span>] = \
+ nls97.parentincome.\
+   replace(<span class="hljs-built_in">list</span>(<span class="hljs-built_in">range</span>(-<span class="hljs-number">5</span>,<span class="hljs-number">0</span>)),
+   np.nan)
+</code></pre>
+      </li>
+      <li class="numberedList">Let’s create a DataFrame with just wage income and a few correlated variables. We also select only those rows with positive values for weeks worked:
+        <pre class="programlisting code-one"><code class="hljs-code">wagedatalist = [<span class="hljs-string">'wageincome20'</span>,<span class="hljs-string">'weeksworked20'</span>,
+  <span class="hljs-string">'parentincome'</span>,<span class="hljs-string">'hdegnum'</span>]
+wagedata = \
+ nls97.loc[nls97.weeksworked20&gt;<span class="hljs-number">0</span>, wagedatalist]
+wagedata.shape
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">(5889, 6)
+</code></pre>
+      </li>
+      <li class="numberedList">We are now ready<a id="_idIndexMarker602"/> to use the <code class="inlineCode">fit_transform</code> method<a id="_idIndexMarker603"/> of the KNN imputer to get values for all missing values in the passed DataFrame, <code class="inlineCode">wagedata</code>. <code class="inlineCode">fit_transform</code> returns a NumPy array with all the non-missing values from <code class="inlineCode">wagedata</code>, plus the imputed ones. We convert this array into a DataFrame using the same index as <code class="inlineCode">wagedata</code>. This will make it easy to join the data in the next step. (This will be a familiar step to folks who have some experience using scikit-learn. We will go over it in more detail in the next chapter.)</li>
+    </ol>
+    <p class="normal-one">We need to specify the value to use for number of nearest neighbors, for <em class="italic">k</em>. We use a general rule of thumb for determining <em class="italic">k</em>, the square root of the number of observations divided by 2 (sqrt(<em class="italic">N</em>)/2). That gives us 38 for <em class="italic">k</em> in this case.</p>
+    <pre class="programlisting code-one"><code class="hljs-code">impKNN = KNNImputer(n_neighbors=<span class="hljs-number">38</span>)
+newvalues = impKNN.fit_transform(wagedata)
+wagedatalistimp = [<span class="hljs-string">'wageincomeimp'</span>,<span class="hljs-string">'weeksworked20imp'</span>,
+ <span class="hljs-string">'parentincomeimp'</span>,<span class="hljs-string">'hdegnumimp'</span>]
+wagedataimp = pd.DataFrame(newvalues, columns=wagedatalistimp, index=wagedata.index)
+</code></pre>
+    <ol>
+      <li class="numberedList" value="5">We join the imputed data with the original NLS wage data and take a look at a few observations. Notice that with KNN imputation that we did not need to do any pre-imputation for missing values of correlated variables. (With regression imputation, we set parent income to the dataset mean.)
+        <pre class="programlisting code-one"><code class="hljs-code">wagedata = wagedata.\
+ join(wagedataimp[[<span class="hljs-string">'wageincomeimp'</span>,<span class="hljs-string">'weeksworked20imp'</span>]])
+wagedata[[<span class="hljs-string">'wageincome20'</span>,<span class="hljs-string">'wageincomeimp'</span>,<span class="hljs-string">'weeksworked20'</span>,
+ <span class="hljs-string">'weeksworked20imp'</span>]].sample(<span class="hljs-number">10</span>, random_state=<span class="hljs-number">7</span>)
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">          wageincome20 wageincomeimp weeksworked20 weeksworked20imp
+personid                             
+696721         380,288       380,288            52               52
+928568          38,000        38,000            41               41
+738731          38,000        38,000            51               51
+274325             NaN        11,771             7                7
+644266             NaN        59,250            52               52
+438934          70,000        70,000            52               52
+194288           1,500         1,500            13               13
+882066             NaN        61,234            52               52
+169452         110,000       110,000            52               52
+284731          25,000        25,000            52               52
+</code></pre>
+      </li>
+      <li class="numberedList">Let’s take a look at summary<a id="_idIndexMarker604"/> statistics for the original<a id="_idIndexMarker605"/> and imputed variables. Not surprisingly, the imputed wage income mean is lower than the original mean. As we discovered in the previous recipe, observations with missing wage income have lower degree attainment, weeks worked, and parental income. We also lose some of the variance in wage income.
+        <pre class="programlisting code-one"><code class="hljs-code">wagedata[[<span class="hljs-string">'wageincome20'</span>,<span class="hljs-string">'wageincomeimp'</span>]].\
+ agg([<span class="hljs-string">'count'</span>,<span class="hljs-string">'mean'</span>,<span class="hljs-string">'std'</span>])
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">              wageincome20       wageincomeimp
+count                5,012               5,889
+mean                63,424              59,467
+std                 60,011              57,218
+</code></pre>
+      </li>
+    </ol>
+    <p class="normal-one">That was easy! The preceding steps gave us reasonable imputations for wage income, and also for other variables with missing values, with minimal data preparation on our part.</p>
+    <h2 id="_idParaDest-266" class="heading-2">How it works...</h2>
+    <p class="normal">Most of the work in this recipe<a id="_idIndexMarker606"/> was done in <em class="italic">step 4</em>, when we passed<a id="_idIndexMarker607"/> our DataFrame to the <code class="inlineCode">fit_transform</code> method of the KNN imputer. The KNN imputer returned a NumPy array with imputations for missing values for all columns in our data, including wage income. It did this imputation based on values for the <em class="italic">k</em> most similar observations. We converted the NumPy array into a DataFrame that we joined with the initial DataFrame in <em class="italic">step 5</em>.</p>
+    <p class="normal">KNN does imputations without making any assumptions about the distribution of the underlying data. With regression imputation, the standard assumptions for linear regression apply, that there is a linear relationship between variables and that they are distributed normally. If this is not the case, KNN is likely a better approach to imputation.</p>
+    <p class="normal">We did need to make an initial assumption about an appropriate<a id="_idIndexMarker608"/> value for <em class="italic">k</em>, what is known as a hyperparameter. Model builders generally do hyperparameter tuning to find the best value of <em class="italic">k</em>. Hyperparameter tuning for KNN is beyond the scope of this book, but I step the reader through it in my book <em class="italic">Data Cleaning and Exploration with Machine Learning</em>. We made a reasonable assumption about a good value for <em class="italic">k</em> in <em class="italic">step 4</em>.</p>
+    <h2 id="_idParaDest-267" class="heading-2">There’s more...</h2>
+    <p class="normal">Despite these advantages, KNN imputation<a id="_idIndexMarker609"/> does have limitations. As we just discussed, we had to tune the model with an initial assumption about a good value for <em class="italic">k</em>,<em class="italic"> </em>based only on our knowledge of the size of the dataset. There is some risk of overfitting—fitting the data with non-missing values for the target variable so well that our estimates for the missing values are unreliable—as we increase the value of <em class="italic">k</em>. Hyperparameter tuning can help us identify the best value for <em class="italic">k</em>.</p>
+    <p class="normal">KNN is also computationally <a id="_idIndexMarker610"/>expensive and may be impractical for very large datasets. Finally, KNN imputation may not perform well when the correlation is weak between the variable to be imputed and the predictor variables, or when those variables are very highly correlated. An alternative to KNN for imputation, random forest imputation, can help us avoid the disadvantages of both KNN and regression imputation. We explore random forest imputation next.</p>
+    <h2 id="_idParaDest-268" class="heading-2">See also</h2>
+    <p class="normal">There is a fuller discussion of KNN, and examples with real-world data, in my book <em class="italic">Data Cleaning and Exploration with Machine Learning</em>. That discussion will give you a better understanding of how the algorithm works, and will contrast it with other non-parametric machine learning algorithms, such as random forest. We look at random forest for imputing values in the next recipe.</p>
+    <h1 id="_idParaDest-269" class="heading-1">Using random forest for imputation</h1>
+    <p class="normal">Random forest is an ensemble<a id="_idIndexMarker611"/> learning method, using bootstrap<a id="_idIndexMarker612"/> aggregating, also known as bagging, to improve model<a id="_idIndexMarker613"/> accuracy. It makes predictions by repeatedly taking the mean of multiple trees, yielding progressively better estimates. We will use the MissForest algorithm in this recipe, which is an application of the random forest algorithm to missing value imputation.</p>
+    <p class="normal">MissForest starts by filling in the median or mode (for continuous or categorical variables respectively) for missing values, then uses random forest to predict values. Using this transformed dataset, with missing values replaced by initial predictions, MissForest generates new predictions, perhaps replacing the initial prediction with a better one. MissForest will typically go through at least 4 iterations of this process.</p>
+    <h2 id="_idParaDest-270" class="heading-2">Getting ready</h2>
+    <p class="normal">You will need to install the <code class="inlineCode">MissForest</code> and <code class="inlineCode">MiceForest</code> modules to run the code in this recipe. You can install both with <code class="inlineCode">pip</code>.</p>
+    <h2 id="_idParaDest-271" class="heading-2">How to do it...</h2>
+    <p class="normal">Running MissForest is even easier<a id="_idIndexMarker614"/> than using the KNN imputer, which we used<a id="_idIndexMarker615"/> in the previous recipe. We will impute values for the same wage income data that we worked with previously.</p>
+    <ol>
+      <li class="numberedList" value="1">Let’s start by importing the <code class="inlineCode">MissForest</code> module and loading the NLS data. We import <code class="inlineCode">missforest</code>, and also <code class="inlineCode">miceforest</code>, which we discuss in later steps:
+        <pre class="programlisting code-one"><code class="hljs-code"><span class="hljs-keyword">import</span> pandas <span class="hljs-keyword">as</span> pd
+<span class="hljs-keyword">import</span> numpy <span class="hljs-keyword">as</span> np
+<span class="hljs-keyword">from</span> missforest.missforest <span class="hljs-keyword">import</span> MissForest
+<span class="hljs-keyword">import</span> miceforest <span class="hljs-keyword">as</span> mf
+nls97 = pd.read_csv(<span class="hljs-string">"data/nls97g.csv"</span>,low_memory=<span class="hljs-literal">False</span>)
+nls97.set_index(<span class="hljs-string">"personid"</span>, inplace=<span class="hljs-literal">True</span>)
+</code></pre>
+      </li>
+      <li class="numberedList">We should do the same data cleaning that we did in the previous recipe:
+        <pre class="programlisting code-one"><code class="hljs-code">nls97[<span class="hljs-string">'hdegnum'</span>] = \
+ nls97.highestdegree.<span class="hljs-built_in">str</span>[<span class="hljs-number">0</span>:<span class="hljs-number">1</span>].astype(<span class="hljs-string">'float'</span>)
+nls97[<span class="hljs-string">'parentincome'</span>] = \
+ nls97.parentincome.\
+   replace(<span class="hljs-built_in">list</span>(<span class="hljs-built_in">range</span>(-<span class="hljs-number">5</span>,<span class="hljs-number">0</span>)),
+   np.nan)
+wagedatalist = [<span class="hljs-string">'wageincome20'</span>,<span class="hljs-string">'</span><span class="hljs-string">weeksworked20'</span>,<span class="hljs-string">'parentincome'</span>,
+ <span class="hljs-string">'hdegnum'</span>]
+wagedata = \
+ nls97.loc[nls97.weeksworked20&gt;<span class="hljs-number">0</span>, wagedatalist]
+</code></pre>
+      </li>
+      <li class="numberedList">Now we are ready to run MissForest. Notice that the process is remarkably similar to our process for using the KNN imputer:
+        <pre class="programlisting code-one"><code class="hljs-code">imputer = MissForest()
+wagedataimp = imputer.fit_transform(wagedata)
+wagedatalistimp = \
+ [<span class="hljs-string">'wageincomeimp'</span>,<span class="hljs-string">'weeksworked20imp'</span>,<span class="hljs-string">'parentincomeimp'</span>]
+wagedataimp.rename(columns=\
+  {<span class="hljs-string">'wageincome20'</span>:<span class="hljs-string">'wageincome20imp'</span>,
+  <span class="hljs-string">'</span><span class="hljs-string">weeksworked20'</span>:<span class="hljs-string">'weeksworked20imp'</span>,
+  <span class="hljs-string">'parentincome'</span>:<span class="hljs-string">'parentincomeimp'</span>}, inplace=<span class="hljs-literal">True</span>)
+wagedata = \
+ wagedata.join(wagedataimp[[<span class="hljs-string">'wageincome20imp'</span>,
+<span class="hljs-string">'weeksworked20imp'</span>]])
+</code></pre>
+      </li>
+      <li class="numberedList">Let’s take a look at a few<a id="_idIndexMarker616"/> of our imputed values and some summary<a id="_idIndexMarker617"/> statistics. The imputed values have a lower mean. This is not surprising given that we have already learned that the missing values are not distributed randomly, as individuals with lower degree attainment and weeks worked are more likely to have missing values for wage income:
+        <pre class="programlisting code-one"><code class="hljs-code">wagedata[[<span class="hljs-string">'wageincome20'</span>,<span class="hljs-string">'wageincome20imp'</span>,
+ <span class="hljs-string">'</span><span class="hljs-string">weeksworked20'</span>,<span class="hljs-string">'weeksworked20imp'</span>]].\
+ sample(<span class="hljs-number">10</span>, random_state=<span class="hljs-number">7</span>)
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">        wageincome20 wageincome20imp weeksworked20 weeksworked20imp
+personid                                                          
+696721       380,288         380,288            52               52
+928568        38,000          38,000            41               41
+738731        38,000          38,000            51               51
+274325           NaN           6,143             7                7
+644266           NaN          85,050            52               52
+438934        70,000          70,000            52               52
+194288         1,500           1,500            13               13
+882066           NaN          74,498            52               52
+169452       110,000         110,000            52               52
+284731        25,000          25,000            52               52
+</code></pre>
+        <pre class="programlisting code-one"><code class="hljs-code">wagedata[[<span class="hljs-string">'wageincome20'</span>,<span class="hljs-string">'wageincome20imp'</span>,
+ <span class="hljs-string">'weeksworked20'</span>,<span class="hljs-string">'weeksworked20imp'</span>]].\
+ agg([<span class="hljs-string">'count'</span>,<span class="hljs-string">'</span><span class="hljs-string">mean'</span>,<span class="hljs-string">'std'</span>])
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">        wageincome20 wageincome20imp weeksworked20 weeksworked20imp
+count          5,012           5,889         5,889            5,889
+mean          63,424          59,681            45               45
+std           60,011          57,424            14               14
+</code></pre>
+      </li>
+    </ol>
+    <p class="normal">MissForest uses the random forest algorithm to generate highly accurate predictions. Unlike KNN, it does not require tuning with an initial value for <em class="italic">k</em>. It also is computationally less expensive than KNN. Perhaps most importantly, random forest imputation is less sensitive<a id="_idIndexMarker618"/> to low or very high correlation<a id="_idIndexMarker619"/> among variables, though that was not an issue in this example.</p>
+    <h2 id="_idParaDest-272" class="heading-2">How it works...</h2>
+    <p class="normal">We largely follow the same process here as we did with KNN imputation in the previous recipe. We start by cleaning the data a bit, extracting a numeric variable from the highest degree text, and replacing logical missing values for parental income with actual missing values.</p>
+    <p class="normal">We then pass our data to the <code class="inlineCode">fit_transform</code> method of a <code class="inlineCode">MissForest</code> imputer. This method returns a DataFrame with imputed values for all columns.</p>
+    <h2 id="_idParaDest-273" class="heading-2">There’s more...</h2>
+    <p class="normal">We could have<a id="_idIndexMarker620"/> used Multiple Imputation by Chained Equations (MICE), which can be implemented using random forests, for our imputation instead. One advantage of this approach is that MICE adds a random component to imputations, likely further reducing the possibility of overfitting even over <code class="inlineCode">missforest</code>.</p>
+    <p class="normal"><code class="inlineCode">miceforest</code> can be run<a id="_idIndexMarker621"/> in much the same way as <code class="inlineCode">missforest</code>.</p>
+    <ol>
+      <li class="numberedList" value="1">We create a <code class="inlineCode">kernel</code> with the <code class="inlineCode">miceforest</code> instance we created in <em class="italic">step 1</em>:
+        <pre class="programlisting code-one"><code class="hljs-code">kernel = mf.ImputationKernel(
+ data=wagedata[wagedatalist],
+ save_all_iterations=<span class="hljs-literal">True</span>,
+ random_state=<span class="hljs-number">1</span>
+)
+kernel.mice(<span class="hljs-number">3</span>,verbose=<span class="hljs-literal">True</span>)
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">Initialized logger with name mice 1-3
+Dataset 0
+1 | degltcol | degcol | degadv | weeksworked20 | parentincome | wageincome20
+2 | degltcol | degcol | degadv | weeksworked20 | parentincome | wageincome20
+3 | degltcol | degcol | degadv | weeksworked20 | parentincome | wageincome20
+</code></pre>
+        <pre class="programlisting code-one"><code class="hljs-code">wagedataimpmice = kernel.complete_data()
+</code></pre>
+      </li>
+      <li class="numberedList">Then we can view the results<a id="_idIndexMarker622"/> of our imputation:
+        <pre class="programlisting code-one"><code class="hljs-code">wagedataimpmice.rename(columns=\
+ {<span class="hljs-string">'</span><span class="hljs-string">wageincome20'</span>:<span class="hljs-string">'wageincome20impmice'</span>,
+ <span class="hljs-string">'weeksworked20'</span>:<span class="hljs-string">'weeksworked20impmice'</span>,
+ <span class="hljs-string">'parentincome'</span>:<span class="hljs-string">'parentincomeimpmice'</span>},
+ inplace=<span class="hljs-literal">True</span>)
+wagedata = wagedata[wagedatalist].\
+ join(wagedataimpmice[[<span class="hljs-string">'wageincome20impmice'</span>,
+  <span class="hljs-string">'weeksworked20impmice'</span>]])
+wagedata[[<span class="hljs-string">'wageincome20'</span>,<span class="hljs-string">'</span><span class="hljs-string">wageincome20impmice'</span>,
+ <span class="hljs-string">'weeksworked20'</span>,<span class="hljs-string">'weeksworked20impmice'</span>]].\
+ agg([<span class="hljs-string">'count'</span>,<span class="hljs-string">'mean'</span>,<span class="hljs-string">'std'</span>])
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">      wageincome20 wageincome20impmice weeksworked20 \
+count        5,012               5,889         5,889
+mean        63,424              59,191            45
+std         60,011              58,632            14
+      weeksworked20impmice
+count                5,889
+mean                    45
+std                     14
+</code></pre>
+      </li>
+    </ol>
+    <p class="normal-one">This produces very similar results as <code class="inlineCode">missforest</code>. Both approaches are excellent choices for missing value imputation.</p>
+    <h1 id="_idParaDest-274" class="heading-1">Using PandasAI for imputation</h1>
+    <p class="normal">Many of the missing value imputation<a id="_idIndexMarker623"/> tasks we have explored in this chapter<a id="_idIndexMarker624"/> can also be completed using PandasAI. As we have discussed in previous chapters, AI tools can help us check the work we have done with traditional tools and can suggest alternative approaches that did not occur to us. It always makes sense, though, to look under the hood and be sure we understand what PandasAI, or other AI tools, are doing.</p>
+    <p class="normal">We will use PandasAI in this recipe to identify missing values, impute missing values based on summary statistics, and assign missing values based on machine learning algorithms.</p>
+    <h2 id="_idParaDest-275" class="heading-2">Getting ready</h2>
+    <p class="normal">We will work with PandasAI in this recipe. It can be installed with <code class="inlineCode">pip install</code> <code class="inlineCode">pandasai</code>. You also need to get a token from <a href="https://openai.com"><span class="url">openai.com</span></a> to send a request to the OpenAI API.</p>
+    <h2 id="_idParaDest-276" class="heading-2">How to do it...</h2>
+    <p class="normal">In this recipe, we will carry out many of the tasks we have done earlier in this chapter using AI tools instead.</p>
+    <ol>
+      <li class="numberedList" value="1">We start by importing the <code class="inlineCode">pandas</code> and <code class="inlineCode">numpy</code> libraries and <code class="inlineCode">OpenAI</code> and <code class="inlineCode">pandasai</code>. We will work a fair bit with the PandasAI<code class="inlineCode"> SmartDataFrame</code> module in this recipe. We will also load the NLS data:
+        <pre class="programlisting code-one"><code class="hljs-code"><span class="hljs-keyword">import</span> pandas <span class="hljs-keyword">as</span> pd
+<span class="hljs-keyword">import</span> numpy <span class="hljs-keyword">as</span> np
+<span class="hljs-keyword">from</span> pandasai.llm.openai <span class="hljs-keyword">import</span> OpenAI
+<span class="hljs-keyword">from</span> pandasai <span class="hljs-keyword">import</span> SmartDataframe
+llm = OpenAI(api_token=<span class="hljs-string">"Your API Key"</span>)
+nls97 = pd.read_csv(<span class="hljs-string">"data/nls97g.csv"</span>, low_memory=<span class="hljs-literal">False</span>)
+nls97.set_index(<span class="hljs-string">"personid"</span>, inplace=<span class="hljs-literal">True</span>)
+</code></pre>
+      </li>
+      <li class="numberedList">We do the same data cleaning on the parent income and highest degree variables that we did in previous recipes:
+        <pre class="programlisting code-one"><code class="hljs-code">nls97[<span class="hljs-string">'hdegnum'</span>] = nls97.highestdegree.<span class="hljs-built_in">str</span>[<span class="hljs-number">0</span>:<span class="hljs-number">1</span>].astype(<span class="hljs-string">'category'</span>)
+nls97[<span class="hljs-string">'parentincome'</span>] = \
+ nls97.parentincome.\
+   replace(<span class="hljs-built_in">list</span>(<span class="hljs-built_in">range</span>(-<span class="hljs-number">5</span>,<span class="hljs-number">0</span>)),
+   np.nan)
+</code></pre>
+      </li>
+      <li class="numberedList">We create a DataFrame <a id="_idIndexMarker625"/>with just the wage and degree<a id="_idIndexMarker626"/> data, and then a <code class="inlineCode">SmartDataframe</code> from PandasAI:
+        <pre class="programlisting code-one"><code class="hljs-code">wagedatalist = [<span class="hljs-string">'wageincome20'</span>,<span class="hljs-string">'weeksworked20'</span>,
+  <span class="hljs-string">'parentincome'</span>,<span class="hljs-string">'hdegnum'</span>]
+wagedata = nls97[wagedatalist]
+wagedatasdf = SmartDataframe(wagedata, config={<span class="hljs-string">"llm"</span>: llm})
+</code></pre>
+      </li>
+      <li class="numberedList">Show non-missing counts, averages, and standard deviations for all the variables. We send a natural language command to the <code class="inlineCode">chat</code> method of the <code class="inlineCode">SmartDataFrame</code> object to do that. Since <code class="inlineCode">hdegnum</code> (highest degree) is a categorical variable, <code class="inlineCode">chat</code> does not show means or standard deviations:
+        <pre class="programlisting code-one"><code class="hljs-code">wagedatasdf.chat(<span class="hljs-string">"Show the counts, means, and standard deviations as table"</span>)
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">                    count     mean      std
+wageincome20        5,201   62,888   59,616
+weeksworked20       6,971       38       21
+parentincome        6,588   46,362   42,144
+</code></pre>
+      </li>
+      <li class="numberedList">Let’s impute values for the missing values based on the average for each variable. The <code class="inlineCode">chat</code> method will return a pandas DataFrame in this case. There are no longer missing values for the income and weeks worked variables, but PandasAI figured out that the degree categorical variable should not be imputed based on average:
+        <pre class="programlisting code-one"><code class="hljs-code">wagedatasdf = \
+ wagedatasdf.chat(<span class="hljs-string">"Impute missing values based on average."</span>)
+wagedatasdf.chat(<span class="hljs-string">"Show the counts, means, and standard deviations as table"</span>)
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">                   count     mean      std
+wageincome20       8,984   62,888    45,358
+weeksworked20      8,984       38       18
+parentincome       8,984   46,362   36,088
+</code></pre>
+      </li>
+      <li class="numberedList">Let’s look again at the values for highest degree. Notice that the most frequent value is <code class="inlineCode">2</code>, which you may recall<a id="_idIndexMarker627"/> from earlier recipes represents<a id="_idIndexMarker628"/> high school completion.
+        <pre class="programlisting code-one"><code class="hljs-code">wagedatasdf.hdegnum.value_counts(dropna=<span class="hljs-literal">False</span>).sort_index()
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">hdegnum
+0    877
+1   1167
+2   3531
+3    766
+4   1713
+5    704
+6     64
+7    130
+NaN   32
+Name: count, dtype: int64
+</code></pre>
+      </li>
+      <li class="numberedList">We can set missing values for the degree variables to their most frequent non-missing value, which is not an uncommon way to handle missing values for categorical variables. All of the missing values now have a value of <code class="inlineCode">2</code>:
+        <pre class="programlisting code-one"><code class="hljs-code">wagedatasdf = \
+ wagedatasdf.chat(<span class="hljs-string">"Impute missings based on most frequent value"</span>)
+wagedatasdf.hdegnum.value_counts(dropna=<span class="hljs-literal">False</span>).sort_index()
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">hdegnum
+0   877
+1  1167
+2  3563
+3   766
+4  1713
+5   704
+6    64
+7   130
+Name: count, dtype: int64
+</code></pre>
+      </li>
+      <li class="numberedList">We could have used the built-in <code class="inlineCode">SmartDataframe</code> function, <code class="inlineCode">impute_missing_values</code>, instead. This will use forward fill to impute missing values. No values are imputed for the highest degree variable, <code class="inlineCode">hdegnum</code>.
+        <pre class="programlisting code-one"><code class="hljs-code">wagedatasdf = SmartDataframe(wagedata, config={<span class="hljs-string">"llm"</span>: llm})
+wagedatasdf = \
+ wagedatasdf.impute_missing_values()
+wagedatasdf.chat(<span class="hljs-string">"Show the counts, means, and standard deviations as table"</span>)
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">                     count     mean       std
+wageincome20         8,983   62,247    59,559
+weeksworked20        8,983       39        21
+parentincome         8,982   46,096    42,632
+</code></pre>
+      </li>
+      <li class="numberedList">We can use KNN for missing value imputation for the income and weeks worked variables. We start over with an unchanged DataFrame. After the imputation, the <code class="inlineCode">wageincome20</code> mean is lower than it was originally, as shown in <em class="italic">step 4</em>. This is not surprising, since we have seen in other recipes that individuals with missing <code class="inlineCode">wageincome20</code> have lower values for other values correlated with <code class="inlineCode">wageincome20</code>. The reduction in the standard deviation for <code class="inlineCode">wageincome20</code> and <code class="inlineCode">parentincome</code> is not great. The mean and standard deviation for <code class="inlineCode">weeksworked20</code> are largely unchanged, which is good.
+        <pre class="programlisting code-one"><code class="hljs-code">wagedatasdf = SmartDataframe(wagedata, config={<span class="hljs-string">"llm"</span>: llm})
+wagedatasdf = wagedatasdf.chat(<span class="hljs-string">"Impute missings for float variables based on knn with 47 neighbors"</span>)
+wagedatasdf.chat(<span class="hljs-string">"Show the counts, means, and standard deviations as table"</span>)
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">               Counts     Means    Std Devs
+hdegnum          8952       NaN         NaN
+parentincome     8984    44,805      36,344
+wageincome20     8984    58,356      47,378
+weeksworked20    8984        38          18
+</code></pre>
+      </li>
+    </ol>
+    <h2 id="_idParaDest-277" class="heading-2">How it works...</h2>
+    <p class="normal">Whenever we pass a natural language command to the <code class="inlineCode">chat</code> method of a <code class="inlineCode">SmartDataframe</code>, pandas code is generated to run that command. Some of that is very familiar code to generate summary statistics. However, it also can generate code to run machine learning algorithms such as KNN or random forest. As discussed in previous chapters, it is always a good idea to review the <code class="inlineCode">pandasai.log</code> file after running <code class="inlineCode">chat</code> to understand the code that was created.</p>
+    <p class="normal">This recipe demonstrated how to use PandasAI to identify and impute values where they are missing. AI tools, particularly large language models, make it easy to pass natural language commands<a id="_idIndexMarker629"/> to generate code like the code we created earlier<a id="_idIndexMarker630"/> in this chapter.</p>
+    <h1 id="_idParaDest-278" class="heading-1">Summary</h1>
+    <p class="normal">We have explored the most popular approaches for missing value imputation in this chapter, and have discussed the advantages and disadvantages of each approach. Assigning an overall sample mean is not usually a good approach, particularly when observations with missing values are different from other observations in important ways. We also can substantially reduce our variance. Forward or backward filling allows us to maintain the variance in our data, but works best when the proximity of observations is meaningful, such as with time series or longitudinal data. In most non-trivial cases we will want to use a multivariate technique, such as regression, KNN, or random forest imputation. We examined all these approaches in this chapter, and for the next chapter, we will learn about encoding, transforming, and scaling features.</p>
+    <h1 class="heading-1">Leave a review!</h1>
+    <p class="normal">Enjoying this book? Help readers like you by leaving an Amazon review. Scan the QR code below to get a free eBook of your choice.</p>
+    <p class="normal"><img src="../Images/Review_copy.png" style="width:10em" alt="" role="presentation"/></p>
+  </div>
+</body></html>

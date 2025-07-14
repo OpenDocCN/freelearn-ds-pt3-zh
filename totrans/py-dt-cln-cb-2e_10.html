@@ -1,0 +1,1014 @@
+<html><head></head><body>
+  <div id="_idContainer123" class="Basic-Text-Frame">
+    <h1 class="chapterNumber">10</h1>
+    <h1 id="_idParaDest-360" class="chapterTitle">Addressing Data Issues When Combining DataFrames</h1>
+    <p class="normal">At some point during most data cleaning projects, the analyst will have to combine data from different data tables. This involves either appending data with the same structure to existing data rows or doing a merge to retrieve columns from a different data table. The former is sometimes referred to as combining data vertically, or concatenating, while the latter is referred to as combining data horizontally, or merging.</p>
+    <p class="normal">Merges can be categorized by the amount of duplication of merge-by column values. With one-to-one merges, merge-by column values appear once on each data table. One-to-many merges have unduplicated merge-by column values on one side of the merge and duplicated merge-by column values on the other side. Many-to-many merges have duplicated merge-by column values on both sides. Merging is further complicated by the fact that there is often no perfect correspondence between merge-by values on the data tables; each data table may have values in the merge-by column that are not present in the other data table.</p>
+    <p class="normal">New data issues can be introduced when data is combined. When data is appended, it may have different logical values than the original data, even when the columns have the same names and data types. For merges, whenever merge-by values are missing on one side of a merge, the other columns from that side will also have missing values. For one-to-one or one-to-many merges, there may be unexpected duplicates in merge-by values, resulting in values for other columns being duplicated unintentionally.</p>
+    <p class="normal">In this chapter, we will combine DataFrames vertically and horizontally and consider strategies for dealing with the data problems that often arise. Specifically, in this chapter, the recipes will cover the following topics:</p>
+    <ul>
+      <li class="bulletList">Combining DataFrames vertically</li>
+      <li class="bulletList">Doing one-to-one merges</li>
+      <li class="bulletList">Doing one-to-one merges by multiple columns</li>
+      <li class="bulletList">Doing one-to-many merges</li>
+      <li class="bulletList">Doing many-to-many merges</li>
+      <li class="bulletList">Developing a merge routine</li>
+    </ul>
+    <h1 id="_idParaDest-361" class="heading-1">Technical requirements</h1>
+    <p class="normal">You will need pandas, NumPy, and Matplotlib to complete the recipes in this chapter. I used pandas 2.1.4, but the code will run on pandas 1.5.3 or later.</p>
+    <p class="normal">The code in this chapter can be downloaded from the book’s GitHub repository, <a href="https://github.com/PacktPublishing/Python-Data-Cleaning-Cookbook-Second-Edition"><span class="url">https://github.com/PacktPublishing/Python-Data-Cleaning-Cookbook-Second-Edition</span></a>.</p>
+    <h1 id="_idParaDest-362" class="heading-1">Combining DataFrames vertically</h1>
+    <p class="normal">There are times when we need<a id="_idIndexMarker801"/> to append rows from one data table to another. This will almost always be rows from data tables that have nearly the same columns and data types. For example, we might get a new CSV file containing hospital patient outcomes each month and need to add that to our existing data. Alternatively, we might end up working at a school district central office and receive data from many different schools. We might want to combine this data before conducting analyses.</p>
+    <p class="normal">Even when the data structure across months and across schools (in these examples) is theoretically the same, it may not be in practice. Business practices can change from one period to another. This can be intentional or happen inadvertently due to staff turnover or some external factor. One institution or department might implement practices somewhat differently than another, and some data values might be different for some institutions or missing altogether.</p>
+    <p class="normal">We are likely to come across a change in what seems like similar data when we let our guards down, typically when we start to assume that the new data will look like the old data. I try to remember this whenever I combine data vertically. I will be referring to combining data vertically as concatenating or appending for the rest of this chapter.</p>
+    <p class="normal">In this recipe, we’ll use the pandas <code class="inlineCode">concat</code> function to append rows from a pandas DataFrame to another DataFrame. We will also do a few common checks on the <code class="inlineCode">concat</code> operation to confirm that the resulting DataFrame is what we expected.</p>
+    <h2 id="_idParaDest-363" class="heading-2">Getting ready</h2>
+    <p class="normal">We will work with land temperature<a id="_idIndexMarker802"/> data from several countries in this recipe. This data includes the monthly average temperature, latitude, longitude, and elevation at many weather stations in each country during 2023. The data for each country is contained in a CSV file.</p>
+    <div class="note">
+      <p class="normal"><strong class="keyWord">Data note</strong></p>
+      <p class="normal">The land temperature DataFrame has the average temperature reading (in °C) in 2023 from over 12,000 stations across the world, though a majority of the stations are in the United States. The raw data was retrieved from the Global Historical Climatology Network integrated database. It is made available for public use by the United States National Oceanic and Atmospheric Administration at <a href="https://www.ncei.noaa.gov/products/land-based-station/global-historical-climatology-network-monthly"><span class="url">https://www.ncei.noaa.gov/products/land-based-station/global-historical-climatology-network-monthly</span></a>.</p>
+    </div>
+    <h2 id="_idParaDest-364" class="heading-2">How to do it…</h2>
+    <p class="normal">In this recipe, we will combine similarly structured DataFrames vertically, check the values in the concatenated data, and fix missing values. Let’s get started:</p>
+    <ol>
+      <li class="numberedList" value="1">Import <code class="inlineCode">pandas</code> and <code class="inlineCode">numpy</code>, as well as the <code class="inlineCode">os</code> module:
+        <pre class="programlisting code-one"><code class="hljs-code"><span class="hljs-keyword">import</span> pandas <span class="hljs-keyword">as</span> pd
+<span class="hljs-keyword">import</span> numpy <span class="hljs-keyword">as</span> np
+<span class="hljs-keyword">import</span> os
+</code></pre>
+      </li>
+      <li class="numberedList">Load the data from Cameroon and Oman and check the number of rows and columns:
+        <pre class="programlisting code-one"><code class="hljs-code">ltcameroon = pd.read_csv(<span class="hljs-string">"data/ltcountry/ltcameroon.csv"</span>)
+ltoman = pd.read_csv(<span class="hljs-string">"data/ltcountry/ltoman.csv"</span>)
+ltcameroon.shape
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">(48, 11)
+</code></pre>
+        <pre class="programlisting code-one"><code class="hljs-code">ltoman.shape
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">(288, 10)
+</code></pre>
+      </li>
+    </ol>
+    <p class="normal-one">Compare the columns<a id="_idIndexMarker803"/> in the Cameroon and Oman DataFrames. Glancing at the columns, we can see that the Cameroon DataFrame has the <code class="inlineCode">latabs</code> column and the Oman DataFrame does not. We can confirm this, and that there are no other columns in one DataFrame but not the other, using <code class="inlineCode">symetric_difference</code>. It shows that <code class="inlineCode">latabs</code> is the only column in just one DataFrame:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">ltcameroon.columns
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">Index(['locationid', 'year', 'month', 'temperature',
+       'latitude', 'longitude', 'elevation', 'station',
+       'countryid', 'country', 'latabs'],
+      dtype='object')
+</code></pre>
+    <pre class="programlisting code-one"><code class="hljs-code">ltoman.columns
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">Index(['locationid', 'year', 'month', 'temperature',
+       'latitude', 'longitude', 'elevation', 'station',
+       'countryid', 'country'],
+      dtype='object')
+</code></pre>
+    <pre class="programlisting code-one"><code class="hljs-code">ltcameroon.columns.\
+  symmetric_difference(ltoman.columns)
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">Index(['latabs'], dtype='object')
+</code></pre>
+    <ol>
+      <li class="numberedList" value="3">We can still concatenate the two DataFrames. The only problem is that we now have one column, <code class="inlineCode">latabs</code>, that has non-missing values for all rows for Cameroon and all missing values for Oman. We address this problem in the last step of this recipe:
+        <pre class="programlisting code-one"><code class="hljs-code">ltall = pd.concat([ltcameroon, ltoman])
+ltall.country.value_counts()
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">country
+Oman        288
+Cameroon     48
+Name: count, dtype: int64
+</code></pre>
+        <pre class="programlisting code-one"><code class="hljs-code">ltall[[<span class="hljs-string">'country'</span>,<span class="hljs-string">'station'</span>,<span class="hljs-string">'temperature'</span>,
+  <span class="hljs-string">'latitude'</span>,<span class="hljs-string">'latabs'</span>]].\
+  sample(<span class="hljs-number">5</span>, random_state=<span class="hljs-number">3</span>)
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">        country          station    temperature    latitude    latabs
+276        Oman            BAHLA          21.44      23.000       NaN
+26         Oman             DIBA          21.85      25.617       NaN
+281        Oman      RAS_AL_HADD          23.74      22.300       NaN
+15     Cameroon           GAROUA          33.91       9.336     9.336
+220        Oman      SOHAR_MAJIS          30.85      24.467       NaN
+</code></pre>
+        <pre class="programlisting code-one"><code class="hljs-code">ltall.groupby([<span class="hljs-string">'country'</span>])[<span class="hljs-string">'latabs'</span>].count()
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">country
+Cameroon    48
+Oman         0
+Name: latabs, dtype: int64
+</code></pre>
+      </li>
+      <li class="numberedList">Create a function to do the concatenation<a id="_idIndexMarker804"/> that incorporates some of the data checks we have done. The function takes a list of filenames, loops through the list, reads the CSV file associated with each filename into a DataFrame, and then concatenates the DataFrame. We get the expected counts. We did not check the column names. We will do that in the next step.
+        <pre class="programlisting code-one"><code class="hljs-code"><span class="hljs-keyword">def</span> <span class="hljs-title">concatfiles</span>(<span class="hljs-params">filelist</span>):
+  directory = <span class="hljs-string">"data/ltcountry/"</span>
+  ltall = pd.DataFrame()
+  <span class="hljs-keyword">for</span> filename <span class="hljs-keyword">in</span> filelist:
+    ltnew = pd.read_csv(directory + filename + <span class="hljs-string">".csv"</span>)
+    <span class="hljs-built_in">print</span>(filename + <span class="hljs-string">" has "</span> +
+      <span class="hljs-built_in">str</span>(ltnew.shape[<span class="hljs-number">0</span>]) + <span class="hljs-string">" rows."</span>)
+    ltall = pd.concat([ltall, ltnew])
+  <span class="hljs-keyword">return</span> ltall
+ltall = concatfiles([<span class="hljs-string">'ltcameroon'</span>,<span class="hljs-string">'ltoman'</span>])
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">ltcameroon has 48 rows.
+ltoman has 288 rows.
+</code></pre>
+        <pre class="programlisting code-one"><code class="hljs-code">ltall.country.value_counts()
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">country
+Oman        288
+Cameroon     48
+Name: count, dtype: int64
+</code></pre>
+      </li>
+    </ol>
+    <p class="normal-one">If we have many files<a id="_idIndexMarker805"/> to concatenate, it might be burdensome to create a list of the filenames. We can get Python’s <code class="inlineCode">os</code> module to help us with that by loading all files with a CSV file extension in a folder. Let’s do that next, and also add some code to check columns. We will build on the code from the previous step.</p>
+    <ol>
+      <li class="numberedList" value="5">Concatenate all the country data files in a folder.</li>
+    </ol>
+    <p class="normal-one">Loop through all the filenames in the folder that contains the CSV files for each country. Use the <code class="inlineCode">endswith</code> method to check that the filenames have a CSV file extension. Use <code class="inlineCode">read_csv</code> to create a new DataFrame and print out the number of rows. Use <code class="inlineCode">concat</code> to append the rows of the new DataFrame to the rows that have already been appended. Finally, display any columns that are missing in the most recent DataFrame, or that are in the most recent DataFrame but not the previous ones:</p>
+    <pre class="programlisting code-one"><code class="hljs-code"><span class="hljs-keyword">def</span> <span class="hljs-title">concatallfiles</span>():
+  directory = <span class="hljs-string">"data/ltcountry"</span>
+  ltall = pd.DataFrame()
+  <span class="hljs-keyword">for</span> filename <span class="hljs-keyword">in</span> os.listdir(directory):
+    <span class="hljs-keyword">if</span> filename.endswith(<span class="hljs-string">".csv"</span>):
+      fileloc = os.path.join(directory, filename)
+     
+      <span class="hljs-comment"># open the next file</span>
+      <span class="hljs-keyword">with</span> <span class="hljs-built_in">open</span>(fileloc):
+        ltnew = pd.read_csv(fileloc)
+        <span class="hljs-built_in">print</span>(filename + <span class="hljs-string">" has "</span> +
+          <span class="hljs-built_in">str</span>(ltnew.shape[<span class="hljs-number">0</span>]) + <span class="hljs-string">" rows."</span>)
+        ltall = pd.concat([ltall, ltnew])
+       
+        <span class="hljs-comment"># check for differences in columns</span>
+        columndiff = ltall.columns.\
+          symmetric_difference(ltnew.columns)
+        <span class="hljs-keyword">if</span> (<span class="hljs-keyword">not</span> columndiff.empty):
+          <span class="hljs-built_in">print</span>(<span class="hljs-string">""</span>, <span class="hljs-string">"Different column names for:"</span>,
+           filename, columndiff, <span class="hljs-string">""</span>, sep=<span class="hljs-string">"\n"</span>)
+ 
+  <span class="hljs-keyword">return</span> ltall
+</code></pre>
+    <ol>
+      <li class="numberedList" value="6">Use the function we just created<a id="_idIndexMarker806"/> to read all of the country CSV files in a subfolder, show the number of rows, and check column names. We see again that the <code class="inlineCode">ltoman</code> DataFrame is missing the <code class="inlineCode">latabs</code> column:
+        <pre class="programlisting code-one"><code class="hljs-code">ltall = concatallfiles()
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">ltpoland.csv has 120 rows.
+ltcameroon.csv has 48 rows.
+ltmexico.csv has 852 rows.
+ltjapan.csv has 1800 rows.
+ltindia.csv has 1116 rows.
+ltoman.csv has 288 rows.
+Different column names for:
+ltoman.csv
+Index(['latabs'], dtype='object')
+ltbrazil.csv has 1008 rows.
+</code></pre>
+      </li>
+      <li class="numberedList">Show some of the combined data:
+        <pre class="programlisting code-one"><code class="hljs-code">ltall[[<span class="hljs-string">'country'</span>,<span class="hljs-string">'station'</span>,<span class="hljs-string">'month'</span>,
+ <span class="hljs-string">'temperature'</span>,<span class="hljs-string">'latitude'</span>]].\
+ sample(<span class="hljs-number">5</span>, random_state=<span class="hljs-number">1</span>)
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">    country               station   month   temperature   latitude
+583   Japan             TOKUSHIMA       4            16         34
+635   India   NEW_DELHI_SAFDARJUN       7            31         29
+627  Mexico      COATZACOALCOSVER       9            30         18
+28   Poland               WLODAWA       3             5         52
+775  Mexico           ARRIAGACHIS      11            28         16
+</code></pre>
+      </li>
+      <li class="numberedList">Check the values in the concatenated data.</li>
+    </ol>
+    <p class="normal-one">Notice that the values<a id="_idIndexMarker807"/> for <code class="inlineCode">latabs</code> for Oman are all missing. This is because <code class="inlineCode">latabs</code> is missing in the DataFrame for Oman (<code class="inlineCode">latabs</code> is the absolute value of the latitude for each station):</p>
+    <pre class="programlisting code-one"><code class="hljs-code">ltall.country.value_counts().sort_index()
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">country
+Brazil      1008
+Cameroon      48
+India       1116
+Japan       1800
+Mexico       852
+Oman         288
+Poland       120
+Name: count, dtype: int64
+</code></pre>
+    <pre class="programlisting code-one"><code class="hljs-code">ltall.groupby([<span class="hljs-string">'country'</span>]).\
+  agg({<span class="hljs-string">'temperature'</span>:[<span class="hljs-string">'mean'</span>,<span class="hljs-string">'max'</span>,<span class="hljs-string">'count'</span>],
+  <span class="hljs-string">'</span><span class="hljs-string">latabs'</span>:[<span class="hljs-string">'mean'</span>,<span class="hljs-string">'max'</span>,<span class="hljs-string">'count'</span>]})
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">                     temperature              latabs         
+                mean   max   count     mean   max   count
+country                                       
+Brazil            25    34     900       14    34    1008
+Cameroon          27    35      39        8    10      48
+India             26    35    1096       21    34    1116
+Japan             14    31    1345       36    45    1800
+Mexico            23    36     685       22    32     852
+Oman              28    38     264      NaN   NaN       0
+Poland            10    21     120       52    55     120
+</code></pre>
+    <ol>
+      <li class="numberedList" value="9">Fix the missing values.</li>
+    </ol>
+    <p class="normal-one">Set the value of <code class="inlineCode">latabs</code> to the value of <code class="inlineCode">latitude</code> for Oman. (All of the <code class="inlineCode">latitude</code> values for stations in Oman are above the equator and positive. In the Global Historical Climatology Network integrated database, latitude values above the equator are positive, while all the latitude values below the equator are negative). Do this as follows:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">ltall[<span class="hljs-string">'</span><span class="hljs-string">latabs'</span>] = np.where(ltall.country==<span class="hljs-string">"Oman"</span>, ltall.latitude, ltall.latabs)
+ltall.groupby([<span class="hljs-string">'country'</span>]).\
+<span class="hljs-meta">... </span>  agg({<span class="hljs-string">'temperature'</span>:[<span class="hljs-string">'mean'</span>,<span class="hljs-string">'max'</span>,<span class="hljs-string">'count'</span>],
+<span class="hljs-meta">... </span>  <span class="hljs-string">'latabs'</span>:[<span class="hljs-string">'</span><span class="hljs-string">mean'</span>,<span class="hljs-string">'max'</span>,<span class="hljs-string">'count'</span>]})
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">                    temperature             latabs         
+                mean   max   count     mean   max   count
+country                                       
+Brazil            25    34     900       14    34    1008
+Cameroon          27    35      39        8    10      48
+India             26    35    1096       21    34    1116
+Japan             14    31    1345       36    45    1800
+Mexico            23    36     685       22    32     852
+Oman              28    38     264       22    26     288
+Poland            10    21     120       52    55     120
+</code></pre>
+    <p class="normal">With that, we have combined<a id="_idIndexMarker808"/> the data for the seven CSV files we found in the selected folder. We have also confirmed that we have appended the correct number of rows, identified columns that are missing in some files, and fixed missing values.</p>
+    <h2 id="_idParaDest-365" class="heading-2">How it works...</h2>
+    <p class="normal">We passed a list of pandas DataFrames to the pandas <code class="inlineCode">concat</code> function in <em class="italic">step 3</em>. The rows from the second DataFrame were appended to the bottom of the first DataFrame. If we had listed a third DataFrame, those rows would have been appended to the combined rows of the first two DataFrames. Before concatenating, we used the <code class="inlineCode">shape</code> attribute to check the number of rows in <em class="italic">step 2</em> and checked the column names. After concatenation in <em class="italic">step 3</em>, we confirmed that the resulting DataFrame contained the number of expected rows for each country.</p>
+    <p class="normal">We sometimes have to concatenate more than two or three files. <em class="italic">Steps 4</em> through <em class="italic">6</em> walked us through handling many files by defining a function to repeat the code. In <em class="italic">step 4</em>, we passed a list of filenames to that function.</p>
+    <p class="normal">In <em class="italic">steps 5 </em>and<em class="italic"> 6</em>, we looked for all the CSV files in a specified folder, loaded each file that was found into memory, and then appended the rows of each file to a DataFrame. We printed the number of rows for each data file we loaded so that we could check those numbers against the totals in the concatenated data later. We also identified any DataFrames with different columns compared to the others. We used <code class="inlineCode">value_counts</code> in <em class="italic">step 8</em> to confirm that there were the right number of rows for each country.</p>
+    <p class="normal">The pandas <code class="inlineCode">groupby</code> method can be used to check column values from each of the original DataFrames. We group by country since that identifies the rows from each of the original DataFrames—all the rows for each DataFrame have the same value for country. (It is helpful to always have a column that identifies the original DataFrames in the concatenated DataFrame, even if that information is not needed for subsequent analysis.) In <em class="italic">step 8</em>, this helped us notice that there were no values for the <code class="inlineCode">latabs</code> column for Oman. We replaced<a id="_idIndexMarker809"/> the missing values for <code class="inlineCode">latabs</code> for Oman in <em class="italic">step 9</em>.</p>
+    <h2 id="_idParaDest-366" class="heading-2">There’s more...</h2>
+    <p class="normal">Depending on the size of the DataFrames you are appending, and the available memory of your workstation, combining DataFrames may tax your machine’s resources, or even cause the code to end prematurely once RAM usage exceeds a certain amount of your resources. It is always a good idea to make sure that your data files store data as efficiently as possible. For example, downcasting numeric values and making character data categorical when appropriate are good practices.</p>
+    <h2 id="_idParaDest-367" class="heading-2">See also</h2>
+    <p class="normal">We went over the powerful pandas <code class="inlineCode">groupby</code> method in some detail in <em class="chapterRef">Chapter 9</em>, <em class="italic">Fixing Messy Data When Aggregating.</em></p>
+    <p class="normal">We examined NumPy’s <code class="inlineCode">where</code> function in <em class="chapterRef">Chapter 6</em>, <em class="italic">Cleaning and Exploring Data with Series Operations</em>.</p>
+    <h1 id="_idParaDest-368" class="heading-1">Doing one-to-one merges</h1>
+    <p class="normal">The remainder of this chapter<a id="_idIndexMarker810"/> will explore combining data horizontally; that is, merging columns from a data table with columns from another data table. Borrowing from SQL development, we typically talk about such operations as join operations: left joins, right joins, inner joins, and outer joins. This recipe examines one-to-one merges, where the merge-by values are unduplicated in both files. Subsequent recipes will demonstrate one-to-many merges, where the merge-by values are duplicated on the <em class="italic">right</em> data table, and many-to-many merges, where merge-by values are duplicated on both the <em class="italic">left and right</em> data tables.</p>
+    <p class="normal">We often speak of the left and right sides of a merge, a convention that we will follow throughout this chapter. But this is of no real consequence, other than for clarity of exposition. We can accomplish exactly the same thing with a merge if A were the left data table and B were the right data table, as we could if the reverse were true.</p>
+    <p class="normal">I am using the expressions<a id="_idIndexMarker811"/> merge-by column and merge-by value in this chapter, rather than key column or index column. This avoids possible confusion with pandas index alignment. An index may be used as the merge-by column, but other columns may also be used. I also want to avoid relying on relational database concepts such as primary or foreign keys in this discussion. It is helpful to be aware of which data columns function as primary or foreign keys when we’re extracting data from relational systems, and we should take this into account when setting indexes in pandas. But the merging we do for most data cleaning projects often goes beyond these keys.</p>
+    <p class="normal">In the straightforward case of a one-to-one merge, each row in the left data table is matched with one (and only one) row on the right data table, according to the merge-by value. What happens when a merge-by value appears on one, but not the other, data table is determined by the type of join that’s specified. The following diagram illustrates the four different types of joins:</p>
+    <figure class="mediaobject"><img src="../Images/B18596_10_01.png" alt="" role="presentation"/></figure>
+    <p class="packt_figref">Figure 10.1: A diagram illustrating the four different types of joins</p>
+    <p class="normal">When two data tables are merged with an inner join, rows are retained when the merge-by values appear in both the left and right data tables. This is the intersection of the left and right data tables, represented by <strong class="keyWord">B</strong> in the preceding diagram. Outer joins return all rows; that is, rows where the merge-by values appear in both data tables, rows where those values appear in the left data table but not the right, and rows where those values appear in the right but not the left—<strong class="keyWord">B</strong>, <strong class="keyWord">A</strong>, and <strong class="keyWord">C</strong>, respectively. This<a id="_idIndexMarker812"/> is known as the union. Left joins return rows where the merge-by values are present on the left data table, regardless of whether they are present on the right data table. This is <strong class="keyWord">A</strong> and <strong class="keyWord">B</strong>. Right joins return rows where the merge-by values are present on the right data table, regardless of whether they are present on the left data table.</p>
+    <p class="normal">Missing values may result from outer joins, left joins, or right joins. This is because the returned merged data table will have missing values for columns when the merge-by value is not found. For example, when performing a left join, there may be merge-by values from the left dataset that do not appear on the right dataset. In this case, the columns from the right dataset will all be missing. (I say <em class="italic">may</em> here because it is possible to do an outer, left, or right join that returns the same results as an inner join because the same merge-by values appear on both sides. Sometimes, a left join is done so that we’re certain that all the rows<a id="_idIndexMarker813"/> on the left dataset, and only those rows, are returned.)</p>
+    <p class="normal">We will look at all four types of joins in this recipe.</p>
+    <h2 id="_idParaDest-369" class="heading-2">Getting ready</h2>
+    <p class="normal">We will work with two files from the <strong class="keyWord">National Longitudinal Surveys</strong> (<strong class="keyWord">NLS</strong>). Both files contain one row<a id="_idIndexMarker814"/> per person. One contains employment, educational attainment, and income data, while the other file contains data on the income and educational attainment of the respondents’ parents.</p>
+    <div class="note">
+      <p class="normal"><strong class="keyWord">Data note</strong></p>
+      <p class="normal">The <strong class="keyWord">National Longitudinal Surveys</strong> (<strong class="keyWord">NLS</strong>), administered by the United States Bureau of Labor Statistics, are longitudinal surveys of individuals who were in high school in 1997 when the surveys started. Participants were surveyed each year through 2023. The surveys are available for public use at <a href="https://nlsinfo.org"><span class="url">nlsinfo.org</span></a>.</p>
+    </div>
+    <h2 id="_idParaDest-370" class="heading-2">How to do it...</h2>
+    <p class="normal">In this recipe, we will perform<a id="_idIndexMarker815"/> left, right, inner, and outer joins on two DataFrames that have one row for each merge-by value. Let’s get started:</p>
+    <ol>
+      <li class="numberedList" value="1">Import <code class="inlineCode">pandas</code> and load the two NLS DataFrames:
+        <pre class="programlisting code-one"><code class="hljs-code"><span class="hljs-keyword">import</span> pandas <span class="hljs-keyword">as</span> pd
+nls97 = pd.read_csv(<span class="hljs-string">"data/nls97f.csv"</span>, low_memory=<span class="hljs-literal">False</span>)
+nls97.set_index(<span class="hljs-string">"personid"</span>, inplace=<span class="hljs-literal">True</span>)
+nls97add = pd.read_csv(<span class="hljs-string">"data/nls97add.csv"</span>)
+</code></pre>
+      </li>
+      <li class="numberedList">Look at some of the NLS data:
+        <pre class="programlisting code-one"><code class="hljs-code">nls97.head()
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">            gender    birthmonth    birthyear  ...  \
+personid                                       ...  
+135335      Female             9         1981  ...  
+999406        Male             7         1982  ...  
+151672      Female             9         1983  ...  
+750699      Female             2         1981  ...  
+781297        Male            10         1982  ...  
+              colenrfeb22   colenroct22    originalid 
+personid                                          
+135335                NaN           NaN             1 
+999406                NaN           NaN             2 
+151672    1. Not enrolled           NaN             3 
+750699                NaN           NaN             4 
+781297                NaN           NaN             5 
+[5 rows x 106 columns]
+</code></pre>
+        <pre class="programlisting code-one"><code class="hljs-code">nls97.shape
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">(8984, 106)
+</code></pre>
+        <pre class="programlisting code-one"><code class="hljs-code">nls97add.head()
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">     originalid    motherage    parentincome  \
+0             1           26              -3  
+1             2           19              -4  
+2             3           26           63000  
+3             4           33           11700  
+4             5           34              -3  
+     fatherhighgrade    motherhighgrade 
+0                 16                  8 
+1                 17                 15 
+2                 -3                 12 
+3                 12                 12 
+4                 12                 12
+</code></pre>
+        <pre class="programlisting code-one"><code class="hljs-code">nls97add.shape
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">(8984, 5)
+</code></pre>
+      </li>
+      <li class="numberedList">Check that the number of unique values<a id="_idIndexMarker816"/> for <code class="inlineCode">originalid</code> is equal to the number of rows.</li>
+    </ol>
+    <p class="normal-one">We will use <code class="inlineCode">originalid</code> for our merge-by column later:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">nls97.originalid.nunique()==nls97.shape[<span class="hljs-number">0</span>]
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">True
+</code></pre>
+    <pre class="programlisting code-one"><code class="hljs-code">nls97add.originalid.nunique()==nls97add.shape[<span class="hljs-number">0</span>]
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">True
+</code></pre>
+    <ol>
+      <li class="numberedList" value="4">Create some mismatched IDs.</li>
+    </ol>
+    <p class="normal-one">Unfortunately, the NLS data is a little too clean for our purposes. Due to this, we will mess up a couple of values for <code class="inlineCode">originalid</code>:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">nls97 = nls97.sort_values(<span class="hljs-string">'originalid'</span>)
+nls97add = nls97add.sort_values(<span class="hljs-string">'originalid'</span>)
+nls97.loc[[<span class="hljs-number">135335</span>,<span class="hljs-number">999406</span>], <span class="hljs-string">"originalid"</span>] = \
+  nls97.originalid+<span class="hljs-number">10000</span>
+nls97.originalid.head(<span class="hljs-number">2</span>)
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">personid
+135335    10001
+999406    10002
+Name: originalid, dtype: int64
+</code></pre>
+    <pre class="programlisting code-one"><code class="hljs-code">nls97add.loc[[<span class="hljs-number">0</span>,<span class="hljs-number">1</span>], <span class="hljs-string">"originalid"</span>] = \
+  nls97add.originalid+<span class="hljs-number">20000</span>
+nls97add.originalid.head(<span class="hljs-number">2</span>)
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">0    20001
+1    20002
+Name: originalid, dtype: int64
+</code></pre>
+    <ol>
+      <li class="numberedList" value="5">Use <code class="inlineCode">join</code> to perform a left join.</li>
+    </ol>
+    <p class="normal-one"><code class="inlineCode">nls97</code> is the left DataFrame and <code class="inlineCode">nls97add</code> is the right DataFrame when we use <code class="inlineCode">join</code> in this way. Show the values<a id="_idIndexMarker817"/> for the mismatched IDs. Notice that the values for the columns from the right DataFrame are all missing when there is no matching ID on that DataFrame (the <code class="inlineCode">orignalid</code> values 10001 and 10002 appear on the left DataFrame but not on the right DataFrame):</p>
+    <pre class="programlisting code-one"><code class="hljs-code">nls97.set_index(<span class="hljs-string">"originalid"</span>, inplace=<span class="hljs-literal">True</span>)
+nls97add.set_index(<span class="hljs-string">"originalid"</span>, inplace=<span class="hljs-literal">True</span>)
+nlsnew = nls97.join(nls97add)
+nlsnew.loc[nlsnew.index&gt;<span class="hljs-number">9999</span>, [<span class="hljs-string">'originalid'</span>,<span class="hljs-string">'gender'</span>,<span class="hljs-string">'birthyear'</span>,<span class="hljs-string">'motherage'</span>,<span class="hljs-string">'parentincome'</span>]]
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">              gender    birthyear    motherage    parentincome
+originalid                                           
+10001         Female         1981          NaN             NaN
+10002           Male         1982          NaN             NaN
+</code></pre>
+    <ol>
+      <li class="numberedList" value="6">Perform a left join with <code class="inlineCode">merge</code>.</li>
+    </ol>
+    <p class="normal-one">The first DataFrame is the left DataFrame, while the second DataFrame is the right DataFrame. Use the <code class="inlineCode">on</code> parameter to indicate the merge-by column. Set the value of the <code class="inlineCode">how</code> parameter to <code class="inlineCode">left</code> to do a left join. We get the same results that we get when using <code class="inlineCode">join</code>:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">nlsnew = pd.merge(nls97, nls97add, on=[<span class="hljs-string">'originalid'</span>], how=<span class="hljs-string">"left"</span>)
+nlsnew.loc[nlsnew.index&gt;<span class="hljs-number">9999</span>, [<span class="hljs-string">'gender'</span>,<span class="hljs-string">'birthyear'</span>,<span class="hljs-string">'motherage'</span>,<span class="hljs-string">'parentincome'</span>]]
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">              gender    birthyear    motherage   parentincome
+originalid                                
+10001         Female         1981          NaN            NaN
+10002           Male         1982          NaN            NaN
+</code></pre>
+    <ol>
+      <li class="numberedList" value="7">Perform a right join.</li>
+    </ol>
+    <p class="normal-one">With a right join, the values<a id="_idIndexMarker818"/> from the left DataFrame are missing when there is no matching ID on the left DataFrame:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">nlsnew = pd.merge(nls97, nls97add, on=[<span class="hljs-string">'originalid'</span>], how=<span class="hljs-string">"right"</span>)
+nlsnew.loc[nlsnew.index&gt;<span class="hljs-number">9999</span>, [<span class="hljs-string">'gender'</span>,<span class="hljs-string">'birthyear'</span>,<span class="hljs-string">'motherage'</span>,<span class="hljs-string">'parentincome'</span>]]
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">             gender    birthyear    motherage    parentincome
+originalid                               
+20001           NaN          NaN           26              -3
+20002           NaN          NaN           19              -4
+</code></pre>
+    <ol>
+      <li class="numberedList" value="8">Perform an inner join.</li>
+    </ol>
+    <p class="normal-one">None of the mismatched IDs (that have values over <code class="inlineCode">9999</code>) appear after the inner join. This is because they do not appear on both DataFrames:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">nlsnew = pd.merge(nls97, nls97add, on=[<span class="hljs-string">'originalid'</span>], how=<span class="hljs-string">"inner"</span>)
+nlsnew.loc[nlsnew.index&gt;<span class="hljs-number">9999</span>, [<span class="hljs-string">'gender'</span>,<span class="hljs-string">'birthyear'</span>,<span class="hljs-string">'motherage'</span>,<span class="hljs-string">'parentincome'</span>]]
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">Empty DataFrame
+Columns: [gender, birthyear, motherage, parentincome]
+Index: []
+</code></pre>
+    <ol>
+      <li class="numberedList" value="9">Perform an outer join.</li>
+    </ol>
+    <p class="normal-one">This retains all the rows, so rows with merge-by values<a id="_idIndexMarker819"/> in the left DataFrame but not in the right are retained (<code class="inlineCode">originalid</code> values <code class="inlineCode">10001</code> and <code class="inlineCode">10002</code>), and rows with merge-by values in the right DataFrame but not in the left are also retained (<code class="inlineCode">originalid</code> values <code class="inlineCode">20001</code> and <code class="inlineCode">20002</code>):</p>
+    <pre class="programlisting code-one"><code class="hljs-code">nlsnew = pd.merge(nls97, nls97add, on=[<span class="hljs-string">'originalid'</span>], how=<span class="hljs-string">"outer"</span>)
+nlsnew.loc[nlsnew.index&gt;<span class="hljs-number">9999</span>, [<span class="hljs-string">'gender'</span>,<span class="hljs-string">'birthyear'</span>,<span class="hljs-string">'motherage'</span>,<span class="hljs-string">'parentincome'</span>]]
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">              gender    birthyear    motherage      parentincome
+originalid                                
+10001         Female        1,981          NaN               NaN
+10002           Male        1,982          NaN               NaN
+20001            NaN          NaN           26                -3
+20002            NaN          NaN           19                -4
+</code></pre>
+    <ol>
+      <li class="numberedList" value="10">Create a function to check for ID mismatches.</li>
+    </ol>
+    <p class="normal-one">The function takes a left and right DataFrame, as well as a merge-by column. It performs an outer join because we want to see which merge-by values are present in either DataFrame, or both of them:</p>
+    <pre class="programlisting code-one"><code class="hljs-code"><span class="hljs-keyword">def</span> <span class="hljs-title">checkmerge</span>(<span class="hljs-params">dfleft, dfright, idvar</span>):
+<span class="hljs-meta">... </span>  dfleft[<span class="hljs-string">'inleft'</span>] = <span class="hljs-string">"Y"</span>
+<span class="hljs-meta">... </span>  dfright[<span class="hljs-string">'inright'</span>] = <span class="hljs-string">"Y"</span>
+<span class="hljs-meta">... </span>  dfboth = pd.merge(dfleft[[idvar,<span class="hljs-string">'inleft'</span>]],\
+<span class="hljs-meta">... </span>    dfright[[idvar,<span class="hljs-string">'inright'</span>]], on=[idvar], how=<span class="hljs-string">"outer"</span>)
+<span class="hljs-meta">... </span>  dfboth.fillna(<span class="hljs-string">'N'</span>, inplace=<span class="hljs-literal">True</span>)
+<span class="hljs-meta">... </span>  <span class="hljs-built_in">print</span>(pd.crosstab(dfboth.inleft, dfboth.inright))
+...
+checkmerge(nls97.reset_index(),nls97add.reset_index(), <span class="hljs-string">"originalid"</span>)
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">inright    N       Y
+inleft         
+N          0       2
+Y          2    8982
+</code></pre>
+    <p class="normal">With that, we have demonstrated how to perform the four types of joins with a one-to-one merge.</p>
+    <h2 id="_idParaDest-371" class="heading-2">How it works...</h2>
+    <p class="normal">One-to-one merges <a id="_idIndexMarker820"/>are fairly straightforward. The merge-by column values only appear once on the left and right DataFrames. However, some merge-by column values may appear on only one DataFrame. This is what makes the type of join important. If all merge-by column values appeared on both DataFrames, then a left join, right join, inner join, or outer join would return the same result. We took a look at the two DataFrames in the first few steps. </p>
+    <p class="normal">In <em class="italic">step 3</em>, we confirmed that the number of unique values for the merge-by column (<code class="inlineCode">originalid</code>) is equal to the number of rows in both DataFrames. This tells us that we will be doing a one-to-one merge.</p>
+    <p class="normal">If the merge-by column is the index, then the easiest way to perform a left join is to use the <code class="inlineCode">join</code> DataFrame method. We did this in <em class="italic">step 5</em>. We passed the right DataFrame to the <code class="inlineCode">join</code> method of the left DataFrame. The same result was returned when we performed a left join using the pandas <code class="inlineCode">merge</code> function in <em class="italic">step 6</em>. We used the <code class="inlineCode">how</code> parameter to specify a left join and indicated the merge-by column using <code class="inlineCode">on</code>.</p>
+    <p class="normal">In <em class="italic">steps 7</em> to <em class="italic">9</em>, we performed the right, inner, and outer joins, respectively. This is specified by the <code class="inlineCode">how</code> value, which is the only part of the code that is different across these steps.</p>
+    <p class="normal">The simple <code class="inlineCode">checkmerge</code> function we created in <em class="italic">step 10</em> counted the number of rows with merge-by column values on one DataFrame but not the other, and the number of values on both. Passing copies of the two DataFrames to this function tells us that two rows are in the left DataFrame and not in the right, two rows are in the right DataFrame but not the left, and 8,982 rows<a id="_idIndexMarker821"/> are in both.</p>
+    <h2 id="_idParaDest-372" class="heading-2">There’s more...</h2>
+    <p class="normal">You should run a function similar to the <code class="inlineCode">checkmerge</code> function we created in <em class="italic">step 10</em> before you do any non-trivial merge—which, in my opinion, is pretty much all merges.</p>
+    <p class="normal">The <code class="inlineCode">merge</code> function is more flexible than the examples I have used in this recipe suggest. For example, in <em class="italic">step 6</em>, we did not have to specify the left DataFrame as the first parameter. I could have indicated the left and right DataFrames explicitly, like so:</p>
+    <pre class="programlisting code"><code class="hljs-code">nlsnew = pd.merge(right=nls97add, left=nls97, on=[<span class="hljs-string">'originalid'</span>], how=<span class="hljs-string">"left"</span>)
+</code></pre>
+    <p class="normal">We can also specify different merge-by columns for the left and right DataFrames by using <code class="inlineCode">left_on</code> and <code class="inlineCode">right_on</code> instead of <code class="inlineCode">on</code>:</p>
+    <pre class="programlisting code"><code class="hljs-code">nlsnew = pd.merge(nls97, nls97add, left_on=[<span class="hljs-string">'originalid'</span>], right_on=[<span class="hljs-string">'originalid'</span>], how=<span class="hljs-string">"left"</span>)
+</code></pre>
+    <p class="normal">The flexibility of the <code class="inlineCode">merge</code> function makes it a great tool any time we need to combine data horizontally.</p>
+    <h1 id="_idParaDest-373" class="heading-1">Doing one-to-one merges by multiple columns</h1>
+    <p class="normal">The same logic we used to perform<a id="_idIndexMarker822"/> one-to-one merges<a id="_idIndexMarker823"/> with one merge-by column applies to merges we perform with multiple merge-by columns. Inner, outer, left, and right joins work the same way when you have two or more merge-by columns. We will demonstrate this in this recipe.</p>
+    <h2 id="_idParaDest-374" class="heading-2">Getting ready</h2>
+    <p class="normal">We will work with the NLS data in this recipe, specifically weeks worked and college enrollment from 2017 through 2021. Both the weeks worked and college enrollment files contain one row per person, per year.</p>
+    <h2 id="_idParaDest-375" class="heading-2">How to do it...</h2>
+    <p class="normal">We will do a one-to-one merge with two DataFrames using multiple merge-by columns on each DataFrame. Let’s get started:</p>
+    <ol>
+      <li class="numberedList" value="1">Import <code class="inlineCode">pandas</code> and load the NLS weeks worked and college enrollment data:
+        <pre class="programlisting code-one"><code class="hljs-code"><span class="hljs-keyword">import</span> pandas <span class="hljs-keyword">as</span> pd
+nls97weeksworked = pd.read_csv(<span class="hljs-string">"data/nls97weeksworked.csv"</span>)
+nls97colenr = pd.read_csv(<span class="hljs-string">"data/nls97colenr.csv"</span>)
+</code></pre>
+      </li>
+      <li class="numberedList">Look at some of the NLS weeks worked data:
+        <pre class="programlisting code-one"><code class="hljs-code">nls97weeksworked.loc[nls97weeksworked.\
+  originalid.isin([<span class="hljs-number">2</span>,<span class="hljs-number">3</span>])]
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">    originalid    year    weeksworked
+5            2    2017             52
+6            2    2018             52
+7            2    2019             52
+8            2    2020             52
+9            2    2021             46
+10           3    2017             52
+11           3    2018             52
+12           3    2019              9
+13           3    2020              0
+14           3    2021              0
+</code></pre>
+        <pre class="programlisting code-one"><code class="hljs-code">nls97weeksworked.shape
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">(44920, 3)
+</code></pre>
+        <pre class="programlisting code-one"><code class="hljs-code">nls97weeksworked.originalid.nunique()
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">8984
+</code></pre>
+      </li>
+      <li class="numberedList">Look at some<a id="_idIndexMarker824"/> of the NLS college<a id="_idIndexMarker825"/> enrollment data:
+        <pre class="programlisting code-one"><code class="hljs-code">nls97colenr.loc[nls97colenr.\
+  originalid.isin([<span class="hljs-number">2</span>,<span class="hljs-number">3</span>])]
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">         originalid    year             colenr
+1                 2    2017    1. Not enrolled
+2                 3    2017    1. Not enrolled
+8985              2    2018    1. Not enrolled
+8986              3    2018    1. Not enrolled
+17969             2    2019    1. Not enrolled
+17970             3    2019    1. Not enrolled
+26953             2    2020    1. Not enrolled
+26954             3    2020    1. Not enrolled
+35937             2    2021    1. Not enrolled
+35938             3    2021    1. Not enrolled
+</code></pre>
+        <pre class="programlisting code-one"><code class="hljs-code">nls97colenr.shape
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">(44920, 3)
+</code></pre>
+        <pre class="programlisting code-one"><code class="hljs-code">nls97colenr.originalid.nunique()
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">8984
+</code></pre>
+      </li>
+      <li class="numberedList">Check for unique values in the merge-by columns.</li>
+    </ol>
+    <p class="normal-one">We get the same number<a id="_idIndexMarker826"/> of merge-by column<a id="_idIndexMarker827"/> value combinations (<code class="inlineCode">44,920</code>) as the number of rows in both DataFrames:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">nls97weeksworked.groupby([<span class="hljs-string">'originalid'</span>,<span class="hljs-string">'year'</span>])\
+<span class="hljs-meta">... </span>  [<span class="hljs-string">'originalid'</span>].count().shape
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">(44920,)
+</code></pre>
+    <pre class="programlisting code-one"><code class="hljs-code">nls97colenr.groupby([<span class="hljs-string">'originalid'</span>,<span class="hljs-string">'year'</span>])\
+<span class="hljs-meta">... </span>  [<span class="hljs-string">'originalid'</span>].count().shape
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">(44920,)
+</code></pre>
+    <ol>
+      <li class="numberedList" value="5">Check for mismatches in the merge-by columns. All <code class="inlineCode">originalid</code> and <code class="inlineCode">year</code> combinations appear on both files:
+        <pre class="programlisting code-one"><code class="hljs-code"><span class="hljs-keyword">def</span> <span class="hljs-title">checkmerge</span>(<span class="hljs-params">dfleft, dfright, idvar</span>):
+<span class="hljs-meta">... </span>  dfleft[<span class="hljs-string">'inleft'</span>] = <span class="hljs-string">"Y"</span>
+<span class="hljs-meta">... </span>  dfright[<span class="hljs-string">'inright'</span>] = <span class="hljs-string">"Y"</span>
+<span class="hljs-meta">... </span>  dfboth = pd.merge(dfleft[idvar + [<span class="hljs-string">'inleft'</span>]],\
+<span class="hljs-meta">... </span>    dfright[idvar + [<span class="hljs-string">'inright'</span>]], on=idvar, how=<span class="hljs-string">"outer"</span>)
+<span class="hljs-meta">... </span>  dfboth.fillna(<span class="hljs-string">'N'</span>, inplace=<span class="hljs-literal">True</span>)
+<span class="hljs-meta">... </span>  <span class="hljs-built_in">print</span>(pd.crosstab(dfboth.inleft, dfboth.inright))
+...
+checkmerge(nls97weeksworked.copy(),nls97colenr.copy(), [<span class="hljs-string">'originalid'</span>,<span class="hljs-string">'year'</span>])
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">inright      Y
+inleft       
+Y        44920
+</code></pre>
+      </li>
+      <li class="numberedList">Perform a merge<a id="_idIndexMarker828"/> with multiple merge-by<a id="_idIndexMarker829"/> columns:
+        <pre class="programlisting code-one"><code class="hljs-code">nls97workschool = \
+  pd.merge(nls97weeksworked, nls97colenr,
+  on=[<span class="hljs-string">'originalid'</span>,<span class="hljs-string">'year'</span>], how=<span class="hljs-string">"inner"</span>)
+nls97workschool.shape
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">(44920, 4)
+</code></pre>
+        <pre class="programlisting code-one"><code class="hljs-code">nls97workschool.loc[nls97workschool.\
+  originalid.isin([<span class="hljs-number">2</span>,<span class="hljs-number">3</span>])]
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">    originalid    year    weeksworked             colenr
+5            2    2017             52    1. Not enrolled
+6            2    2018             52    1. Not enrolled
+7            2    2019             52    1. Not enrolled
+8            2    2020             52    1. Not enrolled
+9            2    2021             46    1. Not enrolled
+10           3    2017             52    1. Not enrolled
+11           3    2018             52    1. Not enrolled
+12           3    2019              9    1. Not enrolled
+13           3    2020              0    1. Not enrolled
+14           3    2021              0    1. Not enrolled
+</code></pre>
+      </li>
+    </ol>
+    <p class="normal">These steps demonstrate that the syntax for running merges changes very little when there are multiple merge-by columns.</p>
+    <h2 id="_idParaDest-376" class="heading-2">How it works...</h2>
+    <p class="normal">Every person in the NLS data has five rows for both the weeks worked and college enrollment DataFrames, with one for each year between 2017 and 2021. Both files contain 44,920 rows with 8,984 unique individuals (indicated by <code class="inlineCode">originalid</code>). This all makes sense (8,984*5=44,920).</p>
+    <p class="normal"><em class="italic">Step 4</em> confirmed that the combination of columns we will be using for the merge-by columns will not be duplicated, even if individuals are duplicated. Each person has only one row for each year. This means that the merging of the weeks worked and college enrollment data will be a one-to-one merge. In <em class="italic">step 5</em>, we checked to see whether there were any individual and year combinations that were in one DataFrame but not the other. There were none.</p>
+    <p class="normal">Finally, we were ready to do the merge in <em class="italic">step 6</em>. We set the <code class="inlineCode">on</code> parameter to a list with two column names (<code class="inlineCode">['originalid','year']</code>) to tell the merge function to use both columns in the merge. We specified an inner join, even though we would get the same results<a id="_idIndexMarker830"/> with any join. This is because the same merge-by values<a id="_idIndexMarker831"/> are present in both files.</p>
+    <h2 id="_idParaDest-377" class="heading-2">There’s more...</h2>
+    <p class="normal">All the logic and potential issues in merging data that we discussed in the previous recipe apply, regardless of whether we are merging with one merge-by column or several. Inner, outer, right, and left joins work the same way. We can still calculate the number of rows that will be returned before doing the merge. We should also check for the number of unique merge-by values and for matches between the DataFrames.</p>
+    <p class="normal">If you have worked with recipes in earlier chapters that used the NLS weeks worked and college enrollment data, you probably noticed that it is structured differently here. In previous recipes, there was one row per person, with multiple columns for weeks worked and college enrollment, representing weeks worked and college enrollment for multiple years. For example, <code class="inlineCode">weeksworked21</code> is the number of weeks worked in 2021. The structure of the weeks worked and college enrollment DataFrames we used in this recipe is considered <em class="italic">tidier</em> than the NLS DataFrame we used in earlier recipes. We’ll learn how to tidy data in <em class="chapterRef">Chapter 11</em>, <em class="italic">Tidying and Reshaping Data</em>.</p>
+    <h1 id="_idParaDest-378" class="heading-1">Doing one-to-many merges</h1>
+    <p class="normal">In one-to-many merges, there are unduplicated<a id="_idIndexMarker832"/> values for the merge-by column or columns on the left data table and duplicated values for those columns on the right data table. For these merges, we usually do either an inner join or a left join. Which of those two join types we use matters when merge-by values are missing on the right data table. When performing a left join, all the rows that would be returned from an inner join will be returned, plus one row for each merge-by value present on the left dataset, but not the right. For those additional rows, values for all the columns on the right dataset will be missing in the resulting merged data. This relatively straightforward fact ends up mattering a fair bit and should be thought through carefully before you code a one-to-many merge.</p>
+    <p class="normal">This is where I start to get nervous, and where I think it makes sense to be a little nervous. When I do workshops on data cleaning, I pause before starting this topic and say, <em class="italic">“Do not start a one-to-many merge until you are able to bring a friend with you.”</em></p>
+    <p class="normal">I am joking, of course… mostly. The point I am trying to make<a id="_idIndexMarker833"/> is that something should happen to get us to pause before doing a non-trivial merge, and one-to-many merges are never trivial. Too much about the structure of our data can change.</p>
+    <p class="normal">Specifically, there are several things we want to know about the two DataFrames we will be merging before starting. First, we should know what columns make sense as merge-by columns on each DataFrame. One-to-many merges are often used to recapture relationships from an enterprise database system and need to be consistent with the primary keys and foreign keys used. (The primary key on the left data table is often linked to the foreign key on the right data table in a relational database.) Second, we should know what kind of join we will be using and why.</p>
+    <p class="normal">Third, we should know how many rows are on both data tables. Fourth, we should have a good idea of how many rows will be retained based on the type of join, the number of rows in each dataset, and preliminary checks on how many of the merge-by values will match. If all the merge-by values are present on both datasets or if we are doing an inner join, then the number of rows will be equal to the number of rows of the right dataset of a one-to-many merge. But it is often not as straightforward as that. We frequently perform left joins with one-to-many merges. With a left join, the number of retained rows will be equal to the number of rows in the right dataset with a matching merge-by value, plus the number of rows in the left dataset with non-matching merge-by values.</p>
+    <p class="normal">This should be clearer once we’ve worked through the examples in this recipe.</p>
+    <h2 id="_idParaDest-379" class="heading-2">Getting ready</h2>
+    <p class="normal">We will be working with data based<a id="_idIndexMarker834"/> on weather stations from the Global Historical Climatology Network integrated database for this recipe. One of the DataFrames contains one row for each country. The other contains one row for each weather station. There are typically many weather stations for each country.</p>
+    <h2 id="_idParaDest-380" class="heading-2">How to do it…</h2>
+    <p class="normal">In this recipe, we will do a one-to-many merge of data for countries, which contains one row per country, with weather station data, which contains multiple stations for each country. Let’s get started:</p>
+    <ol>
+      <li class="numberedList" value="1">Import <code class="inlineCode">pandas</code> and load the weather station and country data:
+        <pre class="programlisting code-one"><code class="hljs-code"><span class="hljs-keyword">import</span> pandas <span class="hljs-keyword">as</span> pd
+countries = pd.read_csv(<span class="hljs-string">"</span><span class="hljs-string">data/ltcountries.csv"</span>)
+locations = pd.read_csv(<span class="hljs-string">"data/ltlocations.csv"</span>)
+</code></pre>
+      </li>
+      <li class="numberedList">Set the index for the weather station (<code class="inlineCode">locations</code>) and country data.</li>
+    </ol>
+    <p class="normal-one">Confirm that the merge-by values for the <code class="inlineCode">countries</code> DataFrame are unique:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">countries.set_index([<span class="hljs-string">'countryid'</span>], inplace=<span class="hljs-literal">True</span>)
+locations.set_index([<span class="hljs-string">'countryid'</span>], inplace=<span class="hljs-literal">True</span>)
+countries.head()
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">                            country
+countryid                     
+AC              Antigua and Barbuda
+AE             United Arab Emirates
+AF                      Afghanistan
+AG                          Algeria
+AJ                       Azerbaijan
+</code></pre>
+    <pre class="programlisting code-one"><code class="hljs-code">countries.index.nunique()==countries.shape[<span class="hljs-number">0</span>]
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">True
+</code></pre>
+    <pre class="programlisting code-one"><code class="hljs-code">locations[[<span class="hljs-string">'locationid'</span>,<span class="hljs-string">'latitude'</span>,<span class="hljs-string">'stnelev'</span>]].head(<span class="hljs-number">10</span>)
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">            	locationid	latitude	stnelev
+countryid                               
+AC		ACW00011604	58		18
+AE		AE000041196	25		34
+AE		AEM00041184	26		31
+AE		AEM00041194	25		10
+AE		AEM00041216	24		3
+AE		AEM00041217	24		27
+AE		AEM00041218	24		265
+AF		AF000040930	35		3,366
+AF		AFM00040911	37		378
+AF		AFM00040938	34		977	
+</code></pre>
+    <ol>
+      <li class="numberedList" value="3">Perform a left join of countries<a id="_idIndexMarker835"/> and locations using <code class="inlineCode">join</code>:
+        <pre class="programlisting code-one"><code class="hljs-code">stations = countries.join(locations)
+stations[[<span class="hljs-string">'locationid'</span>,<span class="hljs-string">'latitude'</span>,
+<span class="hljs-meta">... </span>  <span class="hljs-string">'stnelev'</span>,<span class="hljs-string">'country'</span>]].head(<span class="hljs-number">10</span>)
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">             locationid	latitude	stnelev  \
+countryid                                  
+AC		ACW00011604	58		18  
+AE		AE000041196	25		34  
+AE		AEM00041184	26		31  
+AE		AEM00041194	25		10  
+AE		AEM00041216	24		3  
+AE		AEM00041217	24		27  
+AE		AEM00041218	24		265  
+AF		AF000040930	35		3,366  
+AF		AFM00040911	37		378  
+AF		AFM00040938	34		977  
+                           country 
+countryid                       
+AC             Antigua and Barbuda 
+AE            United Arab Emirates 
+AE            United Arab Emirates 
+AE            United Arab Emirates 
+AE            United Arab Emirates 
+AE            United Arab Emirates 
+AE            United Arab Emirates 
+AF                     Afghanistan 
+AF                     Afghanistan 
+AF                     Afghanistan
+</code></pre>
+      </li>
+    </ol>
+    <p class="normal-one">The join seemed to work fine. But let’s try using merge instead.</p>
+    <ol>
+      <li class="numberedList" value="4">Check for merge-by column<a id="_idIndexMarker836"/> mismatches before doing the merge.</li>
+    </ol>
+    <p class="normal-one">First, reload the DataFrames since we have made some changes. The <code class="inlineCode">checkmerge</code> function shows that there are <code class="inlineCode">27,472</code> rows with merge-by values (from <code class="inlineCode">countryid</code>) in both DataFrames and 2 in <code class="inlineCode">countries</code> (the left DataFrame) but not in <code class="inlineCode">locations</code>. This indicates that an inner join would return <code class="inlineCode">27,472</code> rows and a left join would return <code class="inlineCode">27,474</code> rows. The last statement in the function identifies the <code class="inlineCode">countryid</code> values that appear in one DataFrame but not the other:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">countries = pd.read_csv(<span class="hljs-string">"data/ltcountries.csv"</span>)
+locations = pd.read_csv(<span class="hljs-string">"data/ltlocations.csv"</span>)
+<span class="hljs-keyword">def</span> <span class="hljs-title">checkmerge</span>(<span class="hljs-params">dfleft, dfright, idvar</span>):
+<span class="hljs-meta">... </span>  dfleft[<span class="hljs-string">'inleft'</span>] = <span class="hljs-string">"Y"</span>
+<span class="hljs-meta">... </span>  dfright[<span class="hljs-string">'inright'</span>] = <span class="hljs-string">"Y"</span>
+<span class="hljs-meta">... </span>  dfboth = pd.merge(dfleft[[idvar,<span class="hljs-string">'inleft'</span>]],\
+<span class="hljs-meta">... </span>    dfright[[idvar,<span class="hljs-string">'</span><span class="hljs-string">inright'</span>]], on=[idvar], how=<span class="hljs-string">"outer"</span>)
+<span class="hljs-meta">... </span>  dfboth.fillna(<span class="hljs-string">'N'</span>, inplace=<span class="hljs-literal">True</span>)
+<span class="hljs-meta">... </span>  <span class="hljs-built_in">print</span>(pd.crosstab(dfboth.inleft, dfboth.inright))
+<span class="hljs-meta">... </span>  <span class="hljs-built_in">print</span>(dfboth.loc[(dfboth.inleft==<span class="hljs-string">'N'</span>) | (dfboth.inright==<span class="hljs-string">'</span><span class="hljs-string">N'</span>)])
+...
+checkmerge(countries.copy(), locations.copy(), <span class="hljs-string">"countryid"</span>)
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">inright	N	Y
+inleft          
+N	0	1
+Y	2	27472
+      countryid inleft inright
+9715         LQ      Y       N
+13103        ST      Y       N
+27474        FO      N       Y
+</code></pre>
+    <ol>
+      <li class="numberedList" value="5">Show the rows in one file but not the other.</li>
+    </ol>
+    <p class="normal-one">The last statement in the previous step displays the two values of <code class="inlineCode">countryid</code> in <code class="inlineCode">countries</code> but not in <code class="inlineCode">locations</code>, and the one in <code class="inlineCode">locations</code> but not in <code class="inlineCode">countries</code>:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">countries.loc[countries.countryid.isin([<span class="hljs-string">"LQ"</span>,<span class="hljs-string">"</span><span class="hljs-string">ST"</span>])]
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">      countryid                          country
+124          LQ    Palmyra Atoll [United States]
+195          ST                      Saint Lucia
+</code></pre>
+    <pre class="programlisting code-one"><code class="hljs-code">locations.loc[locations.countryid==<span class="hljs-string">"FO"</span>]
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">       locationid  latitude  longitude  stnelev   station countryid
+7363  FOM00006009        61         -7      102  AKRABERG        FO
+</code></pre>
+    <ol>
+      <li class="numberedList" value="6">Merge the <code class="inlineCode">locations</code> and <code class="inlineCode">countries</code> DataFrames.</li>
+    </ol>
+    <p class="normal-one">Perform a left join. Also, count<a id="_idIndexMarker837"/> the number of missing values for each column, where merge-by values are present in the countries data but not in the weather station data:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">stations = pd.merge(countries, locations, on=[<span class="hljs-string">"countryid"</span>], how=<span class="hljs-string">"left"</span>)
+stations[[<span class="hljs-string">'locationid'</span>,<span class="hljs-string">'</span><span class="hljs-string">latitude'</span>,
+<span class="hljs-meta">... </span>  <span class="hljs-string">'stnelev'</span>,<span class="hljs-string">'country'</span>]].head(<span class="hljs-number">10</span>)
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">       locationid	latitude	stnelev		country
+0	ACW00011604	58		18		Antigua and Barbuda
+1	AE000041196	25		34		United Arab Emirates
+2	AEM00041184	26		31		United Arab Emirates
+3	AEM00041194	25		10		United Arab Emirates
+4	AEM00041216	24		3		United Arab Emirates
+5	AEM00041217	24		27		United Arab Emirates
+6	AEM00041218	24		265		United Arab Emirates
+7	AF000040930	35		3,366		Afghanistan
+8	AFM00040911	37		378		Afghanistan
+9	AFM00040938	34		977		Afghanistan
+</code></pre>
+    <pre class="programlisting code-one"><code class="hljs-code">stations.shape
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">(27474, 7)
+</code></pre>
+    <pre class="programlisting code-one"><code class="hljs-code">stations.loc[stations.countryid.isin([<span class="hljs-string">"LQ"</span>,<span class="hljs-string">"ST"</span>])].isnull().<span class="hljs-built_in">sum</span>()
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">countryid	0
+country	0
+locationid	2
+latitude	2
+longitude	2
+stnelev	2
+station	2
+dtype: int64
+</code></pre>
+    <p class="normal">The one-to-many merge returns the expected<a id="_idIndexMarker838"/> number of rows and new missing values.</p>
+    <h2 id="_idParaDest-381" class="heading-2">How it works...</h2>
+    <p class="normal">In <em class="italic">step 3</em>, we used the <code class="inlineCode">join</code> DataFrame method to perform a left join of the <code class="inlineCode">countries</code> and <code class="inlineCode">locations</code> DataFrames. This is the easiest way to do a merge. Since the <code class="inlineCode">join</code> method uses the index of the DataFrames for the merge, we need to set the index first. We then passed the right DataFrame to the <code class="inlineCode">join</code> method of the left DataFrame.</p>
+    <p class="normal">Although <code class="inlineCode">join</code> is a little more flexible than this example suggests (you can specify the type of join, for example), I prefer the more verbose pandas <code class="inlineCode">merge</code> function for all but the simplest of merges. I can be confident when using the <code class="inlineCode">merge</code> function that all the options I need are available to me. Before we used the <code class="inlineCode">merge</code> function, we did some checks in <em class="italic">step 4</em>. This told us how many rows to expect in the merged DataFrame if we were to do an inner or left join; there would be 27,472 or 27,474 rows, respectively.</p>
+    <p class="normal">We also displayed the rows with merge-by values in one DataFrame but not the other. If we are going to do a left join, we need to decide what to do with the missing values that will result from the right DataFrame. In this case, there were two merge-by values that were not found on the right DataFrame, giving us missing<a id="_idIndexMarker839"/> values for those columns.</p>
+    <h2 id="_idParaDest-382" class="heading-2">There’s more…</h2>
+    <p class="normal">You may have noticed that in our call to <code class="inlineCode">checkmerge</code>, we passed copies of the <code class="inlineCode">countries</code> and <code class="inlineCode">locations</code> DataFrames:</p>
+    <pre class="programlisting code"><code class="hljs-code">checkmerge(countries.copy(), locations.copy(), <span class="hljs-string">"countryid"</span>)
+</code></pre>
+    <p class="normal">We use <code class="inlineCode">copy</code> here because we do not want the <code class="inlineCode">checkmerge</code> function to make any changes to our original DataFrames.</p>
+    <h2 id="_idParaDest-383" class="heading-2">See also</h2>
+    <p class="normal">We discussed join types in detail in the <em class="italic">Doing one-to-one merges</em> recipe in this chapter.</p>
+    <h1 id="_idParaDest-384" class="heading-1">Doing many-to-many merges</h1>
+    <p class="normal">Many-to-many merges have duplicate<a id="_idIndexMarker840"/> merge-by values in both the left and right DataFrames. We should only rarely need to do a many-to-many merge. Even when data comes to us in that form, it is often because we are missing the central file in multiple one-to-many relationships. For example, there are donor, donor contributions, and donor contact information data tables, and the last two files contain multiple rows per donor. However, in this case, we do not have access to the donor file, which has a one-to-many relationship with both the contributions and contact information files. This happens more frequently than you may think. People sometimes give us data with little awareness of the underlying structure. When I do a many-to-many merge, it is typically because I am missing some key information rather than because that was how the database was designed.</p>
+    <p class="normal">Many-to-many merges return the Cartesian product of the merge-by column values. So, if a donor ID appears twice on the donor contact information file and five times on the donor contributions file, then the merge will return 10 rows. This is often quite problematic analytically. In this example, a many-to-many merge will duplicate the donor contributions, once for each address.</p>
+    <p class="normal">Often, when faced with a potential<a id="_idIndexMarker841"/> many-to-many merge situation, the solution is not to do it. Instead, we can recover the implied one-to-many relationships. With the donor example, we could remove all the rows except for the most recent contact information, thus ensuring that there is one row per donor. We could then do a one-to-many merge with the donor contributions file. But we are not always able to avoid doing a many-to-many merge. Sometimes, we must produce an analytical or flat file that keeps all of the data, without regard for duplication. This recipe demonstrates how to do those merges when that is required.</p>
+    <h2 id="_idParaDest-385" class="heading-2">Getting ready</h2>
+    <p class="normal">We will work with data based on the Cleveland Museum of Art’s collections. We will use two CSV files: one containing each media citation for each item in the collection and another containing the creator(s) of each item.</p>
+    <div class="note">
+      <p class="normal"><strong class="keyWord">Data note</strong></p>
+      <p class="normal">The Cleveland Museum of Art provides an API for public access to this data: <a href="https://openaccess-api.clevelandart.org/"><span class="url">https://openaccess-api.clevelandart.org/</span></a>. Much more than the citations and creators data is available in the API. The data in this recipe was downloaded in April 2024.</p>
+    </div>
+    <h2 id="_idParaDest-386" class="heading-2">How to do it...</h2>
+    <p class="normal">Follow these steps to complete this recipe:</p>
+    <ol>
+      <li class="numberedList" value="1">Load <code class="inlineCode">pandas</code><code class="inlineCode"><a id="_idIndexMarker842"/></code> and the <strong class="keyWord">Cleveland Museum of Art</strong> (<strong class="keyWord">CMA</strong>) collections data:
+        <pre class="programlisting code-one"><code class="hljs-code"><span class="hljs-keyword">import</span> pandas <span class="hljs-keyword">as</span> pd
+cmacitations = pd.read_csv(<span class="hljs-string">"data/cmacitations.csv"</span>)
+cmacreators = pd.read_csv(<span class="hljs-string">"data/cmacreators.csv"</span>)
+</code></pre>
+      </li>
+      <li class="numberedList">Look at the <code class="inlineCode">citations</code> data. The <code class="inlineCode">itemid</code> is the identifier for a collection item. The first 10 citations are all for collection item <code class="inlineCode">94979</code>:
+        <pre class="programlisting code-one"><code class="hljs-code">cmacitations[<span class="hljs-string">'citation'</span>] = cmacitations.citation.<span class="hljs-built_in">str</span>[<span class="hljs-number">0</span>:<span class="hljs-number">15</span>]
+cmacitations.head(<span class="hljs-number">10</span>)
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">   itemid            citation
+0   94979     Perkins, August
+1   94979     Bayley, Frank W
+2   94979     W. H. D. "The F
+3   94979     &lt;em&gt;The America
+4   94979     "Clevel'd Gets
+5   94979     "The Inaugurati
+6   94979     Bell, Hamilton.
+7   94979     Cleveland Museu
+8   94979     "Special Exhibi
+9   94979     Dunlap, William
+</code></pre>
+        <pre class="programlisting code-one"><code class="hljs-code">cmacitations.shape
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">(16053, 2)
+</code></pre>
+        <pre class="programlisting code-one"><code class="hljs-code">cmacitations.itemid.nunique()
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">974
+</code></pre>
+      </li>
+      <li class="numberedList">Look at the <code class="inlineCode">creators</code> data. The <code class="inlineCode">creatorid</code> is the identifier<a id="_idIndexMarker843"/> of the creator:
+        <pre class="programlisting code-one"><code class="hljs-code">cmacreators[<span class="hljs-string">'creator'</span>] = cmacreators.creator.<span class="hljs-built_in">str</span>[<span class="hljs-number">0</span>:<span class="hljs-number">15</span>]
+cmacreators.loc[:,[<span class="hljs-string">'itemid'</span>,<span class="hljs-string">'creator'</span>,<span class="hljs-string">'birth_year'</span>,
+ <span class="hljs-string">'creatorid'</span>]].head(<span class="hljs-number">10</span>)
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">   itemid            creator   birth_year    creatorid
+0   94979    John Singleton          1738         2409
+1  102578    William Merritt         1849         3071
+2   92937    George Bellows          1882         3005
+3  151904    Thomas Eakins (         1844         4037
+4  141639    Frederic Edwin          1826         2697
+5  110180    Albert Pinkham          1847         3267
+6  149112    Charles Sheeler         1883          889
+7  126769    Henri Rousseau          1844         1804
+8  149410    Paul Gauguin (F         1848         1776
+9  135299    Vincent van Gog         1853         1779
+</code></pre>
+        <pre class="programlisting code-one"><code class="hljs-code">cmacreators.shape
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">(694, 8)
+</code></pre>
+        <pre class="programlisting code-one"><code class="hljs-code">cmacreators.itemid.nunique()
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">618
+</code></pre>
+        <pre class="programlisting code-one"><code class="hljs-code">cmacreators.creatorid.nunique()
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">486
+</code></pre>
+      </li>
+      <li class="numberedList">Show duplicates of merge-by values in the <code class="inlineCode">citations</code> data.</li>
+    </ol>
+    <p class="normal-one">There are 182 media citations for collection item 148758:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">cmacitations.itemid.value_counts().head(<span class="hljs-number">10</span>)
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">itemid
+148758    182
+113164    127
+122351    125
+155783    119
+151904    112
+124245    108
+92937     104
+123168     98
+94979      98
+149112     97
+Name: count, dtype: int64
+</code></pre>
+    <ol>
+      <li class="numberedList" value="5">Show duplicates of the merge-by values<a id="_idIndexMarker844"/> in the <code class="inlineCode">creators</code> data:
+        <pre class="programlisting code-one"><code class="hljs-code">cmacreators.itemid.value_counts().head(<span class="hljs-number">10</span>)
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">itemid
+149386    4
+142753    3
+112932    3
+149042    3
+114538    3
+140001    3
+146797    3
+149041    3
+140427    3
+109147    2
+Name: count, dtype: int64
+</code></pre>
+      </li>
+      <li class="numberedList">Check the merge.</li>
+    </ol>
+    <p class="normal-one">Use the <code class="inlineCode">checkmerge</code> function <a id="_idIndexMarker845"/>we used in the <em class="italic">Doing one-to-many merges</em> recipe:</p>
+    <pre class="programlisting code-one"><code class="hljs-code"><span class="hljs-keyword">def</span> <span class="hljs-title">checkmerge</span>(<span class="hljs-params">dfleft, dfright, idvar</span>):
+<span class="hljs-meta">... </span>  dfleft[<span class="hljs-string">'inleft'</span>] = <span class="hljs-string">"Y"</span>
+<span class="hljs-meta">... </span>  dfright[<span class="hljs-string">'inright'</span>] = <span class="hljs-string">"Y"</span>
+<span class="hljs-meta">... </span>  dfboth = pd.merge(dfleft[[idvar,<span class="hljs-string">'inleft'</span>]],\
+<span class="hljs-meta">... </span>    dfright[[idvar,<span class="hljs-string">'inright'</span>]], on=[idvar], how=<span class="hljs-string">"outer"</span>)
+<span class="hljs-meta">... </span>  dfboth.fillna(<span class="hljs-string">'N'</span>, inplace=<span class="hljs-literal">True</span>)
+<span class="hljs-meta">... </span>  <span class="hljs-built_in">print</span>(pd.crosstab(dfboth.inleft, dfboth.inright))
+...
+checkmerge(cmacitations.copy(), cmacreators.copy(), <span class="hljs-string">"itemid"</span>)
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">inright     N      Y
+inleft             
+N           0     14
+Y        4277  12710
+</code></pre>
+    <ol>
+      <li class="numberedList" value="7">Show a merge-by value duplicated in both DataFrames:
+        <pre class="programlisting code-one"><code class="hljs-code">cmacitations.loc[cmacitations.itemid==<span class="hljs-number">124733</span>]
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">           itemid             citation
+14533      124733      Weigel, J. A. G
+14534      124733      Winkler, Friedr
+14535      124733       Francis, Henry
+14536      124733      Kurz, Otto. &lt;em
+14537      124733      Minneapolis Ins
+14538      124733      Pilz, Kurt. "Ha
+14539      124733      Koschatzky, Wal
+14540      124733      Johnson, Mark M
+14541      124733      Kaufmann, Thoma
+14542      124733        Koreny, Fritz.
+14543      124733      Achilles-Syndra
+14544      124733       Schoch, Rainer,
+14545      124733      DeGrazia, Diane
+14546      124733       Dunbar, Burton
+</code></pre>
+        <pre class="programlisting code-one"><code class="hljs-code">cmacreators.loc[cmacreators.itemid==<span class="hljs-number">124733</span>,
+<span class="hljs-meta">... </span>  [<span class="hljs-string">'itemid'</span>,<span class="hljs-string">'creator'</span>,<span class="hljs-string">'birth_year'</span>,<span class="hljs-string">'</span><span class="hljs-string">title'</span>]]
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">     itemid              creator      birth_year                title
+591  124733      Hans Hoffmann (           1545      Dead Blue Roller
+592  124733      Albrecht Dürer            1471      Dead Blue Roller
+</code></pre>
+      </li>
+      <li class="numberedList">Do a many-to-many merge:
+        <pre class="programlisting code-one"><code class="hljs-code">cma = pd.merge(cmacitations, cmacreators, on=[<span class="hljs-string">'itemid'</span>], how=<span class="hljs-string">"outer"</span>)
+cma.set_index(<span class="hljs-string">"itemid"</span>, inplace=<span class="hljs-literal">True</span>)
+cma.loc[<span class="hljs-number">124733</span>, [<span class="hljs-string">'citation'</span>,<span class="hljs-string">'creator'</span>,<span class="hljs-string">'birth_year'</span>]]
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">                  citation             creator    birth_year
+itemid                                                      
+124733     Weigel, J. A. G     Hans Hoffmann (          1545
+124733     Weigel, J. A. G     Albrecht Dürer           1471
+124733     Winkler, Friedr     Hans Hoffmann (          1545
+124733     Winkler, Friedr     Albrecht Dürer           1471
+124733      Francis, Henry     Hans Hoffmann (          1545
+124733     Francis, Henry      Albrecht Dürer           1471
+124733     Kurz, Otto. &lt;em     Hans Hoffmann (          1545
+124733     Kurz, Otto. &lt;em     Albrecht Dürer           1471
+124733     Minneapolis Ins     Hans Hoffmann (          1545
+124733     Minneapolis Ins     Albrecht Dürer           1471
+124733     Pilz, Kurt. "Ha     Hans Hoffmann (          1545
+124733     Pilz, Kurt. "Ha     Albrecht Dürer           1471
+124733     Koschatzky, Wal     Hans Hoffmann (          1545
+124733     Koschatzky, Wal     Albrecht Dürer           1471
+... last 14 rows removed to save space
+</code></pre>
+      </li>
+    </ol>
+    <p class="normal">Now that I have taken you through the messiness<a id="_idIndexMarker846"/> of a many-to-many merge, I’ll say a little more about how it works.</p>
+    <h2 id="_idParaDest-387" class="heading-2">How it works...</h2>
+    <p class="normal"><em class="italic">Step 2</em> told us that there were 16,053 citations for 974 unique items. There is a unique ID, <code class="inlineCode">itemid</code>, for each item in the museum’s collection. On average, each item has 16 media citations (16,053/974). <em class="italic">Step 3</em> told us that there are 694 creators over 618 items that have a creator, so there is only one creator for the overwhelming majority of pieces. But the fact that there are duplicated <code class="inlineCode">itemid</code>s (our merge-by value) on both the <code class="inlineCode">citations</code> and <code class="inlineCode">creators</code> DataFrames means that our merge will be a many-to-many merge.</p>
+    <p class="normal"><em class="italic">Step 4</em> gave us a sense of which <code class="inlineCode">itemid</code>s are duplicated on the <code class="inlineCode">citations</code> DataFrame. Some items in the museum’s collection have more than 100 citations. It is worth taking a closer look at the citations for those items to see whether they make sense. <em class="italic">Step 5</em> showed us that even when there is more than one creator, there are rarely more than three. In <em class="italic">step 6</em>, we saw that most <code class="inlineCode">itemid</code>s appear in both the <code class="inlineCode">citations</code> file and the <code class="inlineCode">creators</code> file, but a fair number have <code class="inlineCode">citations</code> rows but no <code class="inlineCode">creators</code> rows. We will lose those 4,277 rows if we do an inner join or a right join, but not if we do a left join or an outer join. (This assumes that the <code class="inlineCode">citations</code> DataFrame is the left DataFrame and the <code class="inlineCode">creators</code> DataFrame is the right one.)</p>
+    <p class="normal">We looked at an <code class="inlineCode">itemid</code> value that is duplicated in both DataFrames in <em class="italic">step 7</em>. There are 14 rows for this collection item in the <code class="inlineCode">citations</code> DataFrame and 2 in the <code class="inlineCode">creators</code> DataFrame. This will result in 28 rows (2 * 14) with that <code class="inlineCode">itemid </code>in the merged DataFrame. The <code class="inlineCode">citations</code> data will be repeated for each row in <code class="inlineCode">creators</code>.</p>
+    <p class="normal">This was confirmed when we looked at the results of the merge in <em class="italic">step 8</em>. We performed an outer join with <code class="inlineCode">itemid</code> as the merge-by column. When we displayed the rows in the merged file<a id="_idIndexMarker847"/> for the same ID we used in <em class="italic">step 7</em>, we got the 28 rows we were expecting (I removed the last 14 rows of output to save space).</p>
+    <h2 id="_idParaDest-388" class="heading-2">There’s more...</h2>
+    <p class="normal">It is good to understand what to expect when we do a many-to-many merge because there are times when it cannot be avoided. But even in this case, we can tell that the many-to-many relationship is really just two one-to-many relationships with the data file missing from the one side. There is likely a data table that contains one row per collection item that has a one-to-many relationship with both the <code class="inlineCode">citations</code> data and the <code class="inlineCode">creators</code> data. When we do not have access to a file like that, it is probably best to try to reproduce a file with that structure. With this data, we could have created a file containing <code class="inlineCode">itemid</code> and maybe <code class="inlineCode">title</code>, and then done one-to-many merges with the <code class="inlineCode">citations</code> and <code class="inlineCode">creators</code> data.</p>
+    <p class="normal">However, there are occasions when we must produce a flat file for subsequent analysis. We might need to do that when we, or a colleague who is getting the cleaned data from us, are using software that cannot handle relational data well. For example, someone in another department might do a lot of data visualization work with Excel. As long as that person knows which analyses require them to remove duplicated rows, a file with a structure like the one we produced in <em class="italic">step 8</em> might work fine.</p>
+    <h1 id="_idParaDest-389" class="heading-1">Developing a merge routine</h1>
+    <p class="normal">I find it helpful to think of merging data<a id="_idIndexMarker848"/> as the parking lot of the data cleaning process. Merging data and parking may seem routine, but they are where a disproportionate number of accidents occur. One approach to getting in and out of parking lots without an incident occurring is to use a similar strategy each time you go to a particular lot. It could be that you always go to a relatively low-traffic area and you get to that area the same way most of the time.</p>
+    <p class="normal">I think a similar approach can be applied to getting in and out of merges with our data relatively unscathed. If we choose a general approach that works for us 80 to 90 percent of the time, we can focus on what is most important—the data, rather than the techniques for manipulating that data.</p>
+    <p class="normal">In this recipe, I will demonstrate the general approach that works for me, but the particular techniques I will use are not very important. I think it is just helpful to have an approach that you understand well and that you become comfortable using.</p>
+    <h2 id="_idParaDest-390" class="heading-2">Getting ready</h2>
+    <p class="normal">We will return to the objectives we focused on in the <em class="italic">Doing one-to-many merges</em> recipe of this chapter. We want to do a left join of the <code class="inlineCode">countries</code> data with the <code class="inlineCode">locations</code> data from the Global Historical Climatology Network integrated database.</p>
+    <h2 id="_idParaDest-391" class="heading-2">How to do it…</h2>
+    <p class="normal">In this recipe, we will do a left join of the <code class="inlineCode">countries</code> and <code class="inlineCode">locations</code> data after checking for merge-by value mismatches. Let’s get started:</p>
+    <ol>
+      <li class="numberedList" value="1">Import <code class="inlineCode">pandas</code> and load the weather station and country data:
+        <pre class="programlisting code-one"><code class="hljs-code"><span class="hljs-keyword">import</span> pandas <span class="hljs-keyword">as</span> pd
+countries = pd.read_csv(<span class="hljs-string">"data/ltcountries.csv"</span>)
+locations = pd.read_csv(<span class="hljs-string">"data/ltlocations.csv"</span>)
+</code></pre>
+      </li>
+      <li class="numberedList">Check the merge-by column matches:
+        <pre class="programlisting code-one"><code class="hljs-code"><span class="hljs-keyword">def</span> <span class="hljs-title">checkmerge</span>(<span class="hljs-params">dfleft, dfright, mergebyleft, mergebyright</span>):
+<span class="hljs-meta">... </span>  dfleft[<span class="hljs-string">'</span><span class="hljs-string">inleft'</span>] = <span class="hljs-string">"Y"</span>
+<span class="hljs-meta">... </span>  dfright[<span class="hljs-string">'inright'</span>] = <span class="hljs-string">"Y"</span>
+<span class="hljs-meta">... </span>  dfboth = \
+<span class="hljs-meta">... </span>    pd.merge(dfleft[[mergebyleft,<span class="hljs-string">'inleft'</span>]],\
+<span class="hljs-meta">... </span>    dfright[[mergebyright,<span class="hljs-string">'inright'</span>]],\
+<span class="hljs-meta">... </span>    left_on=[mergebyleft],\
+<span class="hljs-meta">... </span>    right_on=[mergebyright], how=<span class="hljs-string">"outer"</span>)
+<span class="hljs-meta">... </span>  dfboth.fillna(<span class="hljs-string">'N'</span>, inplace=<span class="hljs-literal">True</span>)
+<span class="hljs-meta">... </span>  <span class="hljs-built_in">print</span>(pd.crosstab(dfboth.inleft,
+<span class="hljs-meta">... </span>    dfboth.inright))
+<span class="hljs-meta">... </span>  <span class="hljs-built_in">print</span>(dfboth.loc[(dfboth.inleft==<span class="hljs-string">'N'</span>) | \
+<span class="hljs-meta">... </span>    (dfboth.inright==<span class="hljs-string">'N'</span>)].head(<span class="hljs-number">20</span>))
+checkmerge(countries.copy(), locations.copy(), <span class="hljs-string">"countryid"</span>, <span class="hljs-string">"countryid"</span>)
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">inright            N         Y
+inleft                        
+N                  0         1
+Y                  2     27472
+      countryid inleft inright
+7363         FO      N       Y
+9716         LQ      Y       N
+13104        ST      Y       N
+</code></pre>
+      </li>
+      <li class="numberedList">Merge the country<a id="_idIndexMarker849"/> and location data:
+        <pre class="programlisting code-one"><code class="hljs-code">stations = pd.merge(countries, locations, left_on=[<span class="hljs-string">"countryid"</span>], right_on=[<span class="hljs-string">"countryid"</span>], how=<span class="hljs-string">"left"</span>)
+stations[[<span class="hljs-string">'locationid'</span>,<span class="hljs-string">'latitude'</span>,
+<span class="hljs-meta">... </span>  <span class="hljs-string">'stnelev'</span>,<span class="hljs-string">'country'</span>]].head(<span class="hljs-number">10</span>)
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">    locationid      latitude      stnelev                 country
+0  ACW00011604       57.7667         18.0     Antigua and Barbuda
+1  AE000041196       25.3330         34.0    United Arab Emirates
+2  AEM00041184       25.6170         31.0    United Arab Emirates
+3  AEM00041194       25.2550         10.4    United Arab Emirates
+4  AEM00041216       24.4300          3.0    United Arab Emirates
+5  AEM00041217       24.4330         26.8    United Arab Emirates
+6  AEM00041218       24.2620        264.9    United Arab Emirates
+7  AF000040930       35.3170       3366.0             Afghanistan
+8  AFM00040911       36.7000        378.0             Afghanistan
+9  AFM00040938       34.2100        977.2             Afghanistan
+</code></pre>
+        <pre class="programlisting code-one"><code class="hljs-code">stations.shape
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">(27474, 7)
+</code></pre>
+      </li>
+    </ol>
+    <p class="normal">Here, we got the expected number of rows from a left join: <code class="inlineCode">27,472</code> rows with merge-by values in both DataFrames and two rows with merge-by values in the left DataFrame, but not the right.</p>
+    <h2 id="_idParaDest-392" class="heading-2">How it works...</h2>
+    <p class="normal">For the overwhelming majority<a id="_idIndexMarker850"/> of merges I do, something like the logic used in <em class="italic">steps 2</em> and <em class="italic">3</em> works well. We added a fourth argument to the <code class="inlineCode">checkmerge</code> function we used in the previous recipe. This allows us to specify different merge-by columns for the left and right DataFrames. We do not need to recreate this function every time we do a merge. We can just include it in a module that we import. (We’ll go over adding helper functions to modules in the final chapter of this book.)</p>
+    <p class="normal">Calling the <code class="inlineCode">checkmerge</code> function before running a merge gives us enough information so that we know what to expect when running the merge with different join types. We will know how many rows will be returned from an inner, outer, left, or right join. We will also know where new missing values will be generated before we run the actual merge. Of course, this is a fairly expensive operation, requiring us to run a merge twice each time—one diagnostic outer join followed by whatever join we subsequently choose. But I would argue that it is usually worth it, if for no other reason than that it helps us to stop and think about what we are doing.</p>
+    <p class="normal">Finally, we performed the merge in <em class="italic">step 3</em>. This is my preferred syntax. I always use the left DataFrame for the first argument and the right DataFrame for the second argument, though <code class="inlineCode">merge</code> allows us to specify the left and right DataFrames in different ways. I also set values for <code class="inlineCode">left_on</code> and <code class="inlineCode">right_on</code>, even if the merge-by column is the same and I could use <code class="inlineCode">on</code> instead (as we did in the previous recipe). This is so I will not have to change the syntax in cases where the merge-by column is different, and I like that it makes the merge-by column explicit for both DataFrames.</p>
+    <p class="normal">A somewhat more controversial routine<a id="_idIndexMarker851"/> is that I default to a left join, setting the <code class="inlineCode">how</code> parameter to left initially. I make that my starting assumption and then ask myself if there is any reason to do a different join. The rows in the left DataFrame often represent my unit of analysis (students, patients, customers, and so on) and I am adding supplemental data from the right DataFrame (GPA, blood pressure, zip code, and so on). It may be problematic to remove rows from the unit of analysis because the merge-by value is not present on the right DataFrame, as would happen if I did an inner join instead. For example, in the <em class="italic">Doing one-to-one merges</em> recipe of this chapter, it probably would not have made sense to remove rows from the main NLS data because they did not appear on the supplemental data we have for parents.</p>
+    <h2 id="_idParaDest-393" class="heading-2">See also</h2>
+    <p class="normal">We will create modules with useful data cleaning functions in <em class="chapterRef">Chapter 12</em>, <em class="italic">Automate Data Cleaning with User-Defined Functions, Classes and Pipelines</em>.</p>
+    <p class="normal">We have discussed the types of joins in the <em class="italic">Doing one-to-one merges</em> recipe in this chapter.</p>
+    <h1 id="_idParaDest-394" class="heading-1">Summary</h1>
+    <p class="normal">We carefully examined combining data vertically, also known as concatenating, and combining data horizontally, also known as merging, in this chapter. We went over key data issues when concatenating data, including different columns across files. We also considered key issues with merging data, such as missing merge-by column values and the unexpected duplication of data. We looked at how those issues change with the type of join used. In the next chapter, we will learn about tidying and reshaping messy data.</p>
+    <h1 class="heading-1">Leave a review!</h1>
+    <p class="normal">Enjoying this book? Help readers like you by leaving an Amazon review. Scan the QR code below to get a free eBook of your choice.</p>
+    <p class="normal"><img src="../Images/Review_copy.png" style="width:10em" alt="" role="presentation"/></p>
+  </div>
+</body></html>

@@ -1,0 +1,1421 @@
+<html><head></head><body>
+  <div id="_idContainer092" class="Basic-Text-Frame">
+    <h1 class="chapterNumber">6</h1>
+    <h1 id="_idParaDest-208" class="chapterTitle">Cleaning and Exploring Data with Series Operations</h1>
+    <p class="normal">We can view the recipes in the first few chapters of this book as, essentially, diagnostic. We imported some raw data and then generated descriptive statistics about key variables. This gave us a sense of how the values for those variables were distributed and helped us identify outliers and unexpected values. We then examined the relationships between variables to look for patterns, and deviations from those patterns, including logical inconsistencies. In short, our primary goal so far has been to figure out what is going on with our data.</p>
+    <p class="normal">But, not very long into a data exploration and cleaning project, we invariably need to alter the initial values for some of our variables across some of our observations. For example, we might need to create a new column that is based on the values of one or more other columns. Or, we might want to change values that are in a certain range, say less than 0, or over some threshold amount, perhaps setting them to the mean, or to missing. Fortunately, the pandas Series object offers a large number of methods for manipulating data values.</p>
+    <p class="normal">The recipes in this chapter demonstrate how to use pandas methods to update Series values once we have figured out what needs to be done. Ideally, we need to take the time to carefully examine our data before manipulating the values of our variables. We should have measures of central tendency, indicators of distribution shape and spread, correlations, and visualizations in front of us before we update the variable’s values, or before creating new variables based on them. We should also have a good sense of outliers and missing values, understand how they affect summary statistics, and have preliminary plans for imputing new values or otherwise adjusting them.</p>
+    <p class="normal">Having done that, we will be ready to perform some data cleaning tasks. These tasks usually involve working directly with a pandas Series object, regardless of whether we are changing values for an existing Series or creating a new one. This often involves changing values conditionally, altering only those values that meet specific criteria, or assigning multiple possible values based on existing values for that Series, or values for another Series.</p>
+    <p class="normal">How we assign such values varies significantly by the Series’ data type, either for the Series to be changed or a criterion Series. Querying and cleaning string data bears little resemblance to those tasks with date or numeric data. With strings, we often need to evaluate whether some string fragment does or does not have a certain value, strip the string of some meaningless characters, or convert the value into a numeric or date value. With dates, we might need to look for invalid or out-of-range dates, or even calculate date intervals.</p>
+    <p class="normal">Fortunately, pandas Series have an enormous number of tools for manipulating strings, numeric, and date values. We will explore many of the most useful tools in this chapter. Specifically, we will cover the following recipes:</p>
+    <ul>
+      <li class="bulletList">Getting values from a pandas Series</li>
+      <li class="bulletList">Showing summary statistics for a pandas Series</li>
+      <li class="bulletList">Changing Series values</li>
+      <li class="bulletList">Changing Series values conditionally</li>
+      <li class="bulletList">Evaluating and cleaning string Series data</li>
+      <li class="bulletList">Working with dates</li>
+      <li class="bulletList">Using OpenAI for Series operations</li>
+    </ul>
+    <p class="normal">Let’s get started!</p>
+    <h1 id="_idParaDest-209" class="heading-1">Technical requirements</h1>
+    <p class="normal">You will need pandas, NumPy, and Matplotlib to complete the recipes in this chapter. I used pandas 2.1.4, but the code will run on pandas 1.5.3 or later.</p>
+    <p class="normal">The code in this chapter can be downloaded from the book’s GitHub repository, <a href="https://github.com/PacktPublishing/Python-Data-Cleaning-Cookbook-Second-Edition"><span class="url">https://github.com/PacktPublishing/Python-Data-Cleaning-Cookbook-Second-Edition</span></a>.</p>
+    <h1 id="_idParaDest-210" class="heading-1">Getting values from a pandas Series</h1>
+    <p class="normal">A pandas Series is a one-dimensional<a id="_idIndexMarker479"/> array-like structure that takes <a id="_idIndexMarker480"/>a NumPy data type. Each Series also has an index, an array of data labels. If an index is not specified when the Series is created, it will be the default index of 0 through N-1.</p>
+    <p class="normal">There are several ways to create a pandas Series, including from a list, dictionary, NumPy array, or a scalar. In our data cleaning work, we will most frequently be accessing data Series by selecting columns of DataFrames, using either attribute access (<code class="inlineCode">dataframename.columname</code>) or bracket notation (<code class="inlineCode">dataframename['columnname']</code>). Attribute access cannot be used to set values for Series, but bracket notation will work for all Series operations.</p>
+    <p class="normal">In this recipe, we’ll explore several ways we can get values from a pandas Series. These techniques are very similar to the methods we used to get rows from a pandas DataFrame, which we covered in the <em class="italic">Selecting rows</em> recipe of <em class="chapterRef">Chapter 3</em>, <em class="italic">Taking the Measure of Your Data</em>.</p>
+    <h2 id="_idParaDest-211" class="heading-2">Getting ready</h2>
+    <p class="normal">We will be working<a id="_idIndexMarker481"/> with data from the <strong class="keyWord">National Longitudinal Survey</strong> (<strong class="keyWord">NLS</strong>) in this recipe—primarily with data<a id="_idIndexMarker482"/> about each respondent’s overall high school <strong class="keyWord">Grade Point Average</strong> (<strong class="keyWord">GPA</strong>).</p>
+    <div class="note">
+      <p class="normal"><strong class="keyWord">Data note</strong></p>
+      <p class="normal">The National Longitudinal Survey of Youth is conducted by the United States Bureau of Labor Statistics. This survey started with a cohort of individuals in 1997 who were born between 1980 and 1985, with annual follow-ups each year until 2023. Survey data is available for public use at <a href="https://nlsinfo.org"><span class="url">nlsinfo.org</span></a>.</p>
+    </div>
+    <h2 id="_idParaDest-212" class="heading-2">How to do it…</h2>
+    <p class="normal">For this recipe, we select Series values using the bracket operator and the <code class="inlineCode">loc</code> and <code class="inlineCode">iloc</code> accessors. Let’s get started:</p>
+    <ol>
+      <li class="numberedList" value="1">Import the required <code class="inlineCode">pandas</code> and NLS data:
+        <pre class="programlisting code-one"><code class="hljs-code"><span class="hljs-keyword">import</span> pandas <span class="hljs-keyword">as</span> pd
+nls97 = pd.read_csv(<span class="hljs-string">"data/nls97f.csv"</span>, low_memory=<span class="hljs-literal">False</span>)
+nls97.set_index(<span class="hljs-string">"personid"</span>, inplace=<span class="hljs-literal">True</span>)
+</code></pre>
+      </li>
+    </ol>
+    <div class="note-one">
+      <p class="normal"><strong class="keyWord">Note</strong></p>
+      <p class="normal">Whether you use the bracket operator, the <code class="inlineCode">loc</code> accessor, or the <code class="inlineCode">iloc</code> accessor is largely a matter of preference. It is usually easier to use the <code class="inlineCode">loc</code> accessor when you know the index label for the rows you want. When it is easier to refer to rows by their absolute position, the bracket operator or <code class="inlineCode">iloc</code> accessor will probably be a better choice. The examples in this recipe illustrate this.</p>
+    </div>
+    <ol>
+      <li class="numberedList" value="2">Create a Series from the GPA overall column.</li>
+    </ol>
+    <p class="normal-one">Show the first few values<a id="_idIndexMarker483"/> and associated index labels<a id="_idIndexMarker484"/> using <code class="inlineCode">head</code>. The default number of values shown for <code class="inlineCode">head</code> is 5. The index for the Series is the same as the DataFrame’s index, which is <code class="inlineCode">personid</code>:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">gpaoverall = nls97.gpaoverall
+<span class="hljs-built_in">type</span>(gpaoverall)
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">pandas.core.series.Series
+</code></pre>
+    <pre class="programlisting code-one"><code class="hljs-code">gpaoverall.head()
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">personid
+135335   3.09
+999406   2.17
+151672    NaN
+750699   2.53
+781297   2.43
+Name: gpaoverall, dtype: float64
+</code></pre>
+    <pre class="programlisting code-one"><code class="hljs-code">gpaoverall.index
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">Index([135335, 999406, 151672, 750699, 781297, 613800,
+       403743, 474817, 530234, 351406,
+       ...
+       290800, 209909, 756325, 543646, 411195, 505861,
+       368078, 215605, 643085, 713757],
+      dtype='int64', name='personid', length=8984)
+</code></pre>
+    <ol>
+      <li class="numberedList" value="3">Select GPA values using the bracket operator.</li>
+    </ol>
+    <p class="normal-one">Use slicing to create a Series with every<a id="_idIndexMarker485"/> value from the first value<a id="_idIndexMarker486"/> to the fifth. Notice that we get the same values that we got with the <code class="inlineCode">head</code> method in <em class="italic">step 2</em>. Not including a value to the left of the colon in <code class="inlineCode">gpaoverall[:5]</code> means that it will start from the beginning. <code class="inlineCode">gpaoverall[0:5]</code> will give the same results. Similarly, <code class="inlineCode">gpaoverall[-5:]</code> shows the values from the fifth to the last position. This produces the same results as <code class="inlineCode">gpaoverall.tail()</code>:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">gpaoverall[:<span class="hljs-number">5</span>]
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">135335   3.09
+999406   2.17
+151672    NaN
+750699   2.53
+781297   2.43
+Name: gpaoverall, dtype: float64
+</code></pre>
+    <pre class="programlisting code-one"><code class="hljs-code">gpaoverall.tail()
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">personid
+505861    NaN
+368078    NaN
+215605   3.22
+643085   2.30
+713757    NaN
+Name: gpaoverall, dtype: float64
+</code></pre>
+    <pre class="programlisting code-one"><code class="hljs-code">gpaoverall[-<span class="hljs-number">5</span>:]
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">personid
+505861    NaN
+368078    NaN
+215605   3.22
+643085   2.30
+713757    NaN
+Name: gpaoverall, dtype: float64
+</code></pre>
+    <ol>
+      <li class="numberedList" value="4">Select values using the <code class="inlineCode">loc</code> accessor.</li>
+    </ol>
+    <p class="normal-one">We pass an index label (a value for <code class="inlineCode">personid</code> in this case) to the <code class="inlineCode">loc</code> accessor to return a scalar. We get a Series if we pass a list of index labels, regardless of whether there’s one or more. We can even pass a range, separated by a colon. We’ll do this here with <code class="inlineCode">gpaoverall.loc[135335:151672]</code>:</p>
+    <pre class="programlisting con-one"><code class="hljs-con">gpaoverall.loc[135335]
+3.09
+</code></pre>
+    <pre class="programlisting code-one"><code class="hljs-code">gpaoverall.loc[[<span class="hljs-number">135335</span>]]
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">personid
+135335   3.09
+Name: gpaoverall, dtype: float64
+</code></pre>
+    <pre class="programlisting code-one"><code class="hljs-code">gpaoverall.loc[[<span class="hljs-number">135335</span>,<span class="hljs-number">999406</span>,<span class="hljs-number">151672</span>]]
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">personid
+135335   3.09
+999406   2.17
+151672    NaN
+Name: gpaoverall, dtype: float64
+</code></pre>
+    <pre class="programlisting code-one"><code class="hljs-code">gpaoverall.loc[<span class="hljs-number">135335</span>:<span class="hljs-number">151672</span>]
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">personid
+135335   3.09
+999406   2.17
+151672    NaN
+Name: gpaoverall, dtype: float64
+</code></pre>
+    <ol>
+      <li class="numberedList" value="5">Select values using the <code class="inlineCode">iloc</code> accessor.</li>
+    </ol>
+    <p class="normal-one"><code class="inlineCode">iloc</code> differs from <code class="inlineCode">loc</code> in that<a id="_idIndexMarker487"/> it takes a list of row numbers<a id="_idIndexMarker488"/> rather than labels. It works similarly to bracket operator slicing. In this step, we pass a one-item list with a value of 0. We then pass a five-item list, <code class="inlineCode">[0,1,2,3,4]</code>, to return a Series containing the first five values. We get the same result if we pass <code class="inlineCode">[:5]</code> to the accessor:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">gpaoverall.iloc[[<span class="hljs-number">0</span>]]
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">personid
+135335   3.09
+Name: gpaoverall, dtype: float64
+</code></pre>
+    <pre class="programlisting code-one"><code class="hljs-code">gpaoverall.iloc[[<span class="hljs-number">0</span>,<span class="hljs-number">1</span>,<span class="hljs-number">2</span>,<span class="hljs-number">3</span>,<span class="hljs-number">4</span>]]
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">personid
+135335   3.09
+999406   2.17
+151672    NaN
+750699   2.53
+781297   2.43
+Name: gpaoverall, dtype: float64
+</code></pre>
+    <pre class="programlisting code-one"><code class="hljs-code">gpaoverall.iloc[:<span class="hljs-number">5</span>]
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">personid
+135335   3.09
+999406   2.17
+151672    NaN
+750699   2.53
+781297   2.43
+Name: gpaoverall, dtype: float64
+</code></pre>
+    <pre class="programlisting code-one"><code class="hljs-code">gpaoverall.iloc[-<span class="hljs-number">5</span>:]
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">personid
+505861    NaN
+368078    NaN
+215605   3.22
+643085   2.30
+713757    NaN
+Name: gpaoverall, dtype: float64
+</code></pre>
+    <p class="normal">Each of these ways of accessing<a id="_idIndexMarker489"/> pandas Series values—the bracket<a id="_idIndexMarker490"/> operator, the <code class="inlineCode">loc</code> accessor, and the <code class="inlineCode">iloc</code> accessor—has many use cases, particularly the <code class="inlineCode">loc</code> accessor.</p>
+    <h2 id="_idParaDest-213" class="heading-2">How it works...</h2>
+    <p class="normal">We used the <code class="inlineCode">[]</code> bracket operator in <em class="italic">step 3</em> to perform standard Python-like slicing to create a Series. This operator allows us to easily select data based on position using a list, or a range of values indicated with slice notation. This notation takes the form of <code class="inlineCode">[start:end:step]</code>, where <code class="inlineCode">1</code> is assumed for <code class="inlineCode">step</code> if no value is provided. When a negative number is used for <code class="inlineCode">start</code>, it represents the number of rows from the end of the original Series.</p>
+    <p class="normal">The <code class="inlineCode">loc</code> accessor, used in <em class="italic">step 4</em>, selects data by index labels. Since <code class="inlineCode">personid</code> is the index for the Series, we can pass a list of one or more <code class="inlineCode">personid</code> values to the <code class="inlineCode">loc</code> accessor to get a Series with those labels and associated GPA values. We can also pass a range of labels to the accessor, which will return a Series with GPA values from the index label to the left of the colon and the index label to the right inclusive. So, <code class="inlineCode">gpaoverall.loc[135335:151672]</code> returns a Series with GPA values for <code class="inlineCode">personid</code> between <code class="inlineCode">135335</code> and <code class="inlineCode">151672</code>, including those two values.</p>
+    <p class="normal">As shown in <em class="italic">step 5</em>, the <code class="inlineCode">iloc</code> accessor<a id="_idIndexMarker491"/> takes row positions rather than index<a id="_idIndexMarker492"/> labels. We can pass either a list of integers or a range using slicing notation.</p>
+    <h1 id="_idParaDest-214" class="heading-1">Showing summary statistics for a pandas Series</h1>
+    <p class="normal">There are a large number<a id="_idIndexMarker493"/> of pandas Series methods for generating<a id="_idIndexMarker494"/> summary statistics. We can easily get the mean, median, maximum, or minimum values for a Series with the <code class="inlineCode">mean</code>, <code class="inlineCode">median</code>, <code class="inlineCode">max</code>, and <code class="inlineCode">min</code> methods, respectively. The incredibly handy <code class="inlineCode">describe</code> method will return all of these statistics, as well as several others. We can also get the Series value at any percentile using <code class="inlineCode">quantile</code>. These methods can be used across all values for a Series, or just for selected values. This will be demonstrated in this recipe.</p>
+    <h2 id="_idParaDest-215" class="heading-2">Getting ready</h2>
+    <p class="normal">We will continue working with the overall GPA column from the NLS.</p>
+    <h2 id="_idParaDest-216" class="heading-2">How to do it...</h2>
+    <p class="normal">Let’s take a good look at the distribution<a id="_idIndexMarker495"/> of the overall GPA for the DataFrame <a id="_idIndexMarker496"/>and for the selected rows. To do this, follow these steps:</p>
+    <ol>
+      <li class="numberedList" value="1">Import <code class="inlineCode">pandas</code> and <code class="inlineCode">numpy</code> and load the NLS data:
+        <pre class="programlisting code-one"><code class="hljs-code"><span class="hljs-keyword">import</span> pandas <span class="hljs-keyword">as</span> pd
+<span class="hljs-keyword">import</span> numpy <span class="hljs-keyword">as</span> np
+nls97 = pd.read_csv(<span class="hljs-string">"data/nls97f.csv"</span>,
+low_memory=<span class="hljs-literal">False</span>)
+nls97.set_index(<span class="hljs-string">"personid"</span>, inplace=<span class="hljs-literal">True</span>)
+</code></pre>
+      </li>
+      <li class="numberedList">Gather some descriptive statistics:
+        <pre class="programlisting code-one"><code class="hljs-code">gpaoverall = nls97.gpaoverall
+gpaoverall.mean()
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">2.8184077281812145
+</code></pre>
+        <pre class="programlisting code-one"><code class="hljs-code">gpaoverall.describe()
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">count	6,004.00
+mean	2.82
+std	0.62
+min	0.10
+25%	2.43
+50%	2.86
+75%	3.26
+max	4.17
+Name: gpaoverall, dtype: float64
+</code></pre>
+        <pre class="programlisting code-one"><code class="hljs-code">gpaoverall.quantile(np.arange(<span class="hljs-number">0.1</span>,<span class="hljs-number">1.1</span>,<span class="hljs-number">0.1</span>))
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">0.10	2.02
+0.20	2.31
+0.30	2.52
+0.40	2.70
+0.50	2.86
+0.60	3.01
+0.70	3.17
+0.80	3.36
+0.90	3.60
+1.00	4.17
+Name: gpaoverall, dtype: float64
+</code></pre>
+      </li>
+      <li class="numberedList">Show descriptives<a id="_idIndexMarker497"/> for a subset<a id="_idIndexMarker498"/> of the Series:
+        <pre class="programlisting code-one"><code class="hljs-code">gpaoverall.loc[gpaoverall.between(<span class="hljs-number">3</span>,<span class="hljs-number">3.5</span>)].head(<span class="hljs-number">5</span>)
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">personid
+135335   3.09
+370417   3.41
+684388   3.00
+984178   3.15
+730045   3.44
+Name: gpaoverall, dtype: float64
+</code></pre>
+        <pre class="programlisting code-one"><code class="hljs-code">gpaoverall.loc[gpaoverall.between(<span class="hljs-number">3</span>,<span class="hljs-number">3.5</span>)].<span class="hljs-built_in">count</span>()
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">1679
+</code></pre>
+        <pre class="programlisting code-one"><code class="hljs-code">gpaoverall.loc[(gpaoverall&lt;<span class="hljs-number">2</span>) | (gpaoverall&gt;<span class="hljs-number">4</span>)].sample(<span class="hljs-number">5</span>, random_state=<span class="hljs-number">10</span>)
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">personid
+382527   1.66
+436086   1.86
+556245   4.02
+563504   1.94
+397487   1.84
+Name: gpaoverall, dtype: float64
+</code></pre>
+        <pre class="programlisting code-one"><code class="hljs-code">gpaoverall.loc[gpaoverall&gt;gpaoverall.quantile(<span class="hljs-number">0.99</span>)].\
+<span class="hljs-meta">... </span>  agg([<span class="hljs-string">'count'</span>,<span class="hljs-string">'min'</span>,<span class="hljs-string">'max'</span>])
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">count     60.00
+min       3.98
+max       4.17
+Name: gpaoverall, dtype: float64
+</code></pre>
+      </li>
+      <li class="numberedList">Test for a condition across all values.</li>
+    </ol>
+    <p class="normal-one">Check for GPA values above 4 and if all the values are above or equal to 0. (We generally expect GPA to be between 0 and 4.) Also, count how many values are missing:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">(gpaoverall&gt;<span class="hljs-number">4</span>).<span class="hljs-built_in">any</span>() <span class="hljs-comment"># any person has GPA greater than 4</span>
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">True
+</code></pre>
+    <pre class="programlisting code-one"><code class="hljs-code">(gpaoverall&gt;=<span class="hljs-number">0</span>).<span class="hljs-built_in">all</span>() <span class="hljs-comment"># all people have GPA greater than or equal 0</span>
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">False
+</code></pre>
+    <pre class="programlisting code-one"><code class="hljs-code">(gpaoverall&gt;=<span class="hljs-number">0</span>).<span class="hljs-built_in">sum</span>() <span class="hljs-comment"># of people with GPA greater than or equal 0</span>
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">6004
+</code></pre>
+    <pre class="programlisting code-one"><code class="hljs-code">(gpaoverall==<span class="hljs-number">0</span>).<span class="hljs-built_in">sum</span>() <span class="hljs-comment"># of people with GPA equal to 0</span>
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">0
+</code></pre>
+    <pre class="programlisting code-one"><code class="hljs-code">gpaoverall.isnull().<span class="hljs-built_in">sum</span>() <span class="hljs-comment"># of people with missing value for GPA</span>
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">2980
+</code></pre>
+    <ol>
+      <li class="numberedList" value="5">Show descriptives for a subset<a id="_idIndexMarker499"/> of the Series based on values<a id="_idIndexMarker500"/> in a different column.</li>
+    </ol>
+    <p class="normal-one">Show the mean high school GPA for individuals with a wage income in 2020 that’s above the 75<sup class="superscript">th</sup> percentile, as well as for those with a wage income that’s below the 25<sup class="superscript">th</sup> percentile:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">nls97.loc[nls97.wageincome20 &gt; nls97.wageincome20.quantile(<span class="hljs-number">0.75</span>),<span class="hljs-string">'gpaoverall'</span>].mean()
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">3.0672837022132797
+</code></pre>
+    <pre class="programlisting code-one"><code class="hljs-code">nls97.loc[nls97.wageincome20 &lt; nls97.wageincome20.quantile(<span class="hljs-number">0.25</span>),<span class="hljs-string">'gpaoverall'</span>].mean()
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">2.6852676399026763
+</code></pre>
+    <ol>
+      <li class="numberedList" value="6">Show descriptives and frequencies for a Series containing categorical data:
+        <pre class="programlisting code-one"><code class="hljs-code">nls97.maritalstatus.describe()
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">count      6675
+unique     5
+top        Married
+freq       3068
+Name: maritalstatus, dtype: object
+</code></pre>
+        <pre class="programlisting code-one"><code class="hljs-code">nls97.maritalstatus.value_counts()
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">Married           3068
+Never-married     2767
+Divorced           669
+Separated          148
+Widowed             23
+Name: maritalstatus, dtype: int64
+</code></pre>
+      </li>
+    </ol>
+    <p class="normal">Once we have a Series, we can use<a id="_idIndexMarker501"/> a wide variety of pandas tools<a id="_idIndexMarker502"/> to calculate descriptive statistics for all or part of that Series.</p>
+    <h2 id="_idParaDest-217" class="heading-2">How it works…</h2>
+    <p class="normal">The Series <code class="inlineCode">describe</code> method is quite useful as it gives us a good sense of the central tendency and spread of continuous variables. It is also often helpful to see the value at each decile. We obtained this in <em class="italic">step 2</em> by passing a list of values ranging from 0.1 to 1.0 to the <code class="inlineCode">quantile</code> method of the Series.</p>
+    <p class="normal">We can use these methods on subsets of a Series. In <em class="italic">step 3</em>, we obtained the count of GPA values between 3 and 3.5. We can also select values based on their relationship to a summary statistic; for example, <code class="inlineCode">gpaoverall&gt;gpaoverall.quantile(0.99)</code> selects GPA values that are greater than the 99<sup class="superscript">th</sup> percentile value. We then passed the resulting Series to the <code class="inlineCode">agg</code> method using method chaining, which returned multiple summary statistics (<code class="inlineCode">agg(['count','min','max'])</code>).</p>
+    <p class="normal">Sometimes, we need to test whether some condition is true across all the values in a Series. The <code class="inlineCode">any</code> and <code class="inlineCode">all</code> methods are useful for this. <code class="inlineCode">any</code> returns <code class="inlineCode">True</code> when at least one value in the Series satisfies the condition (such as (<code class="inlineCode">gpaoverall&gt;4).any()</code>). <code class="inlineCode">all</code> returns <code class="inlineCode">True</code> when all the values in the Series satisfy the condition. When we chain the test condition with sum (<code class="inlineCode">(gpaoverall&gt;=0).sum()</code>), we get a count of all the <code class="inlineCode">True</code> values since pandas interprets <code class="inlineCode">True</code> values as 1 when performing numerical operations.</p>
+    <p class="normal"><code class="inlineCode">(gpaoverall&gt;4)</code> is a shorthand for creating a Boolean Series with the same index as <code class="inlineCode">gpaoverall</code>. It has a value of <code class="inlineCode">True</code> when <code class="inlineCode">gpaoverall</code> is greater than 4, and <code class="inlineCode">False</code> otherwise:</p>
+    <pre class="programlisting code"><code class="hljs-code">(gpaoverall&gt;<span class="hljs-number">4</span>)
+</code></pre>
+    <pre class="programlisting con"><code class="hljs-con">personid
+135335    False
+999406    False
+151672    False
+750699    False
+781297    False
+505861    False
+368078    False
+215605    False
+643085    False
+713757    False
+Name: gpaoverall, Length: 8984, dtype: bool
+</code></pre>
+    <p class="normal">We sometimes need to generate summary statistics for a Series that has been filtered by another Series. We did this in <em class="italic">step 5</em> by calculating the mean high school GPA for individuals with a wage income that’s above the third quartile, as well as for individuals with a wage income that’s below the first quartile.</p>
+    <p class="normal">The <code class="inlineCode">describe</code> method is most useful with continuous variables, such as <code class="inlineCode">gpaoverall</code>, but it also provides useful information when used with categorical variables, such as <code class="inlineCode">maritalstatus</code> (see <em class="italic">step 6</em>). This returns the count of non-missing values, the number of different values, the category that occurs most frequently, and the frequency of that category.</p>
+    <p class="normal">However, when working with categorical<a id="_idIndexMarker503"/> data, the <code class="inlineCode">value_counts</code> method<a id="_idIndexMarker504"/> is more frequently used. It provides the frequency of each category in the Series.</p>
+    <h2 id="_idParaDest-218" class="heading-2">There’s more…</h2>
+    <p class="normal">Working with Series is so fundamental to pandas data cleaning tasks that data analysts quickly find that the tools that were used in this recipe are part of their daily data cleaning workflow. Typically, not much time elapses between the initial data import stage and using Series methods such as <code class="inlineCode">describe</code>, <code class="inlineCode">mean</code>, <code class="inlineCode">sum</code>, <code class="inlineCode">isnull</code>, <code class="inlineCode">all</code>, and <code class="inlineCode">any</code>.</p>
+    <h2 id="_idParaDest-219" class="heading-2">See also</h2>
+    <p class="normal">We are just scratching the surface of aggregating data in this chapter. We’ll go through this more thoroughly in <em class="chapterRef">Chapter 9</em>, <em class="italic">Fixing Messy Data When Aggregating</em>.</p>
+    <h1 id="_idParaDest-220" class="heading-1">Changing Series values</h1>
+    <p class="normal">During the data cleaning<a id="_idIndexMarker505"/> process, we often need to change the values in a data Series or create a new one. We can change all the values in a Series, or just the values in a subset of our data. Most of the techniques we have been using to get values from a Series can be used to update Series values, though some minor modifications are necessary.</p>
+    <h2 id="_idParaDest-221" class="heading-2">Getting ready</h2>
+    <p class="normal">We will work with the overall high school GPA column from the NLS in this recipe.</p>
+    <h2 id="_idParaDest-222" class="heading-2">How to do it…</h2>
+    <p class="normal">We can change the values in a pandas Series for all rows, as well as for selected rows. We can update a Series with scalars by performing arithmetic operations on other Series, and by using summary statistics. Let’s take a look at this:</p>
+    <ol>
+      <li class="numberedList" value="1">Import <code class="inlineCode">pandas</code> and load the NLS data:
+        <pre class="programlisting code-one"><code class="hljs-code"><span class="hljs-keyword">import</span> pandas <span class="hljs-keyword">as</span> pd
+nls97 = pd.read_csv(<span class="hljs-string">"data/nls97f.csv"</span>,
+low_memory=<span class="hljs-literal">False</span>)
+nls97.set_index(<span class="hljs-string">"personid"</span>, inplace=<span class="hljs-literal">True</span>)
+</code></pre>
+      </li>
+      <li class="numberedList">Edit all the values based on a scalar.</li>
+    </ol>
+    <p class="normal-one">Multiply <code class="inlineCode">gpaoverall</code> by 100:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">nls97.gpaoverall.head()
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">personid
+135335   3.09
+999406   2.17
+151672    NaN
+750699   2.53
+781297   2.82
+Name: gpaoverall, dtype: float64
+</code></pre>
+    <pre class="programlisting code-one"><code class="hljs-code">gpaoverall100 = nls97[<span class="hljs-string">'gpaoverall'</span>] * <span class="hljs-number">100</span>
+gpaoverall100.head()
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">personid
+135335   309.00
+999406   217.00
+151672      NaN
+750699   253.00
+781297   243.00
+Name: gpaoverall, dtype: float64
+</code></pre>
+    <ol>
+      <li class="numberedList" value="3">Set values using index labels.</li>
+    </ol>
+    <p class="normal-one">Use the <code class="inlineCode">loc</code> accessor to specify<a id="_idIndexMarker506"/> which values to change by index label:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">nls97.loc[[<span class="hljs-number">135335</span>], <span class="hljs-string">'gpaoverall'</span>] = <span class="hljs-number">3</span>
+nls97.loc[[<span class="hljs-number">999406</span>,<span class="hljs-number">151672</span>,<span class="hljs-number">750699</span>],<span class="hljs-string">'gpaoverall'</span>] = <span class="hljs-number">0</span>
+nls97.gpaoverall.head()
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">personid
+135335   3.00
+999406   0.00
+151672   0.00
+750699   0.00
+781297   2.43
+Name: gpaoverall, dtype: float64
+</code></pre>
+    <ol>
+      <li class="numberedList" value="4">Set values using an operator on more than one Series.</li>
+    </ol>
+    <p class="normal-one">Use the <code class="inlineCode">+</code> operator to calculate the number of children, which is the sum of children who live at home and children who do not live at home:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">nls97[<span class="hljs-string">'childnum'</span>] = nls97.childathome + nls97.childnotathome
+nls97.childnum.value_counts().sort_index()
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">0.00		23
+1.00		1364
+2.00		1729
+3.00		1020
+4.00		420
+5.00		149
+6.00		55
+7.00		21
+8.00		7
+9.00		1
+12.00		2
+Name: childnum, dtype: int64
+</code></pre>
+    <ol>
+      <li class="numberedList" value="5">Use index labels to set values<a id="_idIndexMarker507"/> to a summary statistic.</li>
+    </ol>
+    <p class="normal-one">Use the <code class="inlineCode">loc</code> accessor to select <code class="inlineCode">personid</code> from <code class="inlineCode">100061</code> to <code class="inlineCode">100292</code>:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">nls97.loc[<span class="hljs-number">135335</span>:<span class="hljs-number">781297</span>,<span class="hljs-string">'gpaoverall'</span>] = nls97.gpaoverall.mean()
+nls97.gpaoverall.head()
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">personid
+135335   2.82
+999406   2.82
+151672   2.82
+750699   2.82
+781297   2.82
+Name: gpaoverall, dtype: float64
+</code></pre>
+    <ol>
+      <li class="numberedList" value="6">Set values using position.</li>
+    </ol>
+    <p class="normal-one">Use the <code class="inlineCode">iloc</code> accessor to select by position. An integer, or slice notation (<code class="inlineCode">start:end:step</code>), can be used to the left of the comma to indicate the rows where the values should be changed. An integer is used to the right of the comma to select the column. The <code class="inlineCode">gpaoverall</code> column is in the 16<sup class="superscript">th</sup> position (which is 15 since the column index is zero-based):</p>
+    <pre class="programlisting code-one"><code class="hljs-code">nls97.iloc[<span class="hljs-number">0</span>, <span class="hljs-number">15</span>] = <span class="hljs-number">2</span>
+nls97.iloc[<span class="hljs-number">1</span>:<span class="hljs-number">4</span>, <span class="hljs-number">15</span>] = <span class="hljs-number">1</span>
+nls97.gpaoverall.head()
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">personid
+135335   2.00
+999406   1.00
+151672   1.00
+750699   1.00
+781297   2.43
+Name: gpaoverall, dtype: float64
+</code></pre>
+    <ol>
+      <li class="numberedList" value="7">Set the GPA values<a id="_idIndexMarker508"/> after filtering.</li>
+    </ol>
+    <p class="normal-one">Change all GPA values over <code class="inlineCode">4</code> to <code class="inlineCode">4</code>:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">nls97.gpaoverall.nlargest()
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">personid
+312410     4.17
+639701     4.11
+850001     4.10
+279096     4.08
+620216     4.07
+Name: gpaoverall, dtype: float64
+</code></pre>
+    <pre class="programlisting code-one"><code class="hljs-code">nls97.loc[nls97.gpaoverall&gt;<span class="hljs-number">4</span>, <span class="hljs-string">'gpaoverall'</span>] = <span class="hljs-number">4</span>
+nls97.gpaoverall.nlargest()
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">personid
+588585   4.00
+864742   4.00
+566248   4.00
+990608   4.00
+919755   4.00
+Name: gpaoverall, dtype: float64
+</code></pre>
+    <p class="normal">The preceding steps showed us how to update Series values with scalars, arithmetic operations, and summary statistics values.</p>
+    <h2 id="_idParaDest-223" class="heading-2">How it works…</h2>
+    <p class="normal">The first thing to observe is that, in <em class="italic">step 2</em>, pandas vectorizes the multiplication by a scalar. It knows that we want to apply the scalar to all rows. Essentially, <code class="inlineCode">nls97['gpaoverall'] * 100</code>, creates a temporary Series with all values set to 100, and with the same index as the <code class="inlineCode">gpaoverall</code> Series. It then multiplies <code class="inlineCode">gpaoverall</code> by that Series<a id="_idIndexMarker509"/> of 100 values. This is known as broadcasting.</p>
+    <p class="normal">We can use a lot of what we learned in the first recipe of this chapter, about how to get values from a Series, to select particular values to update. The main difference here is that we use the <code class="inlineCode">loc</code> and <code class="inlineCode">iloc</code> accessors of the DataFrame (<code class="inlineCode">nls97.loc</code>) rather than the Series (<code class="inlineCode">nls97.gpaoverall.loc</code>). This is to prevent the dreaded <code class="inlineCode">SettingwithCopyWarning</code>, which warns us about setting values on a copy of a DataFrame. <code class="inlineCode">nls97.gpaoverall.loc[[135335]] = 3</code> triggers that warning, while <code class="inlineCode">nls97.loc[[135335], 'gpaoverall'] = 3</code> does not.</p>
+    <p class="normal">In <em class="italic">step 4</em>, we saw how pandas handles numerical operations with two or more Series. Operations such as addition, subtraction, multiplication, and division are very much like the operations we perform on scalars in standard Python, only with vectorization. (This is made possible by pandas index alignment. Remember that Series in the same DataFrame will have the same index.) If you are familiar<a id="_idIndexMarker510"/> with NumPy, then you already have a good idea of how this works.</p>
+    <h2 id="_idParaDest-224" class="heading-2">There’s more…</h2>
+    <p class="normal">It is useful to notice that <code class="inlineCode">nls97.loc[[135335], 'gpaoverall']</code> returns a Series, while <code class="inlineCode">nls97.loc[[135335], ['gpaoverall']]</code> returns a DataFrame:</p>
+    <pre class="programlisting code"><code class="hljs-code"><span class="hljs-built_in">type</span>(nls97.loc[[<span class="hljs-number">135335</span>], <span class="hljs-string">'gpaoverall'</span>])
+</code></pre>
+    <pre class="programlisting con"><code class="hljs-con">&lt;class 'pandas.core.series.Series'&gt;
+</code></pre>
+    <pre class="programlisting code"><code class="hljs-code"><span class="hljs-built_in">type</span>(nls97.loc[[<span class="hljs-number">135335</span>], [<span class="hljs-string">'gpaoverall'</span>]])
+</code></pre>
+    <pre class="programlisting con"><code class="hljs-con">&lt;class 'pandas.core.frame.DataFrame'&gt;
+</code></pre>
+    <p class="normal">If the second argument of the <code class="inlineCode">loc</code> accessor is a string, it will return a Series. If it is a list, even if the list contains only 1 item, it will return a DataFrame.</p>
+    <p class="normal">For any of the operations we discussed in this recipe, it is good to be mindful of how pandas treats missing values. For example, in <em class="italic">step 4</em>, if either <code class="inlineCode">childathome</code> or <code class="inlineCode">childnotathome</code> is missing, then the operation will return <code class="inlineCode">missing</code>. We’ll discuss how to handle situations like this in<em class="italic">, Identifying and Fixing Missing Values </em>recipe in the next chapter.</p>
+    <h2 id="_idParaDest-225" class="heading-2">See also</h2>
+    <p class="normal"><em class="chapterRef">Chapter 3</em>, <em class="italic">Taking the Measure of Your Data</em>, goes into greater detail on the use of the <code class="inlineCode">loc</code> and <code class="inlineCode">iloc</code> accessors, particularly in the <em class="italic">Selecting rows</em> and <em class="italic">Selecting and organizing columns</em> recipes.</p>
+    <h1 id="_idParaDest-226" class="heading-1">Changing Series values conditionally</h1>
+    <p class="normal">Changing Series values is often<a id="_idIndexMarker511"/> more complicated than the previous recipe suggests. We often need to set Series values based on the values of one or more other Series for that row of data. This is complicated further when we need to set Series values based on values from <em class="italic">other</em> rows; say, a previous value for an individual, or the mean for a subset. We will deal with these complications in this and the next recipe.</p>
+    <h2 id="_idParaDest-227" class="heading-2">Getting ready</h2>
+    <p class="normal">We will work with land temperature data and the NLS data in this recipe.</p>
+    <div class="note">
+      <p class="normal"><strong class="keyWord">Data note</strong></p>
+      <p class="normal">The land temperature dataset contains the average temperature readings (in Celsius) in 2023 from over 12,000 stations across the world, though the majority of the stations are in the United States. The raw dataset was retrieved from the Global Historical Climatology Network integrated database. It has been made available for public use by the United States National Oceanic and Atmospheric Administration at <a href="https://www.ncei.noaa.gov/products/land-based-station/global-historical-climatology-network-monthly"><span class="url">https://www.ncei.noaa.gov/products/land-based-station/global-historical-climatology-network-monthly</span></a>.</p>
+    </div>
+    <h2 id="_idParaDest-228" class="heading-2">How to do it…</h2>
+    <p class="normal">We will use NumPy’s <code class="inlineCode">where</code> and <code class="inlineCode">select</code> methods to assign Series values based on the values of that Series, the values of other Series, and summary statistics. We’ll then use the <code class="inlineCode">lambda</code> and <code class="inlineCode">apply</code> functions to construct more complicated criteria for assignment. Let’s get started:</p>
+    <ol>
+      <li class="numberedList" value="1">Import <code class="inlineCode">pandas</code> and <code class="inlineCode">numpy</code>, and then load the NLS and land temperature data:
+        <pre class="programlisting code-one"><code class="hljs-code"><span class="hljs-keyword">import</span> pandas <span class="hljs-keyword">as</span> pd
+<span class="hljs-keyword">import</span> numpy <span class="hljs-keyword">as</span> np
+nls97 = pd.read_csv(<span class="hljs-string">"data/nls97f.csv"</span>, low_memory=<span class="hljs-literal">False</span>)
+nls97.set_index(<span class="hljs-string">"personid"</span>, inplace=<span class="hljs-literal">True</span>)
+landtemps = pd.read_csv(<span class="hljs-string">"</span><span class="hljs-string">data/landtemps2023avgs.csv"</span>)
+</code></pre>
+      </li>
+      <li class="numberedList">Use NumPy’s <code class="inlineCode">where</code> function<a id="_idIndexMarker512"/> to create a categorical Series containing two values.</li>
+    </ol>
+    <p class="normal-one">Let’s do a quick check of the distribution of <code class="inlineCode">elevation</code> values:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">landtemps.elevation.quantile(np.arange(<span class="hljs-number">0.2</span>,<span class="hljs-number">1.1</span>,<span class="hljs-number">0.2</span>))
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">0.2      47.9
+0.4     190.5
+0.6     395.0
+0.8   1,080.0
+1.0   9,999.0
+Name: elevation, dtype: float64
+</code></pre>
+    <pre class="programlisting code-one"><code class="hljs-code">landtemps[<span class="hljs-string">'elevation_group'</span>] = np.where(landtemps.elevation&gt;landtemps.elevation.quantile(<span class="hljs-number">0.8</span>),<span class="hljs-string">'High'</span>,<span class="hljs-string">'Low'</span>)
+landtemps.elevation_group = landtemps.elevation_group.astype(<span class="hljs-string">'category'</span>)
+landtemps.groupby([<span class="hljs-string">'elevation_group'</span>],
+  observed=<span class="hljs-literal">False</span>)[<span class="hljs-string">'elevation'</span>].\
+  agg([<span class="hljs-string">'count'</span>,<span class="hljs-string">'min'</span>,<span class="hljs-string">'max'</span>])
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">                 count     min    max
+elevation_group                  
+High              2428   1,080    9,999
+Low               9709    -350    1,080
+</code></pre>
+    <div class="note-one">
+      <p class="normal"><strong class="keyWord">Note</strong></p>
+      <p class="normal">You may have noticed that we passed a value of <code class="inlineCode">False</code> to the <code class="inlineCode">groupby</code> <code class="inlineCode">observed</code> attribute. This is the default value of observed for all pandas versions prior to 2.1.0. <code class="inlineCode">observed=True</code> is the default for <code class="inlineCode">groupby</code> in subsequent pandas versions. When <code class="inlineCode">observed</code> is <code class="inlineCode">True</code> and there is a column in <code class="inlineCode">groupby</code> that is categorical, only observed values are shown. This does not affect the summary statistics in the previous step. I show it only to alert you to the upcoming change in the default value. I omit it in the rest of this chapter.</p>
+    </div>
+    <ol>
+      <li class="numberedList" value="3">Use NumPy’s <code class="inlineCode">where</code> method<a id="_idIndexMarker513"/> to create a categorical Series containing three values.</li>
+    </ol>
+    <p class="normal-one">Set values above the 80<sup class="superscript">th</sup> percentile to <code class="inlineCode">'High'</code>, values above the median and up to the 80<sup class="superscript">th</sup> percentile to <code class="inlineCode">'Medium'</code>, and the remaining values to <code class="inlineCode">'Low'</code>:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">landtemps[<span class="hljs-string">'elevation_group'</span>] = \
+  np.where(landtemps.elevation&gt;
+    landtemps.elevation.quantile(<span class="hljs-number">0.8</span>),<span class="hljs-string">'High'</span>,
+    np.where(landtemps.elevation&gt;landtemps.elevation.\
+      median(),<span class="hljs-string">'Medium'</span>,<span class="hljs-string">'Low'</span>))
+landtemps.elevation_group = landtemps.elevation_group.astype(<span class="hljs-string">'category'</span>)
+landtemps.groupby([<span class="hljs-string">'elevation_group'</span>])[<span class="hljs-string">'elevation'</span>].\
+  agg([<span class="hljs-string">'count'</span>,<span class="hljs-string">'min'</span>,<span class="hljs-string">'max'</span>])
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">                  count     min     max
+elevation_group                        
+High              2428    1,080   9,999
+Low               6072     -350     271
+Medium            3637      271   1,080
+</code></pre>
+    <ol>
+      <li class="numberedList" value="4">Use NumPy’s <code class="inlineCode">select</code> method to evaluate a list of conditions.</li>
+    </ol>
+    <p class="normal-one">Set up a list of test conditions and another list for the result. We want individuals with a GPA less than 2 and no degree earned to be in one category, individuals with no degree but with a higher GPA to be in a second category, individuals with a degree but a low GPA in a third category, and the remaining individuals in a fourth category:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">test = [(nls97.gpaoverall&lt;<span class="hljs-number">2</span>) &amp;
+  (nls97.highestdegree==<span class="hljs-string">'0. None'</span>),
+   nls97.highestdegree==<span class="hljs-string">'0. None'</span>,
+   nls97.gpaoverall&lt;<span class="hljs-number">2</span>]
+result = [<span class="hljs-string">'1. Low GPA/No Dip'</span>,<span class="hljs-string">'2. No Diploma'</span>,
+ <span class="hljs-string">'3. Low GPA'</span>]
+nls97[<span class="hljs-string">'hsachieve'</span>] = np.select(test, result, <span class="hljs-string">'4. Did Okay'</span>)
+nls97[[<span class="hljs-string">'hsachieve'</span>,<span class="hljs-string">'gpaoverall'</span>,<span class="hljs-string">'highestdegree'</span>]].\
+  sample(<span class="hljs-number">7</span>, random_state=<span class="hljs-number">6</span>)
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">                   hsachieve    gpaoverall     highestdegree
+personid                                              
+102951     1. Low GPA/No Dip           1.4           0. None
+583984           4. Did Okay           3.3    2. High School
+116430           4. Did Okay           NaN     3. Associates
+859586           4. Did Okay           2.3    2. High School
+288527           4. Did Okay           2.7      4. Bachelors
+161698           4. Did Okay           3.4      4. Bachelors
+943703         2. No Diploma           NaN           0. None
+</code></pre>
+    <pre class="programlisting code-one"><code class="hljs-code">nls97.hsachieve.value_counts().sort_index()
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">hsachieve
+1. Low GPA/No Dip              90
+2. No Diploma                 787
+3. Low GPA                    464
+4. Did Okay                  7643
+Name: count, dtype: int64
+</code></pre>
+    <p class="normal-one">While NumPy’s <code class="inlineCode">select</code> method<a id="_idIndexMarker514"/> is very handy for relatively straightforward assignment of values conditionally, it can be difficult to use when the assignment is more complicated. We can use a user-defined function when <code class="inlineCode">select</code> would be unwieldy.</p>
+    <ol>
+      <li class="numberedList" value="5">Let’s use <code class="inlineCode">apply</code> and a user-defined function to do the same Series value assignment that we did in the previous step. We create a function, <code class="inlineCode">gethsachieve</code>, with the logic for assigning values to a new variable, <code class="inlineCode">hsachieve2</code>. We pass this function to <code class="inlineCode">apply</code> and indicate <code class="inlineCode">axis=1</code> to apply the function to all rows.</li>
+    </ol>
+    <p class="normal-one">We will use this same technique in the next step to handle a more complicated assignment, one based on more columns and conditions.</p>
+    <pre class="programlisting code-one"><code class="hljs-code"><span class="hljs-keyword">def</span> <span class="hljs-title">gethsachieve</span>(<span class="hljs-params">row</span>):
+  <span class="hljs-keyword">if</span> (row.gpaoverall&lt;<span class="hljs-number">2</span> <span class="hljs-keyword">and</span> row.highestdegree==<span class="hljs-string">"0. None"</span>):
+    hsachieve2 = <span class="hljs-string">"1. Low GPA/No Dip"</span>
+  <span class="hljs-keyword">elif</span> (row.highestdegree==<span class="hljs-string">"0. None"</span>):
+    hsachieve2 = <span class="hljs-string">"2. No Diploma"</span>
+  <span class="hljs-keyword">elif</span> (row.gpaoverall&lt;<span class="hljs-number">2</span>):
+    hsachieve2 = <span class="hljs-string">"3. Low GPA"</span>
+  <span class="hljs-keyword">else</span>:
+    hsachieve2 = <span class="hljs-string">'4. Did Okay'</span>
+  <span class="hljs-keyword">return</span> hsachieve2
+nls97[<span class="hljs-string">'hsachieve2'</span>] = nls97.apply(gethsachieve,axis=<span class="hljs-number">1</span>)
+nls97.groupby([<span class="hljs-string">'hsachieve'</span>,<span class="hljs-string">'hsachieve2'</span>]).size()
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">   hsachieve          hsachieve2      
+1. Low GPA/No Dip  1. Low GPA/No Dip      90
+2. No Diploma      2. No Diploma         787
+3. Low GPA         3. Low GPA            464
+4. Did Okay        4. Did Okay          7643
+dtype: int64
+</code></pre>
+    <p class="normal-one">Notice that we get the same values for <code class="inlineCode">hsachieve2</code> in this step that we got for <code class="inlineCode">hsachieve</code> in the previous step.</p>
+    <ol>
+      <li class="numberedList" value="6">Now, let’s use <code class="inlineCode">apply</code> and a user-defined function<a id="_idIndexMarker515"/> for a more complicated calculation, one that is based on the values of several variables.</li>
+    </ol>
+    <p class="normal-one">The <code class="inlineCode">getsleepdeprivedreason</code> function below creates a variable that categorizes survey respondents by the possible reasons why they might get fewer than 6 hours of sleep a night. We base this on NLS survey responses about a respondent’s employment status, the number of children who live with the respondent, wage income, and highest grade completed:</p>
+    <pre class="programlisting code-one"><code class="hljs-code"><span class="hljs-keyword">def</span> <span class="hljs-title">getsleepdeprivedreason</span>(<span class="hljs-params">row</span>):
+  sleepdeprivedreason = <span class="hljs-string">"Unknown"</span>
+  <span class="hljs-keyword">if</span> (row.nightlyhrssleep&gt;=<span class="hljs-number">6</span>):
+    sleepdeprivedreason = <span class="hljs-string">"Not Sleep Deprived"</span>
+  <span class="hljs-keyword">elif</span> (row.nightlyhrssleep&gt;<span class="hljs-number">0</span>):
+    <span class="hljs-keyword">if</span> (row.weeksworked20+row.weeksworked21 &lt; <span class="hljs-number">80</span>):
+      <span class="hljs-keyword">if</span> (row.childathome&gt;<span class="hljs-number">2</span>):
+        sleepdeprivedreason = <span class="hljs-string">"Child Rearing"</span>
+      <span class="hljs-keyword">else</span>:
+        sleepdeprivedreason = <span class="hljs-string">"Other Reasons"</span>
+    <span class="hljs-keyword">else</span>:
+      <span class="hljs-keyword">if</span> (row.wageincome20&gt;=<span class="hljs-number">62000</span> <span class="hljs-keyword">or</span> row.highestgradecompleted&gt;=<span class="hljs-number">16</span>):
+        sleepdeprivedreason = <span class="hljs-string">"Work Pressure"</span>
+      <span class="hljs-keyword">else</span>:
+        sleepdeprivedreason = <span class="hljs-string">"Income Pressure"</span>
+  <span class="hljs-keyword">else</span>:
+    sleepdeprivedreason = <span class="hljs-string">"Unknown"</span>
+  <span class="hljs-keyword">return</span> sleepdeprivedreason
+</code></pre>
+    <ol>
+      <li class="numberedList" value="7">Use <code class="inlineCode">apply</code> to run the function<a id="_idIndexMarker516"/> for all rows:
+        <pre class="programlisting code-one"><code class="hljs-code">nls97[<span class="hljs-string">'sleepdeprivedreason'</span>] = nls97.apply(getsleepdeprivedreason, axis=<span class="hljs-number">1</span>)
+nls97.sleepdeprivedreason = nls97.sleepdeprivedreason.astype(<span class="hljs-string">'category'</span>)
+nls97.sleepdeprivedreason.value_counts()
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">sleepdeprivedreason
+Not Sleep Deprived    5595
+Unknown               2286
+Income Pressure        453
+Work Pressure          324
+Other Reasons          254
+Child Rearing           72
+Name: count, dtype: int64
+</code></pre>
+      </li>
+      <li class="numberedList">We can use a lambda function with <code class="inlineCode">transform</code> if we want<a id="_idIndexMarker517"/> to work with particular columns but we do not need to pass them to a user-defined function. Let’s try that by using <code class="inlineCode">lambda</code> to test several columns in one statement.</li>
+    </ol>
+    <p class="normal-one">The <code class="inlineCode">colenr</code> columns have enrollment status in February and October of each year for each person. We want to test whether any of the college enrollment columns has a value of <code class="inlineCode">3. 4-year college</code>. Use <code class="inlineCode">filter</code> to create a DataFrame of the <code class="inlineCode">colenr</code> columns. Then, use <code class="inlineCode">transform</code> to call a lambda function that tests the first character of each <code class="inlineCode">colenr</code> column. (We can just look at the first character and see whether it has a value of 3.) That is then passed to <code class="inlineCode">any</code> to evaluate whether any (one or more) of the columns has a 3 in the first character. (We only show values for college enrollment between 2000 and 2004 due to space considerations, but we check all the values for the college enrollment<a id="_idIndexMarker518"/> columns between 1997 and 2022.) This can be seen in the following code:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">nls97.loc[[<span class="hljs-number">999406</span>,<span class="hljs-number">750699</span>],
+  <span class="hljs-string">'colenrfeb00'</span>:<span class="hljs-string">'colenroct04'</span>].T
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">personid                 999406                750699
+colenrfeb00     1. Not enrolled       1. Not enrolled
+colenroct00   3. 4-year college       1. Not enrolled
+colenrfeb01   3. 4-year college       1. Not enrolled
+colenroct01   2. 2-year college       1. Not enrolled
+colenrfeb02     1. Not enrolled     2. 2-year college
+colenroct02   3. 4-year college       1. Not enrolled
+colenrfeb03   3. 4-year college       1. Not enrolled
+colenroct03   3. 4-year college       1. Not enrolled
+colenrfeb04   3. 4-year college       1. Not enrolled
+colenroct04   3. 4-year college       1. Not enrolled
+</code></pre>
+    <pre class="programlisting code-one"><code class="hljs-code">nls97[<span class="hljs-string">'baenrollment'</span>] = nls97.<span class="hljs-built_in">filter</span>(like=<span class="hljs-string">"colenr"</span>).\
+<span class="hljs-meta">... </span>  transform(<span class="hljs-keyword">lambda</span> x: x.<span class="hljs-built_in">str</span>[<span class="hljs-number">0</span>:<span class="hljs-number">1</span>]==<span class="hljs-string">'3'</span>).\
+<span class="hljs-meta">... </span>  <span class="hljs-built_in">any</span>(axis=<span class="hljs-number">1</span>)
+nls97.loc[[<span class="hljs-number">999406</span>,<span class="hljs-number">750699</span>], [<span class="hljs-string">'baenrollment'</span>]].T
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">personid      999406  750699
+baenrollment    True   False
+</code></pre>
+    <pre class="programlisting code-one"><code class="hljs-code">nls97.baenrollment.value_counts()
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">baenrollment
+False    4987
+True     3997
+Name: count, dtype: int64
+</code></pre>
+    <p class="normal">The preceding steps demonstrate several techniques we can use to set the values for a Series conditionally.</p>
+    <h2 id="_idParaDest-229" class="heading-2">How it works…</h2>
+    <p class="normal">If you have used <code class="inlineCode">if-then-else</code> statements<a id="_idIndexMarker519"/> in SQL or Microsoft Excel, then NumPy’s <code class="inlineCode">where</code> should be familiar to you. It follows the form of <code class="inlineCode">where</code> (test condition, clause if <code class="inlineCode">True</code>, clause if <code class="inlineCode">False</code>). In <em class="italic">step 2</em>, we tested whether the value of elevation for each row is greater than the value at the 80<sup class="superscript">th</sup> percentile. If <code class="inlineCode">True</code>, we returned <code class="inlineCode">'High'</code>. We returned <code class="inlineCode">'Low'</code> otherwise. This is a basic <code class="inlineCode">if-then-else</code> construction.</p>
+    <p class="normal">Sometimes, we need to nest a test within a test. We did this in <em class="italic">step 3</em> to create three elevation groups; high, medium, and low. Instead of a simple statement in the <code class="inlineCode">False</code> section (after the second comma), we used another <code class="inlineCode">where</code> statement. This changes it from an <code class="inlineCode">else</code> clause to an <code class="inlineCode">else if</code> clause. It takes the form of <code class="inlineCode">where</code>(test condition, statement if <code class="inlineCode">True</code>, <code class="inlineCode">where</code>(test condition, statement if <code class="inlineCode">True</code>, statement if <code class="inlineCode">False</code>)).</p>
+    <p class="normal">It is possible to add many more nested <code class="inlineCode">where</code> statements, though that is not advisable. When we need to evaluate a slightly more complicated test, NumPy’s <code class="inlineCode">select</code> method comes in handy. In <em class="italic">step 4</em>, we passed a list of tests, as well as a list of results of that test, to <code class="inlineCode">select</code>. We also provided a default value of <code class="inlineCode">4. Did Okay</code> for any case where none of the tests was <code class="inlineCode">True</code>. When multiple tests are <code class="inlineCode">True</code>, the first one that is <code class="inlineCode">True</code> is used.</p>
+    <p class="normal">Once the logic becomes even more complicated, we can use <code class="inlineCode">apply</code>. The DataFrame <code class="inlineCode">apply</code> method can be used to send each row of a DataFrame to a function by specifying <code class="inlineCode">axis=1</code>. <em class="italic">step 5</em> demonstrates how to reproduce the same logic as with <em class="italic">step 4</em> using <code class="inlineCode">apply</code> and a user-defined function.</p>
+    <p class="normal">In <em class="italic">steps 6</em> and <em class="italic">7</em>, we created a Series that categorizes reasons for being sleep deprived based on weeks worked, the number of children living with the respondent, wage income, and highest grade completed. If the respondent did not work most of 2020 and 2021, and if more than two children lived with them, <code class="inlineCode">sleepdeprivedreason</code> is set to “Child Rearing.” If the respondent did not work most of 2020 and 2021 and two or fewer children lived with them, <code class="inlineCode">sleepdeprivedreason</code> is set to “Other Reasons.” If they worked most of 2020 and 2021, then <code class="inlineCode">sleepdeprivedreason</code> is “Work Pressure” if they had a high salary or completed 4 years of college, and is “Income Pressure” otherwise. Of course, these categories are somewhat contrived, but they do illustrate how to use a function to create a Series based on complicated relationships among other Series.</p>
+    <p class="normal">In <em class="italic">step 8</em>, we used <code class="inlineCode">transform</code> to call a lambda function that tests whether the first character of each college enrollment value is 3. But first, we used the <code class="inlineCode">filter</code> DataFrame method to select all the college enrollment columns. We could have paired the <code class="inlineCode">lambda</code> function with <code class="inlineCode">apply</code> to achieve the same result, but <code class="inlineCode">transform</code> is typically more efficient.</p>
+    <p class="normal">You may have noticed that we changed the data type of the new Series we created in <em class="italic">steps 2</em> and <em class="italic">3</em> to <code class="inlineCode">category</code>. The new Series was an <code class="inlineCode">object</code> data type initially. We reduced memory usage by changing the type to <code class="inlineCode">category</code>.</p>
+    <p class="normal">We used another incredibly useful method in <em class="italic">step 2</em>, somewhat incidentally. <code class="inlineCode">landtemps.groupby(['elevation_group'])</code> creates a DataFrame <code class="inlineCode">groupby</code> object that we pass to an aggregate (<code class="inlineCode">agg</code>) function. This gives us a count, min, and max for each <code class="inlineCode">elevation_group</code>, allowing us to confirm<a id="_idIndexMarker520"/> that our group classification works as expected.</p>
+    <h2 id="_idParaDest-230" class="heading-2">There’s more…</h2>
+    <p class="normal">It has been a long time since I have had a data cleaning project that did not involve a NumPy <code class="inlineCode">where</code> or <code class="inlineCode">select</code> statement, nor a <code class="inlineCode">lambda</code> or <code class="inlineCode">apply</code> statement. At some point, we need to create or update a Series based on values from one or more other Series. It is a good idea to get comfortable with these techniques.</p>
+    <p class="normal">Whenever there is a built-in pandas function that does what we need, it is better to use that than <code class="inlineCode">apply</code>. The great advantage of <code class="inlineCode">apply</code> is that it is quite generic and flexible, but that is also why it is more resource-intensive than the optimized functions. However, it is a great tool when we want to create a Series based on complicated relationships between existing Series.</p>
+    <p class="normal">Another way to perform <em class="italic">steps 6 </em>and<em class="italic"> 7</em> is to add a lambda function to <code class="inlineCode">apply</code>. This produces the same results:</p>
+    <pre class="programlisting code"><code class="hljs-code"><span class="hljs-keyword">def</span> <span class="hljs-title">getsleepdeprivedreason</span>(<span class="hljs-params">childathome, nightlyhrssleep, wageincome, weeksworked20, weeksworked21, highestgradecompleted</span>):
+<span class="hljs-meta">... </span>  sleepdeprivedreason = <span class="hljs-string">"Unknown"</span>
+<span class="hljs-meta">... </span>  <span class="hljs-keyword">if</span> (nightlyhrssleep&gt;=<span class="hljs-number">6</span>):
+<span class="hljs-meta">... </span>    sleepdeprivedreason = <span class="hljs-string">"Not Sleep Deprived"</span>
+<span class="hljs-meta">... </span>  <span class="hljs-keyword">elif</span> (nightlyhrssleep&gt;<span class="hljs-number">0</span>):
+<span class="hljs-meta">... </span>    <span class="hljs-keyword">if</span> (weeksworked16+weeksworked17 &lt; <span class="hljs-number">80</span>):
+<span class="hljs-meta">... </span>      <span class="hljs-keyword">if</span> (childathome&gt;<span class="hljs-number">2</span>):
+<span class="hljs-meta">... </span>        sleepdeprivedreason = <span class="hljs-string">"Child Rearing"</span>
+<span class="hljs-meta">... </span>      <span class="hljs-keyword">else</span>:
+<span class="hljs-meta">... </span>        sleepdeprivedreason = <span class="hljs-string">"Other Reasons"</span>
+<span class="hljs-meta">... </span>    <span class="hljs-keyword">else</span>:
+<span class="hljs-meta">... </span>      <span class="hljs-keyword">if</span> (wageincome&gt;=<span class="hljs-number">62000</span> <span class="hljs-keyword">or</span> highestgradecompleted&gt;=<span class="hljs-number">16</span>):
+<span class="hljs-meta">... </span>        sleepdeprivedreason = <span class="hljs-string">"Work Pressure"</span>
+<span class="hljs-meta">... </span>      <span class="hljs-keyword">else</span>:
+<span class="hljs-meta">... </span>        sleepdeprivedreason = <span class="hljs-string">"Income Pressure"</span>
+<span class="hljs-meta">... </span>  <span class="hljs-keyword">else</span>:
+<span class="hljs-meta">... </span>    sleepdeprivedreason = <span class="hljs-string">"Unknown"</span>
+<span class="hljs-meta">... </span>  <span class="hljs-keyword">return</span> sleepdeprivedreason
+...
+nls97[<span class="hljs-string">'sleepdeprivedreason'</span>] = nls97.apply(<span class="hljs-keyword">lambda</span> x: getsleepdeprivedreason(x.childathome, x.nightlyhrssleep, x.wageincome, x.weeksworked16, x.weeksworked17, x.highestgradecompleted), axis=<span class="hljs-number">1</span>)
+</code></pre>
+    <p class="normal">One advantage of this approach is that it makes it more clear which Series contribute to the calculation.</p>
+    <h2 id="_idParaDest-231" class="heading-2">See also</h2>
+    <p class="normal">We’ll go over DataFrame <code class="inlineCode">groupby</code> objects in detail in <em class="chapterRef">Chapter 9</em>, <em class="italic">Fixing Messy Data When Aggregating</em>. We examined various techniques we can use to select columns from a DataFrame, including <code class="inlineCode">filter</code>, in <em class="chapterRef">Chapter 3</em>, <em class="italic">Taking the Measure of Your Data</em>.</p>
+    <h1 id="_idParaDest-232" class="heading-1">Evaluating and cleaning string Series data</h1>
+    <p class="normal">There are many string<a id="_idIndexMarker521"/> cleaning methods<a id="_idIndexMarker522"/> in Python and pandas. This is a good thing. Given the great variety of data stored in strings, it is important to have a wide range of tools to call upon when performing string evaluation and manipulation: when selecting fragments of a string by position, when checking whether a string contains a pattern, when splitting a string, when testing a string’s length, when joining two or more strings, when changing the case of a string, and so on. We’ll explore some of the methods that are used most frequently for string evaluation and cleaning in this recipe.</p>
+    <h2 id="_idParaDest-233" class="heading-2">Getting ready</h2>
+    <p class="normal">We will work with the NLS data in this recipe. (The NLS data was actually a little too clean for this recipe. To illustrate working with strings with trailing spaces, I added trailing spaces to the <code class="inlineCode">maritalstatus</code> column values.)</p>
+    <h2 id="_idParaDest-234" class="heading-2">How to do it...</h2>
+    <p class="normal">In this recipe, we will perform some common<a id="_idIndexMarker523"/> string evaluation and cleaning<a id="_idIndexMarker524"/> tasks. We’ll use <code class="inlineCode">contains</code>, <code class="inlineCode">endswith</code>, and <code class="inlineCode">findall</code> to search for patterns, trailing blanks, and more complicated patterns, respectively. </p>
+    <p class="normal">We will also create a function for processing string values before assigning values to a new Series and then use <code class="inlineCode">replace</code> for simpler processing. Let’s get started:</p>
+    <ol>
+      <li class="numberedList" value="1">Import <code class="inlineCode">pandas</code> and <code class="inlineCode">numpy</code>, and then load the NLS data:
+        <pre class="programlisting code-one"><code class="hljs-code"><span class="hljs-keyword">import</span> pandas <span class="hljs-keyword">as</span> pd
+<span class="hljs-keyword">import</span> numpy <span class="hljs-keyword">as</span> np
+nls97 = pd.read_csv(<span class="hljs-string">"data/nls97ca.csv"</span>, low_memory=<span class="hljs-literal">False</span>)
+nls97.set_index(<span class="hljs-string">"personid"</span>, inplace=<span class="hljs-literal">True</span>)
+</code></pre>
+      </li>
+      <li class="numberedList">Test whether a pattern exists in a string.</li>
+    </ol>
+    <p class="normal-one">Use <code class="inlineCode">contains</code> to examine the <code class="inlineCode">govprovidejobs</code> (government should provide jobs) responses for the “Definitely not” and “Probably not” values. In the <code class="inlineCode">where</code> call, handle missing values first to make sure that they do not end up in the first <code class="inlineCode">else</code> clause (the section after the second comma):</p>
+    <pre class="programlisting code-one"><code class="hljs-code">nls97.govprovidejobs.value_counts()
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">2. Probably           617
+3. Probably not       462
+1. Definitely         454
+4. Definitely not     300
+Name: govprovidejobs, dtype: int64
+</code></pre>
+    <pre class="programlisting code-one"><code class="hljs-code">nls97[<span class="hljs-string">'govprovidejobsdefprob'</span>] = \
+  np.where(nls97.govprovidejobs.isnull(),
+    np.nan,
+      np.where(nls97.govprovidejobs.<span class="hljs-built_in">str</span>.\
+      contains(<span class="hljs-string">"not"</span>),<span class="hljs-string">"No"</span>,<span class="hljs-string">"Yes"</span>))
+pd.crosstab(nls97.govprovidejobs, nls97.govprovidejobsdefprob)
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">govprovidejobsdefprob       No       Yes
+govprovidejobs                          
+1. Definitely                0       454
+2. Probably	                0       617
+3. Probably not            462         0
+4. Definitely not          300         0
+</code></pre>
+    <ol>
+      <li class="numberedList" value="3">Handle leading or trailing spaces in a string.</li>
+    </ol>
+    <p class="normal-one">Create an ever-married<a id="_idIndexMarker525"/> Series. First, examine<a id="_idIndexMarker526"/> the values of <code class="inlineCode">maritalstatus</code>. Notice that there are two stray values indicating never-married. They are “Never-married” with an extra space at the end, unlike the other values of “Never-married” with no trailing spaces. Use <code class="inlineCode">startswith</code> and <code class="inlineCode">endswith</code> to test for a leading or trailing space, respectively. Use <code class="inlineCode">strip</code> to remove the trailing space before testing for ever-married. <code class="inlineCode">strip</code> removes leading and trailing spaces (<code class="inlineCode">lstrip</code> removes leading spaces, while <code class="inlineCode">rstrip</code> removes trailing spaces, so <code class="inlineCode">rstrip</code> would have also worked in this example):</p>
+    <pre class="programlisting code-one"><code class="hljs-code">nls97.maritalstatus.value_counts()
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">Married           3066
+Never-married     2764
+Divorced           663
+Separated          154
+Widowed             23
+Never-married        2
+Name: count, dtype: int64
+</code></pre>
+    <pre class="programlisting code-one"><code class="hljs-code">nls97.maritalstatus.<span class="hljs-built_in">str</span>.startswith(<span class="hljs-string">' '</span>).<span class="hljs-built_in">any</span>()
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">False
+</code></pre>
+    <pre class="programlisting code-one"><code class="hljs-code">nls97.maritalstatus.<span class="hljs-built_in">str</span>.endswith(<span class="hljs-string">' '</span>).<span class="hljs-built_in">any</span>()
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">True
+</code></pre>
+    <pre class="programlisting code-one"><code class="hljs-code">nls97[<span class="hljs-string">'evermarried'</span>] = \
+  np.where(nls97.maritalstatus.isnull(),np.nan,
+    np.where(nls97.maritalstatus.<span class="hljs-built_in">str</span>.\
+      strip()==<span class="hljs-string">"Never-married"</span>,<span class="hljs-string">"No"</span>,<span class="hljs-string">"Yes"</span>))
+pd.crosstab(nls97.maritalstatus, nls97.evermarried)
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">evermarried        No    Yes
+maritalstatus             
+Divorced            0    663
+Married             0   3066
+Never-married    2764      0
+Never-married       2      0
+Separated           0    154
+Widowed             0     23
+</code></pre>
+    <ol>
+      <li class="numberedList" value="4">Use <code class="inlineCode">isin</code> to compare a string value to a list of values:
+        <pre class="programlisting code-one"><code class="hljs-code">nls97[<span class="hljs-string">'receivedba'</span>] = \
+  np.where(nls97.highestdegree.isnull(),np.nan,
+    np.where(nls97.highestdegree.<span class="hljs-built_in">str</span>[<span class="hljs-number">0</span>:<span class="hljs-number">1</span>].\
+      isin([<span class="hljs-string">'4'</span>,<span class="hljs-string">'5'</span>,<span class="hljs-string">'6'</span>,<span class="hljs-string">'7'</span>]),<span class="hljs-string">"Yes"</span>,<span class="hljs-string">"</span><span class="hljs-string">No"</span>))
+pd.crosstab(nls97.highestdegree, nls97.receivedba)
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">receivedba             No      Yes
+highestdegree                  
+0. None               953        0
+1. GED               1146        0
+2. High School       3667        0
+3. Associates         737        0
+4. Bachelors            0     1673
+5. Masters              0      603
+6. PhD                  0       54
+7. Professional         0      120
+</code></pre>
+      </li>
+    </ol>
+    <p class="normal-one">We occasionally need to identify<a id="_idIndexMarker527"/> the location of a particular character<a id="_idIndexMarker528"/> in a string. This is sometimes because we need to get text before or after that point, or treat that text differently. Let’s try this with the highest degree attained column that we have already worked with. We will create a new column that does not have the number prefix. For example, <em class="italic">2. High School</em> will become <em class="italic">High School</em>.</p>
+    <ol>
+      <li class="numberedList" value="5">Use <code class="inlineCode">find</code> to get the location of the period in <code class="inlineCode">highestdegree</code> values and retrieve the text after that.</li>
+    </ol>
+    <p class="normal-one">Before we do that, we assign <em class="italic">99. Unknown</em> to missing values. This is not necessary but it helps us be clear about how we are handling all values, including the missing ones. It also adds a useful complication. After we do that, the leading numbers can be 1 or 2 digits.</p>
+    <p class="normal-one">Next, we create a lambda function, <code class="inlineCode">onlytext</code>, that we will use to identify the location of the text we want and then use it to pull that text. We then use the <code class="inlineCode">transform</code> method<a id="_idIndexMarker529"/> of the <code class="inlineCode">highestdegree</code> Series<a id="_idIndexMarker530"/> to call the <code class="inlineCode">onlytext</code> function:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">nls97.fillna({<span class="hljs-string">"highestdegree"</span>:<span class="hljs-string">"99. Unknown"</span>},
+  inplace=<span class="hljs-literal">True</span>)
+onlytext = <span class="hljs-keyword">lambda</span> x: x[x.find(<span class="hljs-string">"."</span>) + <span class="hljs-number">2</span>:]
+highestdegreenonum = nls97.highestdegree.\
+  astype(<span class="hljs-built_in">str</span>).transform(onlytext)
+highestdegreenonum.value_counts(dropna=<span class="hljs-literal">False</span>).\
+  sort_index()
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">highestdegree
+Associates       737
+Bachelors       1673
+GED             1146
+High School     3667
+Masters          603
+None             953
+PhD               54
+Professional     120
+Unknown           31
+Name: count, dtype: int64
+</code></pre>
+    <p class="normal-one">You probably noticed that there is a space between the period and the start of the text we want. To account for this, the <code class="inlineCode">onlytext</code> function pulls text starting two spaces over from the period.</p>
+    <div class="note-one">
+      <p class="normal"><strong class="keyWord">Note</strong></p>
+      <p class="normal">We did not need to name a lambda function to achieve the results we wanted. We could have just entered a lambda function in the <code class="inlineCode">transform</code> method. However, since we have a number of columns in the NLS data that have a similar prefix, it is good to have a function that we can reuse with another column.</p>
+    </div>
+    <p class="normal-one">We sometimes need to find all occurrences in a string of a certain value or a certain type of value, say a number. The pandas Series function, <code class="inlineCode">findall</code>, can be used to return one or more occurrences of a value in a string. A list is returned of the string fragments that satisfy the given criteria. Let’s do a straightforward example before moving on to a more complicated one.</p>
+    <p class="normal-one">Use <code class="inlineCode">findall</code> to count the number<a id="_idIndexMarker531"/> of times <code class="inlineCode">r</code> appears<a id="_idIndexMarker532"/> for each <code class="inlineCode">maritalstatus</code> value for the first few rows of data. First, show the values for <code class="inlineCode">maritalstatus</code>, then show the list that is returned from <code class="inlineCode">findall</code> for each value:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">nls97.maritalstatus.head()
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">personid
+100061           Married
+100139           Married
+100284     Never-married
+100292               NaN
+100583           Married
+Name: maritalstatus, dtype: object
+</code></pre>
+    <pre class="programlisting code-one"><code class="hljs-code">nls97.maritalstatus.head().<span class="hljs-built_in">str</span>.findall(<span class="hljs-string">"r"</span>)
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">personid
+100061       [r, r]
+100139       [r, r]
+100284    [r, r, r]
+100292          NaN
+100583       [r, r]
+Name: maritalstatus, dtype: object
+</code></pre>
+    <ol>
+      <li class="numberedList" value="6">Let’s also show a count of the number of times that <code class="inlineCode">r</code> appears.</li>
+    </ol>
+    <p class="normal-one">Use <code class="inlineCode">concat</code> to show the <code class="inlineCode">maritalstatus</code> value, the list from <code class="inlineCode">findall</code>, and the length of the list all on the same line:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">pd.concat([nls97.maritalstatus.head(),
+   nls97.maritalstatus.head().<span class="hljs-built_in">str</span>.findall(<span class="hljs-string">"r"</span>),
+   nls97.maritalstatus.head().<span class="hljs-built_in">str</span>.findall(<span class="hljs-string">"r"</span>).\
+       <span class="hljs-built_in">str</span>.<span class="hljs-built_in">len</span>()],
+   axis=<span class="hljs-number">1</span>)
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">             maritalstatus    maritalstatus   maritalstatus
+personid                                            
+100061             Married           [r, r]               2
+100139             Married           [r, r]               2
+100284       Never-married        [r, r, r]               3
+100292                 NaN              NaN             NaN
+100583             Married            [r, r]              2
+</code></pre>
+    <p class="normal-one">We can also use <code class="inlineCode">findall</code> to return types of values. For example, we can use a regular expression to return a list with all numbers in a string. We do that in the next couple of steps.</p>
+    <ol>
+      <li class="numberedList" value="7">Use <code class="inlineCode">findall</code> to create<a id="_idIndexMarker533"/> a list of all numbers<a id="_idIndexMarker534"/> in the <code class="inlineCode">weeklyhrstv</code> (hours spent each week watching television) string. The <code class="inlineCode">"\d+"</code> regular expression that’s passed to <code class="inlineCode">findall</code> indicates that we just want numbers:
+        <pre class="programlisting code-one"><code class="hljs-code">pd.concat([nls97.weeklyhrstv.head(),\
+<span class="hljs-meta">... </span>  nls97.weeklyhrstv.<span class="hljs-built_in">str</span>.findall(<span class="hljs-string">"\d+"</span>).head()], axis=<span class="hljs-number">1</span>)
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">           weeklyhrstv             weeklyhrstv
+personid                                      
+100061     11 to 20 hours a week      [11, 20]
+100139     3 to 10 hours a week        [3, 10]
+100284     11 to 20 hours a week      [11, 20]
+100292     NaN                             NaN
+100583     3 to 10 hours a week        [3, 10]
+</code></pre>
+      </li>
+      <li class="numberedList">Use the list created by <code class="inlineCode">findall</code> to create a numerical Series from the <code class="inlineCode">weeklyhrstv</code> text.</li>
+    </ol>
+    <p class="normal-one">Let’s define a function that retrieves the last element in the list created by <code class="inlineCode">findall</code> for each value of <code class="inlineCode">weeklyhrstv</code>. The <code class="inlineCode">getnum</code> function also adjusts that number so that it’s closer to the midpoint of the two numbers, where there is more than one number. We then use <code class="inlineCode">apply</code> to call this function, passing it the list created by <code class="inlineCode">findall</code> for each value. <code class="inlineCode">crosstab</code> shows that the new <code class="inlineCode">weeklyhrstvnum</code> column does what we want it to do:</p>
+    <pre class="programlisting code-one"><code class="hljs-code"><span class="hljs-keyword">def</span> <span class="hljs-title">getnum</span>(<span class="hljs-params">numlist</span>):
+<span class="hljs-meta">... </span>  highval = <span class="hljs-number">0</span>
+<span class="hljs-meta">... </span>  <span class="hljs-keyword">if</span> (<span class="hljs-built_in">type</span>(numlist) <span class="hljs-keyword">is</span> <span class="hljs-built_in">list</span>):
+<span class="hljs-meta">... </span>    lastval = <span class="hljs-built_in">int</span>(numlist[-<span class="hljs-number">1</span>])
+<span class="hljs-meta">... </span>    <span class="hljs-keyword">if</span> (numlist[<span class="hljs-number">0</span>]==<span class="hljs-string">'40'</span>):
+<span class="hljs-meta">... </span>      highval = <span class="hljs-number">45</span>
+<span class="hljs-meta">... </span>    <span class="hljs-keyword">elif</span> (lastval==<span class="hljs-number">2</span>):
+<span class="hljs-meta">... </span>      highval = <span class="hljs-number">1</span>
+<span class="hljs-meta">... </span>    <span class="hljs-keyword">else</span>:
+<span class="hljs-meta">... </span>      highval = lastval - <span class="hljs-number">5</span>
+<span class="hljs-meta">... </span>  <span class="hljs-keyword">else</span>:
+<span class="hljs-meta">... </span>    highval = np.nan
+<span class="hljs-meta">... </span>  <span class="hljs-keyword">return</span> highval
+...
+nls97[<span class="hljs-string">'</span><span class="hljs-string">weeklyhrstvnum'</span>] = nls97.weeklyhrstv.<span class="hljs-built_in">str</span>.\
+<span class="hljs-meta">... </span>  findall(<span class="hljs-string">"\d+"</span>).apply(getnum)
+nls97[[<span class="hljs-string">'weeklyhrstvnum'</span>,<span class="hljs-string">'weeklyhrstv'</span>]].head(<span class="hljs-number">7</span>)
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">          weeklyhrstvnum                 weeklyhrstv
+personid                                           
+100061                15       11 to 20 hours a week
+100139                 5        3 to 10 hours a week
+100284                15       11 to 20 hours a week
+100292               NaN                         NaN
+100583                 5        3 to 10 hours a week
+100833                 5        3 to 10 hours a week
+100931                 1  Less than 2 hours per week
+</code></pre>
+    <pre class="programlisting code-one"><code class="hljs-code">pd.crosstab(nls97.weeklyhrstv, nls97.weeklyhrstvnum)
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">weeklyhrstvnum                1       5      15     25     35      45
+weeklyhrstv                                                 
+11 to 20 hours a week         0       0    1145      0      0       0
+21 to 30 hours a week         0       0       0    299      0       0
+3 to 10 hours a week          0    3625       0      0      0       0
+31 to 40 hours a week         0       0       0      0    116       0
+Less than 2 hrs.           1350       0       0      0      0       0
+More than 40 hrs.             0       0       0      0      0     176
+</code></pre>
+    <ol>
+      <li class="numberedList" value="9">Replace the values<a id="_idIndexMarker535"/> in a Series with <a id="_idIndexMarker536"/>alternative values.</li>
+    </ol>
+    <p class="normal-one">The <code class="inlineCode">weeklyhrscomputer</code> (hours spent each week on a computer) Series does not sort nicely with its current values. We can fix this by replacing the values with letters that indicate order. We’ll start by creating a list containing the old values and another list containing the new values that we want. We then use the Series <code class="inlineCode">replace</code> method to replace the old values with the new values. Whenever <code class="inlineCode">replace</code> finds a value from the old values list, it replaces it with a value from the same list position in the new list:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">comphrsold = [<span class="hljs-string">'Less than 1 hour a week'</span>,
+  <span class="hljs-string">'1 to 3 hours a week'</span>,<span class="hljs-string">'4 to 6 hours a week'</span>,
+  <span class="hljs-string">'7 to 9 hours a week'</span>,<span class="hljs-string">'10 hours or more a week'</span>]
+comphrsnew = [<span class="hljs-string">'A. Less than 1 hour a week'</span>,
+  <span class="hljs-string">'B. 1 to 3 hours a week'</span>,<span class="hljs-string">'C. 4 to 6 hours a week'</span>,
+  <span class="hljs-string">'D. 7 to 9 hours a week'</span>,<span class="hljs-string">'E. 10 hours or more a week'</span>]
+nls97.weeklyhrscomputer.value_counts().sort_index()
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">1 to 3 hours a week         733
+10 hours or more a week    3669
+4 to 6 hours a week         726
+7 to 9 hours a week         368
+Less than 1 hour a week     296
+Name: weeklyhrscomputer, dtype: int64
+</code></pre>
+    <pre class="programlisting code-one"><code class="hljs-code">nls97.weeklyhrscomputer.replace(comphrsold, comphrsnew, inplace=<span class="hljs-literal">True</span>)
+nls97.weeklyhrscomputer.value_counts().sort_index()
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">A. Less than 1 hour a week     296
+B. 1 to 3 hours a week         733
+C. 4 to 6 hours a week         726
+D. 7 to 9 hours a week         368
+E. 10 hours or more a week    3669
+Name: weeklyhrscomputer, dtype: int64
+</code></pre>
+    <p class="normal">The steps in this recipe demonstrate<a id="_idIndexMarker537"/> some of the common string evaluation and manipulation<a id="_idIndexMarker538"/> tasks we can perform in pandas.</p>
+    <h2 id="_idParaDest-235" class="heading-2">How it works...</h2>
+    <p class="normal">We frequently need to examine a string to see whether there is a pattern. We can use the string <code class="inlineCode">contains</code> method to do this. If we know exactly where the expected pattern will be, we can use standard slice notation, <code class="inlineCode">[start:stop:step]</code>, to select text from start through stop-1. (The default value for <code class="inlineCode">step</code> is 1.) For example, in <em class="italic">step 4</em>, we got the first character from <code class="inlineCode">highestdegree</code> with <code class="inlineCode">nls97.highestdegree.str[0:1]</code>. We then used <code class="inlineCode">isin</code> to test whether the first string appears in a list of values. (<code class="inlineCode">isin</code> works for both character and numeric data.)</p>
+    <p class="normal">Sometimes, we need to pull multiple values from a string that satisfy a condition. <code class="inlineCode">findall</code> is helpful in those situations as it returns a list of all values satisfying the condition. It can be paired with a regular expression<a id="_idIndexMarker539"/> when we are looking<a id="_idIndexMarker540"/> for something more general than a literal. In <em class="italic">steps 8</em> and <em class="italic">9</em>, we were looking for any number.</p>
+    <h2 id="_idParaDest-236" class="heading-2">There’s more…</h2>
+    <p class="normal">It is important to be deliberate while handling missing values when creating a Series based on values for another Series. Missing values may satisfy the <code class="inlineCode">else</code> condition in a <code class="inlineCode">where</code> call when that is not our intention. In <em class="italic">steps 2</em>, <em class="italic">3</em>, and <em class="italic">4</em>, we made sure that we handled the missing values appropriately by testing for them at the beginning of the <code class="inlineCode">where</code> call.</p>
+    <p class="normal">We also need to be careful about the casing of the letters when making string comparisons. For example, <code class="inlineCode">Probably</code> and <code class="inlineCode">probably</code> are not equal. One way to get around this is to use the <code class="inlineCode">upper</code> or <code class="inlineCode">lower</code> methods when doing comparisons when a potential difference in case is not meaningful. <code class="inlineCode">upper("Probably") == upper("PROBABLY")</code> is actually <code class="inlineCode">True</code>.</p>
+    <h1 id="_idParaDest-237" class="heading-1">Working with dates</h1>
+    <p class="normal">Working with dates<a id="_idIndexMarker541"/> is rarely straightforward. Data analysts need to successfully parse date values, identify invalid or out-of-range dates, impute dates when they’re missing, and calculate time intervals. There are surprising hurdles at each of these steps, but we are halfway there once we’ve parsed the date value and have a datetime value in pandas. We will start by parsing date values in this recipe before working our way through the other challenges.</p>
+    <h2 id="_idParaDest-238" class="heading-2">Getting ready</h2>
+    <p class="normal">We will work with the NLS and COVID-19 case daily data in this recipe. The COVID-19 daily data contains one row for each reporting day for each country. (The NLS data was actually a little too clean for this purpose. To illustrate working with missing date values, I set one of the values for birth month to missing.)</p>
+    <div class="note">
+      <p class="normal"><strong class="keyWord">Data note</strong></p>
+      <p class="normal">Our World in Data provides COVID-19 public use data at <a href="https://ourworldindata.org/covid-cases"><span class="url">https://ourworldindata.org/covid-cases</span></a>. The data used in this recipe was downloaded on March 3, 2024.</p>
+    </div>
+    <h2 id="_idParaDest-239" class="heading-2">How to do it…</h2>
+    <p class="normal">In this recipe, we will convert<a id="_idIndexMarker542"/> numeric data into datetime data, first by confirming that the data has valid date values and then by using <code class="inlineCode">fillna</code> to replace missing dates. We will then calculate some date intervals; that is, the age of respondents for the NLS data and the days since the first COVID-19 case for the COVID-19 daily data. Let’s get started:</p>
+    <ol>
+      <li class="numberedList" value="1">Import <code class="inlineCode">pandas</code> and the <code class="inlineCode">relativedelta</code> module from <code class="inlineCode">dateutils</code>, and then load the NLS and COVID-19 case daily data:
+        <pre class="programlisting code-one"><code class="hljs-code"><span class="hljs-keyword">import</span> pandas <span class="hljs-keyword">as</span> pd
+<span class="hljs-keyword">from</span> dateutil.relativedelta <span class="hljs-keyword">import</span> relativedelta
+covidcases = pd.read_csv(<span class="hljs-string">"data/covidcases.csv"</span>)
+nls97 = pd.read_csv(<span class="hljs-string">"data/nls97c.csv"</span>)
+nls97.set_index(<span class="hljs-string">"personid"</span>, inplace=<span class="hljs-literal">True</span>)
+</code></pre>
+      </li>
+      <li class="numberedList">Show the birth month and year values.</li>
+    </ol>
+    <p class="normal-one">Notice that there is one missing value for birth month. Other than that, the data that we will use to create the <code class="inlineCode">birthdate</code> Series looks pretty clean:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">nls97[[<span class="hljs-string">'birthmonth'</span>,<span class="hljs-string">'birthyear'</span>]].isnull().<span class="hljs-built_in">sum</span>()
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">birthmonth    1
+birthyear     0
+dtype: int64
+</code></pre>
+    <pre class="programlisting code-one"><code class="hljs-code">nls97.birthmonth.value_counts(dropna=<span class="hljs-literal">False</span>).\
+  sort_index()
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">birthmonth
+1      815
+2      693
+3      760
+4      659
+5      689
+6      720
+7      762
+8      782
+9      839
+10     765
+11     763
+12     736
+NaN      1
+Name: count, dtype: int64
+</code></pre>
+    <pre class="programlisting code-one"><code class="hljs-code">nls97.birthyear.value_counts().sort_index()
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">1980     1691
+1981     1874
+1982     1841
+1983     1807
+1984     1771
+Name: birthyear, dtype: int64
+</code></pre>
+    <ol>
+      <li class="numberedList" value="3">Use the <code class="inlineCode">fillna</code> method<a id="_idIndexMarker543"/> to set a value for the missing birth month.</li>
+    </ol>
+    <p class="normal-one">Pass the average of <code class="inlineCode">birthmonth</code>, rounded to the nearest integer, to <code class="inlineCode">fillna</code>. This will replace the missing value for <code class="inlineCode">birthmonth</code> with the mean of <code class="inlineCode">birthmonth</code>. Notice that one more person now has a value of 6 for <code class="inlineCode">birthmonth</code>:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">nls97.fillna({<span class="hljs-string">"</span><span class="hljs-string">birthmonth"</span>:\
+ <span class="hljs-built_in">int</span>(nls97.birthmonth.mean())}, inplace=<span class="hljs-literal">True</span>)
+nls97.birthmonth.value_counts(dropna=<span class="hljs-literal">False</span>).\
+  sort_index()
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">birthmonth
+1     815
+2     693
+3     760
+4     659
+5     689
+6     721
+7     762
+8     782
+9     839
+10    765
+11    763
+12    736
+Name: count, dtype: int64
+</code></pre>
+    <ol>
+      <li class="numberedList" value="4">Use <code class="inlineCode">month</code> and year <code class="inlineCode">integers</code> to create a datetime column.</li>
+    </ol>
+    <p class="normal-one">We can pass a dictionary<a id="_idIndexMarker544"/> to the pandas <code class="inlineCode">to_datetime</code> function. The dictionary needs to contain a key for year, month, and day. Notice that there are no missing values for <code class="inlineCode">birthmonth</code>, <code class="inlineCode">birthyear</code>, and <code class="inlineCode">birthdate</code>:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">nls97[<span class="hljs-string">'birthdate'</span>] = pd.to_datetime(<span class="hljs-built_in">dict</span>(year=nls97.birthyear, month=nls97.birthmonth, day=<span class="hljs-number">15</span>))
+nls97[[<span class="hljs-string">'birthmonth'</span>,<span class="hljs-string">'birthyear'</span>,<span class="hljs-string">'birthdate'</span>]].head()
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">           birthmonth     birthyear             birthdate
+personid                                                 
+100061     5              1980                 1980-05-15
+100139     9              1983                 1983-09-15
+100284     11             1984                 1984-11-15
+100292     4              1982                 1982-04-15
+100583     6              1980                 1980-06-15
+</code></pre>
+    <pre class="programlisting code-one"><code class="hljs-code">nls97[[<span class="hljs-string">'birthmonth'</span>,<span class="hljs-string">'</span><span class="hljs-string">birthyear'</span>,<span class="hljs-string">'birthdate'</span>]].isnull().<span class="hljs-built_in">sum</span>()
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">birthmonth    0
+birthyear     0
+birthdate     0
+dtype: int64
+</code></pre>
+    <ol>
+      <li class="numberedList" value="5">Calculate age using a datetime column.</li>
+    </ol>
+    <p class="normal-one">First, define a function that will calculate age when given a start date and an end date. Notice that we create a <strong class="keyWord">Timestamp</strong> object, <code class="inlineCode">rundate</code>, and assign it a value of <code class="inlineCode">2024-03-01</code> to use for the end date of our age calculation:</p>
+    <pre class="programlisting code-one"><code class="hljs-code"><span class="hljs-keyword">def</span> <span class="hljs-title">calcage</span>(<span class="hljs-params">startdate, enddate</span>):
+<span class="hljs-meta">... </span>  age = enddate.year - startdate.year
+<span class="hljs-meta">... </span>  <span class="hljs-keyword">if</span> (enddate.month&lt;startdate.month <span class="hljs-keyword">or</span> (enddate.month==startdate.month <span class="hljs-keyword">and</span> enddate.day&lt;startdate.day)):
+<span class="hljs-meta">... </span>    age = age -<span class="hljs-number">1</span>
+<span class="hljs-meta">... </span>  <span class="hljs-keyword">return</span> age
+...
+rundate = pd.to_datetime(<span class="hljs-string">'2024-03-01'</span>)
+nls97[<span class="hljs-string">"age"</span>] = nls97.apply(<span class="hljs-keyword">lambda</span> x: calcage(x.birthdate, rundate), axis=<span class="hljs-number">1</span>)
+nls97.loc[<span class="hljs-number">100061</span>:<span class="hljs-number">100583</span>, [<span class="hljs-string">'age'</span>,<span class="hljs-string">'birthdate'</span>]]
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">          age     birthdate
+personid                   
+100061     43    1980-05-15
+100139     40    1983-09-15
+100284     39    1984-11-15
+100292     41    1982-04-15
+100583     43    1980-06-15
+</code></pre>
+    <ol>
+      <li class="numberedList" value="6">We can use the <code class="inlineCode">relativedelta</code> module<a id="_idIndexMarker545"/> instead for the age calculation. We just need to do the following:
+        <pre class="programlisting code-one"><code class="hljs-code">nls97[<span class="hljs-string">"age2"</span>] = nls97.\
+  apply(<span class="hljs-keyword">lambda</span> x: relativedelta(rundate,
+    x.birthdate).years,
+    axis=<span class="hljs-number">1</span>)
+</code></pre>
+      </li>
+      <li class="numberedList">We should confirm that we get the same values as in <em class="italic">step 5</em>:
+        <pre class="programlisting code-one"><code class="hljs-code">(nls97[<span class="hljs-string">'age'</span>]!=nls97[<span class="hljs-string">'age2'</span>]).<span class="hljs-built_in">sum</span>()
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">0
+</code></pre>
+        <pre class="programlisting code-one"><code class="hljs-code">nls97.groupby([<span class="hljs-string">'age'</span>,<span class="hljs-string">'age2'</span>]).size()
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">age  age2
+39   39      1463
+40   40      1795
+41   41      1868
+42   42      1874
+43   43      1690
+44   44       294
+dtype: int64
+</code></pre>
+      </li>
+      <li class="numberedList">Convert a string column into a datetime column.</li>
+    </ol>
+    <p class="normal-one">The <code class="inlineCode">casedate</code> column is an <code class="inlineCode">object</code> data type, not a <code class="inlineCode">datetime</code> data type:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">covidcases.iloc[:, <span class="hljs-number">0</span>:<span class="hljs-number">6</span>].dtypes
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">iso_code        object
+continent       object
+location        object
+casedate        object
+total_cases	   float64
+new_cases       float64
+dtype: object
+</code></pre>
+    <pre class="programlisting code-one"><code class="hljs-code">covidcases.iloc[:, <span class="hljs-number">0</span>:<span class="hljs-number">6</span>].sample(<span class="hljs-number">2</span>, random_state=<span class="hljs-number">1</span>).T
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">                    628         26980
+iso_code            AND           PRT
+casedate     2020-03-15    2022-12-04
+continent        Europe        Europe
+location        Andorra      Portugal
+total_cases           2     5,541,211
+new_cases             1         3,963
+</code></pre>
+    <pre class="programlisting code-one"><code class="hljs-code">covidcases[<span class="hljs-string">'casedate'</span>] = pd.to_datetime(covidcases.casedate, <span class="hljs-built_in">format</span>=<span class="hljs-string">'%Y-%m-%d'</span>)
+covidcases.iloc[:, <span class="hljs-number">0</span>:<span class="hljs-number">6</span>].dtypes
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">iso_code             object
+continent            object
+location             object
+casedate     datetime64[ns]
+total_cases         float64
+new_cases           float64
+dtype: object
+</code></pre>
+    <ol>
+      <li class="numberedList" value="9">Show descriptive statistics<a id="_idIndexMarker546"/> for the datetime column:
+        <pre class="programlisting code-one"><code class="hljs-code">covidcases.casedate.nunique()
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">214
+</code></pre>
+        <pre class="programlisting code-one"><code class="hljs-code">covidcases.casedate.describe()
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">count                            36501
+mean     2021-12-16 05:41:07.954302720
+min                2020-01-05 00:00:00
+25%                2021-01-31 00:00:00
+50%                2021-12-12 00:00:00
+75%                2022-10-09 00:00:00
+max                2024-02-04 00:00:00
+Name: casedate, dtype: object
+</code></pre>
+      </li>
+      <li class="numberedList">Create a <code class="inlineCode">timedelta</code> object to capture a date interval.</li>
+    </ol>
+    <p class="normal-one">For each day, calculate the number<a id="_idIndexMarker547"/> of days since the first case was reported for each country. First, create a DataFrame that shows the first day of new cases for each country and then merge it with the full COVID-19 cases data. Then, for each day, calculate the number of days from <code class="inlineCode">firstcasedate</code> to <code class="inlineCode">casedate</code>:</p>
+    <pre class="programlisting code-one"><code class="hljs-code">firstcase = covidcases.loc[covidcases.new_cases&gt;<span class="hljs-number">0</span>,[<span class="hljs-string">'location'</span>,<span class="hljs-string">'casedate'</span>]].\
+<span class="hljs-meta">... </span>  sort_values([<span class="hljs-string">'location'</span>,<span class="hljs-string">'casedate'</span>]).\
+<span class="hljs-meta">... </span>  drop_duplicates([<span class="hljs-string">'location'</span>], keep=<span class="hljs-string">'first'</span>).\
+<span class="hljs-meta">... </span>  rename(columns={<span class="hljs-string">'casedate'</span>:<span class="hljs-string">'firstcasedate'</span>})
+covidcases = pd.merge(covidcases, firstcase, left_on=[<span class="hljs-string">'location'</span>], right_on=[<span class="hljs-string">'location'</span>], how=<span class="hljs-string">"left"</span>)
+covidcases[<span class="hljs-string">'dayssincefirstcase'</span>] = covidcases.casedate - covidcases.firstcasedate
+covidcases.dayssincefirstcase.describe()
+</code></pre>
+    <pre class="programlisting con-one"><code class="hljs-con">count                          36501
+mean     637 days 01:36:55.862579112
+std      378 days 15:34:06.667833980
+min                  0 days 00:00:00
+25%                315 days 00:00:00
+50%                623 days 00:00:00
+75%                931 days 00:00:00
+max               1491 days 00:00:00
+Name: dayssincefirstcase, dtype: object
+</code></pre>
+    <p class="normal">This recipe showed how it’s possible to parse date values and create a datetime Series, as well as how to calculate time intervals.</p>
+    <h2 id="_idParaDest-240" class="heading-2">How it works…</h2>
+    <p class="normal">The first task when working<a id="_idIndexMarker548"/> with dates in pandas is converting them properly into a pandas datetime Series. We tackled a couple of the most common issues in <em class="italic">steps 3</em>, <em class="italic">4</em>, and <em class="italic">8</em>: missing values, date conversion from integer parts, and date conversion from strings. <code class="inlineCode">birthmonth</code> and <code class="inlineCode">birthyear</code> are integers in the NLS data. We confirmed that those values are valid values for date months and date years. If, for example, there were month values of 0 or 20, the conversion to pandas datetime would fail.</p>
+    <p class="normal">Missing values for <code class="inlineCode">birthmonth</code> or <code class="inlineCode">birthyear</code> will result in a missing <code class="inlineCode">birthdate</code>. We used <code class="inlineCode">fillna</code> for the missing value for <code class="inlineCode">birthmonth</code>, assigning it to the mean value of <code class="inlineCode">birthmonth</code>. In <em class="italic">step 5</em>, we calculated an age for each person as of March 1, 2024, using the new <code class="inlineCode">birthdate</code> column. The <code class="inlineCode">calcage</code> function that we created adjusts for individuals whose birth dates come later in the year than March 1.</p>
+    <p class="normal">Data analysts often receive data files containing date values as strings. The <code class="inlineCode">to_datetime</code> function is the analyst’s key ally when this happens. It is often smart enough to figure out the format of the string date data without us having to specify a format explicitly. However, in <em class="italic">step 8</em>, we told <code class="inlineCode">to_datetime</code> to use the <code class="inlineCode">%Y-%m-%d</code> format with our data.</p>
+    <p class="normal"><em class="italic">Step 9</em> told us that there were 214 unique days where COVID-19 cases were reported. The first reported day was January 5, 2020, and the last was February 4, 2024.</p>
+    <p class="normal">The first two statements in <em class="italic">step 10</em> involved techniques (sorting and dropping duplicates) that we will not explore in detail until <em class="chapterRef">Chapter 9</em>, <em class="italic">Fixing Messy Data When Aggregating</em>, and <em class="chapterRef">Chapter 10</em>, <em class="italic">Addressing Data Issues When Combining DataFrames</em>. All you need to understand here is the objective: creating a DataFrame with one row per <code class="inlineCode">location</code> (country), and with the date of the first reported COVID-19 case. We did this by only selecting rows from the full data where <code class="inlineCode">new_cases</code> is greater than 0, before sorting that by <code class="inlineCode">location</code> and <code class="inlineCode">casedate</code> and keeping the first row for each <code class="inlineCode">location</code>. We then changed the name of <code class="inlineCode">casedate</code> to <code class="inlineCode">firstcasedate</code> before merging the new <code class="inlineCode">firstcase</code> DataFrame with the COVID-19 daily cases data.</p>
+    <p class="normal">Since both <code class="inlineCode">casedate</code> and <code class="inlineCode">firstcasedate</code> are datetime columns, subtracting the latter from the former will result in a timedelta value. This gives us a Series that is the number of days after the first day of <code class="inlineCode">new_cases</code> for each country for each reporting day. The greatest duration (<code class="inlineCode">dayssincefirstcase</code>) between a reported case date (<code class="inlineCode">casedate</code>) and date of first case (<code class="inlineCode">firstcasedate</code>) is 1491 days, or just over 4 years. This interval calculation is useful if we want to track trends by how long the virus has been obviously present <a id="_idIndexMarker549"/>in a country, rather than by date.</p>
+    <h2 id="_idParaDest-241" class="heading-2">See also</h2>
+    <p class="normal">Instead of using <code class="inlineCode">sort_values</code> and <code class="inlineCode">drop_duplicates</code> in <em class="italic">step 10</em>, we could have used <code class="inlineCode">groupby</code> to achieve similar results. We’ll explore <code class="inlineCode">groupby</code> a fair bit in <em class="chapterRef">Chapter 9</em>, <em class="italic">Fixing Messy Data When Aggregating</em>. We also did a merge in <em class="italic">step 10</em>. <em class="chapterRef">Chapter 10</em>, <em class="italic">Addressing Data Issues When Combining DataFrames</em>, will be devoted to this topic.</p>
+    <h1 id="_idParaDest-242" class="heading-1">Using OpenAI for Series operations</h1>
+    <p class="normal">Many of the Series operations<a id="_idIndexMarker550"/> demonstrated in the previous recipes in this chapter<a id="_idIndexMarker551"/> can be assisted by AI tools, including by PandasAI, with the large language model from OpenAI. In this recipe, we examine how to use PandasAI to query Series values, create new Series, set Series values conditionally, and do some rudimentary reshaping of DataFrames.</p>
+    <h2 id="_idParaDest-243" class="heading-2">Getting ready</h2>
+    <p class="normal">We will work with the NLS and COVID-19 case daily data again in this recipe. We will also work with PandasAI, which can be installed with <code class="inlineCode">pip install pandasai</code>. You also need to get a token from <a href="https://openai.com"><span class="url">openai.com</span></a> to send a request to the OpenAI API.</p>
+    <h2 id="_idParaDest-244" class="heading-2">How to do it...</h2>
+    <p class="normal">The following steps create a PandasAI <code class="inlineCode">SmartDataframe</code> object, and then use the chat method of that object to submit natural language instructions for a range of Series operations:</p>
+    <ol>
+      <li class="numberedList" value="1">We first need to import the <code class="inlineCode">OpenAI</code> and <code class="inlineCode">SmartDataframe</code> modules from PandasAI. We also have to instantiate an <code class="inlineCode">llm</code> object:
+        <pre class="programlisting code-one"><code class="hljs-code"><span class="hljs-keyword">import</span> pandas <span class="hljs-keyword">as</span> pd
+<span class="hljs-keyword">from</span> pandasai.llm.openai <span class="hljs-keyword">import</span> OpenAI
+<span class="hljs-keyword">from</span> pandasai <span class="hljs-keyword">import</span> SmartDataframe
+llm = OpenAI(api_token=<span class="hljs-string">"Your API Token"</span>)
+</code></pre>
+      </li>
+      <li class="numberedList">We load the NLS and COVID-19 data and create a <code class="inlineCode">SmartDateFrame</code> object. We pass the <code class="inlineCode">llm</code> object as well as a pandas DataFrame:
+        <pre class="programlisting code-one"><code class="hljs-code">covidcases = pd.read_csv(<span class="hljs-string">"data/covidcases.csv"</span>)
+nls97 = pd.read_csv(<span class="hljs-string">"data/nls97f.csv"</span>)
+nls97.set_index(<span class="hljs-string">"personid"</span>, inplace=<span class="hljs-literal">True</span>)
+nls97sdf = SmartDataframe(nls97, config={<span class="hljs-string">"llm"</span>: llm})
+</code></pre>
+      </li>
+      <li class="numberedList">Now we are ready to generate<a id="_idIndexMarker552"/> summary statistics on Series <a id="_idIndexMarker553"/>from our <code class="inlineCode">SmartDataframe</code>. We can ask for the average for a single Series, or for multiple Series:
+        <pre class="programlisting code-one"><code class="hljs-code">nls97sdf.chat(<span class="hljs-string">"Show average of gpaoverall"</span>)
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">2.8184077281812128
+</code></pre>
+        <pre class="programlisting code-one"><code class="hljs-code">nls97sdf.chat(<span class="hljs-string">"Show average for each weeks worked column"</span>)
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">               Average Weeks Worked
+                  0
+weeksworked00 26.42
+weeksworked01 29.78
+weeksworked02 31.83
+weeksworked03 33.51
+weeksworked04 35.10
+weeksworked05 37.34
+weeksworked06 38.44
+weeksworked07 39.29
+weeksworked08 39.33
+weeksworked09 37.51
+weeksworked10 37.12
+weeksworked11 38.06
+weeksworked12 38.15
+weeksworked13 38.79
+weeksworked14 38.73
+weeksworked15 39.67
+weeksworked16 40.19
+weeksworked17 40.37
+weeksworked18 40.01
+weeksworked19 41.22
+weeksworked20 38.35
+weeksworked21 36.17
+weeksworked22 11.43
+</code></pre>
+      </li>
+      <li class="numberedList">We can also summarize Series values by another Series, usually one that is categorical:
+        <pre class="programlisting code-one"><code class="hljs-code">nls97sdf.chat(<span class="hljs-string">"Show satmath average by gender"</span>)
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">   Female   Male
+0  486.65 516.88
+</code></pre>
+      </li>
+      <li class="numberedList">We can also create a new Series<a id="_idIndexMarker554"/> with the <code class="inlineCode">chat</code> method<a id="_idIndexMarker555"/> of <code class="inlineCode">SmartDataframe</code>. We do not need to use the actual column names. For example, PandasAI will figure out that we want the <code class="inlineCode">childathome</code> Series when we write <em class="italic">child at home</em>:
+        <pre class="programlisting code-one"><code class="hljs-code">nls97sdf = nls97sdf.chat(<span class="hljs-string">"Set childnum to child at home plus child not at home"</span>)
+nls97sdf[[<span class="hljs-string">'childnum'</span>,<span class="hljs-string">'childathome'</span>,<span class="hljs-string">'childnotathome'</span>]].\
+  sample(<span class="hljs-number">5</span>, random_state=<span class="hljs-number">1</span>)
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">          childnum  childathome  childnotathome
+personid                                      
+211230        2.00         2.00            0.00
+990746        3.00         3.00            0.00
+308169        3.00         1.00            2.00
+798458         NaN          NaN             NaN
+312009         NaN          NaN             NaN
+</code></pre>
+      </li>
+      <li class="numberedList">We can use the <code class="inlineCode">chat</code> method to create Series values conditionally:
+        <pre class="programlisting code-one"><code class="hljs-code">nls97sdf = nls97sdf.chat(<span class="hljs-string">"evermarried is 'No' when maritalstatus is 'Never-married', else 'Yes'"</span>)
+nls97sdf.groupby([<span class="hljs-string">'</span><span class="hljs-string">evermarried'</span>,<span class="hljs-string">'maritalstatus'</span>]).size()
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">evermarried  maritalstatus
+No           Never-married    2767
+Yes          Divorced          669
+             Married          3068
+             Separated         148
+             Widowed            23
+dtype: int64
+</code></pre>
+      </li>
+      <li class="numberedList">PandasAI is quite flexible regarding<a id="_idIndexMarker556"/> the language you might use<a id="_idIndexMarker557"/> here. For example, the following provides the same results as in <em class="italic">step 6</em>:
+        <pre class="programlisting code-one"><code class="hljs-code">nls97sdf = nls97sdf.chat(<span class="hljs-string">"if maritalstatus is 'Never-married' set evermarried2 to 'No', otherwise 'Yes'"</span>)
+nls97sdf.groupby([<span class="hljs-string">'evermarried2'</span>,<span class="hljs-string">'maritalstatus'</span>]).size()
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">evermarried2  maritalstatus
+No            Never-married    2767
+Yes           Divorced          669
+              Married          3068
+              Separated         148
+              Widowed            23
+dtype: int64
+</code></pre>
+      </li>
+      <li class="numberedList">We can do calculations across a number of similarly named columns:
+        <pre class="programlisting code-one"><code class="hljs-code">nls97sdf = nls97sdf.chat(<span class="hljs-string">"set weeksworkedavg to the average for weeksworked columns"</span>)
+</code></pre>
+      </li>
+    </ol>
+    <p class="normal-one">This will calculate the average of all <code class="inlineCode">weeksworked00</code>-<code class="inlineCode">weeksworked22</code> columns and assign that to a new column called <code class="inlineCode">weeksworkedavavg</code>.</p>
+    <ol>
+      <li class="numberedList" value="9">We can easily impute values where they are missing based on summary statistics:
+        <pre class="programlisting code-one"><code class="hljs-code">nls97sdf.gpaenglish.describe()
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">count   5,798
+mean      273
+std        74
+min         0
+25%       227
+50%       284
+75%       323
+max       418
+Name: gpaenglish, dtype: float64
+</code></pre>
+        <pre class="programlisting code-one"><code class="hljs-code">nls97sdf = nls97sdf.chat(<span class="hljs-string">"set missing gpaenglish to the average"</span>)
+nls97sdf.gpaenglish.describe()
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">count   8,984
+mean      273
+std        59
+min         0
+25%       264
+50%       273
+75%       298
+max       418
+Name: gpaenglish, dtype: float64
+</code></pre>
+      </li>
+      <li class="numberedList">We can also use PandasAI to do some<a id="_idIndexMarker558"/> reshaping, similar to what we did in the previous<a id="_idIndexMarker559"/> recipe. Recall that we worked with the COVID-19 cases data and wanted the first row of data for each country. Let’s do a simplified version of that the traditional way first:
+        <pre class="programlisting code-one"><code class="hljs-code">firstcase = covidcases.\
+  sort_values([<span class="hljs-string">'location'</span>,<span class="hljs-string">'casedate'</span>]).\
+  drop_duplicates([<span class="hljs-string">'location'</span>], keep=<span class="hljs-string">'first'</span>)
+firstcase.set_index(<span class="hljs-string">'location'</span>, inplace=<span class="hljs-literal">True</span>)
+firstcase.shape
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">(231, 67)
+</code></pre>
+        <pre class="programlisting code-one"><code class="hljs-code">firstcase[[<span class="hljs-string">'iso_code'</span>,<span class="hljs-string">'continent'</span>,<span class="hljs-string">'casedate'</span>,
+  <span class="hljs-string">'total_cases'</span>,<span class="hljs-string">'new_cases'</span>]].head(<span class="hljs-number">2</span>).T
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">location       Afghanistan        Albania
+iso_code               AFG            ALB
+continent             Asia         Europe
+casedate        2020-03-01     2020-03-15
+total_cases           1.00          33.00
+new_cases             1.00          33.00
+</code></pre>
+      </li>
+      <li class="numberedList">We can get the same results by creating a <code class="inlineCode">SmartDataframe</code> and using the <code class="inlineCode">chat</code> method. The natural language I use here is remarkably straightforward, <em class="italic">Show first casedate and location and other values for each country</em>:
+        <pre class="programlisting code-one"><code class="hljs-code">covidcasessdf = SmartDataframe(covidcases, config={<span class="hljs-string">"llm"</span>: llm})
+firstcasesdf = covidcasessdf.chat(<span class="hljs-string">"Show first casedate and location and other values for each country."</span>)
+firstcasesdf.shape
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">(231, 7)
+</code></pre>
+        <pre class="programlisting code-one"><code class="hljs-code">firstcasesdf[[<span class="hljs-string">'location'</span>,<span class="hljs-string">'</span><span class="hljs-string">continent'</span>,<span class="hljs-string">'casedate'</span>,
+  <span class="hljs-string">'total_cases'</span>,<span class="hljs-string">'new_cases'</span>]].head(<span class="hljs-number">2</span>).T
+</code></pre>
+        <pre class="programlisting con-one"><code class="hljs-con">iso_code                  ABW             AFG
+location                Aruba     Afghanistan
+continent       North America            Asia
+casedate           2020-03-22      2020-03-01
+total_cases              5.00            1.00
+new_cases                5.00            1.00
+</code></pre>
+      </li>
+    </ol>
+    <p class="normal-one">Notice that PandasAI makes smart choices about the columns to get. We get the columns we need rather than all of them. We could have also just passed the names of the columns we wanted to the <code class="inlineCode">chat</code>.</p>
+    <p class="normal-one">That’s a little PandasAI and OpenAI<a id="_idIndexMarker560"/> magic for you! One pretty ordinary sentence <a id="_idIndexMarker561"/>passed to the <code class="inlineCode">chat</code> method did all of the work for us.</p>
+    <h2 id="_idParaDest-245" class="heading-2">How it works…</h2>
+    <p class="normal">Much of the work when using PandasAI is really just importing the relevant libraries and instantiating large language model and <code class="inlineCode">SmartDataframe</code> objects. Once that’s done, simple sentences sent to the <code class="inlineCode">chat</code> method of the <code class="inlineCode">SmartDataframe</code> are sufficient to summarize Series values and create new Series.</p>
+    <p class="normal">PandasAI excels at generating simple statistics from Series. We don’t even need to remember the Series name exactly, as we saw in <em class="italic">step 3</em>. Often the natural language we might use can be more intuitive than traditional pandas methods like <code class="inlineCode">groupby</code>. The <em class="italic">Show satmath average by gender</em> value passed to <code class="inlineCode">chat</code> in <em class="italic">step 4</em> is a good example of that.</p>
+    <p class="normal">Operations on Series, including the creation of a new Series, is also quite straightforward. In <em class="italic">step 5</em>, we create a total number of children Series (<em class="italic">childnum</em>) by instructing the <code class="inlineCode">SmartDataframe</code> to add the number of children living at home to the number of children not living at home. We don’t even provide the literal Series names, <em class="italic">childathome</em> and <em class="italic">childnotathome</em> respectively. PandasAI figures out what we mean.</p>
+    <p class="normal"><em class="italic">Steps 6 </em>and<em class="italic"> 7</em> demonstrate the flexibility that being able to use natural language for our Series operations provides. We get the same result if we pass <em class="italic">evermarried is ‘No’ when maritalstatus is ‘Never-married’, else ‘Yes’</em> to <code class="inlineCode">chat</code> in <em class="italic">step 6</em> or <em class="italic">if maritalstatus is ‘Never-married’ set evermarried2 to ‘No’, otherwise ‘Yes’</em> in <em class="italic">step 7</em>.</p>
+    <p class="normal">We can also do fairly extensive DataFrame reshaping with simple natural language instructions, as in <em class="italic">step 11</em>. We add <em class="italic">and other values</em> to the instructions to get columns other than <em class="italic">casedate</em>. PandasAI also figures<a id="_idIndexMarker562"/> out that <em class="italic">location</em> makes sense<a id="_idIndexMarker563"/> as the index.</p>
+    <h2 id="_idParaDest-246" class="heading-2">There’s more...</h2>
+    <p class="normal">Given that PandasAI tools are still so new, data scientists are just figuring out now how to best integrate these tools into our data cleaning and analysis workflow. There are two obvious use cases for PandasAI: 1) checking the accuracy of Series operations we do in a more traditional way, and 2) doing Series operations in a more intuitive way when pandas or NumPy tools are somewhat less straightforward, such as with pandas <code class="inlineCode">groupby</code> or the NumPy <code class="inlineCode">where</code> function.</p>
+    <p class="normal">PandasAI can also be used to build interactive interfaces for querying a data store, such as a data dashboard. We can use AI tools to help end users interrogate organizational data more effectively. As we saw in <em class="chapterRef">Chapter 3</em>, <em class="italic">Taking the Measure of Your Data</em>, PandasAI is also great for quickly creating visualizations.</p>
+    <h2 id="_idParaDest-247" class="heading-2">See also</h2>
+    <p class="normal">We do much more aggregating of data in <em class="chapterRef">Chapter 9</em>, <em class="italic">Fixing Messy Data When Aggregating</em>, including aggregating data across rows and resampling of date and time data.</p>
+    <h1 id="_idParaDest-248" class="heading-1">Summary</h1>
+    <p class="normal">This chapter explored a wide range of pandas Series methods for exploring and handling data of different types: numeric, strings, and dates. We learned how to get values from and generate summary statistics from a Series. We also learned how to update Series values, and how to do that for subsets of data or conditionally. We also explored specific challenges of working with string or date Series, and how to use Series methods to address those challenges. Finally, we saw how PandasAI could be used to explore and make changes to Series. In the next chapter, we will explore how to identify and fix missing values.</p>
+    <h1 class="heading-1">Join our community on Discord</h1>
+    <p class="normal">Join our community’s Discord space for discussions with the author and other readers:</p>
+    <p class="normal"><a href="https://discord.gg/p8uSgEAETX "><span class="url">https://discord.gg/p8uSgEAETX</span></a></p>
+    <p class="normal"><img src="../Images/QR_Code10336218961138498953.png" alt="" role="presentation"/></p>
+  </div>
+</body></html>
