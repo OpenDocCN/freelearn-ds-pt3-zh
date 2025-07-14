@@ -1,0 +1,551 @@
+<html><head></head><body>
+  <div id="_idContainer172" class="Basic-Text-Frame">
+    <h1 class="chapterNumber">4</h1>
+    <h1 id="_idParaDest-97" class="chapterTitle">Setting a Strong Baseline Forecast</h1>
+    <p class="normal">In the previous chapter, we <a id="_idIndexMarker264"/>saw some techniques we can use to understand <strong class="keyWord">time series data</strong>, do some <strong class="keyWord">Exploratory Data Analysis</strong> (<strong class="keyWord">EDA</strong>), and so on. But now, let’s get <a id="_idIndexMarker265"/>to the crux of the matter—<strong class="keyWord">time series forecasting</strong>. The <a id="_idIndexMarker266"/>point of understanding the dataset and looking at patterns, seasonality, and so on was to make the job of forecasting that series easier. And with any machine learning exercise, one of the first things we need to establish before going further <a id="_idIndexMarker267"/>is a <strong class="keyWord">baseline</strong>.</p>
+    <p class="normal">A baseline is a simple model that provides reasonable results without requiring a lot of time to come up with them. Many people think of a baseline as something that is derived from common sense, such as an average or some rule of thumb. But as a best practice, a baseline can be as sophisticated as we want it to be, so long as it is quickly and easily implemented. Any further progress we want to make will be in terms of the performance of this baseline.</p>
+    <p class="normal">In this chapter, we will look at a few classical techniques that can be used as baselines, and strong baselines at that. Some may feel that the forecasting techniques we will be discussing in this chapter shouldn’t be baselines, but we are keeping them in here because these techniques have stood the test of time—and for good reason. They are also very mature and can be applied with very little effort, thanks to the awesome open source libraries that implement them. There can be many types of problems/datasets where it is difficult to beat the baseline techniques we will discuss in this chapter, and in those cases, there is no shame in just sticking to one of these baseline techniques.</p>
+    <p class="normal">In this chapter, we will cover the following topics:</p>
+    <ul>
+      <li class="bulletList">Setting up a test harness</li>
+      <li class="bulletList">Generating strong baseline forecasts</li>
+      <li class="bulletList">Assessing the forecastability of a time series</li>
+    </ul>
+    <h1 id="_idParaDest-98" class="heading-1">Technical requirements</h1>
+    <p class="normal">You will need to set up the Anaconda environment following the instructions in the <em class="italic">Preface</em> of the book to get a working environment with all the libraries and datasets required for the code in this book. Any additional library will be installed while running the notebooks.</p>
+    <p class="normal">You will need to run the following notebook before using the code in this chapter:</p>
+    <ul>
+      <li class="bulletList">The <code class="inlineCode">02-Preprocessing_London_Smart_Meter_Dataset.ipynb</code> preprocessing notebook from <code class="inlineCode">Chapter02</code></li>
+    </ul>
+    <p class="normal">The code for this chapter can be found at <a href="https://github.com/PacktPublishing/Modern-Time-Series-Forecasting-with-Python-2E/tree/main/notebooks/Chapter04"><span class="url">https://github.com/PacktPublishing/Modern-Time-Series-Forecasting-with-Python-2E/tree/main/notebooks/Chapter04</span></a>.</p>
+    <h1 id="_idParaDest-99" class="heading-1">Setting up a test harness</h1>
+    <p class="normal">Before we start <a id="_idIndexMarker268"/>forecasting and setting up baselines, we need to set up a <strong class="keyWord">test harness</strong>. In software testing, a test harness is a collection of code and inputs that have been configured to test a program under various situations. In terms of machine learning, a test harness is a set of code and data that can be used to evaluate algorithms. It is important to set up a test harness so that we can evaluate all future algorithms in a standard and quick way.</p>
+    <p class="normal">The first thing we need is <strong class="keyWord">holdout (test)</strong> and <strong class="keyWord">validation</strong> datasets.</p>
+    <h2 id="_idParaDest-100" class="heading-2">Creating holdout (test) and validation datasets</h2>
+    <p class="normal">As a standard <a id="_idIndexMarker269"/>practice, in machine learning, we set <a id="_idIndexMarker270"/>aside two<a id="_idIndexMarker271"/> parts of the<a id="_idIndexMarker272"/> dataset, name them <em class="italic">validation data</em> and <em class="italic">test data</em>, and don’t use them at all to train the model. The validation data is used in the modeling process to assess the quality of the model. To select between different model classes, tune the hyperparameters, perform feature selection, and so on, we need a dataset. Test data is like the final test of your chosen model. It tells you how well your model is doing in unseen data. If validation data is like the mid-term exams, the test data is your final exam.</p>
+    <p class="normal">In regular regression or classification, we usually sample a few records at random and set them aside. But while dealing with time series, we need to respect the temporal aspect of the dataset. Therefore, a best practice is to set aside the latest part of the dataset as the test data. Another rule of thumb is to set equal-sized validation and test datasets so that the key modeling decisions we make based on the validation data are as close as possible to the test data. The dataset that we introduced in <em class="chapterRef">Chapter 2</em>, <em class="italic">Acquiring and Processing Time Series Data</em>, the London Smart Energy dataset, contains the energy consumption readings of households in London from November 2011 to February 2014. So, we are going to put aside January 2014 as the validation data and February 2014 as the test data.</p>
+    <p class="normal">Let’s open <code class="inlineCode">01-Setting_up_Experiment_Harness.ipynb</code> from the <code class="inlineCode">Chapter04</code> folder and run it. In the notebook, we must create the train-test split both before and after filling the missing values with <code class="inlineCode">SeasonalInterpolation</code> and save them accordingly. Once the notebook finishes running, you will have created the following files in the pre-processed folder with the 2014 data saved separately:</p>
+    <ul>
+      <li class="bulletList"><code class="inlineCode">selected_blocks_train.parquet</code></li>
+      <li class="bulletList"><code class="inlineCode">selected_blocks_val.parquet</code></li>
+      <li class="bulletList"><code class="inlineCode">selected_blocks_test.parquet</code></li>
+      <li class="bulletList"><code class="inlineCode">selected_blocks_train_missing_imputed.parquet</code></li>
+      <li class="bulletList"><code class="inlineCode">selected_blocks_val_missing_imputed.parquet</code></li>
+      <li class="bulletList"><code class="inlineCode">selected_blocks_test_missing_imputed.parquet</code></li>
+    </ul>
+    <p class="normal">Now that we <a id="_idIndexMarker273"/>have<a id="_idIndexMarker274"/> a<a id="_idIndexMarker275"/> fixed <a id="_idIndexMarker276"/>dataset that can be used to fairly evaluate multiple algorithms, we need a way to evaluate the different forecasts.</p>
+    <h2 id="_idParaDest-101" class="heading-2">Choosing an evaluation metric</h2>
+    <p class="normal">In machine <a id="_idIndexMarker277"/>learning, we have a handful of metrics that<a id="_idIndexMarker278"/> can be used to measure continuous outputs, mainly <strong class="keyWord">Mean Absolute Error</strong> and <strong class="keyWord">Mean Squared Error</strong>. But in the time series forecasting realm, there are scores of metrics with no real consensus on which ones to use. One of the reasons for this overwhelming number of metrics is that no one metric measures every characteristic of a forecast. Therefore, we have a whole chapter devoted to this topic (<em class="chapterRef">Chapter 19</em>, <em class="italic">Evaluating Forecast Errors—A Survey of Forecast Metrics</em>). For now, we will just review a few metrics, all of which we are going to use to measure the forecasts. We are just going to consider them at face value:</p>
+    <ul>
+      <li class="bulletList"><strong class="keyWord">Mean Absolute Error</strong> (<strong class="keyWord">MAE</strong>): MAE is a<a id="_idIndexMarker279"/> very simple metric. It is the average of the unsigned (ignoring the sign) error between the forecast at timestep <em class="italic">t</em>(<em class="italic">f</em><sub class="subscript-italic" style="font-style: italic;">t</sub>) and the observed value at time <em class="italic">t</em>(<em class="italic">y</em><sub class="subscript-italic" style="font-style: italic;">t</sub>). The formula is as follows:</li>
+    </ul>
+    <p class="center"><img src="../Images/B22389_04_001.png" alt=""/></p>
+    <p class="normal-one">Here, <em class="italic">N</em> is the number of time series, <em class="italic">L</em> is the length of time series (in this case, the length of the test period), and <em class="italic">f</em> and <em class="italic">y</em> are the forecast and observed values, respectively.</p>
+    <ul>
+      <li class="bulletList"><strong class="keyWord">Mean Squared Error</strong> (<strong class="keyWord">MSE</strong>): MSE is the <a id="_idIndexMarker280"/>average of the squared error between the forecast (<em class="italic">f</em><sub class="subscript-italic" style="font-style: italic;">t</sub>) and observed (<em class="italic">y</em><sub class="subscript-italic" style="font-style: italic;">t</sub>) values:</li>
+    </ul>
+    <p class="center"><img src="../Images/B22389_04_002.png" alt=""/></p>
+    <ul>
+      <li class="bulletList"><strong class="keyWord">Mean Absolute Scaled Error</strong> (<strong class="keyWord">MASE</strong>): MASE is slightly more complicated than MSE and<a id="_idIndexMarker281"/> MAE but gives us a slightly better measure to overcome the scale-dependent nature of the previous two measures. If we have multiple time series with different average values, MAE and MSE will show higher errors for the high-value time series as opposed to the low-valued time series. MASE overcomes this by scaling the errors based on the in-sample MAE from the <strong class="keyWord">naïve forecasting method</strong> (which is<a id="_idIndexMarker282"/> one of the most basic forecasts possible; we will review it later in this chapter). Intuitively, MASE gives us the<a id="_idIndexMarker283"/> measure of how much better <a id="_idIndexMarker284"/>our forecast is as compared to the naïve forecast:</li>
+    </ul>
+    <p class="center"><img src="../Images/B22389_04_003.png" alt=""/></p>
+    <ul>
+      <li class="bulletList"><strong class="keyWord">Forecast Bias</strong> (<strong class="keyWord">FB</strong>): This is a <a id="_idIndexMarker285"/>metric with slightly different aspects from the other metrics we’ve seen. While the other metrics help assess the <em class="italic">correctness</em> of the forecast, irrespective of the direction of the error, forecast bias lets us understand the overall <em class="italic">bias</em> in the model. Forecast bias is a metric that helps us understand whether the forecast is continuously over- or under-forecasting. </li>
+    </ul>
+    <p class="normal">We calculate forecast bias as the difference between the sum of the forecast and the sum of the observed values, expressed <a id="_idIndexMarker286"/>as a percentage over the sum of all actuals:</p>
+    <p class="center"><img src="../Images/B22389_04_004.png" alt=""/></p>
+    <p class="normal">Now, our test harness is ready. We also know how to evaluate and compare forecasts that have been<a id="_idIndexMarker287"/> generated from different models on <a id="_idIndexMarker288"/>a single, fixed holdout dataset with a set of predetermined metrics. Now, it’s time to start forecasting.</p>
+    <h1 id="_idParaDest-102" class="heading-1">Generating strong baseline forecasts</h1>
+    <p class="normal"><strong class="keyWord">Time series forecasting</strong> has <a id="_idIndexMarker289"/>been around since the early 1920s, and through<a id="_idIndexMarker290"/> the years, many brilliant people have come up with different models, some statistical and some heuristic-based. I refer to them collectively as <strong class="keyWord">classical statistical models</strong> or <strong class="keyWord">econometrics models</strong>, although <a id="_idIndexMarker291"/>they are <a id="_idIndexMarker292"/>not strictly statistical/econometric.</p>
+    <p class="normal">In this section, we are going to review a few such models that can form really strong baselines when we want to try modern techniques in forecasting. As an exercise, we are going to use an excellent open source<a id="_idIndexMarker293"/> library for time series forecasting—NIXTLA (<a href="https://github.com/Nixtla"><span class="url">https://github.com/Nixtla</span></a>). The <code class="inlineCode">02-Baseline_Forecasts_using_NIXTLA.ipynb</code> notebook contains the code for this section so that you can follow along.</p>
+    <p class="normal">Before we start looking at forecasting techniques, let’s quickly understand how to use the NIXTLA library to generate forecasts. We are going to pick one consumer from the dataset and try out all the baseline techniques on the validation dataset one by one.</p>
+    <p class="normal">The first thing we need to do is select the consumer we want using the unique ID for each customer, the <code class="inlineCode">LCLid</code> column (from the expanded form of data), and set the timestamp as the index of the DataFrame:</p>
+    <pre class="programlisting code"><code class="hljs-code">ts_train = train_df.loc[train_df.LCLid==<span class="hljs-string">"MAC000193"</span>,[<span class="hljs-string">'LCLid'</span>,<span class="hljs-string">"timestamp"</span>,<span class="hljs-string">"</span><span class="hljs-string">energy_consumption"</span>]]
+ts_val = val_df.loc[val_df.LCLid==<span class="hljs-string">"MAC000193"</span>, [<span class="hljs-string">'LCLid'</span>,<span class="hljs-string">"timestamp"</span>,<span class="hljs-string">"energy_consumption"</span>]]
+ts_test = test_df.loc[test_df.LCLid==<span class="hljs-string">"MAC000193"</span>, [<span class="hljs-string">'LCLid'</span>,<span class="hljs-string">"timestamp"</span>,<span class="hljs-string">"energy_consumption"</span>]]
+</code></pre>
+    <p class="normal">NIXTLA has the flexibility to work directly with either pandas or Polars DataFrames. By default, NIXTLA looks for three columns:</p>
+    <ul>
+      <li class="bulletList"><code class="inlineCode">id_col</code>: By default, it expects a column <code class="inlineCode">unique_id</code>. This column uniquely identifies the time series. If you only have one time series, add a dummy column with the same unique identifier.</li>
+      <li class="bulletList"><code class="inlineCode">time_col</code>: By default, it expects a column <code class="inlineCode">ds</code>. This is the column of your timestamp.</li>
+      <li class="bulletList"><code class="inlineCode">target_col</code>: By default, it expects a column <code class="inlineCode">y</code>. This column is what you want NIXTLA to forecast.</li>
+    </ul>
+    <p class="normal">This is very convenient as there is no need for further manipulation to go from data to modeling. NIXTLA follows the scikit-learn style with <code class="inlineCode">.fit()</code> and <code class="inlineCode">.predict()</code> and also adopts a <code class="inlineCode">.forecast()</code> method, which<a id="_idIndexMarker294"/> is a memory-efficient method that doesn’t store the partial model outputs, whereas the scikit-learn interface stores the fitted models:</p>
+    <pre class="programlisting code"><code class="hljs-code">sf = StatsForecast(
+    models=[model],
+    freq=freq,
+    n_jobs=-<span class="hljs-number">1</span>,
+    fallback_model=Naive()
+)
+sf.fit(df = _ts_train,          id_col = <span class="hljs-string">'LCLid'</span>,
+       time_col = <span class="hljs-string">'timestamp'</span>,
+       target_col = <span class="hljs-string">'energy_consumption'</span>,
+)
+baseline_test_pred_df = sf.predict(<span class="hljs-built_in">len</span>(ts_test) )
+</code></pre>
+    <p class="normal">NIXTLA also has a <code class="inlineCode">.forecast()</code> method, which is a memory-efficient method that doesn’t store the partial model outputs, whereas the scikit-learn interface stores the fitted models:</p>
+    <pre class="programlisting code"><code class="hljs-code"><span class="hljs-comment"># Efficiently fit and predict without storing memory</span>
+y_pred = sf.forecast(
+    h=<span class="hljs-built_in">len</span>(ts_test),
+    df=ts_train,
+    id_col = <span class="hljs-string">'LCLid'</span>,    time_col = <span class="hljs-string">'</span><span class="hljs-string">timestamp'</span>,    target_col = <span class="hljs-string">'energy_consumption'</span>,
+)
+</code></pre>
+    <p class="normal">When we call <code class="inlineCode">.predict</code> <strong class="keyWord">or </strong><code class="inlineCode">.forecast</code>, we have to tell the model how long into the future we have to predict. This is called the horizon of the forecast. In our case, we need to predict our test period, which we can easily do by just taking the length of the <code class="inlineCode">ts_test</code> array.</p>
+    <p class="normal">We can also calculate the metrics we discussed earlier in the test harness easily using NIXTLA’s classes. For added flexibility, we can loop through a list of metrics to get multiple measurements for each forecast:</p>
+    <pre class="programlisting code"><code class="hljs-code"><span class="hljs-comment"># Calculate metrics</span>
+metrics = [mase, mae, mse, rmse, smape, forecast_bias]
+<span class="hljs-keyword">for</span> metric <span class="hljs-keyword">in</span> metrics:
+    metric_name = metric.__name__
+    <span class="hljs-keyword">if</span> metric_name == <span class="hljs-string">'</span><span class="hljs-string">mase'</span>:
+        evaluation[metric_name] = 	
+metric(results[target_col].values,            results[model_name].values,
+ts_train[target_col].values, seasonality=<span class="hljs-number">48</span>)
+    <span class="hljs-keyword">else</span>:
+        evaluation[metric_name] =
+metric(results[target_col].values,
+results[model_name].values)
+</code></pre>
+    <p class="normal">Notice that, for MASE, the training set is also included.</p>
+    <p class="normal">For ease of experimentation, we have encapsulated all of this into a handy function, <code class="inlineCode">evaluate_performance</code>, in the<a id="_idIndexMarker295"/> notebook. This returns the predictions and the calculated metrics in a DataFrame.</p>
+    <p class="normal">Now, let’s start looking at a few very simple methods of forecasting.</p>
+    <h2 id="_idParaDest-103" class="heading-2">Naïve forecast</h2>
+    <p class="normal">A naïve <a id="_idIndexMarker296"/>forecast is<a id="_idIndexMarker297"/> as simple as you can get. The forecast is just the last/most recent observation in a time series. If the latest observation in a time series is 10, then the forecast for all future timesteps is 10. This can be implemented as follows using the <code class="inlineCode">Naive</code> class in NIXTLA:</p>
+    <pre class="programlisting code"><code class="hljs-code"><span class="hljs-keyword">from</span> statsforecast.models <span class="hljs-keyword">import</span> Naive
+models = Naive()
+</code></pre>
+    <p class="normal">Once we have initialized the model, we can call our helpful <code class="inlineCode">evaluate_performance</code> function in the notebook to run and record the forecast and metrics.</p>
+    <p class="normal">Let’s<a id="_idIndexMarker298"/> visualize <a id="_idIndexMarker299"/>the forecast we just generated:</p>
+    <figure class="mediaobject"><img src="../Images/B22389_04_01.png" alt=""/></figure>
+    <p class="packt_figref">Figure 4.1: Naïve forecast</p>
+    <p class="normal">Here, we can see that the forecast is a straight line and completely ignores any pattern in the series. This<a id="_idIndexMarker300"/> is by far the simplest way to forecast, hence why it is naïve. Now, let’s look at another simple method.</p>
+    <h2 id="_idParaDest-104" class="heading-2">Moving average forecast</h2>
+    <p class="normal">While a naïve<a id="_idIndexMarker301"/> forecast memorizes<a id="_idIndexMarker302"/> the most recent past, it also memorizes the noise at any timestep. <strong class="keyWord">A moving average forecast</strong> is another simple method that tries to overcome the pure memorization of the naïve method. Instead of taking the latest observation, it takes the mean of the latest <em class="italic">n</em> steps as the forecast. Moving average is not one of the models present in NIXTLA, but we have implemented a NIXTLA-compatible model in this book’s GitHub repository in the <code class="inlineCode">Chapter04</code> folder:</p>
+    <pre class="programlisting code"><code class="hljs-code"><span class="hljs-keyword">from</span> src.forecasting.baselines <span class="hljs-keyword">import</span> NaiveMovingAverage
+<span class="hljs-comment">#Taking a moving average over 48 timesteps, i.e, one day</span>
+naive_model = NaiveMovingAverage(window=<span class="hljs-number">48</span>)
+</code></pre>
+    <p class="normal">Let’s look at the forecast we generated:</p>
+    <figure class="mediaobject"><img src="../Images/B22389_04_02.png" alt="Figure 4.2 – Moving average forecast "/></figure>
+    <p class="packt_figref">Figure 4.2: Moving average forecast</p>
+    <p class="normal">This forecast is also almost a straight line. Now, let’s look at another simple method, but one that considers seasonality as well.</p>
+    <h2 id="_idParaDest-105" class="heading-2">Seasonal naive forecast</h2>
+    <p class="normal"><strong class="keyWord">A seasonal naive forecast</strong> is a twist <a id="_idIndexMarker303"/>on the<a id="_idIndexMarker304"/> simple naive method. In the naive method, we took the last observation (Y<sub class="subscript">t-1</sub>), whereas in seasonal naïve, we take the Y<sub class="subscript">t-k</sub> observation. So, we look back <em class="italic">k</em> steps for each forecast. This enables the algorithm to mimic the last seasonality cycle. For instance, if we set <code class="inlineCode">k=48*7</code>, we will be able to mimic the latest seasonal weekly cycle. </p>
+    <p class="normal">This method is implemented in NIXTLA and we can use it like so:</p>
+    <pre class="programlisting code"><code class="hljs-code"><span class="hljs-keyword">from</span> statsforecast.models <span class="hljs-keyword">import</span> SeasonalNaive
+seasonal_naive = SeasonalNaive(season_length=<span class="hljs-number">48</span>*<span class="hljs-number">7</span>)
+</code></pre>
+    <p class="normal">Let’s see what this forecast looks like:</p>
+    <figure class="mediaobject"><img src="../Images/B22389_04_03.png" alt=""/></figure>
+    <p class="packt_figref">Figure 4.3: Seasonal naïve forecast</p>
+    <p class="normal">Here, we can see that the forecast is trying to mimic the seasonality pattern. However, it’s not very accurate because it is blindly following the last seasonal cycle.</p>
+    <p class="normal">Now that we’ve looked <a id="_idIndexMarker305"/>at a few simple methods, let’s look at a few statistical models.</p>
+    <h2 id="_idParaDest-106" class="heading-2">Exponential smoothing</h2>
+    <p class="normal"><strong class="keyWord">Exponential smoothing</strong> is one <a id="_idIndexMarker306"/>of the most <a id="_idIndexMarker307"/>popular methods for generating forecasts. It has been around since the late 1950s and has proved its mettle and stood the test of time. There are a few different variants of ETS—<strong class="keyWord">single exponential smoothing</strong>, <strong class="keyWord">double exponential smoothing</strong>, <strong class="keyWord">Holt-Winters’ seasonal smoothing</strong>, and so<a id="_idIndexMarker308"/> on. But all of them<a id="_idIndexMarker309"/> have <a id="_idIndexMarker310"/>one key idea that has been used in different ways. In the naïve method, we were just using the latest observation, which is like saying only the most recent data point in history matters and no data point before that matters. On the other hand, the moving average method considers the last n observations to be equally important and takes the mean of them.</p>
+    <p class="normal">ETS combines both these intuitions and says that all the history is important, but the recent history is more important. Therefore, the forecast is generated using a weighted average where the weights decrease exponentially as we move farther into the history:</p>
+    <p class="center"><img src="../Images/B22389_04_005.png" alt=""/></p>
+    <p class="normal">Here, <img src="../Images/B22389_04_006.png" alt=""/> is the smoothing parameter that lets us decide how fast or slow the weights should decay, <em class="italic">y</em><sub class="subscript-italic" style="font-style: italic;">t</sub> is the actuals at timestep <em class="italic">t</em>, and <em class="italic">f</em><sub class="subscript-italic" style="font-style: italic;">t</sub> is the forecast at timestep <em class="italic">t</em>.</p>
+    <p class="normal"><strong class="keyWord">Simple exponential smoothing</strong> (<strong class="keyWord">SES</strong>) is <a id="_idIndexMarker311"/>when you simply apply this smoothing procedure to the history. This is more suited for time series that have no trends or seasonality, and the forecast is going to be a flat line. The forecast is generated using the following formula:</p>
+    <figure class="mediaobject"><img src="../Images/B22389_04_04.png" alt=""/></figure>
+    <p class="normal"><strong class="keyWord">Double exponential smoothing</strong> (<strong class="keyWord">DES</strong>) extends<a id="_idIndexMarker312"/> the smoothing idea to model trends as well. It has two smoothing equations—one for the level and the other for the trend. Once you have the estimate of the level and trend, you can combine them. This forecast is not necessarily flat because the estimated trend is used to extrapolate it into the future. The forecast is generated according to the following formula:</p>
+    <figure class="mediaobject"><img src="../Images/B22389_04_05.png" alt=""/></figure>
+    <p class="normal">First, we estimate the level (<em class="italic">l</em><sub class="subscript-italic" style="font-style: italic;">t</sub>) using the <em class="italic">Level Equation</em> with the available observations. Then, we estimate the trend using the <em class="italic">Trend Equation</em>. Finally, to get the forecast, we combine <em class="italic">l</em><sub class="subscript-italic" style="font-style: italic;">t</sub> and <em class="italic">b</em><sub class="subscript-italic" style="font-style: italic;">t</sub> using the <em class="italic">Forecast Equation</em>.</p>
+    <p class="normal">Researchers have found empirical evidence that this kind of constant extrapolation can result in over-forecasts over the long-term forecast. This is because, in the real world, time series data doesn’t increase at a constant rate forever. Motivated by this, an addition to this has also been introduced that dampens the trend by a factor of <img src="../Images/B22389_04_007.png" alt=""/>, such that when <img src="../Images/B22389_04_008.png" alt=""/>, there <a id="_idIndexMarker313"/>is no <a id="_idIndexMarker314"/>damping, and it is identical to DES.</p>
+    <p class="normal"><strong class="keyWord">Triple exponential smoothing</strong> or <strong class="keyWord">Holt-Winters’</strong> (<strong class="keyWord">HW</strong>) takes this <a id="_idIndexMarker315"/>one step forward by including another <a id="_idIndexMarker316"/>smoothing term to model the seasonality. This has three parameters ( <img src="../Images/B22389_04_009.png" alt=""/>, <img src="../Images/B22389_04_010.png" alt=""/>, <img src="../Images/B22389_04_011.png" alt=""/>) for the smoothing and uses a seasonality period (<em class="italic">m</em>) as input parameters. You can also choose between additive or multiplicative seasonality. The forecast equations for the additive model are as follows:</p>
+    <figure class="mediaobject"><img src="../Images/B22389_04_06.png" alt=""/></figure>
+    <p class="normal">These formulae are also used like in the double exponential case. Instead of estimating level and trend, we estimate level, trend, and seasonality separately.</p>
+    <p class="normal">The family of ETS methods is not limited to the three that we just discussed. A way to think about the different models is in terms of the trend and seasonal components of these models. The trend can either be no trend, additive, or additive damped. The seasonality can be no seasonality, additive, or multiplicative. Every combination of these parameters is a different technique in the family, as shown in the following table:</p>
+    <table id="table001-2" class="table-container">
+      <tbody>
+        <tr>
+          <td class="table-cell">
+            <p class="normal"><strong class="keyWord">Trend component</strong></p>
+          </td>
+          <td class="table-cell" colspan="3">
+            <p class="normal"><strong class="keyWord">Seasonal component</strong></p>
+          </td>
+        </tr>
+        <tr>
+          <td class="table-cell"/>
+          <td class="table-cell">
+            <p class="normal"><strong class="keyWord">N (None)</strong></p>
+          </td>
+          <td class="table-cell">
+            <p class="normal"><strong class="keyWord">A (Additive)</strong></p>
+          </td>
+          <td class="table-cell">
+            <p class="normal"><strong class="keyWord">M (Multiplicative)</strong></p>
+          </td>
+        </tr>
+        <tr>
+          <td class="table-cell">
+            <p class="normal"><strong class="keyWord">N (None)</strong></p>
+          </td>
+          <td class="table-cell">
+            <p class="normal">Simple Exponential Smoothing</p>
+          </td>
+          <td class="table-cell">
+            <p class="normal">-</p>
+          </td>
+          <td class="table-cell">
+            <p class="normal">-</p>
+          </td>
+        </tr>
+        <tr>
+          <td class="table-cell">
+            <p class="normal"><strong class="keyWord">A (Additive)</strong></p>
+          </td>
+          <td class="table-cell">
+            <p class="normal">Double Exponential Smoothing</p>
+          </td>
+          <td class="table-cell">
+            <p class="normal">Additive Holt-Winters</p>
+          </td>
+          <td class="table-cell">
+            <p class="normal">Multiplicative Holt-Winters</p>
+          </td>
+        </tr>
+        <tr>
+          <td class="table-cell">
+            <p class="normal"><strong class="keyWord">Ad (Additive damped)</strong></p>
+          </td>
+          <td class="table-cell">
+            <p class="normal">Damped Double Exponential Smoothing</p>
+          </td>
+          <td class="table-cell">
+            <p class="normal">-</p>
+          </td>
+          <td class="table-cell">
+            <p class="normal">Damped Holt-Winters</p>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+    <p class="packt_figref">Table 4.1: Exponential smoothing family</p>
+    <p class="normal">NIXTLA has <a id="_idIndexMarker317"/>an<a id="_idIndexMarker318"/> entire family of ETS methods.</p>
+    <p class="normal">Let’s see how we can initialize the ETS model in NIXTLA:</p>
+    <pre class="programlisting code"><code class="hljs-code"><span class="hljs-keyword">from</span> statsforecast.models <span class="hljs-keyword">import</span> (SimpleExponentialSmoothing, Holt, HoltWinters, AutoETS)
+exp_smooth = HoltWinters(error_type = <span class="hljs-string">'A'</span>, season_length = <span class="hljs-number">48</span>)]
+</code></pre>
+    <p class="normal">Here, <code class="inlineCode">error_type = 'A'</code> refers to additive error. The user has the option for either additive error or multiplicative error, which could be called using <code class="inlineCode">error_type = 'M'</code>. NIXTLA models have an option to use <code class="inlineCode">AutoETS()</code>. This model will automatically choose which exponential smoothing model is the best option: simple exponential smoothing, double exponential smoothing (Holt’s method), or triple exponential smoothing (Holt-Winters method). It will also choose which parameters and error types are best for each individual time series. Refer to the GitHub notebooks for examples of how to use <code class="inlineCode">AutoETS()</code>.</p>
+    <p class="normal">Let’s see what the forecast using ETS looks like in <em class="italic">Figure 4.4</em>:</p>
+    <figure class="mediaobject"><img src="../Images/B22389_04_07.png" alt=""/></figure>
+    <p class="packt_figref">Figure 4.4: Exponential smoothing forecast</p>
+    <p class="normal">The forecast has captured the seasonality but has failed to capture the peaks. But we can see <a id="_idIndexMarker319"/>the<a id="_idIndexMarker320"/> improvement in MAE already.</p>
+    <p class="normal">Now, let’s look at one of the most popular forecasting methods out there.</p>
+    <h2 id="_idParaDest-107" class="heading-2">AutoRegressive Integrated Moving Average (ARIMA)</h2>
+    <p class="normal"><strong class="keyWord">ARIMA</strong> models<a id="_idIndexMarker321"/> are <a id="_idIndexMarker322"/>the other class of methods that, like ETS, have stood the test of time and are one of the most popular classical methods of forecasting. The ETS family of methods is modeled around trend and seasonality, while ARIMA relies <a id="_idIndexMarker323"/>on <strong class="keyWord">autocorrelation</strong> (the correlation of <em class="italic">y</em><sub class="subscript-italic" style="font-style: italic;">t</sub> with <em class="italic">y</em><sub class="subscript-italic" style="font-style: italic;">t</sub><sub class="subscript">-1</sub>, <em class="italic">y</em><sub class="subscript-italic" style="font-style: italic;">t</sub><sub class="subscript">-2</sub>, and so on).</p>
+    <p class="normal">The simplest in the family are the <em class="italic">AR</em> (<em class="italic">p</em>) models, which <a id="_idIndexMarker324"/>use <strong class="keyWord">linear regression</strong> with <em class="italic">p</em> previous timesteps or, in other words, <em class="italic">p</em> lags. Mathematically, it can be written as follows:</p>
+    <p class="center"><img src="../Images/B22389_04_012.png" alt=""/></p>
+    <p class="normal">Here, <em class="italic">c</em> is the intercept, and <img src="../Images/B22389_04_013.png" alt=""/> is the noise or error at timestep <em class="italic">t</em>.</p>
+    <p class="normal">The next in the family are <em class="italic">MA</em> (<em class="italic">q</em>) models, in which, instead of past observed values, we use the past <em class="italic">q</em> errors in the forecast (which is assumed to be pure white noise) to come up with a forecast:</p>
+    <p class="center"><img src="../Images/B22389_04_014.png" alt=""/></p>
+    <p class="normal">Here, <img src="../Images/B22389_04_015.png" alt=""/> is white noise and <em class="italic">c</em> is the intercept.</p>
+    <p class="normal">This is not typically used on its own but in conjunction with <em class="italic">AR</em> (<em class="italic">p</em>) models, which makes the next one on our list <em class="italic">ARMA</em> (<em class="italic">p</em>, <em class="italic">q</em>) models. ARMA (AutoRegressive Moving Average) models are defined as <em class="italic">y</em><sub class="subscript-italic" style="font-style: italic;">t</sub> = <em class="italic">AR</em> (<em class="italic">p</em>) + <em class="italic">MA</em> (<em class="italic">q</em>).</p>
+    <p class="normal">In all the ARIMA models, there is one underlying assumption—the <em class="italic">time series is stationary</em> (we talked about stationarity in <em class="chapterRef">Chapter 1</em>, <em class="italic">Introducing Time Series</em>, and will elaborate on this in <em class="chapterRef">Chapter 6</em>, <em class="italic">Feature Engineering for Time Series Forecasting</em>). There are many ways to make the series stationary but taking the difference of successive values is one such technique. This is known<a id="_idIndexMarker325"/> as <strong class="keyWord">differencing</strong>. Sometimes, we need to do differencing once, while <a id="_idIndexMarker326"/>other times, we have to perform successive differencing before the time series becomes stationary. The number of times we do the differencing operation is called the <em class="italic">order of differencing</em>. The I in ARIMA, and the final piece of the puzzle, stands for <em class="italic">Integrated</em>. It defines the order of differencing we need to do before the series becomes stationary and is denoted by <em class="italic">d</em>.</p>
+    <p class="normal">So, the complete <em class="italic">ARIMA</em> (<em class="italic">p</em>, <em class="italic">d</em>, <em class="italic">q</em>) model says that we do the <em class="italic">d</em><sup class="superscript">th</sup> order of differencing and then consider the last <em class="italic">p</em> terms in an autoregressive manner, and then include the last <em class="italic">q</em> moving average terms to come up with the forecast.</p>
+    <p class="normal">The ARIMA models we have discussed so far only handle non-seasonal time series. However, using the same concepts we discussed, but on a seasonal cycle, we get <strong class="keyWord">seasonal ARIMA</strong>. <em class="italic">p</em>, <em class="italic">d</em>, and <em class="italic">q</em> are slightly<a id="_idIndexMarker327"/> tweaked so that they work on the seasonal period, <em class="italic">m</em>. To differentiate them from the normal <em class="italic">p</em>, <em class="italic">d</em>, and <em class="italic">q</em>, we call the seasonal values <em class="italic">P</em>, <em class="italic">D</em>, and <em class="italic">Q</em>. For instance, if <em class="italic">p</em> means taking the last <em class="italic">p</em> lags, <em class="italic">P</em> means taking the last <em class="italic">P</em> seasonal lags. If <em class="italic">p</em><sub class="subscript">1</sub> is <em class="italic">y</em><sub class="subscript-italic" style="font-style: italic;">t</sub><sub class="subscript">-1</sub>, <em class="italic">P</em><sub class="subscript">1</sub> would be <em class="italic">y</em><sub class="subscript-italic" style="font-style: italic;">t</sub><sub class="subscript">-m</sub>. Similarly, <em class="italic">D</em> means the order of seasonal differencing.</p>
+    <p class="normal">Picking the right <em class="italic">p</em>, <em class="italic">d</em>, and <em class="italic">q</em> and <em class="italic">P</em>, <em class="italic">D</em>, and <em class="italic">Q</em> values is not very intuitive, and we will have to resort to statistical tests to find them. However, this becomes a bit impractical when you are forecasting many time series. An automatic way of iterating through the different parameters and<a id="_idIndexMarker328"/> finding the best <em class="italic">p</em>, <em class="italic">d</em>, and <em class="italic">q</em>, and <em class="italic">P</em>, <em class="italic">D</em>, and <em class="italic">Q</em> values for the data is called <strong class="keyWord">AutoARIMA</strong>. In <a id="_idIndexMarker329"/>Python, NIXTLA has implemented this method, <code class="inlineCode">AutoARIMA()</code>. NIXTLA also has a normal ARIMA implementation as well, which is much faster but requires <em class="italic">p</em>, <em class="italic">d</em>, and <em class="italic">q</em> to be entered manually.</p>
+    <div class="packt_tip">
+      <p class="normal"><strong class="keyWord">Practical considerations</strong>:</p>
+      <p class="normal">Although ARIMA and AutoARIMA can give you good-performing models in many cases, they can be quite slow when you have long seasonal periods and a long time series. In our case, where we have almost 27K observations in the history, ARIMA becomes very slow and a memory hog. Even when subsetting the data, a single AutoARIMA fit takes around 60 minutes. Letting go of the seasonal parameters brings down the runtime drastically, but for a seasonal time series such as energy consumption, it doesn’t make sense. AutoARIMA includes many such fits to identify the best parameters and, therefore, becomes impractical for long time series datasets. Almost all the implementations in the Python ecosystem suffer from this drawback. NIXLTA claims to have the fastest and most accurate version of AutoARIMA, faster than the original R method as well.</p>
+    </div>
+    <p class="normal">Let’s see how <a id="_idIndexMarker330"/>we can apply <code class="inlineCode">ARIMA</code> and <code class="inlineCode">AutoARIMA</code> using NIXTLA:</p>
+    <pre class="programlisting code"><code class="hljs-code"><span class="hljs-keyword">from</span> statsforecast.models <span class="hljs-keyword">import</span> (ARIMA, AutoARIMA)
+<span class="hljs-comment">#ARIMA model by specifying parameters</span>
+arima_model = ARIMA(order = (<span class="hljs-number">2</span>,<span class="hljs-number">1</span>,<span class="hljs-number">1</span>), seasonal_order = (<span class="hljs-number">1</span>,<span class="hljs-number">1</span>,<span class="hljs-number">1</span>), season_length = <span class="hljs-number">48</span>)
+<span class="hljs-comment">#AutoARIMA model by specifying max limits for parameters and letting the algorithm find the best ones</span>
+auto_arima_model = AutoARIMA( max_p = <span class="hljs-number">2</span>, max_d=<span class="hljs-number">1</span>, max_q = <span class="hljs-number">2</span>, max_P=<span class="hljs-number">2</span>, max_D = <span class="hljs-number">1</span>, max_Q = <span class="hljs-number">2</span>, stepwise = <span class="hljs-literal">True</span>, season_length=<span class="hljs-number">48</span>)
+</code></pre>
+    <p class="normal">For the entire list of parameters for <code class="inlineCode">AutoARIMA</code>, head over to the NIXTLA documentation at <a href="https://nixtlaverse.nixtla.io/statsforecast/docs/models/autoarima.html"><span class="url">https://nixtlaverse.nixtla.io/statsforecast/docs/models/autoarima.html</span></a>.</p>
+    <p class="normal">Let’s see what the ETS <a id="_idIndexMarker331"/>and ARIMA forecasts look like for the households we were experimenting with:</p>
+    <figure class="mediaobject"><img src="../Images/B22389_04_08.png" alt=""/></figure>
+    <p class="packt_figref">Figure 4.5: ETS and ARIMA forecasts</p>
+    <p class="normal">With NIXTLA, both ETS and ARIMA have done a good job of capturing both the seasonality and the<a id="_idIndexMarker332"/> peaks. The resulting MAE scores are <a id="_idIndexMarker333"/>also very similar, with 0.191 and 0.203, respectively. Now, let’s look at another method—the Theta forecast.</p>
+    <h2 id="_idParaDest-108" class="heading-2">Theta forecast</h2>
+    <p class="normal">The <strong class="keyWord">Theta forecast</strong> was <a id="_idIndexMarker334"/>the top-performing<a id="_idIndexMarker335"/> submission in the M3 forecasting competition that was held in 2002. The method relies on a parameter, <img src="../Images/B22389_04_016.png" alt=""/>, that amplifies or smooths the local curvature of a time series, depending on the value chosen. Using <img src="../Images/B22389_04_016.png" alt=""/>, we smooth or amplify the original time series. These smoothed lines are<a id="_idIndexMarker336"/> called <strong class="keyWord">Theta lines</strong>. V. Assimakopoulos and K. Nikolopoulos proposed this method as a decomposition approach to forecasting. Although, in theory, any number of Theta lines can be used, the originally proposed method used two Theta lines, <img src="../Images/B22389_04_018.png" alt=""/> and <img src="../Images/B22389_04_019.png" alt=""/>, and took an average of the forecast of the two Theta lines as the final forecast.</p>
+    <div class="note">
+      <p class="normal">The M competitions are forecasting competitions organized by Spyros Makridakis, a leading forecasting researcher. They typically curate a dataset of time series, lay down the metrics with which the forecasts will be evaluated, and open these competitions to researchers all around the world to get the best forecast possible. These competitions are considered to be some of the biggest and most popular time series forecasting competitions in the world. At the time of writing, six such competitions have already been completed. To learn more about the latest competition, visit this website: <a href="https://mofc.unic.ac.cy/the-m6-competition/"><span class="url">https://mofc.unic.ac.cy/the-m6-competition/</span></a>.</p>
+    </div>
+    <p class="normal">In 2002, Rob Hyndman et al. simplified the Theta method and showed that we can use ETS with a drift term to get equivalent results to the original Theta method, which is what is adapted into <a id="_idIndexMarker337"/>most of the implementations of the method that exist today. The main steps that are involved in the Theta forecast (which is implemented in NIXTLA) are as follows:</p>
+    <ol>
+      <li class="numberedList" value="1"><strong class="keyWord">Deseasonalization</strong>: Apply a<a id="_idIndexMarker338"/> classical multiplicative decomposition to remove the seasonal component from the time series (if it exists). This focuses the analysis on the underlying trend and cyclical components. Deseasonalization is done using <code class="inlineCode">statsmodels.tsa.seasonal.seasonal_decompose</code>. This step creates a new deseasonalized time series.</li>
+      <li class="numberedList"><strong class="keyWord">Theta Coefficients Application</strong>: Decompose the deseasonalized series into two “Theta” lines using coefficients <img src="../Images/B22389_04_020.png" alt=""/> and <img src="../Images/B22389_04_021.png" alt=""/>. These coefficients modify the second difference of the time series to either dampen (<img src="../Images/B22389_04_022.png" alt=""/> or accentuate <img src="../Images/B22389_04_023.png" alt=""/> local fluctuations.</li>
+      <li class="numberedList"><strong class="keyWord">Extrapolation of Theta Lines</strong>: Treat each Theta line as a separate series and forecast them into the future. This is done using linear regression for the Theta line where <img src="../Images/B22389_04_024.png" alt=""/>, producing a straight line, and simple exponential smoothing for the Theta line where <img src="../Images/B22389_04_025.png" alt=""/>.</li>
+      <li class="numberedList"><strong class="keyWord">Recomposition</strong>: Combine the forecasts from the two Theta lines. The original method uses equal weighting for both lines, which integrates the long-term trend and short-term movements effectively.</li>
+      <li class="numberedList"><strong class="keyWord">Reseasonalize</strong>: If the data was deseasonalized in the beginning.</li>
+    </ol>
+    <p class="normal">NIXTLA has very different variations of the Theta method. More information on the specifics of the NIXTLA implementation can be found here: <a href="https://nixtlaverse.nixtla.io/statsforecast/docs/models/autotheta.html"><span class="url">https://nixtlaverse.nixtla.io/statsforecast/docs/models/autotheta.html</span></a>.</p>
+    <p class="normal">Let’s see how we can use it practically:</p>
+    <pre class="programlisting code"><code class="hljs-code">theta_model = Theta(season_length =<span class="hljs-number">48</span>, decomposition_type = <span class="hljs-string">'additive'</span> )
+</code></pre>
+    <p class="normal">The key parameters <a id="_idIndexMarker339"/>here are as follows: <code class="inlineCode">season_length</code> and <code class="inlineCode">decomposition_type</code>. These parameters are used for the initial seasonal decomposition. If left empty, the implementation automatically tests for seasonality and deseasonalizes the time series automatically using multiplicative decomposition. It is recommended to set these parameters with our domain knowledge if we know them. The decomposition type can be multiplicative (default) or additive.</p>
+    <p class="normal">Let’s visualize the forecast we just generated using the Theta forecast:</p>
+    <figure class="mediaobject"><img src="../Images/B22389_04_09.png" alt=""/></figure>
+    <p class="packt_figref">Figure 4.6: The Theta forecast</p>
+    <div class="note">
+      <p class="normal"><strong class="keyWord">Reference check</strong>:</p>
+      <p class="normal">The research paper in which V. Assimakopoulos and K. Nikolopoulos proposed the Theta method is cited as reference <em class="italic">1</em> in the <em class="italic">References</em> section, while subsequent simplification by Rob Hyndman is cited as reference <em class="italic">2</em>.</p>
+    </div>
+    <p class="normal">The seasonality <a id="_idIndexMarker340"/>pattern is captured, but it’s not hitting the <a id="_idIndexMarker341"/>peaks. Let’s look at another very strong method, TBATS.</p>
+    <h2 id="_idParaDest-109" class="heading-2">TBATS</h2>
+    <p class="normal">Sometimes, a time<a id="_idIndexMarker342"/> series has more than one seasonality pattern <a id="_idIndexMarker343"/>or a non-integer seasonal period, commonly referred to as complex seasonality. An example would be an hourly forecast that could have a daily seasonality for the time of day, a weekly seasonality for the day of the week, and a yearly seasonality for the day of the year. Additionally, most time series models are designed for smaller integer seasonal periods, such as monthly (12) or quarterly (4) data, but yearly seasonality can pose a problem since a year is 364.25 days. TBATS was meant to combat these many challenges that pose problems for many forecasting models. However, with any automated approach, at times it is susceptible to poor forecasts.</p>
+    <p class="normal"><strong class="keyWord">TBATS</strong> stands for:</p>
+    <ul>
+      <li class="bulletList"><strong class="keyWord">T</strong>rigonometric seasonality</li>
+      <li class="bulletList"><strong class="keyWord">B</strong>ox-Cox transformation</li>
+      <li class="bulletList"><strong class="keyWord">A</strong>RMA errors</li>
+      <li class="bulletList"><strong class="keyWord">T</strong>rend</li>
+      <li class="bulletList"><strong class="keyWord">S</strong>easonal components</li>
+    </ul>
+    <p class="normal">This model was first introduced by Rob J. Hyndman, Alysha M. De Livera, and Ralph D. Snyder in 2011. There is also another variant of TBATS, referred to as BATS, which is without the trigonometric seasonality component. TBATS is from the state space model family. In state space forecasting models, the observed time series is assumed to be a combination of the underlying state variables and a measurement equation that relates the state variables to the observed data. The state variables capture the underlying patterns, trends, and<a id="_idIndexMarker344"/> relationships <a id="_idIndexMarker345"/>in the data.</p>
+    <p class="normal">BATS has parameters <img src="../Images/B22389_04_026.png" alt=""/> indicating the Box-Cox parameter, damping parameter, ARMA parameters (<em class="italic">p</em>, <em class="italic">q</em>) and the seasonal periods (<em class="italic">m</em><sub class="subscript">1</sub>, <em class="italic">m</em><sub class="subscript">2</sub>, …, <em class="italic">m</em><sub class="subscript-italic" style="font-style: italic;">t</sub>). Due to its flexibility, the BATS model can be considered a family of models encompassing many other models we have seen earlier. For instance:</p>
+    <ul>
+      <li class="bulletList"><em class="italic">BATS</em>(1, 1, 0, 0, <em class="italic">m</em><sub class="subscript">1</sub>) = Holt-Winters Additive Seasonality</li>
+      <li class="bulletList"><em class="italic">BATS</em>(1, 1, 0, 0, <em class="italic">m</em><sub class="subscript">2</sub>) = Holt-Winters Additive Double Seasonality</li>
+    </ul>
+    <p class="normal">BATS has the flexibility for multiple seasonality; however, it is limited to only integer-based seasonal periods, and with multiple seasonalities, it can have a large number of states resulting in increasing model complexity. This is what TBATS was meant to address.</p>
+    <p class="normal">For reference, the TBATS parameter space is:</p>
+    <p class="center"><img src="../Images/B22389_04_027.png" alt=""/></p>
+    <p class="normal">The main advantages of TBATS are as follows:</p>
+    <ul>
+      <li class="bulletList">Works with single, complex, and non-integer seasonality (trigonometric seasonality)</li>
+      <li class="bulletList">Handles nonlinear patterns common in real-world time series (Box-Cox transformation)</li>
+      <li class="bulletList">Handles autocorrelation in the residuals (Autoregressive moving average errors)</li>
+    </ul>
+    <p class="normal">To better understand the inner workings of TBATS, let’s break down each step.</p>
+    <p class="normal">The order in which <a id="_idIndexMarker346"/>operations are done (unlike the order in the <a id="_idIndexMarker347"/>acronym) using TBATS is:</p>
+    <ol>
+      <li class="numberedList" value="1">Box-Cox transformation</li>
+      <li class="numberedList">Exponentially smoothed trend</li>
+      <li class="numberedList">Seasonal decomposition using Fourier series (trigonometric seasonality)</li>
+      <li class="numberedList">AutoRegressive Moving Average (ARMA)</li>
+      <li class="numberedList">Parameter estimation through a likelihood-based approach</li>
+    </ol>
+    <h3 id="_idParaDest-110" class="heading-3">Box-Cox transformation</h3>
+    <p class="normal">Box-Cox is a <a id="_idIndexMarker348"/>transformation in the family of power<a id="_idIndexMarker349"/> transformations.</p>
+    <p class="normal">In time series, making data stationary is an important step before forecasting (as discussed in <em class="chapterRef">Chapter 1</em>). Stationarity ensures that our data does not statistically change over time, and thus more accurately resembles a probability distribution. There are several possible transformations that could be applied. More details on various target transformations, including Box-Cox, can be found in <em class="chapterRef">Chapter 7</em>.</p>
+    <p class="normal">As a preview, here is a sample output from a Box-Cox transformation. After the transformation, our data more closely resembles that of a normal distribution. Box-Cox transformations can only be used with positive data, but in practice, this is often the case. </p>
+    <p class="normal"><em class="italic">Figure 4.7</em> shows an example of how a time series <a id="_idIndexMarker350"/>might look before and after a Box-Cox <a id="_idIndexMarker351"/>transformation.</p>
+    <figure class="mediaobject"><img src="../Images/B22389_04_10.png" alt=""/></figure>
+    <p class="packt_figref">Figure 4.7: Box-Cox transformation</p>
+    <h3 id="_idParaDest-111" class="heading-3">Exponentially smoothed trend</h3>
+    <p class="normal">Using <strong class="keyWord">Locally Estimated Scatterplot Smoothing</strong> (<strong class="keyWord">LOESS</strong>), a<a id="_idIndexMarker352"/> smoothed<a id="_idIndexMarker353"/> trend is extracted from the time series:</p>
+    <p class="center"><img src="../Images/B22389_04_028.png" alt=""/></p>
+    <p class="center"><img src="../Images/B22389_04_029.png" alt=""/></p>
+    <p class="normal">LOESS works by applying a locally weighted, low-degree polynomial regression over the data points to create a smooth, flowing line through them. This technique is highly effective in capturing local trend variations without assuming a global form for the data, which makes it particularly useful for data with varying trends or seasonal variations. This is the same LOESS that we used to decompose a time series into a trend back in <em class="chapterRef">Chapter 3</em>.</p>
+    <h3 id="_idParaDest-112" class="heading-3">Seasonal decomposition using Fourier series (trigonometric seasonality)</h3>
+    <p class="normal">The remaining <a id="_idIndexMarker354"/>residuals are then modeled using <a id="_idIndexMarker355"/>Fourier terms (discussed in <em class="chapterRef">Chapter 3</em>) to decompose the seasonality component.</p>
+    <p class="center"><img src="../Images/B22389_04_030.png" alt=""/></p>
+    <p class="center"><img src="../Images/B22389_04_031.png" alt=""/></p>
+    <p class="center"><img src="../Images/B22389_04_032.png" alt=""/></p>
+    <p class="center"><img src="../Images/B22389_04_033.png" alt=""/></p>
+    <p class="normal">The main advantage of using Fourier to model seasonality is its ability to model multiple seasonalities, as well as non-integer seasonality, such as yearly seasonality with daily data since there are 364.25 days in a year. Most other decomposition methods cannot handle the non-integer period and have to resort to rounding to 365, which can fail to identify the true seasonality. An example of what a decomposed time series would like using Fourier is below. The observed time series in this example is hourly data. Therefore, our seasonal periods are:</p>
+    <p class="normal"><em class="italic">daily</em> = <em class="italic">24</em></p>
+    <p class="normal"><em class="italic">weekly</em> = <em class="italic">24</em> <em class="italic">*</em> <em class="italic">7</em> = <em class="italic">168</em></p>
+    <p class="normal">Here, you can clearly see the defined seasonal patterns, the trend, and the remaining residuals. <em class="italic">Figure 4.8</em> shows the decomposition of the trend and seasonality, after which the residuals are modeled using an ARMA process.</p>
+    <figure class="mediaobject"><img src="../Images/B22389_04_11.png" alt=""/></figure>
+    <p class="packt_figref">Figure 4.8: Decomposed time series</p>
+    <h3 id="_idParaDest-113" class="heading-3">ARMA</h3>
+    <p class="normal">ARMA was <a id="_idIndexMarker356"/>discussed<a id="_idIndexMarker357"/> earlier as a subset of the ARIMA family:</p>
+    <p class="center"><img src="../Images/B22389_04_034.png" alt=""/></p>
+    <p class="normal">The ARMA model in TBATS is used to model the remaining residuals to capture any autocorrelations of the lagged variables. The <strong class="keyWord">autoregressive</strong> (<strong class="keyWord">AR</strong>) component<a id="_idIndexMarker358"/> captures the correlation between an observation and several lagged observations. This deals with the momentum or continuation of the series. The <strong class="keyWord">moving average</strong> (<strong class="keyWord">MA</strong>) component models the error terms as a linear combination of errors at previous time <a id="_idIndexMarker359"/>periods, capturing information<a id="_idIndexMarker360"/> not explained by the AR part alone.</p>
+    <h3 id="_idParaDest-114" class="heading-3">Parameter optimization</h3>
+    <p class="normal">To select the<a id="_idIndexMarker361"/> optimal parameter space, TBATS will fit several models<a id="_idIndexMarker362"/> and automatically select the best parameters. A few of the models TBATS fits internally are:</p>
+    <ul>
+      <li class="bulletList">With and without Box-Cox transformation</li>
+      <li class="bulletList">With and without trend</li>
+      <li class="bulletList">With and without trend damping</li>
+      <li class="bulletList">Season and non-seasonal model</li>
+      <li class="bulletList">ARMA (<em class="italic">p</em>, <em class="italic">q</em>) parameters</li>
+    </ul>
+    <p class="normal">The final model is chosen by which combination of parameters minimizes the <strong class="keyWord">Akaike Information Criterion</strong> (<strong class="keyWord">AIC</strong>), and<a id="_idIndexMarker363"/> AutoARIMA is used to determine the ARMA parameters.</p>
+    <p class="normal">As with all forecasting methods, there are benefits and trade-offs to different models. While TBATS offers some enhancements on many other models’ shortcomings, the trade-off is the need to build many models, which results in longer computation times. This can pose a problem if you have to model multiple time series. Additionally, TBATS does not allow for the inclusion of exogenous variables.</p>
+    <div class="note">
+      <p class="normal"><strong class="keyWord">Practitioner’s note</strong>:</p>
+      <p class="normal">TBATS cannot handle exogenous regression since it is related to ETS models, as per Hyndman himself, who suggests it is unlikely to include covariates (Hyndman, 2014; Reference <em class="italic">7</em>). If external regressors are to be used, other methods such as ARIMAX or SARIMAX should be used. If the time series has complex seasonality, you can add Fourier features as covariates to your ARIMAX or SARIMAX model to help capture the seasonal patterns.</p>
+    </div>
+    <p class="normal">This is implemented in <code class="inlineCode">NIXLA</code>, and we can use the implementation shown here:</p>
+    <pre class="programlisting code"><code class="hljs-code">TBATS_model = TBATS(seasonal_periods  = <span class="hljs-number">48</span>, use_trend=<span class="hljs-literal">True</span>, use_damped_trend=<span class="hljs-literal">True</span>)
+</code></pre>
+    <p class="normal">In NIXTLA, you can also use AutoTBATS to let the system optimize how to handle the various parameters.</p>
+    <p class="normal">Let’s see what the TBATS forecast looks like:</p>
+    <figure class="mediaobject"><img src="../Images/B22389_04_12.png" alt=""/></figure>
+    <p class="packt_figref">Figure 4.9: TBATS forecast</p>
+    <p class="normal">Again, the seasonality pattern has been replicated and is capturing most of the peaks in the forecast. Now let’s<a id="_idIndexMarker364"/> take<a id="_idIndexMarker365"/> a look at another method that is well suited for highly seasonal time series (even if it has multiple seasonalities like our case).</p>
+    <h2 id="_idParaDest-115" class="heading-2">Multiple Seasonal-Trend decomposition using LOESS (MSTL)</h2>
+    <p class="normal">Remember the time<a id="_idIndexMarker366"/> series decomposition we did back in<a id="_idIndexMarker367"/> <em class="chapterRef">Chapter 3</em>? What if we can use the same techniques to forecast? That’s exactly what MSTL does. Let’s look at the components of a time series again:</p>
+    <ul>
+      <li class="bulletList">Trend</li>
+      <li class="bulletList">Cyclical</li>
+      <li class="bulletList">Seasonality</li>
+      <li class="bulletList">Irregular</li>
+    </ul>
+    <p class="normal">Trend and cyclical components can be extracted using LOESS regression. If we fit a simple model on the trend values, we can use it to extrapolate to the future. And the seasonality component can easily be extrapolated because it is supposed to be a repeating pattern. Combining these, we get a forecasting model that works pretty well.</p>
+    <p class="normal">The MSTL method in NIXTLA applies the LOESS technique to decompose a time series into its various seasonal components. Following this decomposition, it employs a specialized non-seasonal model to forecast the trend, and a Seasonal Naive model to predict each of the seasonal components. This approach allows for the detailed analysis and<a id="_idIndexMarker368"/> forecasting of<a id="_idIndexMarker369"/> time series with complex seasonal patterns:</p>
+    <pre class="programlisting code"><code class="hljs-code">MSTL_model = MSTL(season_length  = <span class="hljs-number">48</span>)
+</code></pre>
+    <p class="normal">Let’s see what the MSTL forecast looks like:</p>
+    <figure class="mediaobject"><img src="../Images/B22389_04_13.png" alt=""/></figure>
+    <p class="packt_figref">Figure 4.10: MSTL forecast</p>
+    <p class="normal">Let’s also take a look at how the different metrics that we chose did for each of these forecasts for the household we were experimenting with (from the notebook):</p>
+    <figure class="mediaobject"><img src="../Images/B22389_04_14.png" alt="A screenshot of a computer  Description automatically generated"/></figure>
+    <p class="packt_figref">Figure 4.11: Summary of all the baseline algorithms</p>
+    <p class="normal">Out of all the baseline algorithms we tried, AutoETS is performing the best on MAE as well as MSE. ARIMA was the second-best model followed by TBATS. However, if you look at<a id="_idIndexMarker370"/> the <strong class="keyWord">Time Elapsed</strong> column, TBATS stands out taking just 7.4 seconds vs. 19 seconds for ARIMA. Since they had similar performance, we will choose TBATS over ARIMA, along with <a id="_idIndexMarker371"/>AutoETS as our baseline, and run them on <a id="_idIndexMarker372"/>all 399 households in the dataset (both validation and test) we’ve chosen (the code for this is available in the <code class="inlineCode">02-Baseline_Forecasts_using_NIXTLA.ipynb</code> notebook).</p>
+    <h2 id="_idParaDest-116" class="heading-2">Evaluating the baseline forecasts</h2>
+    <p class="normal">Since we<a id="_idIndexMarker373"/> have the baseline forecasts generated from ETS as well as TBATS, we should also evaluate these forecasts. The aggregate metrics for all the selected households for both these methods are as follows:</p>
+    <figure class="mediaobject"><img src="../Images/B22389_04_15.png" alt="A screenshot of a graph"/></figure>
+    <p class="packt_figref">Figure 4.12: The aggregate metrics of all the selected households (both validation and test)</p>
+    <p class="normal">It looks like AutoETS is performing much<a id="_idIndexMarker374"/> better in all three metrics. We also have these metrics calculated at a household level. Let’s look at the distribution of these metrics in the validation dataset for all the selected households:</p>
+    <figure class="mediaobject"><img src="../Images/B22389_04_16.png" alt=""/><img src="../Images/B22389_04_17.png" alt=""/></figure>
+    <p class="packt_figref">Figure 4.13: The distribution of MASE and forecast bias of the baseline forecast in the validation dataset</p>
+    <p class="normal">The MASE histogram of ETS seems to have a smaller spread than TBATS. ETS also has a lower median MASE than TBATS. We can see a similar pattern for forecast bias as well, with the forecast bias of ETS centered around zero and much less spread.</p>
+    <p class="normal">Back in <em class="chapterRef">Chapter 1</em>, <em class="italic">Introducing Time Series</em>, we saw why every time series is not equally predictable and saw three factors to help us think about the issue—understanding the <strong class="keyWord">Data Generating Process</strong> (<strong class="keyWord">DGP</strong>), the amount of data, and adequately repeating the pattern. In most cases, the first two are pretty easy to evaluate, but the third one requires some analysis. Although the performance of baseline methods gives us some idea about how predictable any time series is, they still are model-dependent. So, instead of measuring how well a time series is forecastable, we might be better measuring how well the chosen model can <a id="_idIndexMarker375"/>approximate the time series. This is where a few more fundamental techniques (relying on the statistical properties of a time series) come in.</p>
+    <h1 id="_idParaDest-117" class="heading-1">Assessing the forecastability of a time series</h1>
+    <p class="normal">Although there are many <a id="_idIndexMarker376"/>statistical measures that we can use to assess the predictability of a time series, we will just look at a few that are easier to understand and practical when dealing with large time series datasets. The associated notebook (<code class="inlineCode">02-Forecastability.ipynb</code>) contains the code to follow along.</p>
+    <h2 id="_idParaDest-118" class="heading-2">Coefficient of variation</h2>
+    <p class="normal">The <strong class="keyWord">Coefficient of Variation</strong> (<strong class="keyWord">CoV</strong>) relies on <a id="_idIndexMarker377"/>the <a id="_idIndexMarker378"/>fact that the more variability that you find in a time series, the harder it is to predict it. And how do we measure variability in a random <a id="_idIndexMarker379"/>variable? <strong class="keyWord">Standard deviation</strong>.</p>
+    <p class="normal">In many real-world time series, the variation we see in the time series is dependent on the scale of the time series. Let’s imagine that there are two retail products, <em class="italic">A</em> and <em class="italic">B</em>. <em class="italic">A</em> has a mean monthly sale of 15, while <em class="italic">B</em> has 50. If we look at a few real-world examples like this, we will see that if <em class="italic">A</em> and <em class="italic">B</em> have the same standard deviation, <em class="italic">B</em>, which has a higher mean, is much more forecastable than <em class="italic">A</em>. To accommodate this phenomenon and to make sure we bring all the time series in a dataset to a common scale, we can use the CoV:</p>
+    <p class="center"><img src="../Images/B22389_04_035.png" alt=""/></p>
+    <p class="normal">Here, <img src="../Images/B22389_04_036.png" alt=""/>is the standard deviation, and <img src="../Images/B22389_04_037.png" alt=""/>is the mean of the time series, <em class="italic">n</em>.</p>
+    <p class="normal">The CoV is the relative dispersion of data points around the mean, which is much better than looking at the pure standard deviation.</p>
+    <p class="normal">The larger the value for the CoV, the worse the predictability of the time series. There is no hard cutoff, but a value of 0.49 is considered a rule of thumb to separate time series that are relatively easier to forecast from the hard ones. Depending on the general <em class="italic">hardness</em> of the dataset, we can tweak this cutoff. Something I have found useful is to plot a histogram of CoV values in a dataset and derive cutoffs based on that.</p>
+    <p class="normal">Even though the CoV is widely used in the industry, it suffers from a few key issues:</p>
+    <ul>
+      <li class="bulletList">It doesn’t consider seasonality. A sine or cosine wave will have a higher CoV than a horizontal line, but we know both are equally predictable.</li>
+      <li class="bulletList">It doesn’t consider the trend. A linear trend will make a series have a higher CoV, but we know it is equally predictable, like a horizontal line.</li>
+      <li class="bulletList">It doesn’t handle negative values in the time series. If you have negative values, it <a id="_idIndexMarker380"/>makes the <a id="_idIndexMarker381"/>mean smaller, thereby inflating the CoV.</li>
+    </ul>
+    <p class="normal">To overcome these shortcomings, we propose another derived measure.</p>
+    <h2 id="_idParaDest-119" class="heading-2">Residual variability</h2>
+    <p class="normal">The thought <a id="_idIndexMarker382"/>behind <strong class="keyWord">residual variability</strong> (<strong class="keyWord">RV</strong>) is to<a id="_idIndexMarker383"/> try and measure the same kind of variability that we were trying to capture with the CoV but without the shortcomings. I was brainstorming on ways to avoid the problems of using the CoV, typically the seasonality issue, and was applying the CoV to the residuals after seasonal decomposition. It was then I realized that the residuals would have a few negative values and that the CoV wouldn’t work well. Stefan de Kok, who is a thought leader in demand forecasting and probabilistic forecasting, suggested using the mean of the original actuals, which worked.</p>
+    <p class="normal">To calculate RV, you must perform the following steps:</p>
+    <ol>
+      <li class="numberedList" value="1">Perform seasonal decomposition.</li>
+      <li class="numberedList">Calculate the standard deviation of the residuals or the irregular component.</li>
+      <li class="numberedList">Divide the standard deviation by the mean of the original observed values (before decomposition).</li>
+    </ol>
+    <p class="normal">Mathematically, it can be represented as:</p>
+    <p class="center"><img src="../Images/B22389_04_038.png" alt=""/></p>
+    <p class="normal">where, <img src="../Images/B22389_04_039.png" alt=""/> is the standard deviation of the residuals after decomposition and <img src="../Images/B22389_04_040.png" alt=""/> is the mean of the original observed values.</p>
+    <p class="normal">The key assumption here is that seasonality and trend are components that can be predicted. Therefore, our assessment of the predictability of a time series should only look at the variability of the residuals. However, we cannot use CoV on the residuals because the residuals can have negative and positive values, so the mean of the residuals loses the interpretation of the level of the series and tends to zero. When residuals tend to zero, the CoV measure tends to infinity because of the division by mean. Therefore, we use the mean of the original series as the scaling factor.</p>
+    <p class="normal">Let’s see how we can calculate RV for all the time series in our dataset (which are in a compact form):</p>
+    <pre class="programlisting code"><code class="hljs-code">block_df[<span class="hljs-string">"rv"</span>] = block_df.progress_apply(<span class="hljs-keyword">lambda</span> x: calc_norm_sd(x[<span class="hljs-string">'</span><span class="hljs-string">residuals'</span>],x[<span class="hljs-string">'energy_consumption'</span>]), axis=<span class="hljs-number">1</span>)
+</code></pre>
+    <p class="normal">In this section, we<a id="_idIndexMarker384"/> looked at two measures that <a id="_idIndexMarker385"/>are based on the standard deviation of the time series. Now, let’s look at assessing the forecastability of a time series.</p>
+    <h2 id="_idParaDest-120" class="heading-2">Entropy-based measures</h2>
+    <p class="normal"><strong class="keyWord">Entropy</strong> is a ubiquitous term in <a id="_idIndexMarker386"/>science. We<a id="_idIndexMarker387"/> see it popping up in physics, quantum mechanics, social sciences, and information theory. And everywhere, it is used to talk about a measure of chaos or lack of predictability in a system. The entropy we are most interested in now is the one from information theory. Information theory involves quantifying, storing, and communicating digital information.</p>
+    <p class="normal">Claude E. Shannon presented the qualitative and quantitative model of communication as a statistical process in his seminal paper <em class="italic">A Mathematical Theory of Communication</em>. While the paper introduced a lot of ideas, some of the concepts that are relevant to us are information entropy and the concept of a <em class="italic">bit</em>—a fundamental unit of measurement of information.</p>
+    <div class="note">
+      <p class="normal"><strong class="keyWord">Reference check</strong>:</p>
+      <p class="normal"><em class="italic">A Mathematical Theory of Communication</em> by Claude E. Shannon is cited as reference <em class="italic">3</em> in the <em class="italic">References</em> section.</p>
+    </div>
+    <p class="normal">The theory in itself is quite a lot to cover, but to summarize the key bits of information, take a look at the following short glossary:</p>
+    <ul>
+      <li class="bulletList">Information is nothing but a sequence of <em class="italic">symbols</em>, which can be transmitted from the <em class="italic">receiver</em> to the <em class="italic">sender</em> through a medium, which is called a <em class="italic">channel</em>. For instance, when we are texting somebody, the sequence of symbols is the letters/words of the language in which we are texting; the channel is the electronic medium.</li>
+      <li class="bulletList"><em class="italic">Entropy</em> can be thought of as the amount of <em class="italic">uncertainty</em> or <em class="italic">surprise</em> in a sequence of symbols given some distribution of the symbols.</li>
+      <li class="bulletList"><em class="italic">A bit</em>, as we mentioned earlier, is a unit of information and is a binary digit. It can either be 0 or 1.</li>
+    </ul>
+    <p class="normal">Now, if we were to transfer one bit of information, it would reduce the uncertainty of the receiver by two. To understand this better, let’s consider a coin toss. We toss the coin in the air, and as it <a id="_idIndexMarker388"/>is spinning through <a id="_idIndexMarker389"/>the air, we don’t know whether it is going to be heads or tails. But we do know it is going to be one of these two. When the coin hits the ground and finally comes to rest, we find that it is heads. We can represent whether the coin toss is heads or tails with one bit of information (0 for heads and 1 for tails). So, the information that was passed to us when the coin fell reduced the possible outcomes from two to one (heads). This transfer was possible with one bit of information.</p>
+    <p class="normal">In information theory, the entropy of a discrete random variable is the average level of <em class="italic">information</em>, <em class="italic">surprise</em>, or <em class="italic">uncertainty</em> inherent in the variable’s possible outcomes. In more technical parlance, it is the expected number of bits required for the best possible encoding scheme of the information present in the random variable.</p>
+    <div class="note">
+      <p class="normal"><strong class="keyWord">Additional reading</strong>:</p>
+      <p class="normal">If you want to intuitively understand entropy, cross-entropy, Kullback-Leibler divergence, and so on, head over to the <em class="italic">Further reading</em> section. There are a couple of links to blogs (one of which is my own) where we try to lay down the intuition behind these metrics.</p>
+    </div>
+    <p class="normal">Entropy is formally defined as follows:</p>
+    <p class="center"><img src="../Images/B22389_04_041.png" alt=""/></p>
+    <p class="normal">Here, <em class="italic">X</em> is the discrete random variable with possible outcomes, <em class="italic">x</em><sub class="subscript">1</sub>, <em class="italic">x</em><sub class="subscript">2</sub>, …, <em class="italic">x</em><sub class="subscript">n</sub>. Each of those outcomes has a probability of occurring, which is denoted by <em class="italic">P</em>(<em class="italic">x</em><sub class="subscript">1</sub>), <em class="italic">P</em>(<em class="italic">x</em><sub class="subscript">2</sub>), …, <em class="italic">P</em>(<em class="italic">x</em><sub class="subscript">n</sub>).</p>
+    <p class="normal">To develop some intuition around this, we can think that the more spread out a probability distribution <a id="_idIndexMarker390"/>is, the more chaos is in the distribution, and thus more entropy. Let’s quickly<a id="_idIndexMarker391"/> check this with some code:</p>
+    <pre class="programlisting code"><code class="hljs-code"><span class="hljs-comment"># Creating an array with a well balanced probability distribution</span>
+flat = np.array([<span class="hljs-number">0.1</span>,<span class="hljs-number">0.2</span>, <span class="hljs-number">0.3</span>,<span class="hljs-number">0.2</span>, <span class="hljs-number">0.2</span>])
+<span class="hljs-comment"># Calculating Entropy</span>
+<span class="hljs-built_in">print</span>((-np.log2(flat)* flat).<span class="hljs-built_in">sum</span>())
+</code></pre>
+    <pre class="programlisting con"><code class="hljs-con">&gt;&gt; 2.2464393446710154
+</code></pre>
+    <pre class="programlisting code"><code class="hljs-code"><span class="hljs-comment"># Creating an array with a peak in probability</span>
+sharp = np.array([<span class="hljs-number">0.1</span>,<span class="hljs-number">0.6</span>, <span class="hljs-number">0.1</span>,<span class="hljs-number">0.1</span>, <span class="hljs-number">0.1</span>])
+<span class="hljs-comment"># Calculating Entropy</span>
+<span class="hljs-built_in">print</span>((-np.log2(sharp)* sharp).<span class="hljs-built_in">sum</span>())
+</code></pre>
+    <pre class="programlisting con"><code class="hljs-con">&gt;&gt; 1.7709505944546688
+</code></pre>
+    <p class="normal">Here, we can see that the probability distribution that spreads its mass has higher entropy.</p>
+    <p class="normal">In the context of a time series, <em class="italic">n</em> is the total number of time series observations, and <em class="italic">P</em>(<em class="italic">x</em><sub class="subscript-italic" style="font-style: italic;">i</sub>) is the probability for each symbol of the time series alphabet. A sharp distribution means that the time series values are concentrated on a small area and should be easier to predict. On the other hand, a wide or flat distribution means that the time series value can be equally likely across a wider range of values and hence is difficult to predict.</p>
+    <p class="normal">If we have two time series—one containing the result of a coin toss and the other containing the result of a dice throw—the dice throw would have any output between one and six, whereas the coin toss would be either zero or one. The coin toss time series would have lower entropy and be easier to predict than the dice throw time series.</p>
+    <p class="normal">However, since time series is typically continuous, and entropy requires a discrete random variable, we can resort to a few strategies to convert the continuous time series into a discrete one. Many strategies, such as quantization or binning, can be applied, which leads to a<a id="_idIndexMarker392"/> myriad of complexity <a id="_idIndexMarker393"/>measures. Let’s review one such measure that is useful and practical.</p>
+    <h3 id="_idParaDest-121" class="heading-3">Spectral entropy</h3>
+    <p class="normal">To calculate the<a id="_idIndexMarker394"/> entropy of a time series, we need to discretize <a id="_idIndexMarker395"/>the time series. One way to do that is by using <strong class="keyWord">Fast Fourier Transform</strong> (<strong class="keyWord">FFT</strong>) and <strong class="keyWord">power spectral density</strong> (<strong class="keyWord">PSD</strong>). This<a id="_idIndexMarker396"/> discretization of the continuous time series is used to calculate spectral entropy.</p>
+    <p class="normal">We learned what Fourier Transform is earlier in this chapter and used it to generate a baseline forecast. But using FFT, we can also estimate a quantity called power spectral density. This answers the question, <em class="italic">How much of the signal is at a particular frequency?</em> There are many ways of estimating power spectral density from a time series, but one of the easiest ways is by using<a id="_idIndexMarker397"/> the <strong class="keyWord">Welch method</strong>, which is a non-parametric method based on Discrete Fourier Transform. This is also implemented as a handy function with the <code class="inlineCode">periodogram(x)</code> signature in <code class="inlineCode">scipy</code>.</p>
+    <p class="normal">The returned <em class="italic">PSD</em> will have a length equal to the number of frequencies estimated, but these are densities and not well-defined probabilities. So, we need to normalize <em class="italic">PSD</em> to be between zero and one:</p>
+    <p class="center"><img src="../Images/B22389_04_042.png" alt=""/></p>
+    <p class="normal">Here, <em class="italic">F</em> is the number of frequencies that are part of the returned power spectrum density.</p>
+    <p class="normal">Now that we have the probabilities, we can just plug this into the entropy formula and arrive at the spectral entropy:</p>
+    <p class="center"><img src="../Images/B22389_04_043.png" alt=""/></p>
+    <p class="normal">When we <a id="_idIndexMarker398"/>introduced <strong class="keyWord">entropy-based measures</strong>, we saw that the more spread out the probability mass of a distribution is, the higher the entropy is. In this context, the more frequencies across which the spectral density is spread, the higher the spectral entropy. So, a higher spectral entropy means the time series is more complex and, therefore, more difficult to forecast.</p>
+    <p class="normal">Since FFT has an assumption of stationarity, it is recommended that we make the series stationary before using spectral entropy as a metric. We can even apply this metric to a detrended and deseasonalized time series, which we can refer to as <strong class="keyWord">residual spectral entropy</strong>. This <a id="_idIndexMarker399"/>book’s GitHub repository contains an implementation of spectral entropy under <code class="inlineCode">src.forecastability.entropy.spectral_entropy</code>. This implementation also has a parameter, <code class="inlineCode">transform_stationary</code>, which, if set to <code class="inlineCode">True</code>, will detrend the series before we apply spectral entropy. Let’s see how we can calculate spectral entropy for our dataset:</p>
+    <pre class="programlisting code"><code class="hljs-code"><span class="hljs-keyword">from</span> src.forecastability.entropy <span class="hljs-keyword">import</span> spectral_entropy
+block_df[<span class="hljs-string">"spectral_entropy"</span>] = block_df.energy_consumption.progress_apply(<span class="hljs-keyword">lambda</span> x: spectral_entropy(x, transform_stationary=<span class="hljs-literal">True</span>))
+block_df[<span class="hljs-string">"residual_spectral_entropy"</span>] = block_df.residuals.progress_apply(spectral_entropy)
+</code></pre>
+    <p class="normal">There are other entropy-based measures such as approximate entropy and sample entropy, but we will not cover them in this book. They are more computationally intensive and don’t tend to work for time series that contain fewer than 200 values. If you are interested in learning more about these measures, head over to the <em class="italic">Further reading</em> section.</p>
+    <p class="normal">Another metric that<a id="_idIndexMarker400"/> takes a slightly different path is the Kaboudan metric.</p>
+    <h2 id="_idParaDest-122" class="heading-2">Kaboudan metric</h2>
+    <p class="normal">In 1999, Kaboudan<a id="_idIndexMarker401"/> defined a metric for time<a id="_idIndexMarker402"/> series predictability, calling it the <img src="../Images/B22389_04_044.png" alt=""/>-metric. The idea behind it is very simple. If we block-shuffle a time series, we are essentially destroying the information in the time series. <strong class="keyWord">Block shuffling</strong> is the<a id="_idIndexMarker403"/> process of dividing the time series into blocks and then shuffling those blocks. So, if we calculate the <strong class="keyWord">sum of squared errors</strong> (<strong class="keyWord">SSE</strong>) of a<a id="_idIndexMarker404"/> forecast that’s been trained on a time series and then contrast it with the SSE of a forecast trained on a shuffled time series, we can infer the predictability of the time series. The formula to calculate this is as follows:</p>
+    <p class="center"><img src="../Images/B22389_04_045.png" alt=""/></p>
+    <p class="normal">Here, <em class="italic">SSE</em><sub class="subscript-italic" style="font-style: italic;">Y</sub> is the SSE of the forecast that was generated from the original time series, while <em class="italic">SSE</em><sub class="subscript-italic" style="font-style: italic;">S</sub> is the SSE of the forecast that was generated from the block-shuffled series.</p>
+    <p class="normal">If the time series contains some predictable signals, <em class="italic">SSE</em><sub class="subscript-italic" style="font-style: italic;">Y</sub> would be lower than <em class="italic">SSE</em><sub class="subscript-italic" style="font-style: italic;">S</sub> and <img src="../Images/B22389_04_044.png" alt=""/> would approach one. This is because there was some information or patterns that were broken due to the block shuffling. On the other hand, if a series is just white noise (which is unpredictable by definition), there would be hardly any difference between <em class="italic">SSE</em><sub class="subscript-italic" style="font-style: italic;">Y</sub> and <em class="italic">SSE</em><sub class="subscript-italic" style="font-style: italic;">S</sub>, and <img src="../Images/B22389_04_044.png" alt=""/> would approach zero.</p>
+    <p class="normal">In 2002, Duan investigated this metric and suggested some modifications in his thesis. One of the problems he identified, especially in long time series, is that the <img src="../Images/B22389_04_044.png" alt=""/> values are found in a narrow band around 1 and suggested a slight modification to the formula. We call this the <strong class="keyWord">modified Kaboudan metric</strong>. The <a id="_idIndexMarker405"/>measure on the lower side is also clipped to zero. Sometimes, the metric can go below zero because <em class="italic">SSE</em><sub class="subscript-italic" style="font-style: italic;">S</sub> is lower than <em class="italic">SSE</em><sub class="subscript-italic" style="font-style: italic;">Y</sub>, which is because the series is unpredictable and, by <a id="_idIndexMarker406"/>pure chance, block shuffling made the SSE lower:</p>
+    <p class="center"><img src="../Images/B22389_04_049.png" alt=""/></p>
+    <div class="note">
+      <p class="normal"><strong class="keyWord">Reference check</strong>:</p>
+      <p class="normal">The research paper that proposed the Kaboudan metric is cited as reference <em class="italic">4</em> in the <em class="italic">References</em> section. The subsequent modification that Duan suggested is cited as reference <em class="italic">5</em>.</p>
+    </div>
+    <p class="normal">This modified version, as well as the original, has been implemented in this book’s GitHub repository.</p>
+    <p class="normal">There is no restriction on the forecasting model you use to generate the forecast, which makes it a bit more flexible. Ideally, we can choose one of the classical statistical methods that is fast enough to be applied to the whole dataset. But this also makes the Kaboudan metric dependent on the model, and the limitations of the model are inherent in the metric. The metric measures a combination of how difficult a series is to forecast and how difficult it is for the model to forecast the series.</p>
+    <p class="normal">Again, both metrics are implemented in this book’s GitHub repository. Let’s see how we can use them:</p>
+    <pre class="programlisting code"><code class="hljs-code"><span class="hljs-keyword">from</span> src.forecastability.kaboudan <span class="hljs-keyword">import</span> kaboudan_metric, modified_kaboudan_metric
+model = Theta(theta=<span class="hljs-number">3</span>, seasonality_period=<span class="hljs-number">48</span>*<span class="hljs-number">7</span>, season_mode=SeasonalityMode.ADDITIVE)
+block_df[<span class="hljs-string">"kaboudan_metric"</span>] = [kaboudan_metric(r[<span class="hljs-number">0</span>], model=model, block_size=<span class="hljs-number">5</span>, backtesting_start=<span class="hljs-number">0.5</span>, n_folds=<span class="hljs-number">1</span>) <span class="hljs-keyword">for</span> r <span class="hljs-keyword">in</span> tqdm(<span class="hljs-built_in">zip</span>(*block_df[[<span class="hljs-string">"energy_consumption"</span>]].to_dict(<span class="hljs-string">"list"</span>).values()), total=<span class="hljs-built_in">len</span>(block_df))]
+block_df[<span class="hljs-string">"modified_kaboudan_metric"</span>] = [modified_kaboudan_metric(r[<span class="hljs-number">0</span>], model=model, block_size=<span class="hljs-number">5</span>, backtesting_start=<span class="hljs-number">0.5</span>, n_folds=<span class="hljs-number">1</span>) <span class="hljs-keyword">for</span> r <span class="hljs-keyword">in</span> tqdm(<span class="hljs-built_in">zip</span>(*block_df[[<span class="hljs-string">"energy_consumption"</span>]].to_dict(<span class="hljs-string">"list"</span>).values()), total=<span class="hljs-built_in">len</span>(block_df))]
+</code></pre>
+    <p class="normal">Although there are many more metrics we can use for this purpose, the metrics we just reviewed for assessing forecastability cover a lot of the popular use cases and should be more than enough to gauge any time series dataset in regards to the difficulty of forecasting it. We <a id="_idIndexMarker407"/>can use these metrics to compare one<a id="_idIndexMarker408"/> time series with another time series or to profile a whole set of related time series in a dataset with another dataset for benchmarking purposes.</p>
+    <div class="packt_tip">
+      <p class="normal"><strong class="keyWord">Additional reading</strong>:</p>
+      <p class="normal">If you want to delve a little deeper and analyze the behavior of these metrics, how similar they are to each other, and how effective they are in measuring forecastability, go to the end of the <code class="inlineCode">03-Forecastability.ipynb</code> notebook. We compute rank correlations among these metrics to understand how similar these metrics are. We can also find rank correlations with the computed metrics from the best-performing baseline method to understand how well these metrics did in estimating the forecastability of a time series. I strongly encourage you to play around with the notebook and understand the differences between the different metrics. Pick a few time series and check how the different metrics give you slightly different interpretations.</p>
+    </div>
+    <p class="normal">Congratulations on generating your baseline forecasts—the first set of forecasts we have generated using this book! Feel free to head over to the notebooks, play around with the parameters of the methods, and see how forecasts change. It’ll help you develop an intuition around what the baseline methods are doing. If you are interested in learning more about how to make these baseline methods better, head over to the <em class="italic">Further reading</em> section, where <a id="_idIndexMarker409"/>we have provided a<a id="_idIndexMarker410"/> link to the paper <em class="italic">The Wisdom of the Data: Getting the Most Out of Univariate Time Series Forecasting</em>, by F. Petropoulos and E. Spiliotis.</p>
+    <h1 id="_idParaDest-123" class="heading-1">Summary</h1>
+    <p class="normal">And with this, we have come to the end of <em class="italic">Part 1</em>, <em class="italic">Getting Familiar with Time Series</em>. We have come a long way from just understanding what a time series is to generating competitive baseline forecasts. Along the way, we learned how to handle missing values and outliers and how to manipulate time series data using pandas. We used all those skills on a real-world dataset regarding energy consumption. We also looked at ways to visualize and decompose time series. In this chapter, we set up a test harness, learned how to use the NIXTLA library to generate a baseline forecast, and looked at a few metrics that can be used to understand the forecastability of a time series. </p>
+    <p class="normal">For some of you, this may be a refresher, and we hope this chapter added some value in terms of some subtleties and practical considerations. For the rest of you, we hope you are in a good place foundationally to start venturing into modern techniques using machine learning in the next part of the book.</p>
+    <p class="normal">In the next chapter, we will discuss the basics of machine learning and delve into time series forecasting.</p>
+    <h1 id="_idParaDest-124" class="heading-1">References</h1>
+    <p class="normal">The following references were provided in this chapter:</p>
+    <ol>
+      <li class="numberedList" value="1">Assimakopoulos, Vassilis and Nikolopoulos, K. (2000). <em class="italic">The theta model: A decomposition approach to forecasting</em>. International Journal of Forecasting. 16. 521-530. <a href="https://www.researchgate.net/publication/223049702_The_theta_model_A_decomposition_approach_to_forecasting"><span class="url">https://www.researchgate.net/publication/223049702_The_theta_model_A_decomposition_approach_to_forecasting</span></a>.</li>
+      <li class="numberedList">Rob J. Hyndman, Baki Billah. (2003). <em class="italic">Unmasking the Theta method</em>. International Journal of Forecasting. 19. 287-290. <a href="https://robjhyndman.com/papers/Theta.pdf"><span class="url">https://robjhyndman.com/papers/Theta.pdf</span></a>.</li>
+      <li class="numberedList">Shannon, C.E. (1948), <em class="italic">A Mathematical Theory of Communication</em>. Bell System Technical Journal, 27: 379-423. <a href="https://people.math.harvard.edu/~ctm/home/text/others/shannon/entropy/entropy.pdf"><span class="url">https://people.math.harvard.edu/~ctm/home/text/others/shannon/entropy/entropy.pdf</span></a>.</li>
+      <li class="numberedList">Kaboudan, M. (1999). <em class="italic">A measure of time series’ predictability using genetic programming applied to stock returns</em>. Journal of Forecasting, 18, 345-357: <a href="http://www.aiecon.org/conference/efmaci2004/pdf/GP_Basics_paper.pdf"><span class="url">http://www.aiecon.org/conference/efmaci2004/pdf/GP_Basics_paper.pdf</span></a>.</li>
+      <li class="numberedList">Duan, M. (2002). <em class="italic">TIME SERIES PREDICTABILITY</em>: <a href="https://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.68.1898&amp;rep=rep1&amp;type=pdf"><span class="url">https://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.68.1898&amp;rep=rep1&amp;type=pdf</span></a>.</li>
+      <li class="numberedList">De Livera, A. M., &amp; Hyndman, R. J. (2009). Forecasting time series with complex seasonal patterns using exponential smoothing (Department of Econometrics and Business Statistics Working Paper Series 15/09)</li>
+      <li class="numberedList">Hyndman, Rob. “<em class="italic">Rob J Hyndman - TBATS with Regressors</em>.” Rob J Hyndman, 6 Oct. 2014, <a href="http://robjhyndman.com/hyndsight/tbats-with-regressors"><span class="url">http://robjhyndman.com/hyndsight/tbats-with-regressors</span></a></li>
+    </ol>
+    <h1 id="_idParaDest-125" class="heading-1">Further reading</h1>
+    <p class="normal">To learn more about the topics that were covered in this chapter, take a look at the following resources:</p>
+    <ul>
+      <li class="bulletList level-2"><em class="italic">Information Theory and Entropy</em>, by Manu Joseph: <a href="https://deep-and-shallow.com/2020/01/09/deep-learning-and-information-theory/"><span class="url">https://deep-and-shallow.com/2020/01/09/deep-learning-and-information-theory/</span></a>.</li>
+      <li class="bulletList level-2"><em class="italic">Visual Information</em>, by Chris Olah: <a href="https://colah.github.io/posts/2015-09-Visual-Information"><span class="url">https://colah.github.io/posts/2015-09-Visual-Information</span></a>.</li>
+      <li class="bulletList level-2">Fourier Transform: <a href="https://betterexplained.com/articles/an-interactive-guide-to-the-fourier-transform/"><span class="url">https://betterexplained.com/articles/an-interactive-guide-to-the-fourier-transform/</span></a>.</li>
+      <li class="bulletList level-2"><em class="italic">Fourier Transform</em> by 3blue1brown—a visual introduction: <a href="https://www.youtube.com/watch?v=spUNpyF58BY&amp;vl=en"><span class="url">https://www.youtube.com/watch?v=spUNpyF58BY&amp;vl=en</span></a>.</li>
+      <li class="bulletList level-2"><em class="italic">Understanding Fourier Transform by Example</em>, by Richie Vink: <a href="https://www.ritchievink.com/blog/2017/04/23/understanding-the-fourier-transform-by-example/"><span class="url">https://www.ritchievink.com/blog/2017/04/23/understanding-the-fourier-transform-by-example/</span></a>.</li>
+      <li class="bulletList level-2">Delgado-Bonal A, Marshak A. <em class="italic">Approximate Entropy and Sample Entropy: A Comprehensive Tutorial</em>. Entropy. 2019; 21(6):541: <a href="https://www.mdpi.com/1099-4300/21/6/541"><span class="url">https://www.mdpi.com/1099-4300/21/6/541</span></a>.</li>
+      <li class="bulletList level-2">Yentes, J.M., Hunt, N., Schmid, K.K. et al. <em class="italic">The Appropriate Use of Approximate Entropy and Sample Entropy with Short Data Sets</em>. Ann Biomed Eng 41, 349–365 (2013): <a href="https://doi.org/10.1007/s10439-012-0668-3"><span class="url">https://doi.org/10.1007/s10439-012-0668-3</span></a></li>
+      <li class="bulletList level-2">Ponce-Flores M, Frausto-Solís J, Santamaría-Bonfil G, Pérez-Ortega J, González-Barbosa JJ. <em class="italic">Time Series Complexities and Their Relationship to Forecasting Performance</em>. Entropy. 2020; 22(1):89. <a href="https://www.mdpi.com/1099-4300/22/1/89"><span class="url">https://www.mdpi.com/1099-4300/22/1/89</span></a></li>
+      <li class="bulletList level-2">Petropoulos F, Spiliotis E. <em class="italic">The Wisdom of the Data: Getting the Most Out of Univariate Time Series Forecasting</em>. Forecasting. 2021; 3(3):478-497. <a href="https://doi.org/10.3390/forecast3030029"><span class="url">https://doi.org/10.3390/forecast3030029</span></a></li>
+    </ul>
+    <h1 class="heading-1">Join our community on Discord</h1>
+    <p class="normal">Join our community’s Discord space for discussions with authors and other readers:</p>
+    <p class="normal"><a href="https://packt.link/mts"><span class="url">https://packt.link/mts</span></a></p>
+    <p class="normal"><img src="../Images/QR_Code15080603222089750.png" alt=""/></p>
+  </div>
+</body></html>

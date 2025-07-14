@@ -1,0 +1,395 @@
+<html><head></head><body>
+  <div id="_idContainer419" class="Basic-Text-Frame">
+    <h1 class="chapterNumber">9</h1>
+    <h1 id="_idParaDest-201" class="chapterTitle">Ensembling and Stacking</h1>
+    <p class="normal">In the previous chapter, we looked at a few machine learning algorithms and used them to generate forecasts on the London Smart Meters dataset. Now that we have multiple forecasts for all the households in the dataset, how do we come up with a single forecast by choosing or combining these different forecasts? At the end of the day, we can only have one forecast that will be used for planning whatever task for which you are forecasting. That is what we will be doing in this chapter—we will learn how to leverage combinatorial and mathematical optimization to come up with a single forecast.</p>
+    <p class="normal">In this chapter, we will cover the following topics:</p>
+    <ul>
+      <li class="bulletList">Strategies for combining forecasts</li>
+      <li class="bulletList">Stacking or blending</li>
+    </ul>
+    <h1 id="_idParaDest-202" class="heading-1">Technical requirements</h1>
+    <p class="normal">You will need to set up the Anaconda environment following the instructions in the <em class="italic">Preface</em> of the book to get a working environment with all the libraries and datasets required for the code in this book. Any additional library will be installed while running the notebooks.</p>
+    <p class="normal">You will need to run the following notebooks before using the code in this chapter:</p>
+    <ul>
+      <li class="bulletList"><code class="inlineCode">02-Preprocessing_London_Smart_Meter_Dataset.ipynb</code> in <code class="inlineCode">Chapter02</code></li>
+      <li class="bulletList"><code class="inlineCode">01-Setting_up_Experiment_Harness.ipynb</code> in <code class="inlineCode">Chapter04</code></li>
+      <li class="bulletList"><code class="inlineCode">02-Baseline_Forecasts_using_darts.ipynb</code> in <code class="inlineCode">Chapter04</code></li>
+      <li class="bulletList"><code class="inlineCode">01-Feature_Engineering.ipynb</code> in <code class="inlineCode">Chapter06</code></li>
+      <li class="bulletList"><code class="inlineCode">02-Dealing_with_Non-Stationarity.ipynb</code> in <code class="inlineCode">Chapter07</code></li>
+      <li class="bulletList"><code class="inlineCode">02a-Dealing_with_Non-Stationarity-Train+Val.ipynb</code> in <code class="inlineCode">Chapter07</code></li>
+      <li class="bulletList"><code class="inlineCode">00-Single_Step_Backtesting_Baselines.ipynb</code> in <code class="inlineCode">Chapter08</code></li>
+      <li class="bulletList"><code class="inlineCode">01-Forecasting_with_ML.ipynb</code> in <code class="inlineCode">Chapter08</code></li>
+      <li class="bulletList"><code class="inlineCode">01a-Forecasting_with_ML_for_Test_Dataset.ipynb</code> in <code class="inlineCode">Chapter08</code></li>
+      <li class="bulletList"><code class="inlineCode">02-Forecasting_with_Target_Transformation.ipynb</code> in <code class="inlineCode">Chapter08</code></li>
+      <li class="bulletList"><code class="inlineCode">02a-Forecasting_with_Target_Transformation(Test).ipynb</code> in <code class="inlineCode">Chapter08</code></li>
+    </ul>
+    <p class="normal">The code for this chapter can be found at <a href="https://github.com/PacktPublishing/Modern-Time-Series-Forecasting-with-Python-/tree/main/notebooks/Chapter09"><span class="url">https://github.com/PacktPublishing/Modern-Time-Series-Forecasting-with-Python-/tree/main/notebooks/Chapter09</span></a>.</p>
+    <h1 id="_idParaDest-203" class="heading-1">Combining forecasts</h1>
+    <p class="normal">We have <a id="_idIndexMarker685"/>generated forecasts using many techniques—some univariate, some machine learning, and so on. But at the end of the day, we would need a single forecast, and that means choosing a forecast or combining a variety. The most straightforward option is to choose the algorithm that does the best in the validation dataset, which in our case is <code class="inlineCode">LightGBM</code>. We can think of this <em class="italic">selection</em> as another function that takes the forecasts that we generated as inputs and combines them into a final forecast. Mathematically, this can be represented as follows:</p>
+    <p class="center"><em class="italic">Y</em> = <em class="italic">F</em>(<em class="italic">Y</em><sub class="subscript">1</sub>, <em class="italic">Y</em><sub class="subscript">2</sub>, …, <em class="italic">Y</em><sub class="subscript">N</sub>)</p>
+    <p class="normal">Here, <em class="italic">F</em> is the function that combines <em class="italic">N</em> forecasts. We can use the <em class="italic">F</em> function to choose the best-performing model in the validation dataset. However, this function can be as complex as it wants to be, and choosing the right <em class="italic">F</em> function while balancing bias and variance is a must.</p>
+    <div class="note">
+      <p class="normal"><strong class="keyWord">Notebook alert:</strong></p>
+      <p class="normal">To follow along with the code, use the <code class="inlineCode">01-Forecast_Combinations.ipynb</code> notebook in the <code class="inlineCode">Chapter09</code> folder.</p>
+    </div>
+    <p class="normal">We will start by loading all the forecasts (both the validation and test forecasts) and the corresponding metrics for all the forecasts we have generated so far and combining them into <code class="inlineCode">pred_val_df</code> and <code class="inlineCode">pred_test_df</code>. Now, we must reshape the DataFrame using <code class="inlineCode">pd.pivot</code> to get it into the shape we want. Up to this point, we have been tracking multiple metrics. But to meet this objective, we will need to choose one. For this exercise, we are going to choose the MAE as the metric. The validation metrics can be combined and<a id="_idIndexMarker686"/> reshaped into <code class="inlineCode">metrics_combined_df</code>:</p>
+    <figure class="mediaobject"><img src="../Images/B22389_09_01.png" alt="Figure 9.1 – Reshaped predictions DataFrame "/></figure>
+    <p class="packt_figref">Figure 9.1: Reshaped predictions DataFrame</p>
+    <p class="normal">Now, let’s look at <a id="_idIndexMarker687"/>some different strategies for combining the <a id="_idIndexMarker688"/>forecasts.</p>
+    <h2 id="_idParaDest-204" class="heading-2">Best fit</h2>
+    <p class="normal">This strategy <a id="_idIndexMarker689"/>for choosing the best forecast is by far the most popular and is as simple as choosing the best forecast for each time series based on the validation metrics. This strategy has been made popular by many automated<a id="_idIndexMarker690"/> forecasting software tools, which call this the “best fit” forecast. The algorithm is very simple:</p>
+    <ol>
+      <li class="numberedList" value="1">Find the best-performing forecast for each time series using a validation dataset.</li>
+      <li class="numberedList">For each time series, select the forecast from the same model for the test dataset.</li>
+    </ol>
+    <p class="normal">We can do this easily:</p>
+    <pre class="programlisting code"><code class="hljs-code"><span class="hljs-comment"># Finding the lowest metric for each LCLid</span>
+best_alg = metrics_combined_df.idxmin(axis=<span class="hljs-number">1</span>)
+<span class="hljs-comment">#Initialize two columns in the dataframe</span>
+pred_wide_test[<span class="hljs-string">"best_fit"</span>] = np.nan
+pred_wide_test[<span class="hljs-string">"best_fit_alg"</span>] = <span class="hljs-string">""</span>
+<span class="hljs-comment">#For each LCL id</span>
+<span class="hljs-keyword">for</span> lcl_id <span class="hljs-keyword">in</span> tqdm(pred_wide_test.index.get_level_values(<span class="hljs-number">0</span>).unique()):
+    <span class="hljs-comment"># pick the best algorithm</span>
+    alg = best_alg[lcl_id]
+    <span class="hljs-comment"># and store the forecast in the best_fit column</span>
+    pred_wide_test.loc[lcl_id, <span class="hljs-string">"best_fit"</span>] = pred_wide_test.loc[lcl_id, alg].values
+    <span class="hljs-comment"># also store which model was chosen for traceability</span>
+    pred_wide_test.loc[lcl_id, <span class="hljs-string">"best_fit_alg"</span>] = alg
+</code></pre>
+    <p class="normal">This will create a <a id="_idIndexMarker691"/>new column called <code class="inlineCode">best_fit</code> with the forecasts that have been chosen according to the strategy we discussed. Now, we can evaluate this new forecast and get the metrics for the test dataset. The following table shows the best individual model (<code class="inlineCode">LightGBM</code>) and the new strategy—<code class="inlineCode">best_fit</code>:</p>
+    <figure class="mediaobject"><img src="../Images/B22389_09_02.png" alt="Figure 9.2 – Aggregate metrics for the best fit strategy "/></figure>
+    <p class="packt_figref">Figure 9.2: Aggregate metrics for the best-fit strategy</p>
+    <p class="normal">Here, we can see that the best-fit strategy is performing better than the best individual model overall. However, one drawback of this strategy is the fundamental assumption of this strategy—whatever model does best in the validation period also performs best in the test period. There is no hedging of bets with other forecasting models and so on. Given the dynamic nature of time series, this is not always the best strategy. Another drawback of this approach is the instability of the final forecast. </p>
+    <p class="normal">When we are using such a rule in a live environment, where we retrain and rerun the best fit every week, the forecast for any time series can jump back and forth between different forecast models, which can generate wildly different forecasts. Therefore, the final forecast shows a lot of week-over-week instability, which hampers the downstream actions we use these forecasts for. We can look at a few other techniques that don’t have this instability.</p>
+    <h2 id="_idParaDest-205" class="heading-2">Measures of central tendency</h2>
+    <p class="normal">Another<a id="_idIndexMarker692"/> prominent strategy is to use either an average or median to combine the forecasts. This is a function, <em class="italic">F</em>, that is independent of validation metrics. This is both the appeal and angst of this method. It is impossible to overfit the validation metrics because we are not using them at all. But on the other hand, without any information from the validation metric, we may be including some very bad models, which pulls down the ensemble. However, empirically, this simple averaging of taking the median has proven to be a very strong combination method for forecast and is hard to outperform. Let’s see how this can be done:</p>
+    <pre class="programlisting code"><code class="hljs-code"><span class="hljs-comment"># ensemble_forecasts is a list of column names(forecast) we want to combine</span>
+pred_wide_test[<span class="hljs-string">"average_ensemble"</span>] = pred_wide_test[ensemble_forecasts].mean(axis=<span class="hljs-number">1</span>)
+pred_wide_test[<span class="hljs-string">"median_ensemble"</span>] = pred_wide_test[ensemble_forecasts].median(axis=<span class="hljs-number">1</span>)
+</code></pre>
+    <p class="normal">The preceding code will create two new columns called <code class="inlineCode">average_ensemble</code> and <code class="inlineCode">median_ensemble</code> with the combined forecasts. Now, we can evaluate this new forecast and get the metrics for the test dataset. The following table shows the best individual model (<code class="inlineCode">LightGBM</code>) and the new strategies:</p>
+    <figure class="mediaobject"><img src="../Images/B22389_09_03.png" alt="Figure 9.3 – Aggregate metrics for the mean and median strategies "/></figure>
+    <p class="packt_figref">Figure 9.3: Aggregate metrics for the mean and median strategies</p>
+    <p class="normal">Here, we can see that neither the mean nor median strategy is working better than the best individual model overall. This can be because we are including methods such as Theta and FFT, which are performing considerably worse than the other machine learning methods. But since we are not taking any information from the validation dataset, we do not know this information. We can make an exception and say that we are going to use the validation metrics to choose which models we include in the average or median. But we have to be careful because now, we are moving closer to the assumption that what works in the validation period is going to work in the test period.</p>
+    <p class="normal">There are a few <a id="_idIndexMarker693"/>manual techniques we can use here, such <a id="_idIndexMarker694"/>as <strong class="keyWord">trimming</strong> (discarding the worst-performing models in the ensemble) and <strong class="keyWord">skimming</strong> (selecting only the best few models in the ensemble). While <a id="_idIndexMarker695"/>effective, these are a bit subjective, and often, they become hard to use, especially when we have scores of models to choose from.</p>
+    <p class="normal">If we think about this problem, it is essentially a combinatorial optimization problem where we have to select the best combination of models that optimizes our metric. If we consider the average for combining the different forecasts, mathematically, it can be thought of as follows:</p>
+    <p class="center"><img src="../Images/B22389_09_001.png" alt=""/></p>
+    <p class="normal">Here, <em class="italic">L</em> is the loss or metric that we are trying to minimize. In our case, we chose that to be the MAE. <img src="../Images/B22389_09_002.png" alt=""/> is the binary weight of each of the base forecasts. Finally, <img src="../Images/B22389_09_003.png" alt=""/> is the set of <em class="italic">N</em> base forecasts and <em class="italic">Y</em> is the real observed values of the time series.</p>
+    <p class="normal">But unlike pure optimization, where there is no concept of bias and variance, we need an optimal solution that can be generalized. Therefore, selecting the global minima in the training data is not advisable because in that case, we might be further overfitting the training dataset, increasing the variance of the resulting model. For this minimization, we typically use out-of-sample predictions, which can be the forecast during the validation period in this case.</p>
+    <p class="normal">The most straightforward solution is to find <em class="italic">w</em>, which minimizes this function on validation data. But there are two problems with this approach:</p>
+    <ul>
+      <li class="bulletList">The possible candidates (different combinations of the base forecasts) increase exponentially as we increase the number of base forecasts, <em class="italic">N</em>. This becomes computationally intractable very soon.</li>
+      <li class="bulletList">Selecting the global minima in the validation period may not be the best strategy because of overfitting the validation period.</li>
+    </ul>
+    <p class="normal">Now, let’s<a id="_idIndexMarker696"/> take a look at a few heuristics-based solutions to this combinatorial optimization problem.</p>
+    <div class="note">
+      <p class="normal">Heuristic problem-solving is a strategy that uses rules of thumb or shortcuts to find solutions quickly, even if they may not be optimal. Heuristics can be useful when exact solutions are computationally expensive or time-consuming to find. However, they may lead to suboptimal or even incorrect solutions in some cases.</p>
+      <p class="normal">Heuristics are often used in conjunction with other problem-solving methods, such as metaheuristics, to improve the efficiency and effectiveness of the search process. Metaheuristics are high-level, problem-independent strategies used to solve optimization problems. They offer a framework for developing heuristic algorithms that can efficiently explore complex search spaces and find near-optimal solutions. Unlike traditional optimization methods, metaheuristics often draw inspiration from natural phenomena or biological processes. </p>
+    </div>
+    <div class="note">
+      <p class="normal">Common examples of metaheuristic methods include genetic algorithms (inspired by natural selection), simulated annealing (inspired by metallurgy), particle swarm optimization (inspired by bird flocking), and ant colony optimization (inspired by ants foraging for food). These methods employ probabilistic or stochastic approaches to balance exploration and exploitation, allowing them to avoid getting stuck in local optima and discover potentially better solutions.</p>
+    </div>
+    <h2 id="_idParaDest-206" class="heading-2">Simple hill climbing</h2>
+    <p class="normal">We briefly<a id="_idIndexMarker697"/> talked about greedy algorithms while discussing decision trees, as well as gradient-boosted trees. Greedy optimization is a heuristic that builds up a solution stage by stage, selecting a local optimum <a id="_idIndexMarker698"/>at each stage. In both of these machine learning models, we adopt a greedy, stagewise approach to finding the solution to a computationally infeasible optimization problem. To select the best subset that gives us the best combination of forecasts, we can employ a simple greedy algorithm called hill climbing. If we consider the objective function surface as a hill, to<a id="_idIndexMarker699"/> find the maxima, we would need to climb the hill. As its name suggests, hill climbing ascends the hill, one step at a time, and in each of those steps, it takes the best possible path, which increases the objective function. The illustration below can make it clearer.</p>
+    <figure class="mediaobject"><img src="../Images/B22389_09_04.png" alt=""/></figure>
+    <figure class="mediaobject">Figure 9.4: Hill climbing algorithm illustration for a one-dimensional objective</figure>
+    <p class="normal">We can see in <em class="italic">Figure 9.4</em> that the objective function (the function we need to optimize) has multiple peaks (hills) and in the<a id="_idIndexMarker700"/> hill climbing algorithm, we “climb” the hill to reach the peak in a step-by-step manner. What we also need to keep in mind is that depending on where we start the climb, we might reach different points in the objective. In <em class="italic">Figure 9.4</em>, if we start at point A, we reach the local optima and miss the global optima. Now, let’s see how the algorithm works in a more rigorous manner.</p>
+    <p class="normal">Here, <em class="italic">C</em> is a set of candidates (base forecasts) and <em class="italic">O</em> is the objective we want to minimize. The algorithm for the simple hill-climb is as follows:</p>
+    <ol>
+      <li class="numberedList" value="1">Initialize a <a id="_idIndexMarker701"/>starting solution, <em class="italic">C</em><sub class="subscript-italic" style="font-style: italic;">best</sub>, as the candidate that gives the minimum value in <em class="italic">O</em>, <em class="italic">O</em><sub class="subscript-italic" style="font-style: italic;">best</sub>, and remove <em class="italic">C</em><sub class="subscript-italic" style="font-style: italic;">best</sub> from <em class="italic">C</em>.</li>
+      <li class="numberedList">While the length of <em class="italic">C</em> &gt; 0, do the following:<ol class="romanList level-2" style="list-style-type: lower-roman;">
+          <li class="romanList level-2" value="1">Evaluate all members of <em class="italic">C</em> by averaging the base forecasts in <em class="italic">C</em><sub class="subscript-italic" style="font-style: italic;">best</sub> with each element in <em class="italic">C</em> and select the best member (<em class="italic">C</em><sub class="subscript-italic" style="font-style: italic;">stage best</sub>) that was added to <em class="italic">C</em><sub class="subscript-italic" style="font-style: italic;">best</sub> to minimize the objective function, <em class="italic">O</em> (<em class="italic">O</em><sub class="subscript-italic" style="font-style: italic;">stage best</sub>).</li>
+          <li class="romanList level-2">If <em class="italic">O</em><sub class="subscript-italic" style="font-style: italic;">stage best</sub> &gt; <em class="italic">O</em><sub class="subscript-italic" style="font-style: italic;">best</sub>, then do the following:<ol class="alphabeticList level-3" style="list-style-type: lower-alpha;">
+              <li class="alphabeticList level-3" value="1"><em class="italic">C</em><sub class="subscript-italic" style="font-style: italic;">best</sub> = <em class="italic">C</em><sub class="subscript-italic" style="font-style: italic;">best</sub> U <em class="italic">C</em><sub class="subscript-italic" style="font-style: italic;">stage best</sub>.</li>
+              <li class="alphabeticList level-3"><em class="italic">O</em><sub class="subscript-italic" style="font-style: italic;">best</sub> = <em class="italic">O</em><sub class="subscript-italic" style="font-style: italic;">stage best</sub>.</li>
+              <li class="alphabeticList level-3">Remove <em class="italic">C</em><sub class="subscript-italic" style="font-style: italic;">stage best</sub> from <em class="italic">C</em>.</li>
+            </ol>
+          </li>
+          <li class="romanList level-2">Otherwise, exit.</li>
+        </ol>
+      </li>
+    </ol>
+    <p class="normal">At the end of the run, we have <em class="italic">C</em><sub class="subscript-italic" style="font-style: italic;">best</sub>, which is the best combination of forecasts we got through greedy optimization. We have made an implementation of this available in <code class="inlineCode">src.forecasting.ensembling.py</code> under the <code class="inlineCode">greedy_optimization</code> function. The parameters for this function are as follows:</p>
+    <ul>
+      <li class="bulletList"><code class="inlineCode">objective</code>: This is a callable that takes in a list of strings as the candidates and returns a <code class="inlineCode">float</code> objective value.</li>
+      <li class="bulletList"><code class="inlineCode">candidates</code>: This is a list of candidates to be included in the optimization.</li>
+      <li class="bulletList"><code class="inlineCode">verbose</code>: A flag that specifies whether progress is printed or not.</li>
+    </ul>
+    <p class="normal">The function returns a tuple of the best solution as a list of strings and the best score that was obtained through optimization.</p>
+    <p class="normal">Let’s see how we can use this in our example:</p>
+    <ol>
+      <li class="numberedList" value="1">Import all the required libraries/functions:
+        <pre class="programlisting code-one"><code class="hljs-code"><span class="hljs-comment"># Used to partially construct a function call</span>
+<span class="hljs-keyword">from</span> functools <span class="hljs-keyword">import</span> partial
+<span class="hljs-comment"># calculate_performance is a custom method we defined to calculate the MAE provided a list of candidates and prediction dataframe</span>
+<span class="hljs-keyword">from</span> src.forecasting.ensembling <span class="hljs-keyword">import</span> calculate_performance, greedy_optimization
+</code></pre>
+      </li>
+      <li class="numberedList">Define the objective function and run greedy optimization:
+        <pre class="programlisting code-one"><code class="hljs-code"><span class="hljs-comment"># We partially construct the function call by passing the necessary parameters</span>
+objective = partial(
+    calculate_performance, pred_wide=pred_wide_val, target=<span class="hljs-string">"energy_consumption"</span>
+)
+<span class="hljs-comment"># ensemble forecasts is the list of candidates</span>
+solution, best_score = greedy_optimization(objective, ensemble_forecasts)
+</code></pre>
+      </li>
+      <li class="numberedList">Once we have the best solution, we can create the combination forecast in the test DataFrame:
+        <pre class="programlisting code-one"><code class="hljs-code">pred_wide_test[<span class="hljs-string">"greedy_ensemble"</span>] = pred_wide_test[solution].mean(axis=<span class="hljs-number">1</span>)
+</code></pre>
+      </li>
+    </ol>
+    <p class="normal">Once we run this <a id="_idIndexMarker702"/>code, we will have the combination forecast under the name <code class="inlineCode">greedy_ensemble</code> in our prediction DataFrame. The candidates that are part of the optimal solution are LightGBM, Lasso Regression, and LightGBM_auto_stat. Now, let’s evaluate the results and look at the aggregated metrics:</p>
+    <figure class="mediaobject"><img src="../Images/B22389_09_05.png" alt="Figure 9.4 – Aggregate metrics for a simple hill climbing-based ensemble "/></figure>
+    <p class="packt_figref">Figure 9.5: Aggregate metrics for a simple hill climbing-based ensemble</p>
+    <p class="normal">As we can see, the<a id="_idIndexMarker703"/> simple hill-climb is performing better than any individual models or ensemble techniques we have seen so far. This greedy approach seems to be working well in this case. Now, let’s understand a few limitations of hill climbing, as follows:</p>
+    <ul>
+      <li class="bulletList"><strong class="keyWord">Runtime considerations</strong>: Since a simple hill-climb requires us to evaluate all the candidates at any step, this can cause a bottleneck in terms of runtime. If the number of candidates is large, this approach can take longer to finish.</li>
+      <li class="bulletList"><strong class="keyWord">Short-sightedness</strong>: Hill climbing optimization is short-sighted. During optimization, it always picks the best in each step. Sometimes, by choosing a slightly worse solution in a step, we may get to a better overall solution.</li>
+      <li class="bulletList"><strong class="keyWord">Forward-only</strong>: Hill climbing is a forward-only algorithm. Once a candidate has been admitted into the solution, we can’t go back and remove it.</li>
+    </ul>
+    <p class="normal">The greedy approach may not always get us the best solution, especially when there are scores of models to combine. So, let’s look at a small variation of hill climbing that tries to get over some of the limitations of the greedy approach.</p>
+    <h2 id="_idParaDest-207" class="heading-2">Stochastic hill climbing</h2>
+    <p class="normal">The key difference <a id="_idIndexMarker704"/>between simple hill climbing and stochastic hill climbing is in the evaluation of candidates. In a<a id="_idIndexMarker705"/> simple hill climb, we <em class="italic">evaluate all possible options</em> and pick the best among them. However, in a stochastic hill climb, we <em class="italic">randomly pick a candidate</em> and add it to the solution if it is better than the current solution. In other words, in hill climbing we always move up the hill in steps, but in Stochastic hill climbing, we magically teleport to different points in the objective function and check we are higher than we have been before. This addition of stochasticity helps the optimization not get the local maxima/minima, but also introduces quite a bit of uncertainty in reaching any kind of optima. Let’s take a look at the algorithm.</p>
+    <p class="normal">Here, <em class="italic">C</em> is a set of candidates (base forecasts), <em class="italic">O</em> is the objective we want to minimize, and <em class="italic">N</em> is the maximum number of iterations we want to run the optimization for. The algorithm for stochastic hill climbing is as follows:</p>
+    <ol>
+      <li class="numberedList" value="1">Initialize a starting solution, <em class="italic">C</em><sub class="subscript-italic" style="font-style: italic;">best</sub>, as the candidate. This can be done by picking a candidate at random or choosing the best-performing model.</li>
+      <li class="numberedList">Set the value of the objective function for <em class="italic">C</em><sub class="subscript-italic" style="font-style: italic;">best</sub>, <em class="italic">O</em>, as <em class="italic">O</em><sub class="subscript-italic" style="font-style: italic;">best</sub>, and remove <em class="italic">C</em><sub class="subscript-italic" style="font-style: italic;">best</sub> from <em class="italic">C</em>.</li>
+      <li class="numberedList">Repeat this for <em class="italic">N</em> iterations:<ol class="romanList level-2" style="list-style-type: lower-roman;">
+          <li class="romanList level-2" value="1">Draw a random sample from <em class="italic">C</em>, add it to <em class="italic">C</em><sub class="subscript-italic" style="font-style: italic;">best</sub>, and store it as <em class="italic">C</em><sub class="subscript-italic" style="font-style: italic;">stage</sub>.</li>
+          <li class="romanList level-2">Evaluate <em class="italic">C</em><sub class="subscript-italic" style="font-style: italic;">stage</sub> on the objective function, <em class="italic">O</em> , and store it as <em class="italic">O</em><sub class="subscript-italic" style="font-style: italic;">stage</sub>.</li>
+          <li class="romanList level-2">If <em class="italic">O</em><sub class="subscript-italic" style="font-style: italic;">stage</sub> &gt; <em class="italic">O</em><sub class="subscript-italic" style="font-style: italic;">best</sub>, then do the following:<ol class="alphabeticList level-3" style="list-style-type: lower-alpha;">
+              <li class="alphabeticList level-3" value="1"><em class="italic">C</em><sub class="subscript-italic" style="font-style: italic;">best</sub> = <em class="italic">C</em><sub class="subscript-italic" style="font-style: italic;">best</sub> U <em class="italic">C</em><sub class="subscript-italic" style="font-style: italic;">stage</sub></li>
+              <li class="alphabeticList level-3"><em class="italic">O</em><sub class="subscript-italic" style="font-style: italic;">best</sub>= <em class="italic">O</em><sub class="subscript-italic" style="font-style: italic;">stage</sub>.</li>
+              <li class="alphabeticList level-3">Remove <em class="italic">C</em><sub class="subscript-italic" style="font-style: italic;">best</sub> from <em class="italic">C</em>.</li>
+            </ol>
+          </li>
+        </ol>
+      </li>
+    </ol>
+    <p class="normal">At the end of the run, we have <em class="italic">C</em><sub class="subscript-italic" style="font-style: italic;">best</sub>, which is the best combination of forecasts we got through stochastic hill climbing. We have made an implementation of this available in <code class="inlineCode">src.forecasting.ensembling.py</code> under the <code class="inlineCode">stochastic_hillclimbing</code> function. The parameters for this function are as follows:</p>
+    <ul>
+      <li class="bulletList"><code class="inlineCode">objective</code>: This is a callable that takes in a list of strings as the candidates and returns a <code class="inlineCode">float</code> objective value.</li>
+      <li class="bulletList"><code class="inlineCode">candidates</code>: This is a list of candidates to be included in the optimization.</li>
+      <li class="bulletList"><code class="inlineCode">n_iterations</code>: The number of iterations to run the hill-climb for. If this is not given, a heuristic (twice the number of candidates) is used to set this.</li>
+      <li class="bulletList"><code class="inlineCode">init</code>: This determines the strategy to be used for the initial solution. This can be <code class="inlineCode">random</code> or <code class="inlineCode">best</code>.</li>
+      <li class="bulletList"><code class="inlineCode">verbose</code>: A flag that specifies whether progress is printed or not.</li>
+      <li class="bulletList"><code class="inlineCode">random_state</code>: A seed that gets repeatable results.</li>
+    </ul>
+    <p class="normal">The function <a id="_idIndexMarker706"/>returns a tuple of the best <a id="_idIndexMarker707"/>solution as a list of strings and the best score obtained through optimization.</p>
+    <p class="normal">This can be used in a very similar fashion to <code class="inlineCode">greedy_optimization</code>. We will only show the different parts here. The full code is available in the notebook:</p>
+    <pre class="programlisting code"><code class="hljs-code"><span class="hljs-keyword">from</span> src.forecasting.ensembling <span class="hljs-keyword">import</span> stochastic_hillclimbing
+<span class="hljs-comment"># ensemble forecasts is the list of candidates</span>
+solution, best_score = stochastic_hillclimbing(
+    objective, ensemble_forecasts, n_iterations=<span class="hljs-number">10</span>, init=<span class="hljs-string">"best"</span>, random_state=<span class="hljs-number">9</span>
+)
+</code></pre>
+    <p class="normal">Once we run this code, we will have the combination forecast called <code class="inlineCode">stochastic_hillclimb__ensemble</code> in our prediction DataFrame. The candidates that are part of the optimal solution are LightGBM, Lasso Regression_auto_stat, LightGBM_auto_stat, and Lasso Regression. Now, let’s evaluate the results and look at the aggregated metrics:</p>
+    <figure class="mediaobject"><img src="../Images/B22389_09_06.png" alt="Figure 9.5 – Aggregate metrics for a stochastic hill climbing-based ensemble "/></figure>
+    <p class="packt_figref">Figure 9.6: Aggregate metrics for a stochastic hill climbing-based ensemble</p>
+    <p class="normal">The stochastic hill climb <a id="_idIndexMarker708"/>is not doing better than the greedy approach but is better than the mean, median, and best-fit ensembles. We discussed three disadvantages of simple hill climbing earlier—runtime considerations, short-sightedness, and forward-only. Stochastic hill climbing solves the runtime consideration because we are not evaluating all the combinations and selecting the best. Instead, we are randomly evaluating the combinations and adding them to the<a id="_idIndexMarker709"/> ensemble as soon as we see a solution that performs better. It partly solves the short-sightedness purely because the randomness in the algorithm may end up choosing a sub-optimal solution for each stage. But it still only chooses solutions that are better than the current solution.</p>
+    <p class="normal">Now, let’s look at another modification of hill climbing that handles this issue as well.</p>
+    <h2 id="_idParaDest-208" class="heading-2">Simulated annealing</h2>
+    <p class="normal"><strong class="keyWord">Simulated annealing</strong> is a <a id="_idIndexMarker710"/>modification<a id="_idIndexMarker711"/> of hill climbing that is inspired by a physical phenomenon—annealing solids. Annealing is the process of heating a solid to a predetermined temperature (usually above its recrystallization point, but below its melting point), holding it for a while, and then cooling it (either slowly or quickly by quenching it in water). </p>
+    <p class="normal">This is done to ensure that the atoms assume a new global minimum energy state, which induces desirable properties in some metals, such as iron.</p>
+    <p class="normal">In 1952, Metropolis proposed simulated annealing as an optimization technique. The annealing analogy applies to the optimization context as well. When we say we heat the system, we mean that we encourage random perturbations. So, when we start an optimization with a high temperature, the algorithm explores the space and comes up with an initial structure of the problem. And as we reduce the temperature, the structure is refined to arrive at a final solution. This technique helps us avoid getting stuck in any local optima. Local optima are extrema in the objective function surface that are better than other values nearby but may not be the absolute best solution possible. The <em class="italic">Further reading</em> section contains a resource that explains what local and global optima are in concise language.</p>
+    <p class="normal">Now, let’s look at the algorithm.</p>
+    <p class="normal">Here, <em class="italic">C</em> is a set of candidates (base forecasts), <em class="italic">O</em> is the objective we want to minimize, <em class="italic">N</em> is the maximum number of iterations we want to run the optimization for, <em class="italic">T</em><sub class="subscript-italic" style="font-style: italic;">max</sub> is the maximum temperature, and <img src="../Images/B22389_04_009.png" alt=""/> is the temperature decay. The algorithm<a id="_idIndexMarker712"/> for simulated annealing is as follows:</p>
+    <ol>
+      <li class="numberedList" value="1">Initialize<a id="_idIndexMarker713"/> a starting solution, <em class="italic">C</em><sub class="subscript-italic" style="font-style: italic;">best</sub>, as the candidate. This can be done by picking a candidate at random or choosing the best-performing model.</li>
+      <li class="numberedList">Set the value of the objective function for <em class="italic">C</em><sub class="subscript-italic" style="font-style: italic;">best</sub>, <em class="italic">O</em>, as <em class="italic">O</em><sub class="subscript-italic" style="font-style: italic;">best</sub>, and remove <em class="italic">C</em><sub class="subscript-italic" style="font-style: italic;">best</sub> from <em class="italic">C</em>.</li>
+      <li class="numberedList">Set the current temperature, <em class="italic">t</em>, to <em class="italic">T</em><sub class="subscript-italic" style="font-style: italic;">max</sub>.</li>
+      <li class="numberedList">Repeat this for <em class="italic">N</em> iterations:<ol class="romanList level-2" style="list-style-type: lower-roman;">
+          <li class="romanList level-2" value="1">Draw a random sample from <em class="italic">C</em>, add it to <em class="italic">C</em><sub class="subscript-italic" style="font-style: italic;">best</sub>, and store it as <em class="italic">C</em><sub class="subscript-italic" style="font-style: italic;">stage</sub>.</li>
+          <li class="romanList level-2">Evaluate <em class="italic">C</em><sub class="subscript-italic" style="font-style: italic;">stage</sub> on the objective function, <em class="italic">O</em>, and store it as <em class="italic">O</em><sub class="subscript-italic" style="font-style: italic;">stage</sub>.</li>
+          <li class="romanList level-2">If <em class="italic">O</em><sub class="subscript-italic" style="font-style: italic;">stage</sub> &gt; <em class="italic">O</em><sub class="subscript-italic" style="font-style: italic;">best</sub>, then do the following:<ol class="alphabeticList level-3" style="list-style-type: lower-alpha;">
+              <li class="alphabeticList level-3" value="1"><em class="italic">C</em><sub class="subscript-italic" style="font-style: italic;">best</sub>.= <em class="italic">C</em><sub class="subscript-italic" style="font-style: italic;">best</sub> U <em class="italic">C</em><sub class="subscript-italic" style="font-style: italic;">stage</sub></li>
+              <li class="alphabeticList level-3"><em class="italic">O</em><sub class="subscript-italic" style="font-style: italic;">best</sub> = <em class="italic">O</em><sub class="subscript-italic" style="font-style: italic;">stage</sub></li>
+              <li class="alphabeticList level-3">Remove <em class="italic">C</em><sub class="subscript-italic" style="font-style: italic;">best</sub> from <em class="italic">C</em>.</li>
+            </ol>
+          </li>
+          <li class="romanList level-2">Otherwise, do the following:<ol class="alphabeticList level-3" style="list-style-type: lower-alpha;">
+              <li class="alphabeticList level-3" value="1">Calculate the acceptance probability, <img src="../Images/B22389_09_005.png" alt=""/>.</li>
+              <li class="alphabeticList level-3">Draw a random sample between 0 and 1, as p.</li>
+              <li class="alphabeticList level-3">If <em class="italic">p</em> &lt; <em class="italic">s</em>, then do the following:</li>
+            </ol>
+            <ol class="alphabeticList level-3" style="list-style-type: lower-alpha;">
+              <li class="alphabeticList level-3" value="1"><em class="italic">C</em><sub class="subscript-italic" style="font-style: italic;">best</sub> = <em class="italic">C</em><sub class="subscript-italic" style="font-style: italic;">best</sub> U <em class="italic">C</em><sub class="subscript-italic" style="font-style: italic;">stage</sub></li>
+              <li class="alphabeticList level-3"><em class="italic">O</em><sub class="subscript-italic" style="font-style: italic;">best</sub> = <em class="italic">O</em><sub class="subscript-italic" style="font-style: italic;">stage</sub>.</li>
+              <li class="alphabeticList level-3">Remove <em class="italic">C</em><sub class="subscript-italic" style="font-style: italic;">best</sub> from <em class="italic">C</em>.</li>
+            </ol>
+          </li>
+          <li class="romanList level-2"><em class="italic">t</em> = <em class="italic">t</em> - <img src="../Images/B22389_04_009.png" alt=""/> (for linear decay) and <em class="italic">t</em> = <em class="italic">t</em>/<img src="../Images/B22389_04_009.png" alt=""/> (for geometric decay).</li>
+          <li class="romanList level-2">Exit when <em class="italic">C</em> is empty.</li>
+        </ol>
+      </li>
+    </ol>
+    <p class="normal">At the end of the run, we have <em class="italic">C</em><sub class="subscript-italic" style="font-style: italic;">best</sub>, which is the best combination of forecasts we got through simulated annealing. We have provided an implementation of this in <code class="inlineCode">src.forecasting.ensembling.py</code> under the <code class="inlineCode">simulated_annealing</code> function. Setting the temperature to the <a id="_idIndexMarker714"/>right value is key for the algorithm to work well and is typically the hardest<a id="_idIndexMarker715"/> hyperparameter to set. More intuitively, we can think of temperature in terms of the probability of accepting a worse solution in the beginning. In the implementation, we have also made it possible to input the starting and ending probability of accepting a worse solution.</p>
+    <p class="normal">In 1989, D.S. Johnson et al. proposed a procedure for estimating the temperature range from the given probability range. This has been implemented in <code class="inlineCode">initialize_temperature_range</code>.</p>
+    <p class="normal">To summarize, the algorithm starts with random solutions and evaluates how good each is. Then, it keeps trying new solutions, sometimes accepting worse ones to avoid getting stuck in a local optima, but over time, it becomes less likely to accept bad solutions as it “cools down” (just like how metals cool and harden). It repeats this process until it either runs out of options or the temperature gets too low, leaving the best solution found so far.</p>
+    <div class="note">
+      <p class="normal"><strong class="keyWord">Reference check:</strong></p>
+      <p class="normal">The research paper by D.S. Johnson, titled <em class="italic">Optimization by Simulated Annealing: An Experimental Evaluation</em>; <em class="italic">Part I, Graph Partitioning</em>, is cited in the <em class="italic">References</em> section as reference <em class="italic">1</em>.</p>
+    </div>
+    <p class="normal">The parameters for the <code class="inlineCode">simulated_annealing</code> function are as follows:</p>
+    <ul>
+      <li class="bulletList"><code class="inlineCode">objective</code>: This is a callable that takes in a list of strings as the candidates and returns a <code class="inlineCode">float</code> objective value.</li>
+      <li class="bulletList"><code class="inlineCode">candidates</code>: This is a list of candidates to be included in the optimization.</li>
+      <li class="bulletList"><code class="inlineCode">n_iterations</code>: The number of iterations to run simulated annealing for. This is a mandatory parameter.</li>
+      <li class="bulletList"><code class="inlineCode">p_range</code>: The starting and ending probabilities as a tuple. This is the probability with which a worse solution is accepted in simulated annealing. The temperature range (<code class="inlineCode">t_range</code>) is inferred from <code class="inlineCode">p_range</code> during optimization.</li>
+      <li class="bulletList"><code class="inlineCode">t_range</code>: We can use this if we want to directly set the temperature range as a tuple (start, end). If this is set, <code class="inlineCode">p_range</code> is ignored.</li>
+      <li class="bulletList"><code class="inlineCode">init</code>: This determines the strategy that’s used for the initial solution. This can be <code class="inlineCode">random</code> or <code class="inlineCode">best</code>.</li>
+      <li class="bulletList"><code class="inlineCode">temperature_decay</code>: This specifies how to decay the temperature. It can be <code class="inlineCode">linear</code> or <code class="inlineCode">geometric</code>.</li>
+      <li class="bulletList"><code class="inlineCode">verbose</code>: A flag that specifies whether progress is printed or not.</li>
+      <li class="bulletList"><code class="inlineCode">random_state</code>: The seed for getting repeatable results.</li>
+    </ul>
+    <p class="normal">The function<a id="_idIndexMarker716"/> returns a tuple of the best <a id="_idIndexMarker717"/>solution as a list of strings and the best score that was obtained through optimization.</p>
+    <p class="normal">This can be used in a very similar fashion to the other ways of combining forecasts. We will show just the part that is different here. The full code is available in the notebook:</p>
+    <pre class="programlisting code"><code class="hljs-code"><span class="hljs-keyword">from</span> src.forecasting.ensembling <span class="hljs-keyword">import</span> simulated_annealing
+<span class="hljs-comment"># ensemble forecasts is the list of candidates</span>
+solution, best_score = simulated_annealing(
+    objective,
+    ensemble_forecasts,
+    p_range=(<span class="hljs-number">0.5</span>, <span class="hljs-number">0.0001</span>),
+    n_iterations=<span class="hljs-number">50</span>,
+    init=<span class="hljs-string">"best"</span>,
+    temperature_decay=<span class="hljs-string">"geometric"</span>,
+    random_state=<span class="hljs-number">42</span>,
+)
+</code></pre>
+    <p class="normal">Once we run this code, we will have a combination forecast called <code class="inlineCode">simulated_annealing_ensemble</code> in our prediction DataFrame. The candidates that are part of the optimal solution are LightGBM, Lasso Regression_auto_stat, LightGBM_auto_stat, and XGB Random Forest. Let’s evaluate the results and look at the aggregated metrics:</p>
+    <figure class="mediaobject"><img src="../Images/B22389_09_07.png" alt="Figure 9.6 – Aggregate metrics for a simulated annealing-based ensemble "/></figure>
+    <p class="packt_figref">Figure 9.7: Aggregate metrics for a simulated annealing-based ensemble</p>
+    <p class="normal">Simulated annealing<a id="_idIndexMarker718"/> seems to be doing better than stochastic hill climbing. We discussed three disadvantages of simple hill climbing earlier—runtime considerations, short-sightedness, and forward-only. Simulated annealing<a id="_idIndexMarker719"/> solves the runtime consideration because we are not evaluating all the combinations and selecting the best. Instead, we are randomly evaluating the combinations and adding them to the ensemble as soon as we see a solution that performs better. It also solves the short-sightedness problem because, by using temperature, we are also accepting solutions that are slightly worse toward the beginning of the optimization. However, it is still a forward-only procedure.</p>
+    <p class="normal">So far, we have looked at combinatorial optimization because we said. But if we can relax this constraint and make <img src="../Images/B22389_09_008.png" alt=""/>. <img src="../Images/B22389_09_009.png" alt=""/> (real numbers), the combinatorial optimization problem can be relaxed to a general mathematical optimization problem. Let’s see how we can do that.</p>
+    <h2 id="_idParaDest-209" class="heading-2">Optimal weighted ensemble</h2>
+    <p class="normal">Previously, we<a id="_idIndexMarker720"/> defined the optimization problem we are trying to solve as follows:</p>
+    <p class="center"><img src="../Images/B22389_09_010.png" alt=""/></p>
+    <p class="normal">Here, <em class="italic">L</em> is the loss or metric that we are trying to minimize. In our case, we chose that to be the MAE. <img src="../Images/B22389_09_011.png" alt=""/> is the set of <em class="italic">N</em> base forecasts while <em class="italic">Y</em> is the real observed values of the time series. Instead of defining <img src="../Images/B22389_09_008.png" alt=""/>, let’s make <img src="../Images/B22389_09_009.png" alt=""/>, the continuous weights of each of the base forecasts. With this new relaxation, the combination becomes a weighted average between the different base forecasts. Now, we are looking at a soft mixing of the different forecasts as opposed to the hard-choice-based combinatorial optimization (which was what we had been using up until this point).</p>
+    <p class="normal">This is an <a id="_idIndexMarker721"/>optimization problem that can be solved using off-the-shelf algorithms from <code class="inlineCode">scipy</code>. Let’s see how we can use <code class="inlineCode">scipy.optimize</code> to solve this problem.</p>
+    <p class="normal">First, we need to define a loss function that takes in a set of weights as a list and returns the metric we need to optimize:</p>
+    <pre class="programlisting code"><code class="hljs-code"><span class="hljs-keyword">def</span> <span class="hljs-title">loss_function</span>(<span class="hljs-params">weights</span>):
+        <span class="hljs-comment"># Calculating the weighted average</span>
+        fc = np.<span class="hljs-built_in">sum</span>(pred_wide[candidates].values * np.array(weights), axis=<span class="hljs-number">1</span>)
+        <span class="hljs-comment"># Using any metric function to calculate the metric</span>
+        <span class="hljs-keyword">return</span> metric_fn(pred_wide[target].values, fc)
+</code></pre>
+    <p class="normal">Now, all we need to do is call <code class="inlineCode">scipy.optimize</code> with the necessary parameters. Let’s learn how to do this:</p>
+    <pre class="programlisting code"><code class="hljs-code"><span class="hljs-keyword">from</span> scipy <span class="hljs-keyword">import</span> optimize
+opt_weights = optimize.minimize(
+        loss_function,
+        <span class="hljs-comment"># set x0 as initial values, which is a uniform distribution over all the candidates</span>
+        x0=[<span class="hljs-number">1</span> / <span class="hljs-built_in">len</span>(candidates)] * <span class="hljs-built_in">len</span>(candidates),
+        <span class="hljs-comment"># Set the constraint so that the weights sum to one</span>
+        constraints=({<span class="hljs-string">"type"</span>: <span class="hljs-string">"eq"</span>, <span class="hljs-string">"fun"</span>: <span class="hljs-keyword">lambda</span> w: <span class="hljs-number">1</span> - <span class="hljs-built_in">sum</span>(w)}),
+        <span class="hljs-comment"># Choose the optimization technique. Should be gradient-free and bounded.</span>
+        method=<span class="hljs-string">"SLSQP"</span>,
+        <span class="hljs-comment"># Set the lower and upper bound as a tuple for each element in the candidate list.</span>
+        <span class="hljs-comment"># We set the maximum values between 1 and 0</span>
+        bounds=[(<span class="hljs-number">0.0</span>, <span class="hljs-number">1.0</span>)] * <span class="hljs-built_in">len</span>(candidates),
+        <span class="hljs-comment"># Set the tolerance for termination</span>
+        options={<span class="hljs-string">"ftol"</span>: <span class="hljs-number">1e-10</span>},
+    )[<span class="hljs-string">"x"</span>]
+</code></pre>
+    <p class="normal">The <a id="_idIndexMarker722"/>optimization<a id="_idIndexMarker723"/> is usually fast and we will get the weights as a list of floating-point numbers. We have wrapped this in a function in <code class="inlineCode">src.forecasting.ensembling.py</code> called under the <code class="inlineCode">find_optimal_combination</code> function. The parameters for this function are as follows:</p>
+    <ul>
+      <li class="bulletList"><code class="inlineCode">candidates</code>: This is a list of candidates to be included in the optimization. They are returning in the same order in which the returned weights would.</li>
+      <li class="bulletList"><code class="inlineCode">pred_wide</code>: This is the prediction DataFrame on which we need to learn the weights.</li>
+      <li class="bulletList"><code class="inlineCode">target</code>: This is the column name of the target.</li>
+      <li class="bulletList"><code class="inlineCode">metric_fn</code>: This is any callable with a <code class="inlineCode">metric(actuals, pred)</code> signature.</li>
+    </ul>
+    <p class="normal">The function returns the optimal weights as a list of floating-point numbers. Let’s see what the optimal weights are when we learned them through our validation forecast:</p>
+    <figure class="mediaobject"><img src="../Images/B22389_09_08.png" alt="Figure 9.7 – The optimal weights that were learned through optimization "/></figure>
+    <p class="packt_figref">Figure 9.8: The optimal weights that were learned through optimization</p>
+    <p class="normal">Here, we can see that the<a id="_idIndexMarker724"/> optimization <a id="_idIndexMarker725"/>automatically learned to ignore <code class="inlineCode">FFT</code>, <code class="inlineCode">Theta</code>, <code class="inlineCode">XGB Random Forest</code>, and <code class="inlineCode">XGB Random Forest_auto_stat</code> because they didn’t add much value to the ensemble. It has also learned some non-zero weights for each of the forecasts. The weights already resemble the selection we made using the techniques we discussed previously. Now, we can use these weights to come up with a weighted average and call it <code class="inlineCode">optimal_combination_ensemble</code>. </p>
+    <p class="normal">The aggregated results should be as follows:</p>
+    <figure class="mediaobject"><img src="../Images/B22389_09_09.png" alt="Figure 9.8 – Aggregate metrics for the optimal combination-based ensemble "/></figure>
+    <p class="packt_figref">Figure 9.9: Aggregate metrics for the optimal combination-based ensemble</p>
+    <p class="normal">Here, we <a id="_idIndexMarker726"/>can see that this soft <a id="_idIndexMarker727"/>mixing of the forecasts is doing much better than all of the hard-choice-based ensembles on all three metrics.</p>
+    <div class="note">
+      <p class="normal">In all the techniques we discussed, we were using the MAE as the objective function. But we can use any metric, a combination of metrics, or even metrics with regularization as the objective function. When we discussed Random Forest, we talked about how decorrelated trees were essential to getting better performance. A very similar principle applies while choosing ensembles as well. Having decorrelated base forecasts adds value to the ensemble. So, we can use any measure of variety to regularize our metric as well. For instance, we can use correlation as a measure and create a regularized metric to be used in these techniques. The <code class="inlineCode">01-Forecast_Combinations.ipynb</code> notebook in the <code class="inlineCode">Chapter09</code> folder contains a bonus section that shows how to do that.</p>
+    </div>
+    <p class="normal">We started by discussing combining forecasts with a mathematical formulation:</p>
+    <p class="center"><em class="italic">Y</em> = <em class="italic">F</em>(<em class="italic">Y</em><sub class="subscript">1</sub>, <em class="italic">Y</em><sub class="subscript">2</sub>, …, <em class="italic">Y</em><sub class="subscript">N</sub>)</p>
+    <p class="normal">Here, <em class="italic">F</em> is the function that combines the <em class="italic">N</em> forecasts.</p>
+    <p class="normal">We did all <a id="_idIndexMarker728"/>this while looking at ways to come up with this function as an optimization problem, using something such as a mean or median to combine the metrics. But we have also seen another way to learn this function, <em class="italic">F</em>, from data, haven’t we? Let’s see how that can be done.</p>
+    <h1 id="_idParaDest-210" class="heading-1">Stacking and blending</h1>
+    <p class="normal">We started this chapter by talking about machine learning algorithms, which learn a function from a set of inputs and outputs. While using those machine learning algorithms, we learned about the functions that forecast our time series, which we’ll call base forecasts now. </p>
+    <p class="normal">Why not use the same machine learning paradigm to learn this new function, F, that we are trying to learn as well?</p>
+    <p class="normal">This is exactly what we do <a id="_idIndexMarker729"/>in stacking (often called stacked generalization), where we train another learning algorithm on the predictions of some base learners to combine these predictions. This second-level model is often <a id="_idIndexMarker730"/>called a <strong class="keyWord">stacked model</strong> or a <strong class="keyWord">meta model</strong>. And <a id="_idIndexMarker731"/>typically, this meta model performs equal to or better than the base learners. This is very similar to blending <a id="_idIndexMarker732"/>where the only difference being the way we split the data.</p>
+    <p class="normal">Although the idea originated with Wolpert in 1992, Leo Breiman formalized this idea in the way it is used now in his 1996 paper titled <em class="italic">Stacked Regressions</em>. And in 2007, M. J. Van der Laan et al. established the theoretical underpinnings of the technique and provided proof that this meta model will perform at least as well as or even better than the base learners.</p>
+    <div class="packt_tip">
+      <p class="normal"><strong class="keyWord">Reference check:</strong></p>
+      <p class="normal">The research papers by Leo Breiman (1996) and Mark J. Van der Laan et al. (2007) are cited in the <em class="italic">References</em> section as <em class="italic">2</em> and <em class="italic">3</em>, respectively.</p>
+    </div>
+    <p class="normal">This is a very popular technique in machine learning competitions such as Kaggle and is considered a secret art among machine learning practitioners. We also discussed some other techniques, such as bagging and boosting, which combine base learners into something more. But those techniques require the base learner to be a weak learner. This is where stacking differs because stacking tries to combine a <em class="italic">diverse</em> set of <em class="italic">strong</em> learners.</p>
+    <p class="normal">The intuition behind stacking is that different models or families of functions learn the output function slightly differently, capturing different properties of the problem. For instance, one model may have captured the seasonality very well, whereas the other may have captured any particular interaction with an exogenous variable better. The stacking model will be able to combine these base models into a model that learns to look toward one model for seasonality and the other for interaction. This is done by making the meta model learn the predictions of the base models. But to prevent data leakage and thereby avoid overfitting, the meta model should be trained on out-of-sample predictions. There are two small variations of this technique that are used today—stacking and blending.</p>
+    <p class="normal"><strong class="keyWord">Stacking</strong> is when<a id="_idIndexMarker733"/> the meta model is trained on the entire training dataset, but with out-of-sample predictions. The following steps are involved in stacking:</p>
+    <ol>
+      <li class="numberedList" value="1">Split the training dataset into <em class="italic">k</em> parts.</li>
+      <li class="numberedList">Iteratively train the base models on <em class="italic">k-1</em> parts, predict on the <em class="italic">k</em><sup class="superscript-italic" style="font-style: italic;">th</sup> part, and save the predictions. Once this step is done, we have the out-of-sample predictions for the training dataset from all base models.</li>
+      <li class="numberedList">Train a meta model on these predictions.</li>
+    </ol>
+    <p class="normal"><strong class="keyWord">Blending</strong> is <a id="_idIndexMarker734"/>similar to this but slightly different in the way we generate out-of-sample predictions. The following steps are involved in blending:</p>
+    <ol>
+      <li class="numberedList" value="1">Split the training dataset into two parts—train and holdout.</li>
+      <li class="numberedList">Train the base models on the training dataset and predict on the holdout dataset.</li>
+      <li class="numberedList">Train a meta model on the validation dataset with the predictions of the base model as the features.</li>
+    </ol>
+    <p class="normal">Intuitively, we can see that stacking can work better because it uses a much larger dataset (usually all the training data) as the out-of-sample prediction, so the meta model may be more generalized. But there is a caveat: we assume that the entire training data is <strong class="keyWord">independent and identically distributed</strong> (<strong class="keyWord">iid</strong>). This is typically an assumption that is<a id="_idIndexMarker735"/> hard to meet in time series since the data-generating process can change at any time (either gradually or drastically). If we know that the data distribution has changed significantly over time, blending the holdout period (which is usually the most recent part of the dataset) is better because the meta model is only learning on the latest data, thus paying respect to the temporal changes in the distribution of data.</p>
+    <p class="normal">There is no limit to the number of models we can include as base models, but usually, there is a plateau that we reach where additional models do not add much to the stacked ensemble. We can also add multiple levels of stacking. For instance, let’s assume there are four base learners: <em class="italic">B</em><sub class="subscript">1,</sub> <em class="italic">B</em><sub class="subscript">2,</sub> <em class="italic">B</em><sub class="subscript">3</sub> and <em class="italic">B</em><sub class="subscript">4</sub>. We have also trained two meta models <em class="italic">M</em><sub class="subscript">1</sub> and <em class="italic">M</em><sub class="subscript">2</sub>, on the base models. Now, we can train a second-level meta model, <em class="italic">M</em>, on the outputs of <em class="italic">M</em><sub class="subscript">1</sub> and <em class="italic">M</em><sub class="subscript">2</sub> and use that as the final prediction. We can use the <code class="inlineCode">pystacknet</code> Python library (<a href="https://github.com/h2oai/pystacknet"><span class="url">https://github.com/h2oai/pystacknet</span></a>), which is the Python<a id="_idIndexMarker736"/> implementation of an older library, called <code class="inlineCode">stacknet</code>, to make the process of creating multi-level (or single-level) stacked ensembles easy.</p>
+    <p class="normal">Another key point to keep in mind is the type of models we usually use as meta models. It is assumed that the bulk of the learning has been taken care of by the base models, which are the multi-dimensional data for patterns for prediction. Therefore, the meta models are usually simple models such as linear regression, a decision tree, or even a random forest with much lower depth than the base models. Another way to think about this is in terms of bias and variance. Stacking can overfit the training or holdout set and by including model families with larger flexibility or expressive power, we are enabling this overfitting. The <em class="italic">Further reading</em> section contains a few links that explain different techniques of stacking from a general machine learning perspective.</p>
+    <p class="normal">Now, let’s quickly see how we can use this in our dataset:</p>
+    <pre class="programlisting code"><code class="hljs-code"><span class="hljs-keyword">from</span> sklearn.linear_model <span class="hljs-keyword">import</span> LinearRegression
+stacking_model = LinearRegression()
+<span class="hljs-comment"># ensemble_forecasts is the list of candidates</span>
+stacking_model.fit(
+    pred_wide_val[ensemble_forecasts], pred_wide_val[<span class="hljs-string">"energy_consumption"</span>]
+)
+pred_wide_test[<span class="hljs-string">"linear_reg_blending"</span>] = stacking_model.predict(
+    pred_wide_test[ensemble_forecasts]
+)
+</code></pre>
+    <p class="normal">This would save the blended prediction for linear regression as <code class="inlineCode">linear_reg_blending</code>. We can use the same code but swap the models to try out other models as well.</p>
+    <div class="packt_tip">
+      <p class="normal"><strong class="keyWord">Best practice:</strong></p>
+      <p class="normal">When there are many base models and we want to do implicit base model selection as well, we can opt for one of the regularized linear models, such as Ridge or Lasso regression. Breiman, in his original paper, <em class="italic">stacked regressions</em>, proposed to use linear regression with positive coefficients and no intercept as the meta model. He argued that this gives a theoretical guarantee that the stacked model will be at least as good as any best individual model. But in practice, we can relax those assumptions while experimenting. Non-negative regression without intercepts is very close to the optimal weighted ensemble we discussed earlier. Finally, if we are evaluating multiple stacked models to select which one works well, we should resort to either having a separate validation dataset (instead of a <em class="italic">train-validation-test</em> split, we can use a <em class="italic">train-validation-validation_meta-test</em> split) or using cross-validated estimates. If we just pick the stacked model that performs best on the test dataset, we are overfitting the test dataset.</p>
+    </div>
+    <p class="normal">Now, let’s see how the blended models are doing on our test data:</p>
+    <figure class="mediaobject"><img src="../Images/B22389_09_10.png" alt="Figure 9.9 – Aggregate metrics for blending models "/></figure>
+    <p class="packt_figref">Figure 9.10: Aggregate metrics for blending models</p>
+    <p class="normal">Here, we can see that a simple linear regression has learned a meta model that performs much better than any of our average ensemble methods. And the Huber regression (which is a way to optimize the MAE directly) performs much better on the MAE benchmark. However, keep in mind that this is not universal and has to be evaluated for each problem you come across. Choosing the metric to optimize for and the model to use to combine makes a lot of difference. And often, the simple average ensemble is a very formidable benchmark for combining models.</p>
+    <div class="note">
+      <p class="normal">Huber regression is another version of linear regression (like Ridge and Lasso) where the loss function is a combination of squared loss (used in regular linear regression) and absolute loss (used in L1 methods). It behaves like squared loss for small residuals and like absolute loss for large residuals. This makes it less sensitive to outliers. Scikit-Learn <a id="_idIndexMarker737"/>has <code class="inlineCode">HuberRegressor</code> (<a href="https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.HuberRegressor.html"><span class="url">https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.HuberRegressor.html</span></a>), which implements this.</p>
+    </div>
+    <div class="packt_tip">
+      <p class="normal"><strong class="keyWord">Additional reading:</strong></p>
+      <p class="normal">There are other more innovative ways to combine base forecasts. This is an active area of research. The <em class="italic">Further reading</em> section contains links to two such ideas that are very similar. <strong class="keyWord">Feature-Based Forecast Model Averaging</strong> (<strong class="keyWord">FFORMA</strong>) extracts a set of <a id="_idIndexMarker738"/>statistical features from the time series and uses it to train a machine learning model that predicts the weights in which the base forecast should be combined. Another technique (<strong class="keyWord">self-supervised learning for fast and scalable time-series hyper-parameter tuning</strong>), from Facebook (Meta) Research, trains a classifier to predict which of the base learners does best, given a set of statistical features extracted from the time series.</p>
+    </div>
+    <h1 id="_idParaDest-211" class="heading-1">Summary</h1>
+    <p class="normal">Continuing with the streak of practical lessons in the previous chapter, we completed yet another hands-on lesson. In this chapter, we generated forecasts from different machine learning models from the previous chapter. We learned how to combine these different forecasts into a single forecast that performs better than any single model. Then, we explored concepts such as combinatorial optimization and stacking/blending to achieve state-of-the-art results.</p>
+    <p class="normal">In the next chapter, we will start talking about global models of forecasting and explore strategies, feature engineering, and so on to enable such modeling.</p>
+    <h1 id="_idParaDest-212" class="heading-1">References</h1>
+    <p class="normal">The following references were provided in this chapter:</p>
+    <ol>
+      <li class="numberedList" value="1">David S. Johnson, Cecilia R. Aragon, Lyle A. McGeoch, and Catherine Schevon (1989), <em class="italic">Optimization by Simulated Annealing: An Experimental Evaluation; Part I, Graph Partitioning</em>. Operations Research, 1989, vol. 37, issue 6, 865-892: <a href="http://dx.doi.org/10.1287/opre.37.6.865"><span class="url">http://dx.doi.org/10.1287/opre.37.6.865</span></a></li>
+      <li class="numberedList"><em class="italic">L. Breiman</em> (1996), <em class="italic">Stacked regressions</em>. Mach Learn 24, 49–64: <a href="https://doi.org/10.1007/BF00117832"><span class="url">https://doi.org/10.1007/BF00117832</span></a></li>
+      <li class="numberedList">Mark J. van der Laan; Eric C.Polley; and Alan E.Hubbard (2007), <em class="italic">Super Learner</em>. U.C. Berkeley Division of Biostatistics Working Paper Series. Working Paper 222: <a href="https://biostats.bepress.com/ucbbiostat/paper222"><span class="url">https://biostats.bepress.com/ucbbiostat/paper222</span></a></li>
+    </ol>
+    <h1 id="_idParaDest-213" class="heading-1">Further reading</h1>
+    <p class="normal">To learn more about the topics that were covered in this chapter, take a look at the following resources:</p>
+    <ul>
+      <li class="bulletList"><em class="italic">A Kaggler’s Guide to Model Stacking in Practice</em>, by Ha Nguyen: <a href="https://datasciblog.github.io/2016/12/27/a-kagglers-guide-to-model-stacking-in-practice/"><span class="url">https://datasciblog.github.io/2016/12/27/a-kagglers-guide-to-model-stacking-in-practice/</span></a></li>
+      <li class="bulletList">Kai Ming Ting and Ian H. Witten (1997), <em class="italic">Stacked Generalization: when does it work?</em>: <a href="https://www.ijcai.org/Proceedings/97-2/Papers/011.pdf "><span class="url">https://www.ijcai.org/Proceedings/97-2/Papers/011.pdf</span></a></li>
+      <li class="bulletList">Pablo Montero-Manso, George Athanasopoulos, Rob J. Hyndman, Thiyanga S. Talagala (2020), <em class="italic">FFORMA: Feature-based forecast model averaging</em>. International Journal of Forecasting, Volume 36, Issue 1: <a href="https://robjhyndman.com/papers/fforma.pdf"><span class="url">https://robjhyndman.com/papers/fforma.pdf</span></a></li>
+      <li class="bulletList">Peiyi Zhang, et al. (2021), <em class="italic">Self-supervised learning for fast and scalable time-series hyper-parameter tuning</em>: <a href="https://www.ijcai.org/Proceedings/97-2/Papers/011.pdf"><span class="url">https://www.ijcai.org/Proceedings/97-2/Papers/011.pdf</span></a></li>
+      <li class="bulletList">Local versus Global Optima: <a href="https://www.mathworks.com/help/optim/ug/local-vs-global-optima.html"><span class="url">https://www.mathworks.com/help/optim/ug/local-vs-global-optima.html</span></a></li>
+    </ul>
+    <h1 class="heading-1">Join our community on Discord</h1>
+    <p class="normal">Join our community’s Discord space for discussions with authors and other readers:</p>
+    <p class="normal"><a href="https://packt.link/mts"><span class="url">https://packt.link/mts</span></a></p>
+    <p class="normal"><img src="../Images/QR_Code15080603222089750.png" alt=""/></p>
+  </div>
+</body></html>

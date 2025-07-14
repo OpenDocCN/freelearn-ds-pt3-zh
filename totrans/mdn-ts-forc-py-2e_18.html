@@ -1,0 +1,466 @@
+<html><head></head><body>
+  <div id="_idContainer649" class="Basic-Text-Frame">
+    <h1 class="chapterNumber">15</h1>
+    <h1 id="_idParaDest-322" class="chapterTitle">Strategies for Global Deep Learning Forecasting Models</h1>
+    <p class="normal">All through the last few chapters, we have been building up deep learning for time series forecasting. We started with the basics of deep learning, saw the different building blocks, practically used some of those building blocks to generate forecasts on a sample household, and finally, talked about attention and Transformers. Now, let’s slightly alter our trajectory and take a look at global models for deep learning. In <em class="chapterRef">Chapter 10</em>, <em class="italic">Global Forecasting Models</em>, we saw why global models make sense and also saw how we can use such models in the machine learning context. We even got good results in our experiments. In this chapter, we will look at how we can apply similar concepts, but from a deep learning perspective. We will look at different strategies that we can use to make global deep learning models work better.</p>
+    <p class="normal">In this chapter, we will be covering these main topics:</p>
+    <ul>
+      <li class="bulletList">Creating global deep learning forecasting models</li>
+      <li class="bulletList">Using time-varying information</li>
+      <li class="bulletList">Using static/meta information</li>
+      <li class="bulletList">Using the scale of the time series</li>
+      <li class="bulletList">Balancing the sampling procedure</li>
+    </ul>
+    <h1 id="_idParaDest-323" class="heading-1">Technical requirements</h1>
+    <p class="normal">You will need to set up the <strong class="keyWord">Anaconda</strong> environment by following the instructions in the <em class="italic">Preface</em> to get a working environment with all the libraries and datasets required for the code in this book. Any additional libraries will be installed while running the notebooks.</p>
+    <p class="normal">You will need to run these notebooks:</p>
+    <ul>
+      <li class="bulletList"><code class="inlineCode">02-Preprocessing_London_Smart_Meter_Dataset.ipynb</code> in <code class="inlineCode">Chapter02</code></li>
+      <li class="bulletList"><code class="inlineCode">01-Setting_up_Experiment_Harness.ipynb</code> in <code class="inlineCode">Chapter04</code></li>
+      <li class="bulletList"><code class="inlineCode">01-Feature_Engineering.ipynb</code> in <code class="inlineCode">Chapter06</code></li>
+    </ul>
+    <p class="normal">The associated code for the chapter can be found at <a href="https://github.com/PacktPublishing/Modern-Time-Series-Forecasting-with-Python-/tree/main/notebooks/Chapter15"><span class="url">https://github.com/PacktPublishing/Modern-Time-Series-Forecasting-with-Python-/tree/main/notebooks/Chapter15</span></a>.</p>
+    <h1 id="_idParaDest-324" class="heading-1">Creating global deep learning forecasting models</h1>
+    <p class="normal">In <em class="chapterRef">Chapter 10</em>, <em class="italic">Global Forecasting Models</em>, we talked in detail about why a global model makes sense. We talked about the benefits regarding increased <em class="italic">sample size</em>, <em class="italic">cross-learning</em>, <em class="italic">multi-task learning</em>, the regularization effect that comes with it, and reduced <em class="italic">engineering complexity</em>. All of these are relevant for a deep learning model as well. Engineering <a id="_idIndexMarker1163"/>complexity and sample size become even more important because deep learning models are data-hungry and take quite a bit more engineering effort and training time than other machine learning models. I would go to the extent that in the deep learning context, in most practical cases where we have to forecast at scale, global models are the only deep learning paradigm that makes sense.</p>
+    <p class="normal">So, why did we spend all that time looking at individual models? Well, it’s easier to grasp the concept at that level, and the skills and knowledge we gained at that level are very easily transferred to a global modeling paradigm. In <em class="chapterRef">Chapter 13</em>, <em class="italic">Common Modeling Patterns for Time Series</em>, we saw how we can use a dataloader to sample windows from a single time series to train the model. To make the model a global model, all we need to do is to change the dataloader so that instead of sampling windows from a single time series, we sample from many time series. The sampling process can be thought of as a two-step process (although in practice, we do it in a single step, it is intuitive to think of it as two)—first, sample the time series we need to pick the window from, and then, sample the window from that time series. By doing that, we are training a single deep learning model to forecast all the time series together.</p>
+    <p class="normal">To make our<a id="_idIndexMarker1164"/> lives easier, we are going to use the open-source libraries PyTorch Forecasting and <code class="inlineCode">neuralforecast</code> from Nixtla in this text. We will be using PyTorch Forecasting for pedagogical purposes because it does provide more flexibility, but <code class="inlineCode">neuralforecast</code> is more current and actively maintained and therefore more recent architectures will be added there. In <em class="chapterRef">Chapter 16</em>, we will see how we can use <code class="inlineCode">neuralforecast</code> to do forecasting, but for now, let’s pick PyTorch Forecasting and move ahead.</p>
+    <p class="normal">PyTorch Forecasting aims to make time series forecasting with deep learning easy for both research and real-world cases alike. PyTorch Forecasting also has implementations for some state-of-the-art forecasting architectures, and we will come back to those in <em class="chapterRef">Chapter 16</em>, <em class="italic">Specialized Deep Learning Architectures for Forecasting</em>. But now, let’s use the high-level API in PyTorch Forecasting. This will significantly reduce our work in preparing <code class="inlineCode">PyTorch</code> datasets. The <code class="inlineCode">TimeSeriesDataset</code> class in PyTorch Forecasting takes care of a lot of boilerplate code dealing with different transformations, missing values, padding, and so on. We will be using this framework in this chapter when we look at different strategies to implement global deep learning forecasting models.</p>
+    <div class="note">
+      <p class="normal"><strong class="keyWord">Notebook alert</strong>:</p>
+      <p class="normal">To follow along with the complete code, use the notebook named <code class="inlineCode">01-Global_Deep_Learning_Models.ipynb</code> in the <code class="inlineCode">Chapter15</code> folder. There are two variables in the notebook that act as a switch—<code class="inlineCode">TRAIN_SUBSAMPLE = True</code> makes the notebook run for a subset of 10 households. <code class="inlineCode">train_model = True</code> makes the notebook train different models (warning: training models on the full data takes upward of 3 hours each). <code class="inlineCode">train_model = False</code> loads the trained model weights and predicts on them.</p>
+    </div>
+    <h2 id="_idParaDest-325" class="heading-2">Preprocessing the data</h2>
+    <p class="normal">We <a id="_idIndexMarker1165"/>start by loading the necessary libraries and the dataset. We are using the preprocessed and feature-engineered dataset we created in <em class="chapterRef">Chapter 6</em>, <em class="italic">Feature Engineering for Time Series Forecasting</em>. There are different kinds of features in the dataset and to make our feature assignment standardized, we use <code class="inlineCode">namedtuple</code>. <code class="inlineCode">namedtuple()</code> is a factory method in collections that lets you create subclasses of <code class="inlineCode">tuple</code> with named fields. These named fields can be accessed using dot notation. We define <code class="inlineCode">namedtuple</code> like this:</p>
+    <pre class="programlisting code"><code class="hljs-code"><span class="hljs-keyword">from</span> collections <span class="hljs-keyword">import</span> namedtuple
+FeatureConfig = namedtuple(
+    <span class="hljs-string">"FeatureConfig"</span>,
+    [
+        <span class="hljs-string">"target"</span>,
+        <span class="hljs-string">"index_cols"</span>,
+        <span class="hljs-string">"static_categoricals"</span>,
+        <span class="hljs-string">"static_reals"</span>,
+        <span class="hljs-string">"time_varying_known_categoricals"</span>,
+        <span class="hljs-string">"time_varying_known_reals"</span>,
+        <span class="hljs-string">"time_varying_unknown_reals"</span>,
+        <span class="hljs-string">"</span><span class="hljs-string">group_ids"</span>
+    ],
+)
+</code></pre>
+    <p class="normal">Let’s also quickly <a id="_idIndexMarker1166"/>establish what these names mean:</p>
+    <ul>
+      <li class="bulletList"><code class="inlineCode">target</code>: The column name of what we are trying to forecast.</li>
+      <li class="bulletList"><code class="inlineCode">index_cols</code>: The columns that we need to make as an index for quick access to data.</li>
+      <li class="bulletList"><code class="inlineCode">static_categoricals</code>: These are columns that are categorical in nature and do not change with time. They are specific to each time series. For instance, the <em class="italic">Acorn group</em> in our dataset is <code class="inlineCode">static_categorical</code> because it is categorical in nature and is a value pertaining to a household.</li>
+      <li class="bulletList"><code class="inlineCode">static_reals</code>: These are columns that are numeric in nature and do not change with time. They are specific to each time series. For instance, the average energy consumption in our dataset is numeric in nature and pertains to a single household.</li>
+      <li class="bulletList"><code class="inlineCode">time_varying_known_categoricals</code>: These are columns that are categorical in nature and change with time and we know the future values. They can be seen as quantities that keep varying with time. A prime example would be holidays, which are categorical and vary with time, and we know the future holidays.</li>
+      <li class="bulletList"><code class="inlineCode">time_varying_known_reals</code>: These are columns that are numeric in nature and change with time and we know the future values. A prime example would be temperature, which is numeric and varies with time, and we know the future values (provided the source we are getting the weather from allows for forecasted weather data as well).</li>
+      <li class="bulletList"><code class="inlineCode">time_varying_unknown_reals</code>: These are columns that are numeric in nature and change with time and we don’t know the future values. The target we are trying to forecast is an excellent example.</li>
+      <li class="bulletList"><code class="inlineCode">group_ids</code>: These columns uniquely identify each time series in the DataFrame.</li>
+    </ul>
+    <p class="normal">Once defined, we <a id="_idIndexMarker1167"/>can assign different values to each of these names, as follows:</p>
+    <pre class="programlisting code"><code class="hljs-code">feat_config = FeatureConfig(
+    target=<span class="hljs-string">"energy_consumption"</span>,
+    index_cols=[<span class="hljs-string">"LCLid"</span>, <span class="hljs-string">"timestamp"</span>],
+    static_categoricals=[
+        <span class="hljs-string">"LCLid"</span>,
+        <span class="hljs-string">"stdorToU"</span>,
+        <span class="hljs-string">"Acorn"</span>,
+        <span class="hljs-string">"Acorn_grouped"</span>,
+        <span class="hljs-string">"file"</span>,
+    ],
+    static_reals=[],
+    time_varying_known_categoricals=[
+        <span class="hljs-string">"holidays"</span>,
+        <span class="hljs-string">"timestamp_Dayofweek"</span>,
+    ],
+    time_varying_known_reals=[<span class="hljs-string">"apparentTemperature"</span>],
+    time_varying_unknown_reals=[<span class="hljs-string">"energy_consumption"</span>],
+    group_ids=[<span class="hljs-string">"LCLid"</span>],
+)
+</code></pre>
+    <div class="note">
+      <p class="normal">The way of setting up a problem is slightly different in <code class="inlineCode">neuralforecast</code> but the principles are the same. The different types of variables we define remain the same conceptually and just the parameter names we use to define them are different. PyTorch Forecasting needs the target to be included in <code class="inlineCode">time_varying_unknown_reals</code> but <code class="inlineCode">neuralforecast</code> doesn’t. All these minor differences will be covered when we use <code class="inlineCode">neuralforecast</code> to generate forecasts.</p>
+    </div>
+    <p class="normal">We can see that we are not using all the features as we did with machine learning models (<em class="chapterRef">Chapter 10</em>, <em class="italic">Global Forecasting Models</em>). There are two reasons for that:</p>
+    <ul>
+      <li class="bulletList">Since we are using sequential deep learning models, a lot of the information we are trying to capture using rolling features and so on is already available to the model.</li>
+      <li class="bulletList">Unlike robust gradient-boosted decision tree models, deep learning models aren’t that robust to noise. So, irrelevant features would make the model worse.</li>
+    </ul>
+    <p class="normal">There are a<a id="_idIndexMarker1168"/> few preprocessing steps that are needed to make the dataset we have compatible with PyTorch Forecasting. PyTorch Forecasting needs a continuous time index as a proxy for time. Although we have a <code class="inlineCode">timestamp</code> column, it has datetimes. So, we need to convert it to a new column, <code class="inlineCode">time_idx</code>. The complete code is in the notebook, but the essence of the code is simple. We combine the train and test DataFrames and use a formula using the <code class="inlineCode">timestamp</code> column to derive a new <code class="inlineCode">time_idx</code> column. The formula is such that it increments every successive timestamp by one and is consistent between <code class="inlineCode">train</code> and <code class="inlineCode">test</code>. For instance, <code class="inlineCode">time_idx</code> of the last timestep in <code class="inlineCode">train</code> is <code class="inlineCode">256</code>, and <code class="inlineCode">time_idx</code> of the first timestep in <code class="inlineCode">test</code> would be <code class="inlineCode">257</code>. In addition to that, we also need to convert the categorical columns into <code class="inlineCode">object</code> data types to play nicely with <code class="inlineCode">TimeSeriesDataset</code> from PyTorch Forecasting.</p>
+    <p class="normal">For our experiments, we have chosen to have 2 days (96 timesteps) as the window and predict one single step ahead. To enable early stopping, we would need a validation set as well. <strong class="keyWord">Early stopping </strong>is a way of regularization (a technique to prevent overfitting, <em class="chapterRef">Chapter 5</em>) where we keep monitoring the validation loss and stop training when the validation loss starts to increase. We have selected the last day of training (48 timesteps) as the validation data and 1 whole month as the final test data. But when we prepare these DataFrames, we need to take care of something: we have chosen two days as our history, and to forecast the first timestep in the validation or test set, we need the last two days of history along with it. So, we split our DataFrames as shown in the following diagram (the exact code is in the notebook):</p>
+    <figure class="mediaobject"><img src="../Images/B22389_15_01.png" alt="Figure 15.1 – Train-validation-test split "/></figure>
+    <p class="packt_figref">Figure 15.1: Train-validation-test split</p>
+    <p class="normal">Now, before<a id="_idIndexMarker1169"/> using <code class="inlineCode">TimeSeriesDataset</code> on our data, let’s try to understand what it does and what the different parameters involved are.</p>
+    <h2 id="_idParaDest-326" class="heading-2">Understanding TimeSeriesDataset from PyTorch Forecasting</h2>
+    <p class="normal"><code class="inlineCode">TimeSeriesDataset</code> automates <a id="_idIndexMarker1170"/>the<a id="_idIndexMarker1171"/> following tasks and more:</p>
+    <ul>
+      <li class="bulletList">Scaling numeric features and encoding categorical features:<ul>
+          <li class="bulletList level-2">Scaling the numeric features to have the same mean and variance helps gradient descent-based optimization to converge faster and better.</li>
+          <li class="bulletList level-2">Categorical features need to be encoded as numbers so that we can handle them the right way inside the deep learning models.</li>
+        </ul>
+      </li>
+      <li class="bulletList">Normalizing the target variable:<ul>
+          <li class="bulletList level-2">In a global model context, the target variable can have different scales for different time series. For instance, a particular household typically has higher energy consumption, and some other households may be vacant and have little to no energy consumption. Scaling the target variable to a single scale helps the deep learning <a id="_idIndexMarker1172"/>model to focus on learning the patterns rather than capturing the variance in scale.</li>
+        </ul>
+      </li>
+      <li class="bulletList">Efficiently converting the DataFrame into a dictionary of PyTorch tensors:<ul>
+          <li class="bulletList level-2">The dataset also takes in the information about different columns and converts the DataFrame into a dictionary of PyTorch tensors, separately handling the static and time-varying information.</li>
+        </ul>
+      </li>
+    </ul>
+    <p class="normal">These are the <a id="_idIndexMarker1173"/>major parameters of <code class="inlineCode">TimeSeriesDataset</code>:</p>
+    <ul>
+      <li class="bulletList"><code class="inlineCode">data</code>: This is the pandas DataFrame holding all the data such that each row is uniquely identified with <code class="inlineCode">time_idx</code> and <code class="inlineCode">group_ids</code>.</li>
+      <li class="bulletList"><code class="inlineCode">time_idx</code>: This refers to the column name with the continuous time index we created earlier.</li>
+      <li class="bulletList"><code class="inlineCode">target</code>, <code class="inlineCode">group_ids</code>, <code class="inlineCode">static_categoricals</code>, <code class="inlineCode">static_reals</code>, <code class="inlineCode">time_varying_known_categoricals</code>, <code class="inlineCode">time_varying_known_reals</code>, <code class="inlineCode">time_varying_unknown_categoricals</code>, and <code class="inlineCode">time_varying_unknown_reals</code>: We already discussed all these parameters in the <em class="italic">Preprocessing the data</em> section. These hold the same meaning.</li>
+      <li class="bulletList"><code class="inlineCode">max_encoder_length</code>: This sets the maximum window length given to the encoder.</li>
+      <li class="bulletList"><code class="inlineCode">min_decoder_length</code>: This sets the minimum window given in the decoding context.</li>
+      <li class="bulletList"><code class="inlineCode">target_normalizer</code>: This takes in a Transformer that normalizes the targets. There are a few normalizers built into PyTorch Forecasting—<code class="inlineCode">TorchNormalizer</code>, <code class="inlineCode">GroupNormalizer</code>, and <code class="inlineCode">EncoderNormalizer</code>. <code class="inlineCode">TorchNormalizer</code> does standard and robust scaling of the targets as a whole, whereas <code class="inlineCode">GroupNormalizer</code> does the same but with each group separately (a group is defined by <code class="inlineCode">group_ids</code>). <code class="inlineCode">EncoderNormalizer</code> does the scaling at runtime by normalizing using the values in each window.</li>
+      <li class="bulletList"><code class="inlineCode">categorical_encoders</code>: This parameter takes in a dictionary of scikit-learn Transformers as a category encoder. By default, the category encoding is similar to <code class="inlineCode">LabelEncoder</code>, which replaces each unique categorical value with a number, adding an additional category for unknown and <code class="inlineCode">NaN</code> values.</li>
+    </ul>
+    <p class="normal">For the full documentation, please refer to <a href="https://pytorch-forecasting.readthedocs.io/en/stable/data.html#time-series-data-set"><span class="url">https://pytorch-forecasting.readthedocs.io/en/stable/data.html#time-series-data-set</span></a>.</p>
+    <h3 id="_idParaDest-327" class="heading-3">Initializing TimeSeriesDataset</h3>
+    <p class="normal">Now that we <a id="_idIndexMarker1174"/>know the major parameters, let’s initialize a time series dataset using our data:</p>
+    <pre class="programlisting code"><code class="hljs-code">training = TimeSeriesDataSet(
+    train_df,
+    time_idx=<span class="hljs-string">"time_idx"</span>,
+    target=feat_config.target,
+    group_ids=feat_config.group_ids,
+    max_encoder_length=max_encoder_length,
+    max_prediction_length=max_prediction_length,
+    time_varying_unknown_reals=[
+        <span class="hljs-string">"energy_consumption"</span>,
+    ],
+    target_normalizer=GroupNormalizer(
+        groups=feat_config.group_ids, transformation=<span class="hljs-literal">None</span>
+    )
+)
+</code></pre>
+    <p class="normal">Note that we have used <code class="inlineCode">GroupNormalizer</code> so that each household is scaled separately using its own mean and standard deviation using the following well-known formula:</p>
+    <p class="center"><img src="../Images/B22389_15_001.png" alt=""/></p>
+    <p class="normal"><code class="inlineCode">TimeSeriesDataset</code> also makes it easy to declare validation and test datasets as well using a factory method, <code class="inlineCode">from_dataset</code>. It takes in another time series dataset as an argument and uses the same parameters, scalers, and so on, and creates new datasets:</p>
+    <pre class="programlisting code"><code class="hljs-code"><span class="hljs-comment"># Defining the validation dataset with the same parameters as training</span>
+validation = TimeSeriesDataSet.from_dataset(training, pd.concat([val_history,val_df]).reset_index(drop=<span class="hljs-literal">True</span>), stop_randomization=<span class="hljs-literal">True</span>)
+<span class="hljs-comment"># Defining the test dataset with the same parameters as training</span>
+test = TimeSeriesDataSet.from_dataset(training, pd.concat([hist_df, test_df]).reset_index(drop=<span class="hljs-literal">True</span>), stop_randomization=<span class="hljs-literal">True</span>)
+</code></pre>
+    <p class="normal">Notice that we concatenate the history to both <code class="inlineCode">val_df</code> and <code class="inlineCode">test_df</code> to make sure we can predict on the entire validation and test period.</p>
+    <h3 id="_idParaDest-328" class="heading-3">Creating the dataloader</h3>
+    <p class="normal">All that <a id="_idIndexMarker1175"/>is left to do is to create the dataloader <a id="_idIndexMarker1176"/>from <code class="inlineCode">TimeSeriesDataset</code>:</p>
+    <pre class="programlisting code"><code class="hljs-code">train_dataloader = training.to_dataloader(train=<span class="hljs-literal">True</span>, batch_size=batch_size, num_workers=<span class="hljs-number">0</span>)
+val_dataloader = validation.to_dataloader(train=<span class="hljs-literal">False</span>, batch_size=batch_size, num_workers=<span class="hljs-number">0</span>)
+</code></pre>
+    <p class="normal">Before we proceed, let’s solidify our understanding of the PyTorch Forecasting dataloader with the help of an example. The <code class="inlineCode">train</code> dataloader we just created has split the DataFrame into a dictionary of PyTorch tensors. We have chosen <code class="inlineCode">512</code> as a batch size and can inspect the dataloader using the following code:</p>
+    <pre class="programlisting code"><code class="hljs-code"><span class="hljs-comment"># Testing the dataloader</span>
+x, y = <span class="hljs-built_in">next</span>(<span class="hljs-built_in">iter</span>(train_dataloader))
+<span class="hljs-built_in">print</span>(<span class="hljs-string">"\nsizes of x ="</span>)
+<span class="hljs-keyword">for</span> key, value <span class="hljs-keyword">in</span> x.items():
+    <span class="hljs-built_in">print</span>(<span class="hljs-string">f"\t</span><span class="hljs-subst">{key}</span><span class="hljs-string"> = </span><span class="hljs-subst">{value.size()}</span><span class="hljs-string">"</span>)
+<span class="hljs-built_in">print</span>(<span class="hljs-string">"</span><span class="hljs-string">\nsize of y ="</span>)
+<span class="hljs-built_in">print</span>(<span class="hljs-string">f"\ty = </span><span class="hljs-subst">{y[</span><span class="hljs-number">0</span><span class="hljs-subst">].size()}</span><span class="hljs-string">"</span>)
+</code></pre>
+    <p class="normal">We will get an output as follows:</p>
+    <figure class="mediaobject"><img src="../Images/B22389_15_02.png" alt="Figure 15.2 – Shapes of tensors in a batch of a train dataloader "/></figure>
+    <p class="packt_figref">Figure 15.2: Shapes of tensors in a batch of a train dataloader</p>
+    <p class="normal">We can<a id="_idIndexMarker1177"/> see <a id="_idIndexMarker1178"/>that the dataloader and <code class="inlineCode">TimeSeriesDataset</code> have split the DataFrame into PyTorch tensors and packed them into a dictionary with the encoder and decoder sequences separate. We can also see that the categorical and continuous features are also separated. </p>
+    <p class="normal">The main <em class="italic">keys</em> we will be using from this dictionary are <code class="inlineCode">encoder_cat</code>, <code class="inlineCode">encoder_cont</code>, <code class="inlineCode">decoder_cat</code>, and <code class="inlineCode">decoder_cont</code>. The <code class="inlineCode">encoder_cat</code> and <code class="inlineCode">decoder_cat</code> keys have zero dimensions because we haven’t declared any categorical features.</p>
+    <h3 id="_idParaDest-329" class="heading-3">Visualizing how the dataloader works</h3>
+    <p class="normal">Let’s try to unpeel what<a id="_idIndexMarker1179"/> happened here one level deeper and understand what <code class="inlineCode">TimeSeriesDataset</code> has done visually:</p>
+    <figure class="mediaobject"><img src="../Images/B22389_15_03.png" alt="Figure 15.3 – TimeSeriesDataset – an illustration of how it works "/></figure>
+    <p class="packt_figref">Figure 15.3: TimeSeriesDataset—an illustration of how it works</p>
+    <p class="normal">Let’s assume we <a id="_idIndexMarker1180"/>have a time series, <em class="italic">x</em><sub class="subscript">1</sub> to <em class="italic">x</em><sub class="subscript">6</sub> (this would be the target as well as <code class="inlineCode">time_varying_unknown</code> in the <code class="inlineCode">TimeSeriesDataset</code> terminology). We have a time-varying real, <em class="italic">f</em><sub class="subscript">1</sub> to <em class="italic">f</em><sub class="subscript">6</sub>, and a time-varying categorical, <em class="italic">c</em><sub class="subscript">1</sub> to <em class="italic">c</em><sub class="subscript">2</sub>. In addition to that, we also have a static real, <em class="italic">r</em>, and a static categorical, <em class="italic">s</em>. If we set the encoder and decoder length as <code class="inlineCode">3</code>, we will have the tensors constructed as shown in <em class="italic">Figure 15.3</em>. Notice how the static categorical and real are repeated for all timesteps. These different tensors are constructed so that the model encoder can be trained using the encoder tensors and the decoder tensors are used in the decoding process.</p>
+    <p class="normal">Now, let’s proceed with building our first global model.</p>
+    <h2 id="_idParaDest-330" class="heading-2">Building the first global deep learning forecasting model</h2>
+    <p class="normal">PyTorch Forecasting uses PyTorch and PyTorch Lightning in the backend to define and train deep <a id="_idIndexMarker1181"/>learning models. The models that can be used seamlessly with PyTorch Forecasting are essentially PyTorch Lightning models. However, the recommended approach is to inherit <code class="inlineCode">BaseModel</code> from PyTorch Forecasting. The developer of PyTorch Forecasting has excellent documentation and tutorials to help new users use it the way they want. One tutorial worth mentioning here is titled <em class="italic">How to use custom data and implement custom models and metrics</em> (the link is in the <em class="italic">Further reading</em> section).</p>
+    <p class="normal">I have slightly modified the basic model from the tutorial to make it more flexible. The implementation can be found in <code class="inlineCode">src/dl/ptf_models.py</code> under the name <code class="inlineCode">SingleStepRNNModel</code>. The class takes in two parameters:</p>
+    <ul>
+      <li class="bulletList"><code class="inlineCode">network_callable</code>: This is a callable that, when initialized, becomes a PyTorch model (inheriting <code class="inlineCode">nn.Module</code>).</li>
+      <li class="bulletList"><code class="inlineCode">model_params</code>: This is a dictionary containing all the parameters necessary to initialize <code class="inlineCode">network_callable</code>.</li>
+    </ul>
+    <p class="normal">The structure is pretty simple. The <code class="inlineCode">__init__</code> function initializes <code class="inlineCode">network_callable</code> into a PyTorch model under the <code class="inlineCode">network</code> attribute. The <code class="inlineCode">forward</code> function sends the input to the network, formats the returned output the way PyTorch Forecasting wants, and returns it. It is a very short model because the bulk of the heavy lifting is done by <code class="inlineCode">BaseModel</code>, which handles the loss calculation, logging, gradient descent, and so on. The benefit we get by defining a model this way is that we can now define standard PyTorch models and pass it to this model to make it work well with PyTorch Forecasting.</p>
+    <p class="normal">In addition to this, we also define an abstract class called <code class="inlineCode">SingleStepRNN</code>, which takes in a set of parameters and initializes the corresponding network that is specified by the parameters. If the parameter specifies an LSTM, with two layers, then it will be initialized and saved under the <code class="inlineCode">rnn</code> attribute. It also defines a fully connected layer under the <code class="inlineCode">fc</code> attribute, which turns the output of the RNN into the prediction. The <code class="inlineCode">forward</code> method is an abstract method that needs to be overwritten in any class subclassing this class.</p>
+    <h3 id="_idParaDest-331" class="heading-3">Defining our first RNN model</h3>
+    <p class="normal">Now that <a id="_idIndexMarker1182"/>we have the necessary setup, let’s define our first model inheriting the <code class="inlineCode">SingleStepRNN</code> class we defined:</p>
+    <pre class="programlisting code"><code class="hljs-code"><span class="hljs-keyword">class</span> <span class="hljs-title">SimpleRNNModel</span>(<span class="hljs-title">SingleStepRNN</span>):
+    <span class="hljs-keyword">def</span> <span class="hljs-title">__init__</span>(
+<span class="hljs-params">        self,</span>
+<span class="hljs-params">        rnn_type: </span><span class="hljs-built_in">str</span><span class="hljs-params">,</span>
+<span class="hljs-params">        input_size: </span><span class="hljs-built_in">int</span><span class="hljs-params">,</span>
+<span class="hljs-params">        hidden_size: </span><span class="hljs-built_in">int</span><span class="hljs-params">,</span>
+<span class="hljs-params">        num_layers: </span><span class="hljs-built_in">int</span><span class="hljs-params">,</span>
+<span class="hljs-params">        bidirectional: </span><span class="hljs-built_in">bool</span><span class="hljs-params">,</span>
+<span class="hljs-params">    </span>):
+        <span class="hljs-built_in">super</span>().__init__(rnn_type, input_size, hidden_size, num_layers, bidirectional)
+    <span class="hljs-keyword">def</span> <span class="hljs-title">forward</span>(<span class="hljs-params">self, x: </span><span class="hljs-type">Dict</span>):
+        <span class="hljs-comment"># Using the encoder continuous which has the history window</span>
+        x = x[<span class="hljs-string">"encoder_cont"</span>] <span class="hljs-comment"># x --&gt; (batch_size, seq_len, input_size)</span>
+        <span class="hljs-comment"># Processing through the RNN</span>
+        x, _ = <span class="hljs-variable">self</span>.rnn(x)  <span class="hljs-comment"># --&gt; (batch_size, seq_len, hidden_size)</span>
+        <span class="hljs-comment"># Using a FC layer on last hidden state</span>
+        x = <span class="hljs-variable">self</span>.fc(x[:,-<span class="hljs-number">1</span>,:])  <span class="hljs-comment"># --&gt; (batch_size, seq_len, 1)</span>
+        <span class="hljs-keyword">return</span> x
+</code></pre>
+    <p class="normal">This is the most straightforward implementation. We take <code class="inlineCode">encoder_cont</code> from the dictionary and pass it through the RNN, and then use a fully connected layer on the last hidden state from the RNN to generate the prediction. If we take the example in <em class="italic">Figure 15.3</em>, we used <em class="italic">x</em><sub class="subscript">1</sub> to <em class="italic">x</em><sub class="subscript">3</sub> as the history and trained the model to predict <em class="italic">x</em><sub class="subscript">4</sub> (because we are using <code class="inlineCode">min_decoder_length=1</code>, there will be just one timestep in the decoder and target).</p>
+    <h3 id="_idParaDest-332" class="heading-3">Initializing the RNN model</h3>
+    <p class="normal">Now, let’s<a id="_idIndexMarker1183"/> initialize the model using some parameters. I have defined two dictionaries for parameters:</p>
+    <ul>
+      <li class="bulletList"><code class="inlineCode">model_params</code>: This has all the parameters necessary for the <code class="inlineCode">SingleStepRNN</code> model to be initialized.</li>
+      <li class="bulletList"><code class="inlineCode">other_params</code>: These are all the parameters, such as <code class="inlineCode">learning_rate</code>, <code class="inlineCode">loss</code>, and so on, that we pass on to <code class="inlineCode">SingleStepRNNModel</code>.</li>
+    </ul>
+    <p class="normal">Now, we can initialize the PyTorch Forecasting model using a factory method it supports—<code class="inlineCode">from_dataset</code>. This factory method lets us pass a dataset and infer some parameters from<a id="_idIndexMarker1184"/> the dataset instead of filling everything in all the time:</p>
+    <pre class="programlisting code"><code class="hljs-code">model = SingleStepRNNModel.from_dataset(
+    training,
+    network_callable=SimpleRNNModel,
+    model_params=model_params,
+    **other_params
+)
+</code></pre>
+    <h3 id="_idParaDest-333" class="heading-3">Training the RNN model</h3>
+    <p class="normal">Training the <a id="_idIndexMarker1185"/>model is just like we have been doing in previous chapters because this is a PyTorch Lightning model. We can follow these steps:</p>
+    <ol>
+      <li class="numberedList" value="1">Initialize the trainer with early stopping and model checkpoints:
+        <pre class="programlisting code-one"><code class="hljs-code">trainer = pl.Trainer(
+    auto_select_gpus=<span class="hljs-literal">True</span>,
+    gpus=-<span class="hljs-number">1</span>,
+    min_epochs=<span class="hljs-number">1</span>,
+    max_epochs=<span class="hljs-number">20</span>,
+    callbacks=[
+        pl.callbacks.EarlyStopping(monitor=<span class="hljs-string">"val_loss"</span>, patience=<span class="hljs-number">4</span>*<span class="hljs-number">3</span>),
+        pl.callbacks.ModelCheckpoint(
+            monitor=<span class="hljs-string">"val_loss"</span>, save_last=<span class="hljs-literal">True</span>, mode=<span class="hljs-string">"</span><span class="hljs-string">min"</span>, auto_insert_metric_name=<span class="hljs-literal">True</span>
+        ),
+    ],
+    val_check_interval=<span class="hljs-number">2000</span>,
+    log_every_n_steps=<span class="hljs-number">2000</span>,
+)
+</code></pre>
+      </li>
+      <li class="numberedList">Fit the model:
+        <pre class="programlisting code-one"><code class="hljs-code">trainer.fit(
+    model,
+    train_dataloaders=train_dataloader,
+    val_dataloaders=val_dataloader,
+)
+</code></pre>
+      </li>
+      <li class="numberedList">Load the best model after training:
+        <pre class="programlisting code-one"><code class="hljs-code">best_model_path = trainer.checkpoint_callback.best_model_path
+best_model = SingleStepRNNModel.load_from_checkpoint(best_model_path)
+</code></pre>
+      </li>
+    </ol>
+    <p class="normal">The training<a id="_idIndexMarker1186"/> can run for some time. To save you some time, I have included the trained weights for each of the models we are using, and if the <code class="inlineCode">train_model</code> flag is <code class="inlineCode">False</code>, it will skip training and load the saved weights.</p>
+    <h3 id="_idParaDest-334" class="heading-3">Forecasting with the trained model</h3>
+    <p class="normal">Now, after<a id="_idIndexMarker1187"/> training, we can predict on the <code class="inlineCode">test</code> dataset as follows:</p>
+    <pre class="programlisting code"><code class="hljs-code">pred, index = best_model.predict(test, return_index=<span class="hljs-literal">True</span>, show_progress_bar=<span class="hljs-literal">True</span>)
+</code></pre>
+    <p class="normal">We store the predictions in a DataFrame and evaluate them using our standard metrics: <code class="inlineCode">MAE</code>, <code class="inlineCode">MSE</code>, <code class="inlineCode">meanMASE</code>, and <code class="inlineCode">Forecast Bias</code>. Let’s see the results:</p>
+    <figure class="mediaobject"><img src="../Images/B22389_15_04.png" alt="A close up of numbers  Description automatically generated"/></figure>
+    <p class="packt_figref">Figure 15.4: Aggregate results using the baseline global model</p>
+    <p class="normal">This is not a very good model because we know from <em class="chapterRef">Chapter 10</em>, <em class="italic">Global Forecasting Models</em>, that the baseline global model using LightGBM was as follows:</p>
+    <ul>
+      <li class="bulletList">MAE = 0.079581</li>
+      <li class="bulletList">MSE = 0.027326</li>
+      <li class="bulletList">meanMASE = 1.013393</li>
+      <li class="bulletList">Forecast Bias = 28.718087</li>
+    </ul>
+    <p class="normal">Apart from Forecast Bias, our global model is nowhere close to the best. Let’s refer to the <strong class="keyWord">global machine learning model</strong> as <strong class="keyWord">GFM</strong>(<strong class="keyWord">ML</strong>) and <a id="_idIndexMarker1188"/>the current model as <strong class="keyWord">GFM</strong>(<strong class="keyWord">DL</strong>) for<a id="_idIndexMarker1189"/> the rest of our<a id="_idIndexMarker1190"/> discussion. Now, let’s start looking at some strategies to make the global model better.</p>
+    <h1 id="_idParaDest-335" class="heading-1">Using time-varying information</h1>
+    <p class="normal">The GFM(ML) used<a id="_idIndexMarker1191"/> all the available features. So, obviously, that model had access to a lot more information than the GFM(DL) we have built until now. The GFM(DL) we just built only takes in the history and nothing else. Let’s change that by including time-varying information. We will just use time-varying real features this time because dealing with categorical features is a topic I want to leave for the next section.</p>
+    <p class="normal">We initialize the training dataset the same way as before, but we add <code class="inlineCode">time_varying_known_reals=feat_config.time_varying_known_reals</code> to the initialization parameters. Now that we have all the datasets created, let’s move on to setting up the model.</p>
+    <p class="normal">To set up the model, we need to understand one concept. We are now using the history of the target and time-varying known features. In <em class="italic">Figure 15.3</em>, we saw how <code class="inlineCode">TimeSeriesDataset</code> arranges the different kinds of variables in PyTorch tensors. In the previous section, we used only <code class="inlineCode">encoder_cont</code> because there were no other variables to worry about. But now, we have time-varying variables along with it, which brings an added complication. If we take a step back and think about it, in the single-step-ahead forecasting context, we can see that the time-varying variables and the history of the target cannot be of the same timestep. </p>
+    <p class="normal">Let’s use a visual example to elucidate:</p>
+    <figure class="mediaobject"><img src="../Images/B22389_15_05.png" alt="Figure 15.5 – Using time-varying variables for training "/></figure>
+    <p class="packt_figref">Figure 15.5: Using time-varying variables for training</p>
+    <p class="normal">Following <a id="_idIndexMarker1192"/>the same spirit of the example from <em class="italic">Figure 15.3</em>, but reducing it to fit our context here, we have a time series, <em class="italic">x</em><sub class="subscript">1</sub> to <em class="italic">x</em><sub class="subscript">4</sub>, and a time-varying real variable, <em class="italic">f</em><sub class="subscript">1</sub> to <em class="italic">f</em><sub class="subscript">4</sub>. So, for <code class="inlineCode">max_encoder_length=3</code> and <code class="inlineCode">min_decoder_length=1</code>, we would have <code class="inlineCode">TimeSeriesDataset</code> make the tensors, as shown in <em class="italic">Step 1</em> in <em class="italic">Figure 15.5</em>.</p>
+    <p class="normal">Now, for each timestep, we have the time-varying variable, <em class="italic">f</em>, and the history, <em class="italic">x</em>, in <code class="inlineCode">encoder_cont</code>. The time-varying variable, <em class="italic">f</em>, is a variable for which we know the future values as well and therefore, there is no causal constraint on that variable. That means that for predicting the timestep, <em class="italic">t</em>, we can use <em class="italic">f</em><sub class="subscript-italic" style="font-style: italic;">t</sub> because it is known. However, the history of the target variable is not. We do not know the future because it is the very quantity we are trying to forecast. That means that there is a causal constraint on <em class="italic">x</em> and, because of this, we cannot use <em class="italic">x</em><sub class="subscript-italic" style="font-style: italic;">t</sub> to predict timestep <em class="italic">t</em>. But the way the tensors are formed right now, we have <em class="italic">f</em> and <em class="italic">x</em> aligned on timesteps and if we passed them through a model, we<a id="_idIndexMarker1193"/> would be essentially cheating because we would be using <em class="italic">x</em><sub class="subscript-italic" style="font-style: italic;">t</sub> to predict timestep <em class="italic">t</em>. Ideally, there should be an offset between the history, <em class="italic">x</em>, and the time-varying feature, <em class="italic">f</em>, such that at timestep <em class="italic">t</em>, the model sees <em class="italic">x</em><sub class="subscript-italic" style="font-style: italic;">t</sub><sub class="subscript">-1</sub>, then sees <em class="italic">f</em><sub class="subscript-italic" style="font-style: italic;">t</sub>, and then predicts <em class="italic">x</em><sub class="subscript-italic" style="font-style: italic;">t</sub>.</p>
+    <p class="normal">To achieve that, we do the following:</p>
+    <ol>
+      <li class="numberedList" value="1">Concatenate <code class="inlineCode">encoder_cont</code> and <code class="inlineCode">decoder_cont</code> because we need to use <em class="italic">f</em><sub class="subscript-italic" style="font-style: italic;">4</sub> to predict timestep <em class="italic">t</em> = 4 (<em class="italic">Step 2</em> in <em class="italic">Figure 15.5</em>).</li>
+      <li class="numberedList">Shift the target history, <em class="italic">x</em>, forward by one timestep so that <em class="italic">f</em><sub class="subscript-italic" style="font-style: italic;">t</sub> and <em class="italic">x</em><sub class="subscript-italic" style="font-style: italic;">t</sub><sub class="subscript">-1</sub> are aligned (<em class="italic">Step 3</em> in <em class="italic">Figure 15.5</em>).</li>
+      <li class="numberedList">Drop the first timestep because we don’t have the history to go with the first timestep (<em class="italic">Step 4</em> in <em class="italic">Figure 15.5</em>).</li>
+    </ol>
+    <p class="normal">This is exactly what we need to implement in our <code class="inlineCode">forward</code> method in the new model we defined, <code class="inlineCode">DynamicFeatureRNNModel</code>, as well:</p>
+    <pre class="programlisting code"><code class="hljs-code"><span class="hljs-keyword">def</span> <span class="hljs-title">forward</span>(<span class="hljs-params">self, x: </span><span class="hljs-type">Dict</span>):
+    <span class="hljs-comment"># Step 2 in Figure 15.5</span>
+    x_cont = torch.cat([x[<span class="hljs-string">"encoder_cont"</span>],x[<span class="hljs-string">"decoder_cont"</span>]], dim=<span class="hljs-number">1</span>)
+    <span class="hljs-comment"># Step 3 in Figure 15.5</span>
+    x_cont[:,:,-<span class="hljs-number">1</span>] = torch.roll(x_cont[:,:,-<span class="hljs-number">1</span>], <span class="hljs-number">1</span>, dims=<span class="hljs-number">1</span>)
+    x = x_cont
+    <span class="hljs-comment"># Step 4 in Figure 15.5</span>
+    x = x[:,<span class="hljs-number">1</span>:,:] <span class="hljs-comment"># x -&gt; (batch_size, seq_len, input_size)</span>
+    <span class="hljs-comment"># Processing through the RNN</span>
+    x, _ = <span class="hljs-variable">self</span>.rnn(x)  <span class="hljs-comment"># --&gt; (batch_size, seq_len, hidden_size)</span>
+    <span class="hljs-comment"># Using a FC layer on last hidden state</span>
+    x = <span class="hljs-variable">self</span>.fc(x[:,-<span class="hljs-number">1</span>,:])  <span class="hljs-comment"># --&gt; (batch_size, seq_len, 1)</span>
+    <span class="hljs-keyword">return</span> x
+</code></pre>
+    <p class="normal">Now, let’s train this new model and see how it performs. The exact code is in the notebook and is exactly the same as before:</p>
+    <figure class="mediaobject"><img src="../Images/B22389_15_06.png" alt="Figure 15.6 – Aggregate results using the time-varying features "/></figure>
+    <p class="packt_figref">Figure 15.6: Aggregate results using the time-varying features</p>
+    <p class="normal">It looks like having<a id="_idIndexMarker1194"/> temperature as a feature did make the model slightly better, but there’s still a long way to go. Not to worry; we have other features to use.</p>
+    <h1 id="_idParaDest-336" class="heading-1">Using static/meta information</h1>
+    <p class="normal">There are <a id="_idIndexMarker1195"/>some features such as the Acorn group, whether dynamic pricing is enabled, and so on, that are specific to a household, which will help the model learn patterns specific to these groups. Naturally, including that information makes intuitive sense. </p>
+    <p class="normal">However, as we discussed in <em class="chapterRef">Chapter 10</em>, <em class="italic">Global Forecasting Models</em>, categorical features do not play well with machine learning models because they aren’t numerical. In that chapter, we discussed a few ways of encoding categorical features into numerical representations. We can use any of those in a deep learning model as well. But there is one way of handling categorical features that is unique to deep learning models—<strong class="keyWord">embedding vectors</strong>.</p>
+    <h2 id="_idParaDest-337" class="heading-2">One-hot encoding and why it is not ideal</h2>
+    <p class="normal">One of the<a id="_idIndexMarker1196"/> ways of converting categorical features to numerical representation is one-hot encoding. It encodes the categorical features in a higher dimension, placing the categorical values equally distant in that space. The size of the dimension it requires to encode the categorical values is equal to the cardinality of the categorical variable. For a more detailed discussion on one-hot encoding, refer to <em class="chapterRef">Chapter 10</em>, <em class="italic">Global Forecasting Models</em>.</p>
+    <p class="normal">The representation that we would get after the one-hot encoding of a categorical feature is what we call a <strong class="keyWord">sparse representation</strong>. If the cardinality of the categorical feature (number of unique values) is <em class="italic">C</em>, each row representing a value of the categorical feature would have <em class="italic">C</em> - 1 zeros. So, the representation is predominantly zeros and hence is called a sparse representation. This causes the overall dimension required to effectively encode a categorical feature to be equal to the cardinality of the vector. Therefore, one-hot encoding of a categorical feature with 5,000 unique values instantly adds 5,000 dimensions to the problem you are solving.</p>
+    <p class="normal">In addition to<a id="_idIndexMarker1197"/> that, one-hot encoding is also completely uninformed. It places each categorical value equidistant from each other without any regard for the possible similarity between those values. For instance, if we were encoding the days in a week, one-hot encoding would place each day in a completely different dimension, making them equidistant from each other. But if we think about it, Saturday and Sunday should be closer together than the other weekdays on account of them being the weekend, right? This kind of information is not captured through one-hot encoding.</p>
+    <h2 id="_idParaDest-338" class="heading-2">Embedding vectors and dense representations</h2>
+    <p class="normal">An embedding vector<a id="_idIndexMarker1198"/> is a similar representation, but instead of a sparse representation, it strives to give us a dense representation of a categorical feature. We can achieve this by using an embedding layer. The embedding layer can be thought of as a mapping between each categorical value and a numerical vector, and this vector can have a much lower dimension than the cardinality of the categorical feature. The only question that remains is “<em class="italic">How do we know what vector to choose for each categorical value?</em>”</p>
+    <p class="normal">The good news is<a id="_idIndexMarker1199"/> that we need not because the embedding layer is trained along with the rest of the network. So, while training a model for some task, the model itself figures out what the best vector representation is for each categorical value. This approach is really popular in natural language processing, where thousands of words are embedded into dimensions as small as 200 or 300. In PyTorch, we can accomplish this by using <code class="inlineCode">nn.Embedding</code>, which is a module that is a simple lookup table that stores the embeddings of fixed discrete values and size. </p>
+    <p class="normal">There are two mandatory parameters while initializing:</p>
+    <ul>
+      <li class="bulletList"><code class="inlineCode">num_embeddings</code>: This is the size of the dictionary of embeddings. In other words, this is the cardinality of the categorical feature.</li>
+      <li class="bulletList"><code class="inlineCode">embedding_dim</code>: This is the size of each embedding vector.</li>
+    </ul>
+    <p class="normal">Now, let’s come back to global modeling. Let’s first introduce the static categorical features. Please note that we are also including the time-varying categorical because now we know how to <a id="_idIndexMarker1200"/>deal with categorical features in a <a id="_idIndexMarker1201"/>deep learning model. The code to initialize the dataset is the same, with the addition of the following two parameters to the initialization:</p>
+    <ul>
+      <li class="bulletList"><code class="inlineCode">static_categoricals=feat_config.static_categoricals</code></li>
+      <li class="bulletList"><code class="inlineCode">time_varying_known_categoricals=feat_config.time_varying_known_categoricals</code></li>
+    </ul>
+    <h2 id="_idParaDest-339" class="heading-2">Defining a model with categorical features</h2>
+    <p class="normal">Now<a id="_idIndexMarker1202"/> that we have the datasets, let’s look at how we can define the <code class="inlineCode">__init__</code> function in our new model, <code class="inlineCode">StaticDynamicFeatureRNNModel</code>. In addition to invoking the parent model, which sets up the standard RNN and fully connected layer, we also set up the embedding layers using an input, <code class="inlineCode">embedding_sizes</code>. <code class="inlineCode">embedding_sizes</code> is a list of tuples (<em class="italic">cardinality and embedding size</em>) for each categorical feature:</p>
+    <pre class="programlisting code"><code class="hljs-code"><span class="hljs-keyword">def</span> <span class="hljs-title">__init__</span>(
+<span class="hljs-params">    self,</span>
+<span class="hljs-params">    rnn_type: </span><span class="hljs-built_in">str</span><span class="hljs-params">,</span>
+<span class="hljs-params">    input_size: </span><span class="hljs-built_in">int</span><span class="hljs-params">,</span>
+<span class="hljs-params">    hidden_size: </span><span class="hljs-built_in">int</span><span class="hljs-params">,</span>
+<span class="hljs-params">    num_layers: </span><span class="hljs-built_in">int</span><span class="hljs-params">,</span>
+<span class="hljs-params">    bidirectional: </span><span class="hljs-built_in">bool</span><span class="hljs-params">,</span>
+<span class="hljs-params">    embedding_sizes = []</span>
+):
+    <span class="hljs-built_in">super</span>().__init__(rnn_type, input_size, hidden_size, num_layers, bidirectional)
+    <span class="hljs-variable">self</span>.embeddings = torch.nn.ModuleList(
+        [torch.nn.Embedding(card, size) <span class="hljs-keyword">for</span> card, size <span class="hljs-keyword">in</span> embedding_sizes]
+    )
+</code></pre>
+    <p class="normal">We used <code class="inlineCode">nn.ModuleList</code> to store a list of <code class="inlineCode">nn.Embedding</code> modules, one for each categorical feature. While initializing this model, we will need to give <code class="inlineCode">embedding_sizes</code> as input. The embedding size required for each categorical feature is technically a hyperparameter that we can tune. But there are a few rules of thumb to get you started. The idea behind these thumb rules is that the bigger the cardinality of the categorical feature, the larger the embedding size required to encode the information in them. Also, the embedding size can be much smaller than the cardinality of the categorical feature. The rule of thumb that we have adopted is as follows:</p>
+    <p class="center"><img src="../Images/B22389_15_002.png" alt=""/></p>
+    <p class="normal">Therefore, we create the <code class="inlineCode">embedding_sizes</code> list of tuples using the following code:</p>
+    <pre class="programlisting code"><code class="hljs-code"><span class="hljs-comment"># Finding the cardinality using the categorical encoders in the dataset</span>
+cardinality = [<span class="hljs-built_in">len</span>(training.categorical_encoders[c].classes_) <span class="hljs-keyword">for</span> c <span class="hljs-keyword">in</span> training.categoricals]
+<span class="hljs-comment"># using the cardinality list to create embedding sizes</span>
+embedding_sizes = [
+    (x, <span class="hljs-built_in">min</span>(<span class="hljs-number">50</span>, (x + <span class="hljs-number">1</span>) // <span class="hljs-number">2</span>))
+    <span class="hljs-keyword">for</span> x <span class="hljs-keyword">in</span> cardinality
+]
+</code></pre>
+    <p class="normal">Now, turning <a id="_idIndexMarker1203"/>our attention toward the <code class="inlineCode">forward</code> method, it is going to be similar to the previous model, but with an additional part to handle the categorical features. We essentially use the embedding layers to convert the categorical features into embeddings and concatenate them with the continuous features:</p>
+    <pre class="programlisting code"><code class="hljs-code"><span class="hljs-keyword">def</span> <span class="hljs-title">forward</span>(<span class="hljs-params">self, x: </span><span class="hljs-type">Dict</span>):
+    <span class="hljs-comment"># Using the encoder and decoder sequence</span>
+    x_cont = torch.cat([x[<span class="hljs-string">"encoder_cont"</span>],x[<span class="hljs-string">"decoder_cont"</span>]], dim=<span class="hljs-number">1</span>)
+    <span class="hljs-comment"># Roll target by 1</span>
+    x_cont[:,:,-<span class="hljs-number">1</span>] = torch.roll(x_cont[:,:,-<span class="hljs-number">1</span>], <span class="hljs-number">1</span>, dims=<span class="hljs-number">1</span>)
+    <span class="hljs-comment"># Combine the encoder and decoder categoricals</span>
+    cat = torch.cat([x[<span class="hljs-string">"encoder_cat"</span>],x[<span class="hljs-string">"decoder_cat"</span>]], dim=<span class="hljs-number">1</span>)
+    <span class="hljs-comment"># if there are categorical features</span>
+    <span class="hljs-keyword">if</span> cat.size(-<span class="hljs-number">1</span>)&gt;<span class="hljs-number">0</span>:
+        <span class="hljs-comment"># concatenating all the embedding vectors</span>
+        x_cat = torch.cat([emb(cat[:,:,i]) <span class="hljs-keyword">for</span> i, emb <span class="hljs-keyword">in</span> <span class="hljs-built_in">enumerate</span>(<span class="hljs-variable">self</span>.embeddings)], dim=-<span class="hljs-number">1</span>)
+        <span class="hljs-comment"># concatenating continuous and categorical</span>
+        x = torch.cat([x_cont, x_cat], dim=-<span class="hljs-number">1</span>)
+    <span class="hljs-keyword">else</span>:
+        x = x_cont
+    <span class="hljs-comment"># dropping first timestep</span>
+    x = x[:,<span class="hljs-number">1</span>:,:] <span class="hljs-comment"># x --&gt; (batch_size, seq_len, input_size)</span>
+    <span class="hljs-comment"># Processing through the RNN</span>
+    x, _ = <span class="hljs-variable">self</span>.rnn(x)  <span class="hljs-comment"># --&gt; (batch_size, seq_len, hidden_size)</span>
+    <span class="hljs-comment"># Using a FC layer on last hidden state</span>
+    x = <span class="hljs-variable">self</span>.fc(x[:,-<span class="hljs-number">1</span>,:])  <span class="hljs-comment"># --&gt; (batch_size, seq_len, 1)</span>
+    <span class="hljs-keyword">return</span> x
+</code></pre>
+    <p class="normal">Now, let’s<a id="_idIndexMarker1204"/> train this new model with static features and see how it performs:</p>
+    <figure class="mediaobject"><img src="../Images/B22389_15_07.png" alt="Figure 15.7 – Aggregate results using the static and time-varying features "/></figure>
+    <p class="packt_figref">Figure 15.7: Aggregate results using the static and time-varying features</p>
+    <p class="normal">Adding the static variables also improved our model. Now, let’s look at another strategy that adds another key piece of information to the model.</p>
+    <h1 id="_idParaDest-340" class="heading-1">Using the scale of the time series</h1>
+    <p class="normal">We <a id="_idIndexMarker1205"/>used <code class="inlineCode">GroupNormlizer</code> in <code class="inlineCode">TimeSeriesDataset</code> to scale each household using its own mean and standard deviation. We did this because we wanted to make the target zero mean and unit variance so that the model does not waste effort trying to change its parameters to capture the scale of individual household consumption. Although this is a good strategy, we do have some information loss here. There may be patterns that are specific to households whose consumption is on the larger side and some other patterns that are specific to households that consume much less. But now, they are both lumped in together and the model tries to learn common patterns. In such a scenario, these unique patterns seem like noise to the model because there is no variable to explain them.</p>
+    <p class="normal">The bottom line is that there is information in the scale that we removed, and adding that information back would be beneficial. So, how do we add it back? Definitely not by including the unscaled targets, which brings back the disadvantage that we were trying to get away from in the first place. A way to do it is to add the scale information as static-real features to the model. We would have kept track of the mean and standard deviation <a id="_idIndexMarker1206"/>of each household when we scaled them in the first place (because we need them to do the inverse transformation and get back the original targets). All we need to do is make sure we include them as a static real variable so that the model has access to the scale information while learning the patterns in the time series dataset.</p>
+    <p class="normal">PyTorch Forecasting makes this easier for us by having a handy parameter in <code class="inlineCode">TimeSeriesDataset</code> called <code class="inlineCode">add_target_scales</code>. If you make it <code class="inlineCode">True</code>, then <code class="inlineCode">encoder_cont</code> and <code class="inlineCode">decoder_cont</code> will also have the mean and standard deviation of individual time series.</p>
+    <p class="normal">Nothing changes in our existing model; all we need to do is add this parameter to <code class="inlineCode">TimeSeriesDataset</code> while initializing it and train and predict using the model. Let’s see how that worked out for us:</p>
+    <figure class="mediaobject"><img src="../Images/B22389_15_08.png" alt="Figure 15.8 – Aggregate results using the static, time-varying, and scale features "/></figure>
+    <p class="packt_figref">Figure 15.8: Aggregate results using the static, time-varying, and scale features</p>
+    <p class="normal">The scale information has improved the model yet again. With that, let’s look at one of the last strategies we will be covering in this book.</p>
+    <h1 id="_idParaDest-341" class="heading-1">Balancing the sampling procedure</h1>
+    <p class="normal">We saw a few strategies <a id="_idIndexMarker1207"/>for improving a global deep learning model by adding new types of features. Now, let’s look at a different aspect that is relevant in a global modeling context. In an earlier section, when we were talking about global deep learning models, we talked about how the process by which we sample a window of sequence to feed to our model can be thought of as a two-step process:</p>
+    <ol>
+      <li class="numberedList" value="1">Sampling a time series out of a set of time series.</li>
+      <li class="numberedList">Sampling a window out of that time series.</li>
+    </ol>
+    <p class="normal">Let’s use<a id="_idIndexMarker1208"/> an analogy to make the concept clearer. Imagine we have a large bowl that we have filled with <em class="italic">N</em> balls. Each ball in the bowl represents a time series in the dataset (a household in our dataset). Now, each ball, <em class="italic">i</em>, has <em class="italic">M</em><sub class="subscript-italic" style="font-style: italic;">i</sub> chits of paper representing all the different windows of samples we can draw from it.</p>
+    <p class="normal">In the batch sampling we use by default, we open all the balls, dump all the chits into the bowl, and discard the balls. Now, with our eyes closed, we pick <em class="italic">B</em> chits out of this bowl and set them aside. This is a batch that we sample from our dataset. We do not have any information that separates the chits from each other so the probability of picking any chit is equal, which can be formulated as:</p>
+    <p class="center"><img src="../Images/B22389_15_003.png" alt=""/></p>
+    <p class="normal">Now, let’s add something to our analogy to the data. We know that we have different kinds of time series—different lengths, different levels of consumption, and so on. Let’s pick one aspect, the length of the series, for our example (although it applies to other aspects as well). So, if we discretize the length of our time series, we end up with different bins; let’s assign a color for each bin. So, now we have <em class="italic">C</em> different-colored balls in the bowl and the chits of paper also are colored accordingly.</p>
+    <p class="normal">In our current sampling strategy (where we dump all the chits of paper, now colored, and pick <em class="italic">B</em> chits at random), we would end up replicating the probability distribution of our bowl in a batch. It is not a stretch to understand that if the bowl has more of the longer time series than shorter ones, the chits we draw will also have that bias. Consequently, the batch will also be biased toward a long time series. What happens because of that?</p>
+    <p class="normal">In mini-batch stochastic gradient descent (we saw this in <em class="chapterRef">Chapter 11</em>, <em class="italic">Introduction to Deep Learning</em>), we do a gradient update every mini-batch, and we use this gradient to update the model parameters so that we move closer to the minima of the loss function. Therefore, if a mini-batch is biased toward a particular type of case, then the gradient updates would be biased toward a solution that works better for them. There are good parallels to be drawn here to imbalanced learning. Longer time series and shorter time series may have different patterns, and having this sampling imbalance causes the model<a id="_idIndexMarker1209"/> to learn patterns that work well for the longer time series and not so well for the shorter ones.</p>
+    <h2 id="_idParaDest-342" class="heading-2">Visualizing the data distribution</h2>
+    <p class="normal">We<a id="_idIndexMarker1210"/> calculated the length of each household (<code class="inlineCode">LCLid</code>) and binned them into <code class="inlineCode">10</code> bins—<code class="inlineCode">bin_0</code> for the shortest bin and <code class="inlineCode">bin_9</code> for the longest bin:</p>
+    <pre class="programlisting code"><code class="hljs-code">n_bins= <span class="hljs-number">10</span>
+<span class="hljs-comment"># Calculating the length of each LCLid</span>
+counts = train_df.groupby(<span class="hljs-string">"LCLid"</span>)[<span class="hljs-string">'timestamp'</span>].count()
+<span class="hljs-comment"># Binning the counts and renaming</span>
+out, bins = pd.cut(counts, bins=n_bins, retbins=<span class="hljs-literal">True</span>)
+out = out.cat.rename_categories({
+    c:<span class="hljs-string">f"bin_</span><span class="hljs-subst">{i}</span><span class="hljs-string">"</span> <span class="hljs-keyword">for</span> i, c <span class="hljs-keyword">in</span> <span class="hljs-built_in">enumerate</span>(out.cat.categories)
+})
+</code></pre>
+    <p class="normal">Let’s visualize the distribution of the bins in the original data:</p>
+    <figure class="mediaobject"><img src="../Images/B22389_15_09.png" alt="Figure 15.9 – Distribution of length of time series "/></figure>
+    <p class="packt_figref">Figure 15.9: Distribution of length of time series</p>
+    <p class="normal">We can see that <code class="inlineCode">bin_5</code> and <code class="inlineCode">bin_6</code> are the most common lengths while <code class="inlineCode">bin_0</code> is the least common. Now, let’s get the first 50 batches from the dataloader and plot them as a stacked <a id="_idIndexMarker1211"/>bar chart to check the distribution in each batch:</p>
+    <figure class="mediaobject"><img src="../Images/B22389_15_10.png" alt="Figure 15.10 – Stacked bar chart of batch distribution "/></figure>
+    <p class="packt_figref">Figure 15.10: Stacked bar chart of batch distribution</p>
+    <p class="normal">We can see that the same distribution you saw in <em class="italic">Figure 15.9</em> is replicated in the batch distributions as well with <code class="inlineCode">bin_5</code> and <code class="inlineCode">bin_6</code> leading the pack. <code class="inlineCode">bin_0</code> is barely making an appearance and LCLids that are in <code class="inlineCode">bin_0</code> would not have been learned that well.</p>
+    <h2 id="_idParaDest-343" class="heading-2">Tweaking the sampling procedure</h2>
+    <p class="normal">Now what do we do? Let’s step into the analogy of bowls with chits inside for a bit. We were picking <a id="_idIndexMarker1212"/>a ball at random, and we saw that the resulting distribution was identical to the original distribution of colors. Therefore, to get a more balanced distribution of colors in a batch, we need to sample different colored chits at different probabilities. In other words, we should be sampling more from colors that have low representation in the original distribution and less from colors that dominate the original representation.</p>
+    <p class="normal">Let’s look at the process by which we are selecting the chits from the bowl from another perspective. We know that the probability of selecting each chit in the bowl is equal. So, another way to select chits from the bowl is by using a uniform random number generator. We pick a chit from the bowl, generate a random number between 0 and 1 (<em class="italic">p</em>), and select the chit if the random number is less than 0.5 (<em class="italic">p</em> &lt; 0.5). So, it is equally likely that we select or reject the chit. We continue this until we get <em class="italic">B</em> samples. Although a bit more inefficient than the previous procedure, this sampling process approximates the original procedure closely. The advantage here is that we have a threshold now with which we can tweak our sampling to suit our needs. Having a lower threshold makes the chit harder to accept under this sampling procedure, and having a higher threshold makes it easier to accept.</p>
+    <p class="normal">Now that<a id="_idIndexMarker1213"/> we have a threshold with which we can tweak the sampling procedure, all we need to do is find out the right thresholds for each of the chits so that the resulting batch has a uniform representation of all the colors. </p>
+    <p class="normal">In other words, we need to find and assign the right weight to each LCLid such that the resulting batch will have an even distribution of all length bins.</p>
+    <p class="normal">How do we do that? There is a very simple strategy for that. We want the weights to be lower for length bins that have a lot of samples, and higher for length bins that have fewer samples. We can get this kind of weight by taking the inverse of the count of each bin. If there are <em class="italic">C</em> LCLids in a bin, the weight of the bin can be 1/<em class="italic">C</em>. The <em class="italic">Further reading</em> section has a link where you can read more about weighted random sampling and the different algorithms used for the purpose.</p>
+    <p class="normal"><code class="inlineCode">TimeSeriesDataset</code> has an internal index, which is a DataFrame with all the samples it can draw from the dataset. We can use that to construct our array of weights:</p>
+    <pre class="programlisting code"><code class="hljs-code"><span class="hljs-comment"># TimeSeriesDataset stores a df as the index over which it samples</span>
+df = training.index.copy()
+<span class="hljs-comment"># Adding a bin column to it to represent the bins we have created</span>
+df[<span class="hljs-string">'bins'</span>] = [<span class="hljs-string">f"bin_</span><span class="hljs-subst">{i}</span><span class="hljs-string">"</span> <span class="hljs-keyword">for</span> i <span class="hljs-keyword">in</span> np.digitize(df[<span class="hljs-string">"count"</span>].values, bins)]
+<span class="hljs-comment"># Calculate Weights as inverse counts of the bins</span>
+weights = <span class="hljs-number">1</span>/df[<span class="hljs-string">'bins'</span>].value_counts(normalize=<span class="hljs-literal">True</span>)
+<span class="hljs-comment"># Assigning the weights back to the df so that we have an array of</span>
+<span class="hljs-comment"># weights in the same shape as the index over which we are going to sample</span>
+weights = weights.reset_index().rename(columns={<span class="hljs-string">"index"</span>:<span class="hljs-string">"bins"</span>, <span class="hljs-string">"bins"</span>:<span class="hljs-string">"weight"</span>})
+df = df.merge(weights, on=<span class="hljs-string">'bins'</span>, how=<span class="hljs-string">'left'</span>)
+probabilities = df.weight.values
+</code></pre>
+    <p class="normal">This way ensures that the <code class="inlineCode">probabilities</code> array has the same length as the internal index over which <code class="inlineCode">TimeSeriesDataset</code> samples and that is a mandatory requirement when using this technique—each possible window should have a corresponding weight attached to it.</p>
+    <p class="normal">Now that <a id="_idIndexMarker1214"/>we have this weight, there is an easy way to put this into practice. We can use <code class="inlineCode">WeightedRandomSampler</code> from PyTorch, which has been created specifically for this purpose:</p>
+    <pre class="programlisting code"><code class="hljs-code"><span class="hljs-keyword">from</span> torch.utils.data <span class="hljs-keyword">import</span> WeightedRandomSampler
+sampler = WeightedRandomSampler(probabilities, <span class="hljs-built_in">len</span>(probabilities))
+</code></pre>
+    <h2 id="_idParaDest-344" class="heading-2">Using and visualizing the dataloader with WeightedRandomSampler</h2>
+    <p class="normal">Now, we<a id="_idIndexMarker1215"/> can use this sampler<a id="_idIndexMarker1216"/> in the dataloaders we create from <code class="inlineCode">TimeSeriesDataset</code>:</p>
+    <pre class="programlisting code"><code class="hljs-code">train_dataloader = training.to_dataloader(train=<span class="hljs-literal">True</span>, batch_size=batch_size, num_workers=<span class="hljs-number">0</span>, sampler=sampler)
+</code></pre>
+    <p class="normal">Let’s visualize the first 50 batches like before and see the difference:</p>
+    <figure class="mediaobject"><img src="../Images/B22389_15_11.png" alt="Figure 15.11 – Stacked bar chart of batch distribution with weighted random sampling "/></figure>
+    <p class="packt_figref">Figure 15.11: Stacked bar chart of batch distribution with weighted random sampling</p>
+    <p class="normal">Now, we can see a more uniform distribution of bins in each batch. Let’s also see the results after training the model using this new dataloader:</p>
+    <figure class="mediaobject"><img src="../Images/B22389_15_12.png" alt="Figure 15.12 – Aggregate results using the static, time-varying, and scale features along with batch samplers "/></figure>
+    <p class="packt_figref">Figure 15.12: Aggregate results using the static, time-varying, and scale features along with batch samplers</p>
+    <p class="normal">Looks like the sampler also <a id="_idIndexMarker1217"/>made a good improvement in the model in all metrics, except <code class="inlineCode">Forecast Bias</code>. Although we have not achieved better results than the GFM(ML) (which had an MAE of 0.079581), we are close enough. Maybe with some hyperparameter tuning, partitioning, or stronger models, we might reach closer to that number, or we may not. We used a custom sampling option to make the length of the time series balanced in a batch. We can use the same techniques to balance it on other aspects such as the level of consumption, region, or any other aspect that seems relevant. As always in machine learning, we will need to go with our experiments to say anything for sure, and all we need to do is form our hypothesis about the problem statement and construct experiments to validate that hypothesis.</p>
+    <p class="normal">With that, we have come to the end of yet another practical-heavy (and compute-heavy) chapter. Congratulations on making it through the chapter; feel free to go back and refer to any points that haven’t quite landed yet.</p>
+    <h1 id="_idParaDest-345" class="heading-1">Summary</h1>
+    <p class="normal">After having built a strong foundation on deep learning models in the last few chapters, we started to look at a new paradigm of global models in the context of deep learning models. We learned how to use PyTorch Forecasting, an open-source library for forecasting using deep learning, and used the feature-filled <code class="inlineCode">TimeSeriesDataset</code> to start developing our own models.</p>
+    <p class="normal">We started off with a very simple LSTM in the global context and saw how we can add time-varying information, static information, and the scale of individual time series to the features to make models better. We closed by looking at an alternating sampling procedure for mini-batches that helps us present a more balanced view of the problem in each batch. This chapter is by no means an exhaustive list of all such techniques to make the forecasting models better. Instead, this chapter aims to build the right kind of thinking that is necessary to work on your own models and make them work better than before.</p>
+    <p class="normal">Now that we have a strong foundation in deep learning and global models, it is time to take a look at a few specialized deep learning architectures that have been proposed over the years for time series forecasting in the next chapter.</p>
+    <h1 id="_idParaDest-346" class="heading-1">Further reading</h1>
+    <p class="normal">You can check out the following sources for further reading:</p>
+    <ul>
+      <li class="bulletList"><em class="italic">How to use custom data and implement custom models and metrics</em> (PyTorch Forecasting): <a href="https://pytorch-forecasting.readthedocs.io/en/stable/tutorials/building.html"><span class="url">https://pytorch-forecasting.readthedocs.io/en/stable/tutorials/building.html</span></a></li>
+      <li class="bulletList"><em class="italic">Random Sampling from Databases</em> by Frank Olken, pages 22–23: <a href="https://dsf.berkeley.edu/papers/UCB-PhD-olken.pdf"><span class="url">https://dsf.berkeley.edu/papers/UCB-PhD-olken.pdf</span></a></li>
+    </ul>
+    <h1 class="heading-1">Join our community on Discord</h1>
+    <p class="normal">Join our community’s Discord space for discussions with authors and other readers:</p>
+    <p class="normal"><a href="https://packt.link/mts"><span class="url">https://packt.link/mts</span></a></p>
+    <p class="normal"><img src="../Images/QR_Code15080603222089750.png" alt=""/></p>
+  </div>
+</body></html>

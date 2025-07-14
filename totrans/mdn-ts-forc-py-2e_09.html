@@ -1,0 +1,484 @@
+<html><head></head><body>
+  <div id="_idContainer297" class="Basic-Text-Frame">
+    <h1 class="chapterNumber">7</h1>
+    <h1 id="_idParaDest-154" class="chapterTitle">Target Transformations for Time Series Forecasting</h1>
+    <p class="normal">In the previous chapter, we delved into how we can do temporal embedding and time delay embedding by making use of feature engineering techniques. But that was just one side of the regression equation—the features. Often, we see that the other side of the equation—the target—does not behave the way we want. In other words, the target doesn’t have some desirable properties that make forecasting easier. One of the major culprits in <a id="_idIndexMarker523"/>this area is <strong class="keyWord">stationarity</strong>—or more specifically, the lack of it. And it creates problems <a id="_idIndexMarker524"/>with the assumptions we make while developing a <strong class="keyWord">machine learning</strong> (<strong class="keyWord">ML</strong>)/statistical model. In this chapter, we will look at some techniques for handling such problems with the target.</p>
+    <p class="normal">In this chapter, we will cover the following topics:</p>
+    <ul>
+      <li class="bulletList">Handling non-stationarity in time series</li>
+      <li class="bulletList">Detecting and correcting for unit roots</li>
+      <li class="bulletList">Detecting and correcting for trends</li>
+      <li class="bulletList">Detecting and correcting for seasonality</li>
+      <li class="bulletList">Detecting and correcting for heteroscedasticity</li>
+      <li class="bulletList">AutoML approach to target transformation</li>
+    </ul>
+    <h1 id="_idParaDest-155" class="heading-1">Technical requirements</h1>
+    <p class="normal">You will need to <a id="_idIndexMarker525"/>set up the <strong class="keyWord">Anaconda</strong> environment following the instructions in the <em class="italic">Preface</em> of the book to get a working environment with all the libraries and datasets required for the code in this book. Any additional library will be installed while running the notebooks.</p>
+    <p class="normal">You will need to run the following notebooks before using the code in this chapter:</p>
+    <ul>
+      <li class="bulletList"><code class="inlineCode">02-Preprocessing_London_Smart_Meter_Dataset.ipynb</code> in the <code class="inlineCode">Chapter02</code> folder</li>
+      <li class="bulletList"><code class="inlineCode">01-Setting_up_Experiment_Harness.ipynb</code> in the <code class="inlineCode">Chapter04</code> folder</li>
+      <li class="bulletList"><code class="inlineCode">01-Feature_Engineering.ipynb</code> in the <code class="inlineCode">Chapter06</code> folder</li>
+    </ul>
+    <p class="normal">The associated code for this chapter can be found at <a href="https://github.com/PacktPublishing/Modern-Time-Series-Forecasting-with-Python-/tree/main/notebooks/Chapter07"><span class="url">https://github.com/PacktPublishing/Modern-Time-Series-Forecasting-with-Python-/tree/main/notebooks/Chapter07</span></a>.</p>
+    <h1 id="_idParaDest-156" class="heading-1">Detecting non-stationarity in time series</h1>
+    <p class="normal"><strong class="keyWord">Stationarity</strong> is a prevalent <a id="_idIndexMarker526"/>assumption in most econometrics models and is a rigorous and mathematical concept. But without getting into a lot of math, we can intuitively <a id="_idIndexMarker527"/>think about stationarity as the state where the statistical properties of the distribution from which the time series is sampled remain constant over time. This is relevant in time series as regression as well because we are estimating a single forecasting function across time. And if the <em class="italic">behavior</em> of the time series changes with time, the single function that we estimate may not be relevant all the time. For instance, if we think about the number of visitors to the nearby park in a day as a time series, we know that those patterns are going to be very different for <a id="_idIndexMarker528"/>pre- and post-pandemic periods. In the ML world, this phenomenon is called <strong class="keyWord">concept drift</strong>.</p>
+    <p class="normal">Intuitively, we can understand that it is easier to forecast a stationary series than a non-stationary series. But here comes the punchline: in the real world, almost all time series do not satisfy the stationarity assumption—more specifically, the <strong class="keyWord">strict stationarity</strong> assumption. Strict stationarity <a id="_idIndexMarker529"/>is when all the statistical properties such as the mean, variance, skewness, and so on do not change with time. Many times, this strict <a id="_idIndexMarker530"/>stationarity assumption is relaxed in favor of <strong class="keyWord">weak stationarity</strong>, where we only stipulate that the mean and the variance of the time series do not change with time.</p>
+    <p class="normal">There are four main questions we can ask ourselves to check whether our time series is stationary or not:</p>
+    <ul>
+      <li class="bulletList">Does the mean change over time? Or in other words, is there a trend in the time series?</li>
+      <li class="bulletList">Does the variance change over time? Or in other words, is the time series heteroscedastic?</li>
+      <li class="bulletList">Does the time series exhibit periodic changes in the mean? Or in other words, is there seasonality in the time series?</li>
+      <li class="bulletList">Does the time series have a unit root?</li>
+    </ul>
+    <p class="normal">Out of <a id="_idIndexMarker531"/>these questions, the first three can be ascertained using a simple visual inspection. <strong class="keyWord">Unit roots</strong> are more difficult to understand. We will <a id="_idIndexMarker532"/>take a deeper look at unit roots shortly. Let’s take a look at a few time series and check whether we can tell whether they are stationary or not via visual inspection (you can note your answers):</p>
+    <figure class="mediaobject"><img src="../Images/B22389_07_01.png" alt="Figure 7.1 – Testing your understanding of stationarity "/></figure>
+    <p class="packt_figref">Figure 7.1: Testing your understanding of stationarity</p>
+    <p class="normal">Now, check your responses and see how many of them you guessed correctly. If you got at least four out of six, you are doing great with your intuition of stationarity:</p>
+    <ul>
+      <li class="bulletList"><strong class="keyWord">Time series 1</strong> is <em class="italic">stationary</em> as it is a white noise process that, by definition, has zero mean and a constant variance. It checks our checklist for the first three questions.</li>
+      <li class="bulletList"><strong class="keyWord">Time series 2</strong> is <em class="italic">non-stationary</em> as it has an obvious downward linear trend. This means that the mean of the series at the beginning of the series is not the same toward the end. So, it fails our first question in the checklist.</li>
+      <li class="bulletList"><strong class="keyWord">Time series 3</strong> may look stationary at first because it is essentially oscillating around 0, but the oscillations are wider as we progress through time. This means that it has an increasing variance—or in other words, it is heteroscedastic. So, although this answers our first question, it doesn’t pass our second check of having constant variance. Hence, it is <em class="italic">non-stationary</em>.</li>
+      <li class="bulletList">Now, we are coming to the problem child—<strong class="keyWord">Time series 4</strong>. At first glance, we may think <a id="_idIndexMarker533"/>it is stationary because even though it had a trend in the beginning, it also reversed it, making the mean almost constant. And it’s not obvious that the variance is also widely varying. But this is a time series with a unit root (we will talk about this in detail later, in the <em class="italic">Unit roots</em> section), and typically, unit root time series are difficult to judge visually.</li>
+      <li class="bulletList"><strong class="keyWord">Time series 5</strong> answers the first two questions—the constant mean and constant variance—but it has a very obvious seasonal pattern and hence is <em class="italic">non-stationary</em>.</li>
+      <li class="bulletList"><strong class="keyWord">Time series 6</strong> is another white noise process, included just to trick you. This is also <em class="italic">stationary</em>.</li>
+    </ul>
+    <p class="normal">When we have hundreds, or even millions, of time series, we can’t practically do a visual inspection to ascertain whether they are stationary or not. So, now, let’s look at a few ways of detecting these key properties using statistical tests and also how to try and correct them.</p>
+    <div class="note">
+      <p class="normal">Although we are talking about correcting or making a time series stationary, it is not always essential to do that in the ML paradigm because some of these can be handled by using the right kind of features in the model. Whether to make a series stationary or not is a decision we will have to make after experimenting with the techniques. This is because, as you will see, while there are advantages to making a series stationary, there are also disadvantages to using some of these techniques, as we will see when we discuss each transformation in detail.</p>
+    </div>
+    <div class="note">
+      <p class="normal"><strong class="keyWord">Notebook alert</strong>:</p>
+      <p class="normal">To follow along with the complete code, use the <code class="inlineCode">02-Dealing_with_Non-Stationarity.ipynb</code> notebook in the <code class="inlineCode">Chapter06</code> folder.</p>
+    </div>
+    <h1 id="_idParaDest-157" class="heading-1">Detecting and correcting for unit roots</h1>
+    <p class="normal">Let’s talk <a id="_idIndexMarker534"/>about unit roots first since this is what is most commonly <a id="_idIndexMarker535"/>tested for stationarity. Time series analysis has its roots in econometrics and statistics and unit root is a concept derived directly from those fields.</p>
+    <h2 id="_idParaDest-158" class="heading-2">Unit roots</h2>
+    <p class="normal">Unit roots are <a id="_idIndexMarker536"/>quite complicated to understand fully but to develop some intuition, we can look at a simplification. Let’s consider an autoregressive model of order 1(AR(1) model):</p>
+    <p class="normal"><img src="../Images/B22389_07_001.png" alt=""/>, where <img src="../Images/B22389_04_013.png" alt=""/> is the white noise and <img src="../Images/B22389_07_003.png" alt=""/> is the AR coefficient.</p>
+    <p class="normal">If we think about the different values of <img src="../Images/B22389_07_003.png" alt=""/> in the equation, we can come up with three scenarios (<em class="italic">Figure 7.2</em>):</p>
+    <ol>
+      <li class="numberedList" value="1"><img src="../Images/B22389_07_005.png" alt=""/>: When <img src="../Images/B22389_07_006.png" alt=""/> is greater than 1, every successive value in the time series is multiplied by a number greater than 1, which means it will have a strong and rapidly increasing/decreasing trend and thereby be non-stationary.</li>
+      <li class="numberedList"><img src="../Images/B22389_07_007.png" alt=""/>: When <img src="../Images/B22389_07_006.png" alt=""/> is less than 1, every successive value in the time series is multiplied by a number less than 1, which means over the long term, the mean of the series trends to zero and will oscillate around it. Therefore, it is stationary.</li>
+      <li class="numberedList"><img src="../Images/B22389_07_009.png" alt=""/>: When <img src="../Images/B22389_07_010.png" alt=""/> is equal to 1, things become trickier. When <img src="../Images/B22389_07_009.png" alt=""/> for an <code class="inlineCode">AR(1)</code> model, this is known as it having a unit root and the equation becomes <img src="../Images/B22389_07_012.png" alt=""/>. This is called random walk in econometrics and is a very popular kind of time series <a id="_idIndexMarker537"/>in financial and economic domains. Mathematically, we can prove that such a series will have a constant mean but a non-constant variance:</li>
+    </ol>
+    <figure class="mediaobject"><img src="../Images/B22389_07_02.png" alt="Figure 7.2 – Autoregressive time series with different  parameters "/></figure>
+    <p class="packt_figref">Figure 7.2: Autoregressive time series with different <img src="../Images/B22389_07_003.png" alt=""/> parameters. Top: Scenario 1, phi &lt;1; Middle: Scenario 2, phi = 1; Bottom: Scenario 3, phi&gt;1</p>
+    <p class="normal">While we <a id="_idIndexMarker538"/>discussed unit roots in an <code class="inlineCode">AR(1)</code> process, we can extend the same intuition to multiple lags or an <code class="inlineCode">AR(p)</code> model. Calculating and testing unit roots is more complicated there, but still possible.</p>
+    <p class="normal">So, now that we know what a unit root is, how can we statistically test this? This is where the Dickey-Fuller test comes in.</p>
+    <h2 id="_idParaDest-159" class="heading-2">The Augmented Dickey-Fuller (ADF) test</h2>
+    <p class="normal">The null hypothesis in this test is that the <img src="../Images/B22389_07_003.png" alt=""/> in an <code class="inlineCode">AR(1)</code> model of the time series is equal to 1, and by extension non-stationary. The <a id="_idIndexMarker539"/>alternate hypothesis is that the <img src="../Images/B22389_07_003.png" alt=""/> in the <code class="inlineCode">AR(1)</code> model is less than 1. The ADF test takes the Dickey-Fuller test and extends it to an <code class="inlineCode">AR(p)</code> model because most time series are not defined by just one lag of the time series. This is the standard and most popular statistical test to check for unit roots. The core of the test involves running a regression on the lags of the time series and calculating the statistic on the variance of the residuals.</p>
+    <p class="normal">Let’s see how we can do this in Python using <code class="inlineCode">statsmodels</code>:</p>
+    <pre class="programlisting code"><code class="hljs-code"><span class="hljs-keyword">from</span> statsmodels.tsa.stattools <span class="hljs-keyword">import</span> adfuller
+result = adfuller(y)
+</code></pre>
+    <p class="normal"><code class="inlineCode">result</code> from <code class="inlineCode">adfuller</code> is a tuple that contains the <em class="italic">test statistic</em>, <em class="italic">p-value</em>, and <em class="italic">critical values</em> at different confidence levels. Here, we are most interested in the p-value, which is an easy and practical way to check whether the null hypothesis is rejected or not. If <code class="inlineCode">p &lt; 0.05</code>, there is a 95% probability that the series does not have a unit root; the series is stationary from a unit root perspective.</p>
+    <p class="normal">To make this process even easier, we have included a method called <code class="inlineCode">check_unit_root</code> in <code class="inlineCode">src.transforms.stationary_utils</code> that does the inference for you (comparing the returned probability with the confidence and rejecting or accepting the <code class="inlineCode">null</code> hypothesis) and returns a <code class="inlineCode">namedtuple</code> with a Boolean attribute called <code class="inlineCode">stationary</code>, and the entire results from <code class="inlineCode">statsmodels</code> in <code class="inlineCode">results</code>:</p>
+    <pre class="programlisting code"><code class="hljs-code"><span class="hljs-keyword">from</span> src.transforms.stationary_utils <span class="hljs-keyword">import</span> check_unit_root
+<span class="hljs-comment"># We pass the time series along with the confidence with which we need the results</span>
+check_unit_root(y, confidence=<span class="hljs-number">0.05</span>)
+</code></pre>
+    <p class="normal">Now that we’ve learned how to check whether a series has a unit root or not, how do we make it stationary? Let’s look at a few transforms that help us do that.</p>
+    <h2 id="_idParaDest-160" class="heading-2">Differencing transform</h2>
+    <p class="normal">The differencing transform is a very popular transform to make a time series stationary, or at least <a id="_idIndexMarker540"/>get rid of unit roots. The concept is simple: we transform the time series from the domain of observation to the domain of change in observations. The differencing transform subtracts subsequent observations from one another:</p>
+    <p class="center"><em class="italic">z</em><sub class="subscript-italic" style="font-style: italic;">t</sub> = <em class="italic">y</em><sub class="subscript-italic" style="font-style: italic;">t</sub> – <em class="italic">y</em><sub class="subscript-italic" style="font-style: italic;">t</sub><sub class="subscript">-1</sub></p>
+    <p class="normal">Differencing helps us stabilize the mean of the time series and, with that, reduce or eliminate trend and seasonality. Let’s see how differencing can make a series stationary.</p>
+    <p class="normal">Let the time series in question be <img src="../Images/B22389_07_016.png" alt=""/> , where <img src="../Images/B22389_07_017.png" alt=""/> and <img src="../Images/B22389_07_018.png" alt=""/> are the coefficients and <img src="../Images/B22389_04_015.png" alt=""/> is white noise. From this equation, we can see that time, <em class="italic">t</em>, is part of the equation, making <em class="italic">y</em><sub class="subscript-italic" style="font-style: italic;">t</sub> a time series with a trend. So, the differenced time series <em class="italic">z</em> would be as follows:</p>
+    <p class="center"><img src="../Images/B22389_07_020.png" alt=""/></p>
+    <p class="center"><img src="../Images/B22389_07_021.png" alt=""/></p>
+    <p class="center"><img src="../Images/B22389_07_022.png" alt=""/></p>
+    <p class="normal">What we need to look for in this new equation is that there is no mention of <em class="italic">t</em>. This means that the dependence on <em class="italic">t</em>, which created the trend, has been removed, and now the time series has constant mean and variance at any point in time.</p>
+    <p class="normal">Differencing does not remove all kinds of non-stationarity but works for the majority of time series. But there are a few drawbacks to this approach as well. One of them is that we lose the scale of the time series while modeling. Many times, the scale of the time series holds some information that is useful for forecasting. For instance, in a supply chain, SKUs with higher sales exhibit a different kind of pattern from SKUs with lower sales and when we do differencing, this information about the distinction is lost.</p>
+    <p class="normal">Another drawback is more from an operational point of view. When we use differencing for forecasting, we also need to inverse the transform after we get the differenced output from the model. This is an additional layer of complexity that we have to manage. One way <a id="_idIndexMarker541"/>is to keep the most recent observation in memory and keep adding the differences to it to inverse the transform. Another way is to have <em class="italic">y</em><sub class="subscript-italic" style="font-style: italic;">t</sub><sub class="subscript">-1</sub> ready for every <em class="italic">t</em> that we need to inverse transform and keep adding the difference to <em class="italic">y</em><sub class="subscript-italic" style="font-style: italic;">t</sub><sub class="subscript">-1</sub>.</p>
+    <p class="normal">We have implemented the latter using the datetime index as a key to align and fetch the <em class="italic">y</em><sub class="subscript-italic" style="font-style: italic;">t</sub><sub class="subscript">-1</sub> observation in <code class="inlineCode">src.transforms.target_transformations.py</code> in this book’s GitHub repository. Let’s see how we can use it:</p>
+    <pre class="programlisting code"><code class="hljs-code"><span class="hljs-keyword">from</span> src.transforms.target_transformations <span class="hljs-keyword">import</span> AdditiveDifferencingTransformer
+diff_transformer = AdditiveDifferencingTransformer()
+<span class="hljs-comment"># [1:] because differencing reduces the length of the time series by one</span>
+y_diff = diff_transformer.fit_transform(y, freq=<span class="hljs-string">"</span><span class="hljs-string">1D"</span>)[<span class="hljs-number">1</span>:]
+</code></pre>
+    <p class="normal"><code class="inlineCode">y_diff</code> will have the transformed series. To get back to the original time series, we can call <code class="inlineCode">inverse_transform</code> using <code class="inlineCode">diff_transformer</code>. The associated notebook has examples and plots to see how the differencing changes the time series.</p>
+    <p class="normal">Here, we saw differencing as the process of subtracting subsequent values in the time series. But we can also do differencing with other operators such as division (<em class="italic">y</em><sub class="subscript-italic" style="font-style: italic;">t</sub>/<em class="italic"> y</em><sub class="subscript-italic" style="font-style: italic;">t</sub><sub class="subscript">-1</sub>), which is implemented in the <code class="inlineCode">src.transforms.target_transformations.py</code> file as <code class="inlineCode">MultiplicativeDifferencingTransformer</code>. We can also experiment with these transforms to check whether these work best for your dataset.</p>
+    <p class="normal">Although differencing solves the majority of stationarity issues, it’s not guaranteed to take care of all kinds of trends (non-linear or piecewise trends), seasonality, and so on. Sometimes, we may not want to difference the series but still handle trends and seasonality. So, let’s see how we can detect and remove trends in a time series.</p>
+    <h1 id="_idParaDest-161" class="heading-1">Detecting and correcting for trends</h1>
+    <p class="normal">In <em class="chapterRef">Chapter 5</em>, <em class="italic">Time Series Forecasting as Regression</em>, we talked about forecasting being a difficult problem because it is intrinsically an extrapolation problem. Trends are one of the major <a id="_idIndexMarker542"/>contributors to forecasting being an extrapolation problem. If we have a time series that is trending upward, any model that attempts to forecast it <a id="_idIndexMarker543"/>needs to extrapolate beyond the range of values it has seen during training. ARIMA handles this using autoregression, whereas exponential smoothing handles it by modeling the trend explicitly. But standard regression may not be naturally suited to extrapolation. However, with suitable features, such as lags, it can start to do that. </p>
+    <p class="normal">But if we can confidently estimate and extract a trend in the time series, we can simplify the problem we have to apply regression to by detrending the time series.</p>
+    <p class="normal">But before we move ahead, it is worth learning about two major types of trends.</p>
+    <h2 id="_idParaDest-162" class="heading-2">Deterministic and stochastic trends</h2>
+    <p class="normal">Let’s take the simple <em class="italic">AR(1)</em> model we saw earlier to develop intuitions about this one too. Earlier, we saw <a id="_idIndexMarker544"/>that having <img src="../Images/B22389_07_023.png" alt=""/> in an <em class="italic">AR(1)</em> model leads to a trend in the time <a id="_idIndexMarker545"/>series. But another way we can think about a trending <a id="_idIndexMarker546"/>time series is if we include time as an ordinal variable in the equation <a id="_idIndexMarker547"/>defining the time series. For instance, let’s consider two time series:</p>
+    <p class="normal"><em class="italic">Time series 1</em>: </p>
+    <p class="center"><img src="../Images/B22389_07_024.png" alt=""/></p>
+    <p class="normal"><em class="italic">Time series 2</em>: </p>
+    <p class="center"><img src="../Images/B22389_07_025.png" alt=""/></p>
+    <p class="normal">These can be seen in the following graphs:</p>
+    <figure class="mediaobject"><img src="../Images/B22389_07_03.png" alt="Figure 7.3 – Time series 1 (stochastic trend) and Time series 2 (deterministic trend) "/></figure>
+    <p class="packt_figref">Figure 7.3: Top: Stochastic trend; Bottom: Deterministic trend</p>
+    <p class="normal">We saw <a id="_idIndexMarker548"/>both of these equations earlier; <em class="italic">Time series 1</em> is the <em class="italic">AR(1)</em> model, while <em class="italic">Time series 2</em> is the time series equation we chose to illustrate differencing. We already know that for <img src="../Images/B22389_07_023.png" alt=""/>, both <em class="italic">Time series 1</em> and <em class="italic">Time series 2</em> have trends. But there is a difference between the two trends. </p>
+    <p class="normal">In <em class="italic">Time series 2</em>, the trend is constant and can be perfectly modeled. In this case, just a linear fit would explain the trend perfectly. But in <em class="italic">Time series 1</em>, the trend is not something that can be explained by a simple linear fit. It is inherently dependent on the previous value of the time series that has <img src="../Images/B22389_07_027.png" alt=""/> and hence is stochastic. Therefore, <em class="italic">Time series 2</em> has a deterministic trend and <em class="italic">Time series 1</em> has a stochastic trend.</p>
+    <p class="normal">We can use the same ADF test we saw earlier in this chapter to check whether a time series has deterministic or stochastic trends. Without going into the math of the statistical test, we know that it tests for a unit root by fitting an <code class="inlineCode">AR(p)</code> model to the time series. There are a few variants of this test that we can specify using the <code class="inlineCode">regression</code> parameter in the <code class="inlineCode">statsmodels</code> implementation. This parameter takes in the following values:</p>
+    <ul>
+      <li class="bulletList"><code class="inlineCode">c</code>: This means we are including a constant intercept in the <code class="inlineCode">AR(p)</code> model. Practically, this means that we will be considering a time series as stationary even if the series is not around zero. This is the default setting in <code class="inlineCode">statsmodels</code>.</li>
+      <li class="bulletList"><code class="inlineCode">n</code>: This means we do not even include a constant intercept in the <code class="inlineCode">AR(p)</code> model.</li>
+      <li class="bulletList"><code class="inlineCode">ct</code>: If we supply this option, the <code class="inlineCode">AR(p)</code> model will also have a constant intercept and a linear, deterministic trend component. What this means is that even if there is a deterministic trend in the time series, it will be ignored and the series will be tested as stationary.</li>
+      <li class="bulletList"><code class="inlineCode">ctt</code>: This is when we include a constant intercept—that is, a linear and quadratic trend.</li>
+    </ul>
+    <p class="normal">So, if we run an ADF test with <code class="inlineCode">regression="c"</code>, it will be non-stationary. Now, if we run the ADF test with <code class="inlineCode">regression="ct"</code>, it will come out as stationary. This means that when we <a id="_idIndexMarker549"/>removed a deterministic trend from the time series, it became stationary. This test is what we can use to determine whether a trend that we observe in a time series is deterministic or stochastic. In the <em class="italic">Further reading</em> section, we have provided a link to a blog post by <em class="italic">Fabian Kostadinov</em>, where he experiments with a few time series to make the distinction between the different variants of ADF tests clear.</p>
+    <p class="normal">We have implemented this test in <code class="inlineCode">src.transforms.stationary_utils</code> as <code class="inlineCode">check_deterministic_trend</code>, which does the inference for you and returns a <code class="inlineCode">namedtuple</code> with a Boolean attribute of <code class="inlineCode">deterministic_trend</code>. The <code class="inlineCode">namedtuple</code> also includes the raw results from the two <code class="inlineCode">adfuller</code> tests we did under <code class="inlineCode">adf_res</code> and <code class="inlineCode">adf_ct_res</code> if you want to investigate further. Let’s see how we can use this test:</p>
+    <pre class="programlisting code"><code class="hljs-code">check_deterministic_trend(y, confidence=<span class="hljs-number">0.05</span>)
+</code></pre>
+    <p class="normal">This will tell us whether the trend is stationary or deterministic. Now, let’s look at a couple of ways to identify and statistically test trends (irrespective of whether it is deterministic or not) in a time series.</p>
+    <h2 id="_idParaDest-163" class="heading-2">Kendall’s Tau</h2>
+    <p class="normal">Kendall’s Tau is a measure of correlation but is carried out on the ranks of the data. Kendall’s Tau is a non-parametric test and therefore does not make assumptions about the data. The correlation coefficient, Tau, returns a value between -1 and 1, where 0 shows no <a id="_idIndexMarker550"/>relationship and 1 or -1 is a perfect relationship. We will not dive into the details of how Kendall’s Tau is calculated or how the significance <a id="_idIndexMarker551"/>test is done as this is outside the scope of this book. The <em class="italic">Further reading</em> section contains a link that explains this well.</p>
+    <p class="normal">In this section, we will see how we can use Kendall’s Tau to measure the trend in our time series. As mentioned earlier, Kendall’s Tau calculates a rank correlation between two variables. If we chose one of those variables as the time series and set the other as the ordinal representation of time, the resulting Kendall’s Tau would represent the trend in the time series. An additional benefit is that the higher the value of Kendall’s Tau is, the stronger we expect the trend to be.</p>
+    <p class="normal"><code class="inlineCode">scipy</code> has an implementation of Kendall’s Tau that we can use as follows:</p>
+    <pre class="programlisting code"><code class="hljs-code"><span class="hljs-keyword">import</span> scipy.stats <span class="hljs-keyword">as</span> stats
+tau, p_value = stats.kendalltau(y, np.arange(<span class="hljs-built_in">len</span>(y)))
+</code></pre>
+    <p class="normal">We can compare the returned p-value to our required confidence (typically, this is <code class="inlineCode">0.05</code>) and say that if <code class="inlineCode">p_value</code> &lt; <code class="inlineCode">confidence</code>, we conclude that the trend is statistically significant. The sign of <code class="inlineCode">tau</code> tells us whether this is an increasing trend or a decreasing one.</p>
+    <p class="normal">We have made an implementation of Kendall’s Tau in <code class="inlineCode">src.transforms.stationary_utils</code> as <code class="inlineCode">check_trend</code>, which checks for the presence of a trend for you. The only parameters we need to provide are as follows:</p>
+    <ul>
+      <li class="bulletList"><code class="inlineCode">y</code>: The time series to check</li>
+      <li class="bulletList"><code class="inlineCode">confidence</code>: The confidence level against which the resulting p-value will be checked</li>
+    </ul>
+    <p class="normal">A few more parameters are there, but those are for the <strong class="keyWord">Mann-Kendall</strong> (<strong class="keyWord">M-K</strong>) test, which will be explained next.</p>
+    <p class="normal">Let’s see how we can use this test:</p>
+    <pre class="programlisting code"><code class="hljs-code">check_trend(y, confidence=<span class="hljs-number">0.05</span>)
+</code></pre>
+    <p class="normal">This method also checks whether the trend that has been identified is deterministic or stochastic and calculates the direction of the trend. The result is returned as a <code class="inlineCode">namedtuple</code> with the following parameters:</p>
+    <ul>
+      <li class="bulletList"><code class="inlineCode">trend</code>: This is a <a id="_idIndexMarker552"/>Boolean flag signifying the presence of a trend.</li>
+      <li class="bulletList"><code class="inlineCode">direction</code>: This will <a id="_idIndexMarker553"/>be either <code class="inlineCode">increasing</code> or <code class="inlineCode">decreasing</code>.</li>
+      <li class="bulletList"><code class="inlineCode">slope</code>: This is the slope of the estimated trend line. For Kendall’s Tau, it will be the Tau.</li>
+      <li class="bulletList"><code class="inlineCode">p</code>: This is the p-value of the statistical test.</li>
+      <li class="bulletList"><code class="inlineCode">deterministic</code>: This is a Boolean flag signifying the deterministic trend.</li>
+    </ul>
+    <p class="normal">Now, let’s look at the Mann-Kendall test.</p>
+    <h2 id="_idParaDest-164" class="heading-2">Mann-Kendall test (M-K test)</h2>
+    <p class="normal">The Mann-Kendall test is used to check for the presence of a monotonic upward or downward trend. And since the M-K test is a non-parametric test, like Kendall’s Tau, there is <a id="_idIndexMarker554"/>no assumption of normality or linearity. The test is <a id="_idIndexMarker555"/>done by analyzing the signs between consecutive points in the time series. The crux of the test is the idea that in the presence of a trend, the sign values, if summed up, increase or decrease constantly.</p>
+    <p class="normal">Although non-parametric, there were a few assumptions in the original test:</p>
+    <ul>
+      <li class="bulletList">There is no auto-correlation in the time series</li>
+      <li class="bulletList">There is no seasonality in the time series</li>
+    </ul>
+    <p class="normal">Numerous alterations have been made to the original tests to tackle these problems over the years and a lot of such alterations, along with the original test, have been implemented at <a href="https://github.com/mmhs013/pyMannKendall"><span class="url">https://github.com/mmhs013/pyMannKendall</span></a>. They are available in <code class="inlineCode">pypi</code> as <code class="inlineCode">pymannkendall</code>.</p>
+    <p class="normal"><strong class="keyWord">Pre-whitening</strong> is a <a id="_idIndexMarker556"/>common technique used to remove the autocorrelation in a time series. In a nutshell, the idea is as follows:</p>
+    <ol>
+      <li class="numberedList" value="1">Identify <img src="../Images/B22389_07_003.png" alt=""/> with an AR(1) model</li>
+      <li class="numberedList"><img src="../Images/B22389_07_029.png" alt=""/></li>
+    </ol>
+    <p class="normal">M. Bayazit and B. Önöz (2007) suggested not using pre-whitening before doing the M-K test if the sample size is larger than 50 and if the trend is strong enough (<code class="inlineCode">slope&gt;0.01</code>). For seasonal data, a seasonal variant of the M-K test has also been implemented in <code class="inlineCode">pymannkendall</code>.</p>
+    <div class="note">
+      <p class="normal"><strong class="keyWord">Reference check</strong>:</p>
+      <p class="normal">The research paper by M. Bayazit and B. Önöz is cited in the <em class="italic">References</em> section under reference <em class="italic">1</em>.</p>
+    </div>
+    <p class="normal">The same <a id="_idIndexMarker557"/>method we discussed earlier, <code class="inlineCode">check_trend</code>, also implements M-K tests that can be enabled by setting <code class="inlineCode">mann_kendall=True</code>. However, one thing we need to keep in mind is that the M-K test is considerably <a id="_idIndexMarker558"/>slower than Kendall’s Tau, especially for long time series. There are a couple more parameters specific to the M-K test:</p>
+    <ul>
+      <li class="bulletList"><code class="inlineCode">seasonal_period</code>: The default value is <code class="inlineCode">None</code>. But if there is seasonality, we can provide <code class="inlineCode">seasonal_period</code> here and the seasonal variant of the M-K test will be retrieved.</li>
+      <li class="bulletList"><code class="inlineCode">prewhiten</code>: This is a Boolean flag that’s used to pre-whiten the time series before applying the M-K test. The default value is <code class="inlineCode">None</code>. In that case, using the condition we discussed earlier (<code class="inlineCode">N&gt;50</code>), we decide whether to pre-whiten or not. If we explicitly pass <code class="inlineCode">True</code> or <code class="inlineCode">False</code> here, it will be respected.</li>
+    </ul>
+    <p class="normal">Let’s see how we can use this test:</p>
+    <pre class="programlisting code"><code class="hljs-code">check_trend(y, confidence=<span class="hljs-number">0.05</span>, mann_kendall=<span class="hljs-literal">True</span>)
+</code></pre>
+    <p class="normal">The result is returned as a <code class="inlineCode">namedtuple</code> with the following parameters:</p>
+    <ul>
+      <li class="bulletList"><code class="inlineCode">trend</code>: This is a Boolean flag signifying the presence of a trend.</li>
+      <li class="bulletList"><code class="inlineCode">direction</code>: This will be either <code class="inlineCode">increasing</code> or <code class="inlineCode">decreasing</code>.</li>
+      <li class="bulletList"><code class="inlineCode">slope</code>: This is the slope of the estimated trend line. For the M-K test, it will be the slope estimated using the Theil-Sen estimator.</li>
+      <li class="bulletList"><code class="inlineCode">p</code>: This is the p-value of the statistical test.</li>
+      <li class="bulletList"><code class="inlineCode">deterministic</code>: This is a Boolean flag signifying the deterministic trend.</li>
+    </ul>
+    <p class="normal">Let’s see <a id="_idIndexMarker559"/>an example where we applied both these tests <a id="_idIndexMarker560"/>on a time series (see <code class="inlineCode">02-Dealing_with_Non-Stationarity.ipynb</code> for the full code):</p>
+    <pre class="programlisting code"><code class="hljs-code"><span class="hljs-comment"># y_unit_root is the a synthetic unit root timeseries</span>
+y_unit_root.plot()
+plt.show()
+</code></pre>
+    <figure class="mediaobject"><img src="../Images/B22389_07_04.png" alt=""/></figure>
+    <p class="packt_figref">Figure 7.4: M-K test</p>
+    <pre class="programlisting code"><code class="hljs-code">kendall_tau_res = check_trend(y_unit_root, confidence=<span class="hljs-number">0.05</span>)
+mann_kendall_res = check_trend(y_unit_root, confidence=<span class="hljs-number">0.05</span>, mann_kendall=<span class="hljs-literal">True</span>)
+<span class="hljs-built_in">print</span>(<span class="hljs-string">f"Kendalls Tau: Trend: </span><span class="hljs-subst">{kendall_tau_res.trend}</span><span class="hljs-string"> | Direction: </span><span class="hljs-subst">{kendall_tau_res.direction}</span><span class="hljs-string"> | Deterministic: </span><span class="hljs-subst">{kendall_tau_res.deterministic}</span><span class="hljs-string">"</span>)
+<span class="hljs-built_in">print</span>(<span class="hljs-string">f"Mann-Kendalls: Trend: </span><span class="hljs-subst">{mann_kendall_res.trend}</span><span class="hljs-string"> | Direction: </span><span class="hljs-subst">{mann_kendall_res.direction}</span><span class="hljs-string"> | Deterministic: </span><span class="hljs-subst">{mann_kendall_res.deterministic}</span><span class="hljs-string">"</span>)
+<span class="hljs-comment">## Output</span>
+</code></pre>
+    <pre class="programlisting con"><code class="hljs-con">&gt;&gt; Kendalls Tau: Trend: True | Direction: decreasing | Deterministic: False
+&gt;&gt; Mann-Kendalls: Trend: True | Direction: decreasing | Deterministic: False
+</code></pre>
+    <p class="normal">It would <a id="_idIndexMarker561"/>benefit you if you can generate some time series, or even pick a few time series you have come across and use these functions to see how it <a id="_idIndexMarker562"/>works and how the results help you. The associated notebook has some examples to get you started. You can observe how the direction and slope are different for different types of trends.</p>
+    <p class="normal">Now that we know how to detect a trend, let’s look at detrending.</p>
+    <h2 id="_idParaDest-165" class="heading-2">Detrending transform</h2>
+    <p class="normal">If the trend is deterministic, removing the trend would add some value to the modeling procedure. In <em class="chapterRef">Chapter 3</em>, <em class="italic">Analyzing and Visualizing Time Series Data</em>, we discussed detrending <a id="_idIndexMarker563"/>as it was an integral part of the decomposition we were doing. But techniques such as moving average or LOESS regression <a id="_idIndexMarker564"/>have one drawback—they can’t extrapolate. But if we are considering a deterministic linear (or even polynomial) trend, it can be easily estimated by using linear regression. The added advantage here is that the trend that is identified can easily be extrapolated.</p>
+    <p class="normal">The procedure is simple: we regress the time series on the ordinal representation of time and extract the parameters. Once we have these parameters, using the dates, we can extrapolate the trend to any point in the future. The core logic in Python is shown below:</p>
+    <pre class="programlisting code"><code class="hljs-code"><span class="hljs-comment"># y is the time series we are detrending</span>
+x = np.arange(<span class="hljs-built_in">len</span>(y))
+<span class="hljs-comment"># degree is the degree of trend we are estimating. Linear, or polynomial</span>
+<span class="hljs-comment"># Fitting a regression on y using a linearly increasing x</span>
+linear_params = np.polyfit(x=x, y=y, deg=degree)
+<span class="hljs-comment"># Extract trend using fitted parameters</span>
+trend = get_trend(y)
+<span class="hljs-comment"># Now this extracted trend can be removed from y</span>
+detrended = y - trend
+</code></pre>
+    <p class="normal">We have made and implemented this detrender as a transformer in <code class="inlineCode">src.transforms.target_transformations.py</code> as <code class="inlineCode">DetrendingTransformer</code>. You can see how we have implemented it in the GitHub repository. Now, let’s see how we can use it:</p>
+    <pre class="programlisting code"><code class="hljs-code"><span class="hljs-keyword">from</span> src.transforms.target_transformations <span class="hljs-keyword">import</span> DetrendingTransformer
+detrending_transformer = DetrendingTransformer(degree=<span class="hljs-number">1</span>)
+y_detrended = detrending_transformer.fit_transform(y, freq=<span class="hljs-string">"1D"</span>)
+</code></pre>
+    <p class="normal"><code class="inlineCode">y_detrended</code> will contain <a id="_idIndexMarker565"/>the detrended series. To get the original <a id="_idIndexMarker566"/>time series back, we can call <code class="inlineCode">inverse_transform</code> using <code class="inlineCode">detrending_transformer</code>. The associated notebook has examples and plots to see how the detrending changes the time series.</p>
+    <div class="packt_tip">
+      <p class="normal"><strong class="keyWord">Best practice</strong>:</p>
+      <p class="normal">We have to be careful with the trend assumptions, especially if we are forecasting for the long term. Even a linear trend assumption can lead to an unrealistic forecast because trends don’t continue the same way forever in the real world. It is always advisable to dampen the trend by some factor, <img src="../Images/B22389_07_030.png" alt=""/>, to be conservative in our extrapolation of the trend. This dampening can be as simple as <img src="../Images/B22389_07_031.png" alt=""/>.</p>
+    </div>
+    <p class="normal">Another key aspect that makes a time series non-stationary is seasonality. Let’s look at how to identify seasonality and remove it.</p>
+    <h1 id="_idParaDest-166" class="heading-1">Detecting and correcting for seasonality</h1>
+    <p class="normal">A vast majority of real-world time series have seasonality such as retail sales, energy consumption, and so on. And generally, the presence or absence of seasonality comes as part <a id="_idIndexMarker567"/>of the domain knowledge. But when we are working with a time series dataset, the domain knowledge becomes slightly diluted. The majority of time series may exhibit seasonality, but that doesn’t mean every time series in the dataset is seasonal. For instance, within a retail dataset, there might be items that are seasonal and some items that are not. Therefore, when working with a time series dataset, being able to determine whether a particular time series is seasonal or not has some value.</p>
+    <h2 id="_idParaDest-167" class="heading-2">Detecting seasonality</h2>
+    <p class="normal">There are two popular ways to check for seasonality, apart from just eyeballing it: autocorrelation <a id="_idIndexMarker568"/>and fast Fourier transform. Either is equally capable of identifying the seasonality period automatically. For our discussion, we’ll cover the autocorrelation method and examine how we can use that to determine seasonality.</p>
+    <p class="normal">Autocorrelation, as explained in <em class="chapterRef">Chapter 3</em>, <em class="italic">Analyzing and Visualizing Time Series Data</em>, is the correlation of a time series to its lagged values. Typically, we expect the correlation to be higher in the immediate lags (<code class="inlineCode">lag 1</code>, <code class="inlineCode">lag 2</code>, and so on) and gradually die down as we move farther into the past. But for time series with seasonality, we will also see a spike in the seasonal periods.</p>
+    <p class="normal">Let’s understand this by looking at an example. Consider a synthetic time series that is just white noise combined with a sinusoidal signal with a seasonality cycle of 25 (identical to the seasonal time series we saw earlier, in <em class="italic">Figure 7.1</em>):</p>
+    <pre class="programlisting code"><code class="hljs-code"><span class="hljs-comment">#WhiteNoise + Seasonal</span>
+y_random = pd.Series(np.random.randn(length), index=index)
+t = np.arange(<span class="hljs-built_in">len</span>(y_random))
+y_seasonal = (y_random+<span class="hljs-number">1.9</span>*np.cos((<span class="hljs-number">2</span>*np.pi*t)/(length/<span class="hljs-number">4</span>)))
+</code></pre>
+    <p class="normal">If we <a id="_idIndexMarker569"/>plot the <strong class="keyWord">autocorrelation function</strong> (<strong class="keyWord">ACF</strong>) for this time series, it will look as follows (the code to calculate and plot this can be found in the <code class="inlineCode">02-Dealing_with_Non-Stationarity.ipynb</code> notebook):</p>
+    <figure class="mediaobject"><img src="../Images/B22389_07_05.png" alt="Figure 7.4 – Autocorrelation plot of the synthetic time series with a seasonality cycle of 25 "/></figure>
+    <p class="packt_figref">Figure 7.5: Autocorrelation plot of the synthetic time series with a seasonality cycle of 25</p>
+    <p class="normal">We can see that apart from the first few lags, the autocorrelation increases as we approach the seasonal cycle and peaks at the exact seasonality. We can use this property of <a id="_idIndexMarker570"/>the ACF to detect seasonality. <code class="inlineCode">darts</code>, a time series forecasting library, has an implementation of this technique that identifies seasonality. But since it was designed to work for the time series data structure of <code class="inlineCode">darts</code>, we have adapted the same logic to work on regular <code class="inlineCode">pandas</code> series in <code class="inlineCode">src.transforms.stationary_utils.py</code> under the name <code class="inlineCode">check_seasonality</code>. The implementation can do two kinds of seasonality checks. It can take a <code class="inlineCode">seasonality_period</code> as input and verify whether a seasonality corresponding to that <code class="inlineCode">seasonality_period</code> exists in the data or not. If we do not give a <code class="inlineCode">seasonality_period</code> ahead of time, it will return to you the shortest <code class="inlineCode">seasonality_period</code> that is statistically significant.</p>
+    <p class="normal">The procedure, at a high level, does the following:</p>
+    <ol>
+      <li class="numberedList" value="1">It calculates the ACF.</li>
+      <li class="numberedList">It finds all the relative maxima in the ACF. A relative maximum is a point where the function changes direction from increasing to decreasing.</li>
+      <li class="numberedList">It checks whether the provided <code class="inlineCode">seasonal_period</code> is a relative maximum. If not, we conclude there is no seasonality associated with <code class="inlineCode">seasonality_period</code>.</li>
+      <li class="numberedList">Now, we take the assumption that the ACF is normally distributed and compute the upper limit at the specified confidence level. The upper bound is given by:</li>
+    </ol>
+    <p class="center"><img src="../Images/B22389_07_032.png" alt=""/></p>
+    <p class="normal-one">where <em class="italic">r</em><sub class="subscript-italic" style="font-style: italic;">h</sub> is the estimated autocorrelation at lag <em class="italic">h</em>, <em class="italic">SE</em> is the standard error, and <img src="../Images/B22389_07_033.png" alt=""/> is the quantile of the normal distribution based on the required confidence, <img src="../Images/B22389_04_009.png" alt=""/>. The SE is approximated using Bartlett’s formula (for the math behind this, head over to the <em class="italic">Further reading</em> section).</p>
+    <ol>
+      <li class="numberedList" value="5">Each of <a id="_idIndexMarker571"/>our candidates for <code class="inlineCode">seasonality_period</code> is checked against this upper limit and the ones that are above this limit are deemed statistically significant.</li>
+    </ol>
+    <p class="normal">There are only three parameters for this function, apart from the time series itself:</p>
+    <ul>
+      <li class="bulletList"><code class="inlineCode">max_lag</code>: This specifies the maximum lag that should be included in the ACF and subsequent search for seasonality. This should be at least one more than the expected seasonality period.</li>
+      <li class="bulletList"><code class="inlineCode">seasonal_period</code>: This is where we give our intuition of the seasonality period from domain knowledge and the function verifies that assumption for us.</li>
+      <li class="bulletList"><code class="inlineCode">confidence</code>: This is the standard statistical confidence level. The default value is <code class="inlineCode">0.05</code>.</li>
+    </ul>
+    <p class="normal">Let’s see how we can use this function on the same data we saw in <em class="italic">Figure 7.4</em> (with a seasonal period of 25). This will give you a <code class="inlineCode">namedtuple</code> with <code class="inlineCode">seasonal</code>, a Boolean flag to indicate seasonality, and <code class="inlineCode">seasonal_periods</code>, the seasonal periods with significant seasonality, as parameters:</p>
+    <pre class="programlisting code"><code class="hljs-code"><span class="hljs-comment"># Running the function without specifying seasonal period to identify the seasonality</span>
+seasonality_res = check_seasonality(y_seasonal, max_lag=<span class="hljs-number">60</span>, confidence=<span class="hljs-number">0.05</span>)
+<span class="hljs-built_in">print</span>(<span class="hljs-string">f"Seasonality identified for: </span><span class="hljs-subst">{seasonality_res.seasonal_periods}</span><span class="hljs-string">"</span>)
+<span class="hljs-comment">## Output</span>
+</code></pre>
+    <pre class="programlisting con"><code class="hljs-con">&gt;&gt; Seasonality identified for: 25
+</code></pre>
+    <pre class="programlisting code"><code class="hljs-code">This function can also be used to verify <span class="hljs-keyword">if</span> your assumption about the seasonality <span class="hljs-keyword">is</span> right.
+<span class="hljs-comment"># Running the function specifying seasonal period to verify</span>
+seasonality_res = check_seasonality(y_seasonal, max_lag=<span class="hljs-number">30</span>, seasonal_period=<span class="hljs-number">25</span>, confidence=<span class="hljs-number">0.05</span>)<span class="hljs-built_in">print</span>(<span class="hljs-string">f"Seasonality Test for 25th lag: </span><span class="hljs-subst">{seasonality_res.seasonal}</span><span class="hljs-string">"</span>)
+<span class="hljs-comment">## Output</span>
+</code></pre>
+    <pre class="programlisting con"><code class="hljs-con">&gt;&gt; Seasonality Test for 25th lag: True
+</code></pre>
+    <p class="normal">Now that we <a id="_idIndexMarker572"/>know how to identify and test for seasonality, let’s talk about deseasonalizing.</p>
+    <h2 id="_idParaDest-168" class="heading-2">Deseasonalizing transform</h2>
+    <p class="normal">In <em class="chapterRef">Chapter 3</em>, <em class="italic">Analyzing and Visualizing Time Series Data</em>, we reviewed techniques for seasonal decomposition. We can use the same techniques here as well, but with just one tweak. Earlier, we were not concerned with projecting the seasonality into the future. But <a id="_idIndexMarker573"/>when we are using deseasonalizing in forecasting, it is essential to be able to project it into the future as well. We are in luck since projecting the seasonal cycle forward is trivial. This is because we are looking at a fixed seasonality profile that will always keep repeating in the seasonal cycle. For instance, if we identified a seasonality profile for the 12 months of a year (yearly seasonality at monthly frequency data), the seasonality that’s extracted for these 12 months will just repeat itself in chunks of 12 months.</p>
+    <p class="normal">Using this property, we have implemented a transformer in <code class="inlineCode">src.transforms.target_transformations.py</code> as <code class="inlineCode">DeseasonalizingTransformer</code>. There are a few parameters and properties that we need to be aware of:</p>
+    <ul>
+      <li class="bulletList"><code class="inlineCode">seasonality_extraction</code>: This transformer supports two ways of extracting seasonality—<code class="inlineCode">"period_averages"</code>, where the seasonality profile is estimated using seasonal averaging, and <code class="inlineCode">"fourier_terms"</code>, where we regress on Fourier terms to extract the seasonality.</li>
+      <li class="bulletList"><code class="inlineCode">seasonality_period</code>: Depending on the technique we use for seasonality extraction, this can either be an integer or a string. If <code class="inlineCode">"period_averages"</code>, this parameter denotes the number of periods after which the seasonal cycle repeats. If <code class="inlineCode">"fourier_terms"</code>, this denotes the seasonality to be extracted from the datetime index. <code class="inlineCode">pandas datetime</code> properties such as <code class="inlineCode">week_of_day</code>, <code class="inlineCode">month</code>, and so on can be used to specify the most prominent seasonality. Similar to <code class="inlineCode">FourierDecomposition</code>, which we saw earlier, we can also omit this parameter and provide custom seasonality in the <code class="inlineCode">fit/transform</code> methods in the implementation.</li>
+      <li class="bulletList"><code class="inlineCode">n_fourier_terms</code>: This parameter specifies the number of Fourier terms to be included in the regression. Increasing this parameter makes the fitted seasonality more complex.</li>
+      <li class="bulletList">There is no detrending in this implementation because we already saw a <code class="inlineCode">DetrendingTransformer</code>. This implementation expects any trend to be removed before using the <code class="inlineCode">fit</code> function.</li>
+    </ul>
+    <p class="normal">Let’s <a id="_idIndexMarker574"/>see how we can use it:</p>
+    <pre class="programlisting code"><code class="hljs-code"><span class="hljs-keyword">from</span> src.transforms.target_transformations <span class="hljs-keyword">import</span> DeseasonalizingTransformer
+deseasonalizing_transformer = DeseasonalizingTransformer(seasonality_extraction=<span class="hljs-string">"period_averages"</span>,seasonal_period=<span class="hljs-number">25</span>)
+y_deseasonalized = deseasonalizing_transformer.fit_transform(y, freq=<span class="hljs-string">"1D"</span>)
+</code></pre>
+    <p class="normal"><code class="inlineCode">y_deseasonalized</code> will have the deseasonalized time series. To get back to the original time series, we can use the <code class="inlineCode">inverse_transform</code> function. Typically, this can be used to add the seasonality back after making predictions.</p>
+    <div class="packt_tip">
+      <p class="normal"><strong class="keyWord">Best practice</strong>:</p>
+      <p class="normal">Modeling seasonality can be done either separately, as discussed here, or by using the seasonal features that we discussed earlier in this chapter. Although the final evaluation on which one works better has to be found out empirically for each dataset, we can have a few rules of thumb/guidelines to decide on priority.</p>
+      <p class="normal">When we have enough data, letting the model learn seasonality as part of the main forecasting problem seems to work better. But in cases where data is not that rich, extracting seasonality separately before feeding it to an ML model works well.</p>
+      <p class="normal">When the dataset has varied seasonality (different seasonal cycles for different time series), then it should be treated accordingly. Either deseasonalize each time series separately or split the global ML model into different local models, each with its own seasonality pattern.</p>
+    </div>
+    <p class="normal">The last <a id="_idIndexMarker575"/>aspect that we talked about earlier is heteroscedasticity. Let’s quickly take a look at that as well.</p>
+    <h1 id="_idParaDest-169" class="heading-1">Detecting and correcting for heteroscedasticity</h1>
+    <p class="normal">Despite having a scary name, heteroscedasticity is a simple enough concept. It is derived from ancient Greek, where <em class="italic">hetero</em> means <em class="italic">different</em> and <em class="italic">skedasis</em> means <em class="italic">dispersion</em>. True to its name, heteroscedasticity is defined when the variability of a variable is different across another variable. In the context of a time series, we say a time series is heteroscedastic when the variability or dispersion of the time series varies with time. For instance, let’s think about the spending of a household over a number of years. In these years, this particular household went from being poor to middle class <a id="_idIndexMarker576"/>and finally upper middle class. When the household was poor, the spending was less and only on essentials, and because of that, the variability in spending was less. But as they approached the upper middle class, the household could afford luxuries, which created spikes in the time series and therefore higher variability. If we refer back to <em class="italic">Figure 7.1</em>, we can see what a heteroscedastic time series looks like.</p>
+    <p class="normal">But in addition to visual inspection, it would be neat if we could carry out an automated statistical test to ascertain heteroscedasticity.</p>
+    <h2 id="_idParaDest-170" class="heading-2">Detecting heteroscedasticity</h2>
+    <p class="normal">There are <a id="_idIndexMarker577"/>many ways to detect heteroscedasticity, but we will be using one of the most popular <a id="_idIndexMarker578"/>techniques, known as the <strong class="keyWord">White test</strong>, proposed by Halbert White in 1980. The White test uses an auxiliary regression task to check for constant variance. We run an initial regression using some covariates and calculate the residuals of this regression. Then, we fit another regression model with these residuals as the target and the covariates used in the first regression, and their squares and cross-products. The final statistic is estimated by using the <em class="italic">R</em><sup class="superscript">2</sup> value of this auxiliary regression. For a detailed account of the test, head over to the <em class="italic">Further reading</em> section; for the rigorous mathematical procedure, the research paper is cited in the <em class="italic">References</em> section.</p>
+    <div class="note">
+      <p class="normal"><strong class="keyWord">Reference check</strong>:</p>
+      <p class="normal">To learn <a id="_idIndexMarker579"/>more about the rigorous mathematical procedure of the White test, take a look at the research paper cited in the <em class="italic">References</em> section under reference <em class="italic">2</em>.</p>
+    </div>
+    <p class="normal">In the context of a time series, we adapt this formulation by using a deterministic trend model. The initial regression is done by using time as an ordinal variable and the residuals are <a id="_idIndexMarker580"/>used to carry out the White test. The White test has an implementation in <code class="inlineCode">statsmodels</code> of <code class="inlineCode">het_white</code>, which we will be using to carry out this test. The <code class="inlineCode">het_white</code> test returns two statistics and p-values—Lagrangian Multiplier and F-Statistic. Lagrangian Multiplier tests if there is any relationship between the variance of the residuals and the independent variables in the regression model. F-Statistic compares the fit of your original model to a model allowing for varying error variance. A p-value less than confidence in either of these tests indicates heteroscedasticity. But to be conservative, we can also use both tests and mark something as heteroscedastic only when both of the p-values are less than confidence. </p>
+    <p class="normal">We have wrapped all of this in a helpful function in <code class="inlineCode">src.transforms.stationary_utils</code> as <code class="inlineCode">check_heteroscedasticity</code>, which has only one additional parameter—<code class="inlineCode">confidence</code>. Let’s see the core implementation of the method in Python:</p>
+    <pre class="programlisting code"><code class="hljs-code"><span class="hljs-keyword">import</span> statsmodels.api <span class="hljs-keyword">as</span> sm
+<span class="hljs-comment"># Fitting a linear trend regression</span>
+x = np.arange(<span class="hljs-built_in">len</span>(y))
+x = sm.add_constant(x)
+model = sm.OLS(y,x)
+results = model.fit()
+<span class="hljs-comment"># Using the het_white test on residuals</span>
+lm_stat, lm_p_value, f_stat, f_p_value = het_white(results.resid, x)
+<span class="hljs-comment"># Checking if both p values are less than confidence</span>
+<span class="hljs-keyword">if</span> lm_p_value&lt;confidence <span class="hljs-keyword">and</span> f_p_value &lt; confidence:
+        hetero = <span class="hljs-literal">True</span>
+    <span class="hljs-keyword">else</span>:
+        hetero = <span class="hljs-literal">False</span>
+</code></pre>
+    <p class="normal">Now, let’s see how we can use this function:</p>
+    <pre class="programlisting code"><code class="hljs-code"><span class="hljs-keyword">from</span> src.transforms.stationary_utils <span class="hljs-keyword">import</span> check_heteroscedastisticity
+check_heteroscedastisticity(y, confidence=<span class="hljs-number">0.05</span>)
+</code></pre>
+    <p class="normal">This returns a <code class="inlineCode">namedtuple</code> with the following parameters:</p>
+    <ul>
+      <li class="bulletList"><code class="inlineCode">Heteroscedastic</code>: A Boolean flag indicating the presence of heteroscedasticity</li>
+      <li class="bulletList"><code class="inlineCode">lm_statistic</code>: The <strong class="keyWord">Lagrangian Multiplier</strong> (<strong class="keyWord">LM</strong>) statistic</li>
+      <li class="bulletList"><code class="inlineCode">lm_p_value</code>: The p-value <a id="_idIndexMarker581"/>associated with the LM statistic</li>
+    </ul>
+    <div class="packt_tip">
+      <p class="normal"><strong class="keyWord">Best practice</strong>:</p>
+      <p class="normal">The heteroscedasticity test we are doing only considers a trend in the regression and therefore, in the presence of seasonality, may not work very well. It is advised to deseasonalize the data before applying the function.</p>
+    </div>
+    <p class="normal">Detecting <a id="_idIndexMarker582"/>heteroscedasticity was the easier part. There are a few transforms that attempt to remove heteroscedasticity but with advantages and disadvantages. Let’s take a look at a few such transforms.</p>
+    <h2 id="_idParaDest-171" class="heading-2">Log transform</h2>
+    <p class="normal">Log transform, as the name suggests, is about applying a logarithm to the time series. There are two <a id="_idIndexMarker583"/>main properties of a log transform—variance <a id="_idIndexMarker584"/>stabilization and reducing skewness—thereby making the data distribution more <em class="italic">normal</em>. And out of these, we are more interested in the first property because that is what combats heteroscedasticity.</p>
+    <p class="normal">Log transforms are typically known to reduce the variance of the data and thereby remove heteroscedasticity in the data. Intuitively, we can think of a log transform as something that <em class="italic">pulls in</em> the extreme values on the right of the histogram, at the same time stretching back the very low values on the left of the histogram.</p>
+    <p class="normal">But it has been shown that the log transform does not always stabilize the variance. In addition to that, the log transform poses another challenge in ML. The optimization of loss now happens on the log scale. Since the log transformation compresses the lower end of the value range more than the higher one, the learned model can be less sensitive to errors in the lower range as compared to the higher one. Another key disadvantage is that the log transform can only be applied to strictly positive data. And if any of your data <a id="_idIndexMarker585"/>is zero or less than zero, then you will need <a id="_idIndexMarker586"/>to offset the whole distribution by adding some constant, <em class="italic">M</em>, and then applying the transform. This will also create some disturbance in the data, which can have adverse effects.</p>
+    <p class="normal">The bottom line is that we should be careful when applying a log transform. We have implemented a transformer in <code class="inlineCode">src.transforms.target_transformations.py</code> as <code class="inlineCode">LogTransformer</code> with just one parameter, <code class="inlineCode">add_one</code>, which adds one before the transform and subtracts one after the inverse. The key logic in Python is as simple as applying an <code class="inlineCode">np.log1p</code> or <code class="inlineCode">np.log</code> function in the transform and reversing it with <code class="inlineCode">np.expm1</code> or <code class="inlineCode">np.exp</code>, respectively:</p>
+    <pre class="programlisting code"><code class="hljs-code"><span class="hljs-comment"># Transform</span>
+np.log1p(y) <span class="hljs-keyword">if</span> <span class="hljs-variable">self</span>.add_one <span class="hljs-keyword">else</span> np.log(y)
+<span class="hljs-comment"># Inverse Transform</span>
+np.expm1(y) <span class="hljs-keyword">if</span> <span class="hljs-variable">self</span>.add_one <span class="hljs-keyword">else</span> np.exp(y)y_log = log_transformer.fit_transform(y)
+</code></pre>
+    <p class="normal">All we have done is wrap this into a nice and easy-to-use transformer. Let’s see how we can use it:</p>
+    <pre class="programlisting code"><code class="hljs-code"><span class="hljs-keyword">from</span> src.transforms.target_transformations <span class="hljs-keyword">import</span> LogTransformer
+log_transformer = LogTransformer(add_one=<span class="hljs-literal">True</span>)
+y_log = log_transformer.fit_transform(y)
+</code></pre>
+    <p class="normal"><code class="inlineCode">y_log</code> is the log-transformed time series. We can call <code class="inlineCode">inverse_transform</code> to get the original time series back.</p>
+    <h2 id="_idParaDest-172" class="heading-2">Box-Cox transformation</h2>
+    <p class="normal">The log <a id="_idIndexMarker587"/>transform, although effective and common, is very <em class="italic">strong</em>. But the log is not the only monotonic transform that we can use. There are many other transforms, such as <em class="italic">y</em><sup class="superscript">2</sup>, <img src="../Images/B22389_07_035.png" alt=""/>, <img src="../Images/B22389_07_036.png" alt=""/> and so on, which are collectively part of the family of power transforms. One set of transforms that is very famous and widely used in this family is the Box-Cox transformations:</p>
+    <p class="center"><img src="../Images/B22389_07_037.png" alt=""/></p>
+    <p class="center">and , <img src="../Images/B22389_07_038.png" alt=""/></p>
+    <div class="note">
+      <p class="normal"><strong class="keyWord">Reference check</strong>:</p>
+      <p class="normal">The original research paper by Box and Cox is cited in the <em class="italic">References</em> section under reference <em class="italic">3</em>.</p>
+    </div>
+    <p class="normal">Intuitively, we can see that the Box-Cox transformation is a generalized logarithm transform. The log transform is just a special case of the Box-Cox transformation (when <img src="../Images/B22389_07_039.png" alt=""/>). At different values of <img src="../Images/B22389_05_008.png" alt=""/>, it approximates other transforms such as <em class="italic">y</em><sup class="superscript">2</sup> when <img src="../Images/B22389_07_041.png" alt=""/>, <img src="../Images/B22389_07_042.png" alt=""/> when <img src="../Images/B22389_07_043.png" alt=""/>, <img src="../Images/B22389_07_044.png" alt=""/> when <img src="../Images/B22389_07_045.png" alt=""/>, and so on. When <img src="../Images/B22389_07_046.png" alt=""/>, there is no major transformation.</p>
+    <p class="normal">A lot of the disadvantages that we mentioned for log transforms apply here as well, but the degree to which those effects are there varies, and we have a parameter, <img src="../Images/B22389_05_008.png" alt=""/>, to help us decide on the right level of those effects. Like log transforms, Box-Cox transformations also only use strictly positive data. The same <a id="_idIndexMarker588"/>addition of a constant to offset the data distribution has to be done here as well. The flip side of the parameter is that there is one more hyperparameter to tune.</p>
+    <p class="normal">There are a few automated methods to find the optimum <img src="../Images/B22389_05_008.png" alt=""/> for any data distribution. One of them is by minimizing the log-likelihood of the data distribution, assuming normality. So, essentially, what we will be doing is finding the optimal <img src="../Images/B22389_05_008.png" alt=""/> that makes the data distribution most <em class="italic">normal</em>. This optimization is already implemented in popular implementations such as the <code class="inlineCode">boxcox</code> function in the <code class="inlineCode">scipy.special</code> module in <code class="inlineCode">scipy</code>.</p>
+    <p class="normal">Another way to find the optimal <img src="../Images/B22389_05_008.png" alt=""/> is to use Guerrero’s method, which is typically suited for a time series. In this method, instead of trying to conform the data distribution to a normal distribution, we try to minimize the variability of the time series across different sub-series in the time series that are homogenous. The definition of this sub-series is slightly subjective but, usually, we can safely assume the sub-series as the seasonal length. Therefore, what we will be trying to minimize is the variability of the time series across different seasonality cycles.</p>
+    <div class="note">
+      <p class="normal"><strong class="keyWord">Reference check</strong>:</p>
+      <p class="normal">The research paper proposing Guerrero’s method is cited in the <em class="italic">References</em> section under reference <em class="italic">4</em>.</p>
+    </div>
+    <p class="normal">There are stark differences in the way both these optimization methods work and we need to be careful when using them. If our main concern is to remove the heteroscedastic behavior of the time series, Guerrero’s method is what we can use.</p>
+    <p class="normal">We have <a id="_idIndexMarker589"/>made a transformer available in <code class="inlineCode">src.transforms.target_transformations.py</code> called <code class="inlineCode">BoxCoxTransformer</code>. There are a few parameters and properties that we need to be aware of:</p>
+    <ul>
+      <li class="bulletList"><code class="inlineCode">box_cox_lambda</code>: This is the <img src="../Images/B22389_05_008.png" alt=""/> parameter to be used for the Box-Cox transform. If left set to <code class="inlineCode">None</code>, the implementation will find an optimal <img src="../Images/B22389_05_008.png" alt=""/>.</li>
+      <li class="bulletList"><code class="inlineCode">optimization</code>: This can either be <code class="inlineCode">guerrero</code>, which is the default setting, or <code class="inlineCode">loglikelihood</code>. This determines how the <img src="../Images/B22389_05_008.png" alt=""/> parameter is estimated.</li>
+      <li class="bulletList"><code class="inlineCode">seasonal_period</code>: This is an input for finding the optimal <img src="../Images/B22389_05_008.png" alt=""/> parameter using Guerrero’s method. Technically, this is the length of the sub-series, usually taken as the seasonality period.</li>
+      <li class="bulletList"><code class="inlineCode">bounds</code>: This is another parameter that controls the optimization using Guerrero’s method. This is a tuple with lower and upper bounds in the search for the optimal <img src="../Images/B22389_05_008.png" alt=""/> parameter.</li>
+      <li class="bulletList"><code class="inlineCode">add_one</code>: This is a flag that adds one to the series before applying a log transform to avoid log 0.</li>
+    </ul>
+    <p class="normal">The core logic implemented in the Transformer is as follows:</p>
+    <pre class="programlisting code"><code class="hljs-code"><span class="hljs-comment">## Fit Process</span>
+<span class="hljs-comment"># Add one if needed</span>
+y = <span class="hljs-variable">self</span>._add_one(y)
+<span class="hljs-comment"># Find optimum box cox lamda if optimization is Guerrero</span>
+<span class="hljs-variable">self</span>.boxcox_lambda = <span class="hljs-variable">self</span>._optimize_lambda(y)
+<span class="hljs-comment">## Transform Process</span>
+boxcox(y.values, lmbda=<span class="hljs-variable">self</span>.boxcox_lambda)
+<span class="hljs-comment">## Inverse Transform</span>
+<span class="hljs-variable">self</span>._subtract_one(inv_boxcox(y.values, <span class="hljs-variable">self</span>.boxcox_lambda))
+</code></pre>
+    <p class="normal">Now, let’s <a id="_idIndexMarker590"/>see how we can use it:</p>
+    <pre class="programlisting code"><code class="hljs-code"><span class="hljs-keyword">from</span> src.transforms.target_transformations <span class="hljs-keyword">import</span> BoxCoxTransformer
+boxcox_transformer = BoxCoxTransformer()
+y_boxcox = boxcox _transformer.fit_transform(y)
+</code></pre>
+    <p class="normal"><code class="inlineCode">y_boxcox</code> will contain the Box-Cox transformed time series. To get back to the original time series, we can use the <code class="inlineCode">inverse_transform</code> function.</p>
+    <p class="normal">Both Box-Cox and Log Transform can be used for correcting heteroscedasticity. But, as mentioned before, log transform is a strong transformation and Box-Cox gives us another lever to tweak and tune the transformation to suit our data. We can look at Box-Cox as a flexible log transform, which can be tuned to make the right transformation for our data. Do check out the notebook, where you can see and play around with these different transformations and get a feel of what it will do to your data.</p>
+    <p class="normal">When we approach the forecasting problem at scale, we will have hundreds, thousands, or millions of time series that we will need to analyze before forecasting. In such scenarios, an AutoML approach is needed to be practical.</p>
+    <h1 id="_idParaDest-173" class="heading-1">AutoML approach to target transformation</h1>
+    <p class="normal">So far, we have discussed many ways to make a series <em class="italic">more</em> stationary (we are using the word <a id="_idIndexMarker591"/>stationary here in the non-mathematical sense), such as detrending, deseasonalizing, differencing, and monotonic transformations. We’ve also looked at statistical tests to check whether trends, seasonality, and so <a id="_idIndexMarker592"/>on are present in a time series. So, the natural next step is to put it all together to carry out these transforms in an automated way while choosing good defaults wherever possible. This is exactly what we did and implemented an <code class="inlineCode">AutoStationaryTransformer</code> in <code class="inlineCode">src.transforms.target_transformations</code>. </p>
+    <p class="normal">The following flow chart explains the logic of this in an automated way:</p>
+    <figure class="mediaobject"><img src="../Images/B22389_07_06.png" alt="Figure 7.5 – Flow chart for AutoStationaryTransformer "/></figure>
+    <p class="packt_figref">Figure 7.6: Flow chart for AutoStationaryTransformer</p>
+    <p class="normal">We have excluded differencing from this implementation for two reasons:</p>
+    <ul>
+      <li class="bulletList">Differencing, in the context of predictions, comes with considerable baggage of technical debt. If you do differencing, you are inherently making it difficult to carry out multi-step forecasting. It is possible, but just more difficult and less flexible.</li>
+      <li class="bulletList">Differencing can be looked at as a different way of doing what we have done here. This is because differencing removes linear trends and seasonal differencing removes seasonality as well. So, for autoregressive time series, differencing can do a lot and deserves to be a standalone transformation.</li>
+    </ul>
+    <p class="normal">Now, let’s see what parameters we can use to tweak <code class="inlineCode">AutoStationaryTransformer</code>:</p>
+    <ul>
+      <li class="bulletList"><code class="inlineCode">confidence</code>: This is the confidence level for the statistical tests. It defaults to <code class="inlineCode">0.05</code>.</li>
+      <li class="bulletList"><code class="inlineCode">seasonal_period</code>: This is the number of periods after which the seasonality cycle repeats itself. If it is set to <code class="inlineCode">None</code>, <code class="inlineCode">seasonal_period</code> will be inferred from the data. It defaults to <code class="inlineCode">None</code>.</li>
+      <li class="bulletList"><code class="inlineCode">seasonality_max_lags</code>: This is only used if <code class="inlineCode">seasonality_period</code> is not given. This sets the maximum lags within which we search for seasonality. It defaults to <code class="inlineCode">None</code>.</li>
+      <li class="bulletList"><code class="inlineCode">trend_check_params</code>: These are the parameters that are used in the statistical tests for trends. <code class="inlineCode">check_trend</code> defaults to <code class="inlineCode">{"mann_kendall": False}</code>.</li>
+      <li class="bulletList"><code class="inlineCode">detrender_params</code>: These are the parameters passed to <code class="inlineCode">DetrendingTransformer</code>. This defaults to <code class="inlineCode">{"degree":1}</code>.</li>
+      <li class="bulletList"><code class="inlineCode">deseasonalizer_params</code>: The parameters passed to <code class="inlineCode">DeseasonalizingTransformer</code>. <code class="inlineCode">seasonality_extraction</code> are fixed as <code class="inlineCode">period_averages</code>.</li>
+      <li class="bulletList"><code class="inlineCode">box_cox_params</code>: These are the parameters that are passed to <code class="inlineCode">BoxCoxTransformer</code>. They default to <code class="inlineCode">{"optimization": "guerrero"}</code>.</li>
+    </ul>
+    <p class="normal">Let’s <a id="_idIndexMarker593"/>apply this <code class="inlineCode">AutoStationaryTransformer</code> to a <a id="_idIndexMarker594"/>synthetic time series and see how well it works (full code in the associated notebook):</p>
+    <pre class="programlisting code"><code class="hljs-code"><span class="hljs-keyword">from</span> src.transforms.target_transformations <span class="hljs-keyword">import</span> AutoStationaryTransformer
+auto_stationary = AutoStationaryTransformer(seasonal_period=<span class="hljs-number">25</span>)
+y_stat = auto_stationary.fit_transform(y_final)
+</code></pre>
+    <figure class="mediaobject"><img src="../Images/B22389_07_07.png" alt=""/></figure>
+    <p class="packt_figref">Fig 7.7: AutoStationaryTransformer—Before and after</p>
+    <p class="normal">We can <a id="_idIndexMarker595"/>see that the <code class="inlineCode">AutoStationaryTransformer</code> has deseasonalized and de-trended the time series. In this particular <a id="_idIndexMarker596"/>example, Detrending, Deseasonalizing, and Box-Cox Transformation were applied by the <code class="inlineCode">AutoStationaryTransformer</code>.</p>
+    <p class="normal">Now, let’s apply this automatic transformation to the dataset we have been working with:</p>
+    <pre class="programlisting code"><code class="hljs-code">train_df = pd.read_parquet(preprocessed/<span class="hljs-string">"selected_blocks_train_missing_imputed_feature_engg.parquet"</span>)
+transformer_pipelines = {}
+<span class="hljs-keyword">for</span> _<span class="hljs-built_in">id</span> <span class="hljs-keyword">in</span> tqdm(train_df[<span class="hljs-string">"LCLid"</span>].unique()):
+    <span class="hljs-comment">#Initialize the AutoStationaryTransformer with a seasonality period of 48*7</span>
+    auto_stationary = AutoStationaryTransformer(seasonal_period=<span class="hljs-number">48</span>*<span class="hljs-number">7</span>)
+    <span class="hljs-comment">#Creating the timeseries with datetime index</span>
+    y = train_df.loc[train_df[<span class="hljs-string">"LCLid"</span>]==_<span class="hljs-built_in">id</span>, [<span class="hljs-string">"energy_consumption"</span>,<span class="hljs-string">"timestamp"</span>]].set_index(<span class="hljs-string">"timestamp"</span>)
+    <span class="hljs-comment">#Fitting and transforming the train</span>
+    y_stat = auto_stationary.fit_transform(y, freq=<span class="hljs-string">"30min"</span>)
+    <span class="hljs-comment"># Setting the transformed series back to the dataframe</span>
+    train_df.loc[train_df[<span class="hljs-string">"LCLid"</span>]==_<span class="hljs-built_in">id</span>, <span class="hljs-string">"energy_consumption"</span>] = y_stat.values
+    <span class="hljs-comment">#Saving the pipeline</span>
+    transformer_pipelines[_<span class="hljs-built_in">id</span>] = auto_stationary
+</code></pre>
+    <p class="normal">The code to execute this is split into two notebooks called <code class="inlineCode">02-Dealing_with_Non-Stationarity.ipynb</code> and <code class="inlineCode">02a-Dealing_with_Non-Stationarity-Train+Val.ipynb</code> in the <code class="inlineCode">Chapter06</code> folder. The former does the auto-stationary transformation on the train data, while the <a id="_idIndexMarker597"/>latter does it on train and validation <a id="_idIndexMarker598"/>data combined. This is to simulate how we would predict for validation data (by just using train data for training) and for test data (where we use the train and validation data for training).</p>
+    <p class="normal">This process is slightly time-consuming. I suggest that you run the notebook, grab lunch or a snack, and come back. Once it’s done, the <code class="inlineCode">02-Dealing_with_Non-Stationarity.ipynb</code> notebook will save a couple of files:</p>
+    <ul>
+      <li class="bulletList"><code class="inlineCode">selected_blocks_train_auto_stat_target.parquet</code>: A DataFrame that has <code class="inlineCode">LCLid</code> and <code class="inlineCode">timestamp</code> as indices and the transformed target</li>
+      <li class="bulletList"><code class="inlineCode">auto_transformer_pipelines_train.pkl</code>: A Python dictionary of <code class="inlineCode">AutoStationaryTransformer</code> for each <code class="inlineCode">LCLid</code> so that we can reverse the transformations in the future</li>
+    </ul>
+    <p class="normal">The <code class="inlineCode">02a-Dealing_with_Non-Stationarity-Train+Val.ipynb</code> notebook also saves the corresponding files for the train and validation datasets.</p>
+    <p class="normal">The dataset we are working on has almost negligible trends and is pretty stationary throughout. The impact of these transformations will be more evident in time series with strong trends and heteroscedasticity.</p>
+    <div class="packt_tip">
+      <p class="normal"><strong class="keyWord">Best practice</strong>:</p>
+      <p class="normal">This kind of explicit detrending and deseasonalizing before modeling can also be seen as a form of <strong class="keyWord">boosting</strong>. This should be considered as just another alternative to <a id="_idIndexMarker599"/>modeling all of this together. There can be situations where letting the model learn from end to end in a data-driven manner performs better than injecting these strong inductive biases using explicit detrending and deseasonalization and vice versa. Cross-validated test scores should always have the last word.</p>
+    </div>
+    <p class="normal">Congratulations <a id="_idIndexMarker600"/>on making it through a heavy <a id="_idIndexMarker601"/>chapter full of new concepts, some statistics, and mathematics. From the point of view of applying ML models for time series, the concepts in this chapter will be really helpful in taking your models to the next level.</p>
+    <h1 id="_idParaDest-174" class="heading-1">Summary</h1>
+    <p class="normal">After getting down to a practical level in the previous chapter, we stayed there and plowed on to review concepts such as stationarity and how to deal with such non-stationary time series. We learned about techniques we can use to explicitly handle non-stationary time series, such as differencing, detrending, deseasonalizing, and so on. To put this all together, we saw an automatic way of transforming the target, learned how to use the implementation provided, and applied it to our dataset. Now that we have the necessary skills to effectively transform a time series into an ML dataset, in the next chapter, we will start applying a few ML models to the dataset using the features we’ve created.</p>
+    <h1 id="_idParaDest-175" class="heading-1">References</h1>
+    <p class="normal">The following are the references for this chapter:</p>
+    <ol>
+      <li class="numberedList" value="1">Bayazit, M. and Önöz, B. (2007), <em class="italic">To prewhiten or not to prewhiten in trend analysis?</em>, Hydrological Sciences Journal, 52:4, 611–624. <a href="https://doi.org/10.1623/hysj.52.4.611"><span class="url">https://doi.org/10.1623/hysj.52.4.611</span></a>.</li>
+      <li class="numberedList">White, H. (1980), <em class="italic">A Heteroskedasticity-Consistent Covariance Matrix Estimator and a Direct Test for Heteroskedasticity</em>. Econometrica Vol. 48, No. 4 (May 1980), pp. 817–838 (22 pages). <a href="https://doi.org/10.2307/1912934"><span class="url">https://doi.org/10.2307/1912934</span></a>.</li>
+      <li class="numberedList">Box, G. E. P. and Cox, D. R. (1964), <em class="italic">An analysis of transformations</em>. Journal of the Royal Statistical Society, Series B, 26, 211–252. <a href="http://www.ime.usp.br/~abe/lista/pdfQWaCMboK68.pdf"><span class="url">http://www.ime.usp.br/~abe/lista/pdfQWaCMboK68.pdf</span></a>.</li>
+      <li class="numberedList">Guerrero, Victor M. (1993), <em class="italic">Time-series analysis supported by power transformations</em>. Journal of Forecasting, Volume 12, Issue 1, 37–48. <a href="https://onlinelibrary.wiley.com/doi/10.1002/for.3980120104"><span class="url">https://onlinelibrary.wiley.com/doi/10.1002/for.3980120104</span></a>.</li>
+    </ol>
+    <h1 id="_idParaDest-176" class="heading-1">Further reading</h1>
+    <p class="normal">To learn more about the topics that were covered in this chapter, take a look at the following resources:</p>
+    <ul>
+      <li class="bulletList"><em class="italic">Stationarity in time series analysis</em>, by Shay Palachy: <a href="https://towardsdatascience.com/stationarity-in-time-series-analysis-90c94f27322"><span class="url">https://towardsdatascience.com/stationarity-in-time-series-analysis-90c94f27322</span></a></li>
+      <li class="bulletList"><em class="italic">Comparing ADF Test Functions in R</em>, by Fabian Kostadinov (the same concepts can be implemented in Python as well): <a href="https://fabian-kostadinov.github.io/2015/01/27/comparing-adf-test-functions-in-r/"><span class="url">https://fabian-kostadinov.github.io/2015/01/27/comparing-adf-test-functions-in-r/</span></a></li>
+      <li class="bulletList"><em class="italic">Kendall’s Tau</em>: <a href="https://www.statisticshowto.com/kendalls-tau/"><span class="url">https://www.statisticshowto.com/kendalls-tau/</span></a></li>
+      <li class="bulletList">Mann-Kendall trend test: <a href="https://www.statisticshowto.com/wp-content/uploads/2016/08/Mann-Kendall-Analysis-1.pdf"><span class="url">https://www.statisticshowto.com/wp-content/uploads/2016/08/Mann-Kendall-Analysis-1.pdf</span></a></li>
+      <li class="bulletList"><em class="italic">Theil-Sen estimator</em>: <a href="https://en.wikipedia.org/wiki/Theil%E2%80%93Sen_estimator"><span class="url">https://en.wikipedia.org/wiki/Theil%E2%80%93Sen_estimator</span></a></li>
+      <li class="bulletList"><em class="italic">Statistical inference with correlograms</em>—Wikipedia: <a href="https://en.wikipedia.org/wiki/Correlogram#Statistical_inference_with_correlograms "><span class="url">https://en.wikipedia.org/wiki/Correlogram#Statistical_inference_with_correlograms</span></a></li>
+      <li class="bulletList"><em class="italic">White test for Heteroscedasticity Detection</em>: <a href="https://itfeature.com/hetero/white-test-of-heteroscedasticity/"><span class="url">https://itfeature.com/hetero/white-test-of-heteroscedasticity/</span></a></li>
+    </ul>
+    <h1 class="heading-1">Join our community on Discord</h1>
+    <p class="normal">Join our community’s Discord space for discussions with authors and other readers:</p>
+    <p class="normal"><a href="https://packt.link/mts"><span class="url">https://packt.link/mts</span></a></p>
+    <p class="normal"><img src="../Images/QR_Code15080603222089750.png" alt=""/></p>
+  </div>
+</body></html>

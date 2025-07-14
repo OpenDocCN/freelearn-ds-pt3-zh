@@ -1,0 +1,461 @@
+<html><head></head><body>
+  <div id="_idContainer585" class="Basic-Text-Frame">
+    <h1 class="chapterNumber">13</h1>
+    <h1 id="_idParaDest-288" class="chapterTitle">Common Modeling Patterns for Time Series</h1>
+    <p class="normal">We reviewed a few major and common building blocks of a <strong class="keyWord">deep learning</strong> (<strong class="keyWord">DL</strong>) system, specifically suited for time series, in the last chapter. Now that we know what those blocks are, it’s time for a more practical lesson. Let’s see how we can put these common blocks together in the various ways in which time series forecasting is modeled using the dataset we have been working with all through this book.</p>
+    <p class="normal">In this chapter, we will be covering these main topics:</p>
+    <ul>
+      <li class="bulletList">Tabular regression</li>
+      <li class="bulletList">Single-step-ahead recurrent neural networks</li>
+      <li class="bulletList">Sequence-to-sequence models</li>
+    </ul>
+    <h1 id="_idParaDest-289" class="heading-1">Technical requirements</h1>
+    <p class="normal">You will need to set up the <code class="inlineCode">Anaconda</code> environment following the instructions in the <em class="italic">Preface</em> of the book to get a working environment with all the libraries and datasets required for the code in this book. Any additional libraries will be installed while running the notebooks.</p>
+    <p class="normal">You need to run the following notebooks for this chapter:</p>
+    <ul>
+      <li class="bulletList"><code class="inlineCode">02-Preprocessing_London_Smart_Meter_Dataset.ipynb</code> in <code class="inlineCode">Chapter02</code></li>
+      <li class="bulletList"><code class="inlineCode">01-Setting_up_Experiment_Harness.ipynb</code> in <code class="inlineCode">Chapter04</code></li>
+      <li class="bulletList"><code class="inlineCode">01-Feature_Engineering.ipynb</code> in <code class="inlineCode">Chapter06</code></li>
+      <li class="bulletList"><code class="inlineCode">00-Single_Step_Backtesting_Baselines.ipynb</code>, <code class="inlineCode">01-Forecasting_with_ML.ipynb</code>, and <code class="inlineCode">02-Forecasting_with_Target_Transformation.ipynb</code> in <code class="inlineCode">Chapter08</code></li>
+      <li class="bulletList"><code class="inlineCode">01-Global_Forecasting_Models-ML.ipynb</code> in <code class="inlineCode">Chapter10</code></li>
+    </ul>
+    <p class="normal">The associated code for the chapter can be found at <a href="https://github.com/PacktPublishing/Modern-Time-Series-Forecasting-with-Python-/tree/main/notebooks/Chapter13"><span class="url">https://github.com/PacktPublishing/Modern-Time-Series-Forecasting-with-Python-/tree/main/notebooks/Chapter13</span></a>.</p>
+    <h1 id="_idParaDest-290" class="heading-1">Tabular regression</h1>
+    <p class="normal">In <em class="chapterRef">Chapter 5</em>, <em class="italic">Time Series Forecasting as Regression</em>, we saw how we can convert a time series<a id="_idIndexMarker1008"/> problem into a standard regression problem with temporal embedding and time delay embedding. In <em class="chapterRef">Chapter 6</em>, <em class="italic">Feature Engineering for Time Series Forecasting</em>, we have already created the necessary features for the household energy consumption dataset we have been working on, and in <em class="chapterRef">Chapter 8</em>, <em class="italic">Forecasting Time Series with Machine Learning Models</em>, <em class="chapterRef">Chapter 9</em>, <em class="italic">Ensembling and Stacking</em>, and <em class="chapterRef">Chapter 10</em>, <em class="italic">Global Forecasting Models</em>, we used traditional <strong class="keyWord">machine learning</strong> (<strong class="keyWord">ML</strong>) models to create a forecast.</p>
+    <p class="normal">Just as we used standard ML models for forecasting, we can also use DL models built for tabular data using the feature-engineered dataset we have created. We already talked about data-driven methods and how they are better when given larger amounts of data. DL models take that paradigm even further and enable us to learn highly data-driven models. One of the advantages of using a DL model in this setting, over the ML models, is the flexibility DL offers us. All through <em class="italic">Chapters 8</em>, <em class="italic">9</em>, and<em class="italic"> 10</em>, we only saw how we can create single-step-ahead forecasting using ML models. We have a separate section on multi-step forecasting in <em class="italic">Chapter 18,</em>where we go into detail on different strategies with which we can generate multi-step forecasts, and we address one of the limitations of standard ML models in multi-step forecasting. But right now, let’s just understand that standard ML models are designed to have a single output and, because of that fact, getting multi-step forecasts is not straightforward. But with tabular DL models, we have the flexibility to train the model to predict multiple targets, and this enables us to generate multi-step forecasts easily.</p>
+    <p class="normal">PyTorch Tabular<a id="_idIndexMarker1009"/> is an open-source library (<a href="https://github.com/manujosephv/pytorch_tabular"><span class="url">https://github.com/manujosephv/pytorch_tabular</span></a>) that<a id="_idIndexMarker1010"/> makes it easy to work with DL models in the tabular data domain, and it also has ready-to-use implementations of many state-of-the-art DL models. We are going to use PyTorch Tabular to generate forecasts using the feature-engineered datasets we created in <em class="chapterRef">Chapter 6</em>, <em class="italic">Feature Engineering for Time Series Forecasting</em>.</p>
+    <p class="normal">PyTorch Tabular<a id="_idIndexMarker1011"/> has very detailed documentation and tutorials to get you started here: <a href="https://pytorch-tabular.readthedocs.io/en/latest/"><span class="url">https://pytorch-tabular.readthedocs.io/en/latest/</span></a>. Although we won’t be going into detail on all the intricacies of the library, we will look at how we can use a bare-bones version to generate a forecast on the dataset we are working on using a <code class="inlineCode">FTTransformer</code> model. <code class="inlineCode">FTTransformer</code> is one of the state-of-the-art DL models for tabular data. DL for tabular data is a whole different kind of model, and I’ve linked a blog post in the <em class="italic">Further reading</em> section as a primer to the field of study. For our purposes, we can treat them as any standard ML model in scikit-learn.</p>
+    <div class="note">
+      <p class="normal"><strong class="keyWord">Notebook alert:</strong></p>
+      <p class="normal">To follow along with the complete code, use the notebook named <code class="inlineCode">01-Tabular_Regression.ipynb</code> in the <code class="inlineCode">Chapter13</code> folder and the code in the <code class="inlineCode">src</code> folder.</p>
+    </div>
+    <p class="normal">We start off, pretty much like before, by loading the libraries and necessary datasets. Just one additional thing we are doing here is that instead of taking the same selection of blocks we worked with in <em class="chapterRef">Part 2</em>, <em class="italic">Machine Learning for Time Series</em>, we take smaller data by selecting half the number of blocks as before. </p>
+    <p class="normal">This is done to make <a id="_idIndexMarker1012"/>the <strong class="keyWord">neural network</strong> (<strong class="keyWord">NN</strong>) training smoother and faster and for it to fit into GPU memory (if any). I’d like to stress here that this is done purely for hardware reasons, and provided we have sufficiently powerful hardware, we need not have smaller datasets for DL. On the contrary—DL loves larger datasets. But since we want to keep the focus on the modeling side, the engineering constraints and techniques in working with larger datasets have been kept outside the scope of this book.</p>
+    <pre class="programlisting code"><code class="hljs-code">uniq_blocks = train_df.file.unique().tolist()
+sel_blocks = <span class="hljs-built_in">sorted</span>(uniq_blocks, key=<span class="hljs-keyword">lambda</span> x: <span class="hljs-built_in">int</span>(x.replace(<span class="hljs-string">"block_"</span>,<span class="hljs-string">""</span>)))[:<span class="hljs-built_in">len</span>(uniq_blocks)//<span class="hljs-number">2</span>]
+train_df = train_df.loc[train_df.file.isin(sel_blocks)]
+test_df = test_df.loc[test_df.file.isin(sel_blocks)]
+sel_lclids = train_df.LCLid.unique().tolist()
+</code></pre>
+    <p class="normal">After handling the missing values, we are ready to start using PyTorch Tabular. We first import the necessary classes from the library, like so:</p>
+    <pre class="programlisting code"><code class="hljs-code"><span class="hljs-keyword">from</span> pytorch_tabular.config <span class="hljs-keyword">import</span> DataConfig, OptimizerConfig, TrainerConfig
+<span class="hljs-keyword">from</span> pytorch_tabular.models <span class="hljs-keyword">import</span> FTTransformerConfig
+<span class="hljs-keyword">from</span> pytorch_tabular <span class="hljs-keyword">import</span> TabularModel
+</code></pre>
+    <p class="normal">PyTorch Tabular uses a set of config files to define the parameters required <a id="_idIndexMarker1013"/>for running the model, and these configs include everything from how the <code class="inlineCode">DataFrame</code> is configured to what kind of preprocessing needs to be applied, what kind of training we need to do, what model we need to use, what the hyperparameters of the model are, and so on. Let’s see how we can define a bare-bones configuration (because PyTorch Tabular makes use of intelligent defaults wherever possible to make the usage easier for the practitioner):</p>
+    <pre class="programlisting code"><code class="hljs-code">data_config = DataConfig(
+    target=[target], <span class="hljs-comment">#target should always be a list</span>
+    continuous_cols=[
+        <span class="hljs-string">"visibility"</span>,
+        <span class="hljs-string">"windBearing"</span>,
+        …
+        <span class="hljs-string">"timestamp_Is_month_start"</span>,
+    ],
+    categorical_cols=[
+        <span class="hljs-string">"holidays"</span>,
+        …
+        <span class="hljs-string">"LCLid"</span>
+    ],
+    normalize_continuous_features=<span class="hljs-literal">True</span>
+)
+trainer_config = TrainerConfig(
+    auto_lr_find=<span class="hljs-literal">True</span>, <span class="hljs-comment"># Runs the LRFinder to automatically derive a learning rate</span>
+    batch_size=<span class="hljs-number">1024</span>,
+    max_epochs=<span class="hljs-number">1000</span>,
+    auto_select_gpus=<span class="hljs-literal">True</span>,
+    gpus=-<span class="hljs-number">1</span>
+)
+optimizer_config = OptimizerConfig()
+</code></pre>
+    <p class="normal">We use a very high <code class="inlineCode">max_epochs</code> parameter in <code class="inlineCode">TrainerConfig</code> because, by default, PyTorch Tabular employs a technique called <strong class="keyWord">early stopping</strong>, where we continuously keep track of the performance on a validation set and stop the training when the validation loss starts to increase.</p>
+    <p class="normal">Selecting which model to use from the implemented models in PyTorch Tabular is as simple as choosing the right configuration. Each model is associated with a configuration that defines the <a id="_idIndexMarker1014"/>hyperparameters of the model. So, just by using that configuration, PyTorch Tabular understands which model the user wants to use. Let’s choose the <code class="inlineCode">FTTransformerConfig</code> model and define a few hyperparameters:</p>
+    <pre class="programlisting code"><code class="hljs-code">model_config = FTTransformerConfig(
+    task=<span class="hljs-string">"regression"</span>,
+    num_attn_blocks=<span class="hljs-number">3</span>,
+    num_heads=<span class="hljs-number">4</span>,
+    transformer_head_dim=<span class="hljs-number">64</span>,
+    attn_dropout=<span class="hljs-number">0.2</span>,
+    ff_dropout=<span class="hljs-number">0.1</span>,
+    out_ff_layers=<span class="hljs-string">"32"</span>,
+    metrics=[<span class="hljs-string">"mean_squared_error"</span>]
+)
+</code></pre>
+    <p class="normal">The main and only mandatory parameter here is <code class="inlineCode">task</code>, which tells PyTorch Tabular whether it is a <em class="italic">regression</em> or <em class="italic">classification</em> task.</p>
+    <div class="note">
+      <p class="normal">Although PyTorch Tabular provides the best defaults, we only set these parameters to make the training faster and fit into the memory of the GPU we are running on. If you are not running the notebook on a machine with a GPU, choosing a smaller and faster model such as <code class="inlineCode">CategoryEmbeddingConfig</code> would be better.</p>
+    </div>
+    <p class="normal">Now, all that is left to do is put all these configs together in a class called <code class="inlineCode">TabularModel</code>, which is the workhorse of the library, and as with any scikit-learn model, call <code class="inlineCode">fit</code> on the object. But, unlike a scikit-learn model, you don’t need to split <code class="inlineCode">x</code> and <code class="inlineCode">y</code>; we just need to provide the <code class="inlineCode">DataFrame</code>, as follows:</p>
+    <pre class="programlisting code"><code class="hljs-code">tabular_model.fit(train=train_df)
+</code></pre>
+    <p class="normal">Once the training is complete, you can save the model by running the following code:</p>
+    <pre class="programlisting code"><code class="hljs-code">tabular_model.save_model(<span class="hljs-string">"notebooks/Chapter13/ft_transformer_global"</span>)
+</code></pre>
+    <p class="normal">If for any reason you have to close your notebook instance after training, you can always load the model back by using the following code:</p>
+    <pre class="programlisting code"><code class="hljs-code">tabular_model = TabularModel.load_from_checkpoint(<span class="hljs-string">"notebooks/Chapter13/ft_transformer_global"</span>)
+</code></pre>
+    <p class="normal">This<a id="_idIndexMarker1015"/> way, you don’t need to spend a lot of time training the model again, but instead, use it for prediction.</p>
+    <p class="normal">Now, all that is left is to make predictions using the unseen data and evaluate the performance. Here’s how we can do this:</p>
+    <pre class="programlisting code"><code class="hljs-code">forecast_df = tabular_model.predict(test_df)
+agg_metrics, eval_metrics_df = evaluate_forecast(
+    y_pred=forecast_df[<span class="hljs-string">f"</span><span class="hljs-subst">{target}</span><span class="hljs-string">_prediction"</span>],
+    test_target=forecast_df[<span class="hljs-string">"energy_consumption"</span>],
+    train_target=train_df[<span class="hljs-string">"energy_consumption"</span>],
+    model_name=model_config._model_name,
+)
+</code></pre>
+    <p class="normal">We have used the untuned global forecasting model with metadata that we trained in <em class="chapterRef">Chapter 10</em>, <em class="italic">Global Forecasting Models</em>, as the baseline against which we can do a cursory check on how well the DL model is doing, as illustrated in the following screenshot:</p>
+    <figure class="mediaobject"><img src="../Images/B22389_13_01.png" alt="Figure 13.1 – Evaluation of the DL-based tabular regression "/></figure>
+    <p class="packt_figref">Figure 13.1: Evaluation of the DL-based tabular regression</p>
+    <p class="normal">We can see that the <code class="inlineCode">FTTransformer</code> model is competitive with the <code class="inlineCode">LightGBM</code> model we trained in <em class="chapterRef">Chapter 10</em>. Maybe, with the right amount of tuning and partitioning, the <code class="inlineCode">FTTransformer</code> model can do as well as or better than the <code class="inlineCode">LightGBM</code> model. Training a competitive DL model in the same way as <code class="inlineCode">LightGBM</code> is useful in many ways. First, it provides flexibility and trains the model to predict multiple timesteps at once. Second, this can also be combined with the <code class="inlineCode">LightGBM</code> model in an ensemble, and because of the variety the DL<a id="_idIndexMarker1016"/> model brings to the mix, this can make the ensemble performance better.</p>
+    <div class="packt_tip">
+      <p class="normal"><strong class="keyWord">Things to try:</strong></p>
+      <p class="normal">Use PyTorch Tabular’s documentation and play around with other models or change the parameters to see how the performance changes.</p>
+      <p class="normal">Select a few households and plot them to see how well the forecast matches up to the targets.</p>
+    </div>
+    <p class="normal">Now, let’s look at how we can use <strong class="keyWord">recurrent neural networks</strong> (<strong class="keyWord">RNNs</strong>) for single-step-ahead forecasting.</p>
+    <h1 id="_idParaDest-291" class="heading-1">Single-step-ahead recurrent neural networks</h1>
+    <p class="normal">Although <a id="_idIndexMarker1017"/>we took a little detour to check out how DL regression models can be used to train the same global models we learned about in <em class="chapterRef">Chapter 10</em>, <em class="italic">Global Forecasting Models</em>, now we are back to looking at DL models and architectures specifically built for time series. As always, we will look at simple one-step-ahead and local models first before moving on to more complex modeling paradigms. In fact, we have another chapter (<em class="chapterRef">Chapter 15</em>, <em class="italic">Strategies for Global Deep Learning Forecasting Models</em>) entirely devoted to techniques we can use to train global DL models.</p>
+    <p class="normal">Now, let’s bring our<a id="_idIndexMarker1018"/> attention back to one-step-ahead local models. We saw RNNs (vanilla RNN, <strong class="keyWord">long short-term memory</strong> (<strong class="keyWord">LSTM</strong>), and <strong class="keyWord">gated recurrent unit</strong> (<strong class="keyWord">GRU</strong>)) as <a id="_idIndexMarker1019"/>a few blocks we can use for sequences such as time series. Now, let’s see how we can use them in an <strong class="keyWord">end-to-end</strong> (<strong class="keyWord">E2E</strong>) model on the <a id="_idIndexMarker1020"/>dataset we have been working on (the <em class="italic">London smart meters</em> dataset).</p>
+    <p class="normal">Although we will be looking at a few libraries (such as <code class="inlineCode">darts</code>) that make the process of training DL models for time series forecasting easier, in this chapter, we will be looking at how to develop such models from scratch. Understanding how a DL model for time series forecasting is put together from the ground up will give you a good grasp of the concepts that are needed to use and tweak the libraries that we will be looking at later.</p>
+    <p class="normal">We will be using PyTorch, and if you are not comfortable, I suggest you head to <em class="chapterRef">Chapter 12</em>, <em class="italic">Building Blocks of Deep Learning for Time Series</em>, and the associated notebooks for a quick refresher. On top of that, we are also going to use PyTorch Lightning, which is another library built on top of PyTorch to make training models using PyTorch easy, among other benefits.</p>
+    <p class="normal">We talked about <em class="italic">time delay embedding</em> in <em class="chapterRef">Chapter 5</em>, <em class="italic">Time Series Forecasting as Regression</em>, where we discussed using a window in time to embed the time series into a format more suitable for regression. When training NNs for time series forecasting also, we need such windows. Suppose we are training on a single time series. We can give this super-long time series to an RNN as is, but then it only becomes one sample in the dataset. And with just one sample in the dataset, it’s close to impossible to train any ML or DL models. So, it’s advisable to sample multiple windows from the time series to convert the time series into a number of data samples in a process that is very similar to time delay embedding. This window also sets the memory of the DL model.</p>
+    <p class="normal">The <a id="_idIndexMarker1021"/>first step we need to take is to create a PyTorch dataset that takes the raw time series and prepares these samples’ windows. A dataset is like an iterator over the data that gives us samples corresponding to a provided index. Defining a custom dataset for PyTorch is as simple as defining a class that takes in a few arguments (data being one of them) and defining two mandatory methods in the class, as follows:</p>
+    <ul>
+      <li class="bulletList"><code class="inlineCode">__len__(self)</code>: This sets the maximum number of samples in the dataset.</li>
+      <li class="bulletList"><code class="inlineCode">__get_item__(self, idx)</code>: This picks the <code class="inlineCode">idx</code><sup class="superscript">th</sup> sample from the dataset.</li>
+    </ul>
+    <p class="normal">We have defined a dataset in <code class="inlineCode">src/dl/dataloaders.py</code> with the name <code class="inlineCode">TimeSeriesDataset</code>, which<a id="_idIndexMarker1022"/> takes in the following parameters:</p>
+    <ul>
+      <li class="bulletList"><code class="inlineCode">Data</code>: This argument can either be a pandas DataFrame or a NumPy array with the time series. This is the entire time series, including train, validation, and test, and the splits occur inside the class.</li>
+      <li class="bulletList"><code class="inlineCode">window</code>: This sets the length of each sample.</li>
+      <li class="bulletList"><code class="inlineCode">horizon</code>: This sets the number of future timesteps we want to get as the target.</li>
+      <li class="bulletList"><code class="inlineCode">n_val</code>: This parameter can either be a <code class="inlineCode">float</code> or an <code class="inlineCode">int</code> data type. If <code class="inlineCode">int</code>, it represents the number of timesteps to be reserved as validation data. If <code class="inlineCode">float</code>, this represents the percent of total data to be reserved as validation data.</li>
+      <li class="bulletList"><code class="inlineCode">n_test</code>: This parameter is similar to <code class="inlineCode">n_val</code>, but does the same for test data.</li>
+      <li class="bulletList"><code class="inlineCode">normalize</code>: This parameter defines how we want to normalize the data. This takes in three options: <code class="inlineCode">none</code> means no normalizing and <code class="inlineCode">global</code> means we calculate the<a id="_idIndexMarker1023"/> mean and standard deviation of the train data and use it to standardize the entire series using this equation:</li>
+    </ul>
+    <p class="center"><img src="../Images/B22389_13_001.png" alt=""/></p>
+    <p class="normal-one"><code class="inlineCode">local</code> means we use the window mean and standard deviation to standardize the series.</p>
+    <ul>
+      <li class="bulletList"><code class="inlineCode">normalize_params</code>: This parameter takes in a tuple of mean and standard deviations. If provided, this can be used to standardize in <em class="italic">global</em> standardization. This is typically used to use the train mean and standard deviation on validation and test data as well.</li>
+      <li class="bulletList"><code class="inlineCode">mode</code>: This parameter sets which dataset we want to make. It takes in one of three values: <code class="inlineCode">train</code>, <code class="inlineCode">val</code>, or <code class="inlineCode">test</code>.</li>
+    </ul>
+    <p class="normal">Each sample<a id="_idIndexMarker1024"/> from this dataset returns to you two tensors—the window (<em class="italic">X</em>) and the corresponding target (<em class="italic">Y</em>) (see <em class="italic">Figure 13.2</em>):</p>
+    <figure class="mediaobject"><img src="../Images/B22389_13_02.png" alt="Figure 13.2 – Sampling the time series using a dataset and dataloader "/></figure>
+    <p class="packt_figref">Figure 13.2: Sampling the time series using a dataset and dataloader</p>
+    <p class="normal">Now that <a id="_idIndexMarker1025"/>we have the dataset defined, we need another PyTorch artifact <a id="_idIndexMarker1026"/>called a dataloader. A dataloader uses the dataset to pick samples into a batch of samples, among other things. In the PyTorch Lightning ecosystem, we have another concept called a datamodule, which is a standard way of generating dataloaders. We need train dataloaders, validation dataloaders, and test dataloaders. Datamodules provide a good abstraction to encapsulate the whole data part of the pipeline. We have defined a datamodule in <code class="inlineCode">src/dl/dataloaders.py</code> called <code class="inlineCode">TimeSeriesDataModule</code> that takes in the data along with <a id="_idIndexMarker1027"/>the batch size and prepares <a id="_idIndexMarker1028"/>the datasets and dataloaders necessary for training. The parameters are exactly the same as <code class="inlineCode">TimeSeriesDataset</code>, with <code class="inlineCode">batch_size</code> as the only additional parameter.</p>
+    <div class="note">
+      <p class="normal"><strong class="keyWord">Notebook alert:</strong></p>
+      <p class="normal">To follow along with the complete code, use the notebook named <code class="inlineCode">02-One-Step_RNN.ipynb</code> in the <code class="inlineCode">Chapter13</code> folder and the code in the <code class="inlineCode">src</code> folder.</p>
+    </div>
+    <p class="normal">We will not be going into each and every step in the notebook but will be just stressing the key points. The code in the notebook is well commented, and we urge you to follow the code along with the book.</p>
+    <p class="normal">We have already sampled a household from the data, and now, let’s see how we can define a datamodule:</p>
+    <pre class="programlisting code"><code class="hljs-code">datamodule = TimeSeriesDataModule(data = sample_df[[target]],
+        n_val = sample_val_df.shape[<span class="hljs-number">0</span>],
+        n_test = sample_test_df.shape[<span class="hljs-number">0</span>],
+        window = <span class="hljs-number">48</span>, <span class="hljs-comment"># giving enough memory to capture daily seasonality</span>
+        horizon = <span class="hljs-number">1</span>, <span class="hljs-comment"># single step</span>
+        normalize = <span class="hljs-string">"global"</span>, <span class="hljs-comment"># normalizing the data</span>
+        batch_size = <span class="hljs-number">32</span>,
+        num_workers = <span class="hljs-number">0</span>)
+datamodule.setup()
+</code></pre>
+    <p class="normal"><code class="inlineCode">datamodule.setup()</code> is the method that calculates and sets up the dataloaders. Now, we can access the train dataloader by simply calling <code class="inlineCode">datamodule.train_dataloader()</code>, and similarly, validation and test by <code class="inlineCode">val_dataloader</code> and <code class="inlineCode">test_dataloader</code> methods, respectively. We can access the samples as follows:</p>
+    <pre class="programlisting code"><code class="hljs-code"><span class="hljs-comment"># Getting a batch from the train_dataloader</span>
+<span class="hljs-keyword">for</span> batch <span class="hljs-keyword">in</span> datamodule.train_dataloader():
+    x, y = batch
+    <span class="hljs-keyword">break</span>
+<span class="hljs-built_in">print</span>(<span class="hljs-string">"Shape of x: "</span>,x.shape) <span class="hljs-comment">#-&gt; torch.Size([32, 48, 1])</span>
+<span class="hljs-built_in">print</span>(<span class="hljs-string">"Shape of y: "</span>,y.shape) <span class="hljs-comment">#-&gt; torch.Size([32, 1, 1])</span>
+</code></pre>
+    <p class="normal">We can see that each sample has two tensors—<code class="inlineCode">x</code> and <code class="inlineCode">y</code>. There are three dimensions for the tensors, and they correspond to <em class="italic">batch size</em>, <em class="italic">sequence length</em>, and <em class="italic">features</em>.</p>
+    <p class="normal">Now that <a id="_idIndexMarker1029"/>we have the data pipeline ready, we need to build out the modeling and <a id="_idIndexMarker1030"/>training pipelines. PyTorch Lightning has a standard way of defining these so that they can be plugged into the training engine they provide (which makes our life so much easier). The PyTorch Lightning <a id="_idIndexMarker1031"/>documentation (<a href="https://pytorch-lightning.readthedocs.io/en/latest/starter/introduction.html"><span class="url">https://pytorch-lightning.readthedocs.io/en/latest/starter/introduction.html</span></a>) has good resources to get started with and to go into depth on as well. We have also linked to a video in the <em class="italic">Further reading</em> section that makes the transition from pure PyTorch to PyTorch Lightning easy. I strongly urge you to take some time to familiarize yourself with it.</p>
+    <p class="normal">When defining a model in PyTorch, a standard method called <code class="inlineCode">forward</code> is the only mandatory method you have to define, apart from <code class="inlineCode">__init__</code>. This is because the training loop is something that we will have to write on our own. In the <code class="inlineCode">01-PyTorch_Basics.ipynb</code> notebook for <em class="chapterRef">Chapter 12</em>, <em class="italic">Building Blocks of Deep Learning for Time Series</em>, we saw how we can write a PyTorch model and a training loop to train a simple classifier. But now that we are delegating the training loop to PyTorch Lightning, we have to include a few additional methods as well:</p>
+    <ul>
+      <li class="bulletList"><code class="inlineCode">training_step</code>: This method takes in a batch and uses the model to get the outputs, calculate the loss/metrics, and return the loss.</li>
+      <li class="bulletList"><code class="inlineCode">validation_step</code> and <code class="inlineCode">test_step</code>: These methods take in the batch and use the model to get the outputs and calculate the loss/metrics.</li>
+      <li class="bulletList"><code class="inlineCode">predict_step</code>: This method is used to define the step to be taken while inferencing. If there is anything special we have to do for inferencing, we can define this method. If this is not defined, it uses <code class="inlineCode">test_step</code> for the prediction use case as well.</li>
+      <li class="bulletList"><code class="inlineCode">configure_optimizers</code>: This method defines the optimizer to be used, for instance, <code class="inlineCode">Adam</code> or <code class="inlineCode">RMSProp</code>.</li>
+    </ul>
+    <p class="normal">We have defined a <code class="inlineCode">BaseModel</code> class in <code class="inlineCode">src/dl/models.py</code> that implements all the common functions, such as loss and metric calculation and result logging, as a framework to implement new models. Using this <code class="inlineCode">BaseModel</code> class, we have defined a <code class="inlineCode">SingleStepRNNModel</code> class that takes in a standard config (<code class="inlineCode">SingleStepRNNConfig</code>) and initializes an RNN, LSTM, or GRU model.</p>
+    <p class="normal">Before we look at how the model is defined, let’s see what the <a id="_idIndexMarker1032"/>different config (<code class="inlineCode">SingleStepRNNConfig</code>) parameters are:</p>
+    <ul>
+      <li class="bulletList"><code class="inlineCode">rnn_type</code>: This parameter takes in one of three strings as input: <code class="inlineCode">RNN</code>, <code class="inlineCode">GRU</code>, or <code class="inlineCode">LSTM</code>. This defines what kind of model we will initialize.</li>
+      <li class="bulletList"><code class="inlineCode">input_size</code>: This parameter defines the number of features the RNN is expecting.</li>
+      <li class="bulletList"><code class="inlineCode">hidden_size</code>, <code class="inlineCode">num_layers</code>, and <code class="inlineCode">bidirectional</code>: These parameters are the same as the ones we saw in the RNN cell in <em class="chapterRef">Chapter 12</em>, <em class="italic">Building Blocks of Deep Learning for Time Series</em>.</li>
+      <li class="bulletList"><code class="inlineCode">learning_rate</code>: This defines the learning rate of the optimization procedure.</li>
+      <li class="bulletList"><code class="inlineCode">optimizer_params</code>, <code class="inlineCode">lr_scheduler</code>, and <code class="inlineCode">lr_scheduler_params</code>: These are parameters that let us tweak the optimization procedure. Let’s not worry about<a id="_idIndexMarker1033"/> them for now because all of them have been set to intelligent defaults.</li>
+    </ul>
+    <p class="normal">With this setup, defining a new model is as simple as this:</p>
+    <pre class="programlisting code"><code class="hljs-code">rnn_config = SingleStepRNNConfig(
+    rnn_type=<span class="hljs-string">"RNN"</span>,
+    input_size=<span class="hljs-number">1</span>,
+    hidden_size=<span class="hljs-number">128</span>,
+    num_layers=<span class="hljs-number">3</span>,
+    bidirectional=<span class="hljs-literal">True</span>,
+    learning_rate=<span class="hljs-number">1e-3</span>,
+    seed=<span class="hljs-number">42</span>,
+)
+model = SingleStepRNNModel(rnn_config)
+</code></pre>
+    <p class="normal">Now, let’s take a peek at the <code class="inlineCode">forward</code> method, which is the heart of the model. We want our model to do one-step-ahead prediction, and from <em class="chapterRef">Chapter 12</em>, <em class="italic">Building Blocks of Deep Learning for Time Series</em>, we know what a typical RNN output is and how PyTorch RNNs just output the hidden state at each timestep. Let’s see what we want to do visually and then see how we can code it up:</p>
+    <figure class="mediaobject"><img src="../Images/B22389_13_03.png" alt="Figure 13.3 – A single-step RNN "/></figure>
+    <p class="packt_figref">Figure 13.3: A single-step RNN</p>
+    <p class="normal">Suppose we<a id="_idIndexMarker1034"/> are using the same example we saw in the dataloader—a time series with the following entries, <em class="italic">x</em><sub class="subscript">1</sub>, <em class="italic">x</em><sub class="subscript">2</sub>, <em class="italic">x</em><sub class="subscript">3</sub>, …, <em class="italic">x</em><sub class="subscript">7</sub>, and a window of three. So, one of the samples the dataloader gives will have <em class="italic">x</em><sub class="subscript">1</sub>, <em class="italic">x</em><sub class="subscript">2</sub>, and <em class="italic">x</em><sub class="subscript">3</sub> as the input (<em class="italic">x</em>) and <em class="italic">x</em><sub class="subscript">4</sub> as the target. One way we can use this is by passing the sequence through the RNN, ignoring all the outputs except the last one, and using it to predict the target, <em class="italic">x</em><sub class="subscript">4</sub>. But that is not an efficient use of the samples we have, right? We also know that the output from the first timestep (using <em class="italic">x</em><sub class="subscript">1</sub>) should output <em class="italic">x</em><sub class="subscript">2</sub>, the second timestep should output <em class="italic">x</em><sub class="subscript">3</sub>, and so on. Therefore, we can formulate the RNN in such a way that we maximize the usage of the data and, while training, use these additional points in time to also give a better signal to our model. Now, let’s break down the <code class="inlineCode">forward</code> method.</p>
+    <p class="normal"><code class="inlineCode">forward</code> takes in a single argument called <code class="inlineCode">batch</code>, which is a tuple of input and output. So, we unpack <code class="inlineCode">batch</code> into two variables, <code class="inlineCode">x</code> and <code class="inlineCode">y</code>, like so:</p>
+    <pre class="programlisting code"><code class="hljs-code">x, y = batch
+</code></pre>
+    <p class="normal"><code class="inlineCode">x</code> will have the shape <img src="../Images/B22389_13_002.png" alt=""/> <em class="italic">(batch size, window length, features)</em> and <code class="inlineCode">y</code> will have the shape <img src="../Images/B22389_13_003.png" alt=""/> <em class="italic">(batch size, target length, features)</em>.</p>
+    <p class="normal">Now we need to pass the input sequence (<code class="inlineCode">x</code>) through the RNN (RNN, LSTM, or GRU), like so:</p>
+    <pre class="programlisting code"><code class="hljs-code">x, _ = <span class="hljs-variable">self</span>.rnn(x)
+</code></pre>
+    <p class="normal">As we <a id="_idIndexMarker1035"/>saw in <em class="chapterRef">Chapter 12</em>, <em class="italic">Building Blocks of Deep Learning for Time Series</em>, the PyTorch RNNs process the input and return two outputs—hidden states for each timestep and output (which is the hidden state of the last timestep). Here, we need the hidden states from all the timesteps, and therefore we capture that in the <code class="inlineCode">x</code> variable. <code class="inlineCode">x</code> will now have the dimension (<em class="italic">batch size, window length, hidden size of RNN</em>).</p>
+    <p class="normal">We have the hidden states, but to get the output, we need to apply a fully connected layer over the hidden states, and this fully connected layer should be shared across timesteps. An easy way to do this is to just define a fully connected layer with an input size equal to the hidden size of the RNN and then do the following:</p>
+    <pre class="programlisting code"><code class="hljs-code">x = <span class="hljs-variable">self</span>.fc(x)
+</code></pre>
+    <p class="normal"><code class="inlineCode">x</code> is a three-dimensional tensor, and when we use a fully connected layer on a three-dimensional tensor, PyTorch automatically applies the fully connected layer to each of the timesteps. Now, this final output is captured in <code class="inlineCode">x</code>, and its dimensions would be <em class="italic">(batch size, window length</em>, <em class="italic">1)</em>.</p>
+    <p class="normal">Now, we have got the output of the network, but we also must do a bit of rearrangement to prepare the targets. Currently, <code class="inlineCode">y</code> has just the one timestep beyond the window, but if we skip the first timestep from <code class="inlineCode">x</code> and concatenate it with <code class="inlineCode">y</code>, we would get the target, as we have in <em class="italic">Figure 13.3</em>:</p>
+    <pre class="programlisting code"><code class="hljs-code">y = torch.cat([x[:, <span class="hljs-number">1</span>:, :], y], dim=<span class="hljs-number">1</span>)
+</code></pre>
+    <p class="normal">By using array indexing, we select everything except the first timestep from <code class="inlineCode">x</code> and concatenate it with <code class="inlineCode">y</code> on the first dimension (which is the <em class="italic">window length</em>).</p>
+    <p class="normal">And with <a id="_idIndexMarker1036"/>that, we have the <code class="inlineCode">x</code> and <code class="inlineCode">y</code> variables, which we can return, and the <code class="inlineCode">BaseModel</code> class will calculate loss and handle the rest of the training. For the entire class, along with the <code class="inlineCode">forward</code> method, you can refer to <code class="inlineCode">src/dl/models.py</code>.</p>
+    <p class="normal">Let’s test the model we have initialized by passing the batch from the dataloader:</p>
+    <pre class="programlisting code"><code class="hljs-code">y_hat, y = model(batch)
+<span class="hljs-built_in">print</span>(<span class="hljs-string">"Shape of y_hat: "</span>,y_hat.shape) <span class="hljs-comment">#-&gt; ([32, 48, 1])</span>
+<span class="hljs-built_in">print</span>(<span class="hljs-string">"Shape of y: "</span>,y.shape) <span class="hljs-comment">#-&gt; ([32, 48, 1])</span>
+</code></pre>
+    <p class="normal">Now that the model is working as expected, without errors, let’s start training the model. For that, we can use <code class="inlineCode">Trainer</code> from PyTorch Lightning. There are so many options in the <code class="inlineCode">Trainer</code> class, and a full list of all parameters to tweak the training can be found here: <a href="https://pytorch-lightning.readthedocs.io/en/stable/api/pytorch_lightning.trainer.trainer.Trainer.html#pytorch_lightning.trainer.trainer.Trainer"><span class="url">https://pytorch-lightning.readthedocs.io/en/stable/api/pytorch_lightning.trainer.trainer.Trainer.html#pytorch_lightning.trainer.trainer.Trainer</span></a>.</p>
+    <p class="normal">But here, we are just going to use the bare minimum. Let’s go over the parameters we will be using here one by one:</p>
+    <ul>
+      <li class="bulletList"><code class="inlineCode">auto_select_gpus</code> and <code class="inlineCode">gpus</code>: Together, these parameters let us select GPUs for training if present. If we set <code class="inlineCode">auto_select_gpus</code> to <code class="inlineCode">True</code> and <code class="inlineCode">gpus</code> to <code class="inlineCode">-1</code>, the <code class="inlineCode">Trainer</code> class will choose all GPUs present in the machine, and if there are no GPUs, it falls back to CPU-based training.</li>
+      <li class="bulletList"><code class="inlineCode">callbacks</code>: PyTorch Lightning has a lot of useful callbacks that can be used during training such as <code class="inlineCode">EarlyStopping</code>, <code class="inlineCode">ModelCheckpoint</code>, and so on. Most useful callbacks are automatically added even if we don’t explicitly set them, but <code class="inlineCode">EarlyStopping</code> is one useful callback that needs to be set explicitly. <code class="inlineCode">EarlyStopping</code> is a callback that lets us monitor the validation loss or metrics while training and stop the training when this starts to become worse. This is a form of regularization and helps us keep our model from overfitting to the train data. <code class="inlineCode">EarlyStopping</code> has the following major parameters (a full list of parameters can be found here: <a href="https://pytorch-lightning.readthedocs.io/en/stable/api/pytorch_lightning.callbacks.EarlyStopping.html"><span class="url">https://pytorch-lightning.readthedocs.io/en/stable/api/pytorch_lightning.callbacks.EarlyStopping.html</span></a>):<ul>
+          <li class="bulletList level-2"><code class="inlineCode">monitor</code>: This parameter takes a string input that specifies the exact name of the metric that we want to monitor for early stopping.</li>
+          <li class="bulletList level-2"><code class="inlineCode">patience</code>: This specifies the number of epochs with no improvement in the monitored metric before the callback stops the training. For instance, if we set <code class="inlineCode">patience</code> to <code class="inlineCode">10</code>, the callback will wait for 10 epochs of the degrading metric before stopping the training. There are finer points of detail on these, which are explained in the documentation.</li>
+          <li class="bulletList level-2"><code class="inlineCode">mode</code>: This <a id="_idIndexMarker1037"/>is a string input and takes one of <code class="inlineCode">min</code> or <code class="inlineCode">max</code>. This sets the direction of improvement. In <code class="inlineCode">min</code> mode, training will stop when the quantity monitored has stopped decreasing, and in <code class="inlineCode">max</code> mode, it will stop when the quantity monitored has stopped increasing.</li>
+        </ul>
+      </li>
+      <li class="bulletList"><code class="inlineCode">min_epochs</code> and <code class="inlineCode">max_epochs</code>: These parameters help us set <code class="inlineCode">min</code> and <code class="inlineCode">max</code> limits to the number of epochs the training should run. If we are using <code class="inlineCode">EarlyStopping</code>, <code class="inlineCode">min_epochs</code> decides the minimum number of epochs that will be run regardless of the validation loss/metrics, and <code class="inlineCode">max_epochs</code> sets the upper limit on the number of epochs. So, even if the validation loss is still decreasing when we reach <code class="inlineCode">max_epochs</code>, training will stop.<div class="note-one">
+          <p class="normal"><strong class="keyWord">Glossary:</strong></p>
+          <p class="normal">Here are a few terms you should know to fully digest NN training:</p>
+          <ul>
+            <li class="bulletList"><strong class="keyWord">Training step</strong>: This denotes a single gradient update to the parameter. In batched <strong class="keyWord">stochastic gradient descent</strong> (<strong class="keyWord">SGD</strong>), the gradient update after each batch is considered a step.</li>
+            <li class="bulletList"><strong class="keyWord">Batch</strong>: A batch is the number of data samples we run through the model and average the gradients over for the update in a training step.</li>
+            <li class="bulletList"><strong class="keyWord">Epoch</strong>: An epoch is when the model has seen all the samples in a dataset, or all the batches in the dataset have been used for a gradient update.</li>
+          </ul>
+        </div>
+      </li>
+    </ul>
+    <p class="normal">So, let’s initialize a bare-bones <code class="inlineCode">Trainer</code> class:</p>
+    <pre class="programlisting code"><code class="hljs-code">trainer = pl.Trainer(
+    auto_select_gpus=<span class="hljs-literal">True</span>,
+    gpus=-<span class="hljs-number">1</span>,
+    min_epochs=<span class="hljs-number">5</span>,
+    max_epochs=<span class="hljs-number">100</span>,
+    callbacks=[pl.callbacks.EarlyStopping(monitor=<span class="hljs-string">"valid_loss"</span>, patience=<span class="hljs-number">3</span>)],
+)
+</code></pre>
+    <p class="normal">Now, all that is left is to trigger the training by passing in the <code class="inlineCode">model</code> and <code class="inlineCode">datamodule</code> to a method called <code class="inlineCode">fit</code>:</p>
+    <pre class="programlisting code"><code class="hljs-code">trainer.fit(model, datamodule)
+</code></pre>
+    <p class="normal">It will run <a id="_idIndexMarker1038"/>for a while and, depending on when the validation loss starts to increase, it will stop the training. Once the model is trained, we can still use the <code class="inlineCode">Trainer</code> class to make predictions on new data. The prediction uses the <code class="inlineCode">predict_step</code> method that we defined in the <code class="inlineCode">BaseModel</code> class, which in turn uses the <code class="inlineCode">predict</code> method that we defined in the <code class="inlineCode">SingleStepRNN</code> model. It’s a very simple method that calls the <code class="inlineCode">forward</code> method, takes in the model outputs, and just picks the last timestep from the output (which is the true output that we are projecting into the future). You can see an illustration of this here:</p>
+    <pre class="programlisting code"><code class="hljs-code"><span class="hljs-keyword">def</span> <span class="hljs-title">predict</span>(<span class="hljs-params">self, batch</span>):
+        y_hat, _ = <span class="hljs-variable">self</span>.forward(batch)
+        <span class="hljs-keyword">return</span> y_hat[:, -<span class="hljs-number">1</span>, :]
+</code></pre>
+    <p class="normal">So, let’s see how we can use the <code class="inlineCode">Trainer</code> class to make predictions on new data (or new dataloaders, to be exact):</p>
+    <pre class="programlisting code"><code class="hljs-code">pred = trainer.predict(model, datamodule.test_dataloader())
+</code></pre>
+    <p class="normal">We just need to provide the trained model and the dataloader (here, we use the test dataloader that we have already set up and defined).</p>
+    <p class="normal">Now the output, <code class="inlineCode">pred</code>, is a list of tensors, one for each batch in the dataloader. We just need to concatenate them, squeeze out any redundant dimensions, detach them from the computational graph, and convert them to a NumPy array. Here’s how we can do this:</p>
+    <pre class="programlisting code"><code class="hljs-code">pred = torch.cat(pred).squeeze().detach().numpy()
+</code></pre>
+    <p class="normal">Now, <code class="inlineCode">pred</code> is a NumPy array of predictions for all the items in the test DataFrame (which was used to define <code class="inlineCode">test_dataloader</code>), but remember we had applied a transformation to the raw time series to standardize it. Now, we need to reverse the transformation. The mean and standard deviation we used for the initial transformation are still stored in the train dataset. We merely retrieve them and invert the transformation we did earlier, like so:</p>
+    <pre class="programlisting code"><code class="hljs-code">pred = pred * datamodule.train.std + datamodule.train.mean
+</code></pre>
+    <p class="normal">Now, we<a id="_idIndexMarker1039"/> can do all kinds of actions on them, such as evaluate against actuals, visualize the predictions, and so on. Let’s see how well the model has done. To get context, we have included the single-step ML models we did back in <em class="chapterRef">Chapter 8</em>, <em class="italic">Forecasting Time Series with Machine Learning Models</em>, as well:</p>
+    <figure class="mediaobject"><img src="../Images/B22389_13_04.png" alt="Figure 13.4 – Metrics of the vanilla single-step-ahead RNN on MAC000193 household "/></figure>
+    <p class="packt_figref">Figure 13.4: Metrics of the vanilla single-step-ahead RNN on MAC000193 household</p>
+    <p class="normal">It looks like the RNN model did pretty badly. Let’s also look at the predictions visually:</p>
+    <figure class="mediaobject"><img src="../Images/B22389_13_05.png" alt="Figure 13.5 – Single-step-ahead RNN predictions for MAC000193 household "/></figure>
+    <p class="packt_figref">Figure 13.5: Single-step-ahead RNN predictions for MAC000193 household</p>
+    <p class="normal">We can see that <a id="_idIndexMarker1040"/>the model has failed to learn the scale of the peaks and the nuances of the patterns. Maybe this is because of the problem that we discussed in terms of RNNs because the seasonality pattern here is spread over 48 timesteps; remember that the pattern requires the RNN to have long-term memory. Let’s quickly swap out the model with LSTM and GRU and see how they are doing. The only thing we need to change is the <code class="inlineCode">rnn_type</code> parameter in <code class="inlineCode">SingleStepRNNConfig</code>. </p>
+    <p class="normal">The notebook has the code to train LSTM and GRU as well. But let’s look at the metrics with LSTM and GRU:</p>
+    <figure class="mediaobject"><img src="../Images/B22389_13_06.png" alt="Figure 13.6 – Metrics for single-step-ahead LSTM and GRU on MAC000193 household "/></figure>
+    <p class="packt_figref">Figure 13.6: Metrics for single-step-ahead LSTM and GRU on MAC000193 household</p>
+    <p class="normal">Now, it looks <a id="_idIndexMarker1041"/>competitive. LightGBM is still the best model, but now the LSTM and GRU models are competitive and not entirely lacking, like the vanilla RNN model. If we look at the predictions, we can see that the LSTM and GRU models have managed to capture the pattern much better as well:</p>
+    <figure class="mediaobject"><img src="../Images/B22389_13_07.png" alt="Figure 13.7 – Single-step-ahead LSTM and GRU predictions for MAC000193 household "/></figure>
+    <p class="packt_figref">Figure 13.7: Single-step-ahead LSTM and GRU predictions for MAC000193 household</p>
+    <div class="packt_tip">
+      <p class="normal"><strong class="keyWord">Things to try:</strong></p>
+      <p class="normal">Try changing the parameters of the models and see how it works. How does a bidirectional LSTM perform? Can increasing the window increase performance?</p>
+    </div>
+    <p class="normal">Now that we<a id="_idIndexMarker1042"/> have seen how a standard RNN can be used for single-step-ahead predictions, let’s look at another modeling pattern that is more flexible than the one we just saw.</p>
+    <h1 id="_idParaDest-292" class="heading-1">Sequence-to-sequence (Seq2Seq) models</h1>
+    <p class="normal">We <a id="_idIndexMarker1043"/>talked in detail about the Seq2Seq architecture and the encoder-decoder paradigm in <em class="chapterRef">Chapter 12</em>, <em class="italic">Building Blocks of Deep Learning for Time Series</em>. Just to refresh your memory, the Seq2Seq model is kind of an encoder-decoder model by which an encoder encodes the sequence into a latent representation, and then the decoder steps in to carry out the task at hand using this latent representation. This setup is inherently more flexible because of the separation between the encoder (which does the representation learning) and the decoder, which uses the representation for predictions. One of the biggest advantages of this approach, from a time series forecasting perspective, is that the restriction of single step ahead is taken out. In this modeling pattern, we can extend the forecast to any forecast horizon we want.</p>
+    <p class="normal">In this <a id="_idIndexMarker1044"/>section, let’s put together a few encoder-decoder models and test out our single-step-ahead forecasts, just like we have been doing with the single-step-ahead RNNs.</p>
+    <div class="note">
+      <p class="normal"><strong class="keyWord">Notebook alert:</strong></p>
+      <p class="normal">To follow along with the complete code, use the notebook named <code class="inlineCode">03-Seq2Seq_RNN.ipynb</code> in the <code class="inlineCode">Chapter13</code> folder and the code in the <code class="inlineCode">src</code> folder.</p>
+    </div>
+    <p class="normal">We can use the same mechanism we developed in the last section, such as <code class="inlineCode">TimeSeriesDataModule</code>, the <code class="inlineCode">BaseModel</code> class, and the corresponding code, for our Seq2Seq modeling pattern as well. Let’s define a new PyTorch model called <code class="inlineCode">Seq2SeqModel</code>, inheriting the <code class="inlineCode">BaseModel</code> class. While we are at it, let’s also define a new config file, called <code class="inlineCode">Seq2SeqConfig</code>, to set the hyperparameters of the model. The final version of both can be found in <code class="inlineCode">src/dl/models.py</code>.</p>
+    <p class="normal">Before we explain the different parameters in the model and the config, let’s talk about the different ways we can set this Seq2Seq model.</p>
+    <h2 id="_idParaDest-293" class="heading-2">RNN-to-fully connected network</h2>
+    <p class="normal">For our <a id="_idIndexMarker1045"/>convenience, let’s <a id="_idIndexMarker1046"/>restrict the encoder to be from the RNN family—it can be a vanilla RNN, LSTM, or GRU. Now, we saw in <em class="chapterRef">Chapter 12</em>, <em class="italic">Building Blocks of Deep Learning for Time Series,</em> that in PyTorch, all the models in the RNN family have two outputs—<em class="italic">output</em> and <em class="italic">hidden states</em>, and we also saw that output is nothing but all the hidden states (final hidden states in stacked RNNs) at all timesteps. The hidden state that we get has the latest hidden states (and cell states, in the case of LSTM) of all layers in the stacked RNN setup. The encoder can be initialized just like we initialized the RNN family of models in the previous section, like so:</p>
+    <pre class="programlisting code"><code class="hljs-code"><span class="hljs-variable">self</span>.encoder = nn.LSTM(
+                **encoder_params,
+                batch_first=<span class="hljs-literal">True</span>,
+            )
+</code></pre>
+    <p class="normal">And in the <code class="inlineCode">forward</code> method, we can just do the following to encode the time series:</p>
+    <pre class="programlisting code"><code class="hljs-code">o, h = <span class="hljs-variable">self</span>.encoder(x)
+</code></pre>
+    <p class="normal">Now, there<a id="_idIndexMarker1047"/> are a few different ways we can decode the information. The first one we will discuss is using a fully <a id="_idIndexMarker1048"/>connected layer. Either the fully connected layer can take the latest hidden state from the encoder and predict the desired output or we can flatten all the hidden states into a long vector and use that to predict the output. The latter provides more information to the decoder, but there can be more noise as well. Both are shown in <em class="italic">Figure 13.8</em>, using the same example we used in the last section as well:</p>
+    <figure class="mediaobject"><img src="../Images/B22389_13_08.png" alt="Figure 13.8 – RNN as the encoder and a fully connected layer as the decoder "/></figure>
+    <p class="packt_figref">Figure 13.8: RNN as the encoder and a fully connected layer as the decoder</p>
+    <p class="normal">Let’s also see <a id="_idIndexMarker1049"/>how we can <a id="_idIndexMarker1050"/>put this together in code. The decoder in the first case, where we are using just the last hidden state of the encoder, will look like this:</p>
+    <pre class="programlisting code"><code class="hljs-code"><span class="hljs-variable">self</span>.decoder = nn.Linear(
+                    hidden_size*bi_directional_multiplier, horizon
+                )
+</code></pre>
+    <p class="normal">Here, <code class="inlineCode">bi_directional_multiplier</code> is <code class="inlineCode">2</code> if the encoder is bidirectional and <code class="inlineCode">1</code> otherwise. This is done because if the encoder is bidirectional, there will be two hidden states concatenated <a id="_idIndexMarker1051"/>together for each timestep. <code class="inlineCode">horizon</code> is the number of timesteps ahead we want to forecast.</p>
+    <p class="normal">In the second <a id="_idIndexMarker1052"/>case, where we are using the hidden states from all the timesteps, we need to make the decoder, as follows:</p>
+    <pre class="programlisting code"><code class="hljs-code"><span class="hljs-variable">self</span>.decoder = nn.Linear(
+                    hidden_size * bi_directional_multiplier * window_size, horizon
+                )
+</code></pre>
+    <p class="normal">Here, the input vector will be the flattened vector of all the hidden states from all the timesteps, and hence the input dimension would be <code class="inlineCode">hidden_size * window_size</code>.</p>
+    <p class="normal">And in the <code class="inlineCode">forward</code> method, we can do the following for case 1:</p>
+    <pre class="programlisting code"><code class="hljs-code">y_hat = <span class="hljs-variable">self</span>.decoder(o[:,-<span class="hljs-number">1</span>,:]).unsqueeze(-<span class="hljs-number">1</span>)
+</code></pre>
+    <p class="normal">Here, we are just taking the hidden state from the latest timestep and unsqueezing to maintain three dimensions as the target, <code class="inlineCode">y</code>.</p>
+    <p class="normal">For case 2, we can do the following:</p>
+    <pre class="programlisting code"><code class="hljs-code">y_hat = <span class="hljs-variable">self</span>.decoder(o.reshape(o.size(<span class="hljs-number">0</span>), -<span class="hljs-number">1</span>)).unsqueeze(-<span class="hljs-number">1</span>)
+</code></pre>
+    <p class="normal">Here, we first reshape the entire hidden state to flatten it and then pass it through the decoder to get the predictions. We unsqueeze to insert the dimension we collapsed so that the output and target, <code class="inlineCode">y</code>, have the same dimensions.</p>
+    <p class="normal">Even though, in theory, we can use the fully connected decoder to predict as much into the future as possible, practically, there are limitations. When we have a large number of steps to forecast, the model will have to learn that big of a matrix to generate those outputs, and that becomes harder as the matrix becomes bigger. Another point worth noting is that each of these predictions happens independently with the information encoded in the latent representation. For instance, the prediction of 5 timesteps ahead is only dependent on the latent representation from the encoder and not predictions of <em class="italic">timesteps 1</em> to <em class="italic">4</em>. Let’s look at another type of Seq2Seq, which makes the decoding more flexible and aware of the temporal aspect of the problem.</p>
+    <h2 id="_idParaDest-294" class="heading-2">RNN-to-RNN</h2>
+    <p class="normal">Instead <a id="_idIndexMarker1053"/>of using a fully connected <a id="_idIndexMarker1054"/>layer as the decoder, we can use another RNN for decoding as well—so, one model from the RNN family takes care of the encoding and another model from the RNN family takes care of the decoding. Initializing the decoder in the model is also similar to initializing the encoder. If we want an LSTM model as the decoder, we can do the following:</p>
+    <pre class="programlisting code"><code class="hljs-code"><span class="hljs-variable">self</span>.decoder = nn.LSTM(
+                **decoder_params,
+                batch_first=<span class="hljs-literal">True</span>,
+            )
+</code></pre>
+    <p class="normal">Let’s develop our understanding of how this is done through a visual representation:</p>
+    <figure class="mediaobject"><img src="../Images/B22389_13_09.png" alt="Figure 13.9 – RNN as the encoder and decoder "/></figure>
+    <p class="packt_figref">Figure 13.9: RNN as the encoder and decoder</p>
+    <p class="normal">The encoder part remains the same: it takes in the input window, <em class="italic">x</em><sub class="subscript">1</sub> to <em class="italic">x</em><sub class="subscript">3</sub>, and produces outputs, <em class="italic">o</em><sub class="subscript">1</sub> to <em class="italic">o</em><sub class="subscript">3</sub>, and the last hidden state, <em class="italic">h</em><sub class="subscript">3</sub>. Now, we have another decoder (a model from the RNN family) that takes in <em class="italic">h</em><sub class="subscript">3</sub> as the initial hidden state, and the latest input from the window to produce the next output. And now, this output is fed back into the RNN as the input and we produce the next output, and this cycle continues until we have got the required number of timesteps in our prediction.</p>
+    <p class="normal">Some of <a id="_idIndexMarker1055"/>you may be wondering why we don’t use the target window (<em class="italic">x</em><sub class="subscript">4</sub> to <em class="italic">x</em><sub class="subscript">6</sub>) during decoding as well. In fact, this is a valid way of training the model and is called <strong class="keyWord">teacher forcing</strong> in the literature. This has strong connections to maximum likelihood and is explained well in the <em class="italic">Deep Learning</em> book by Goodfellow et al. (see the <em class="italic">Further reading</em> section). So, instead of feeding in the output of the model from the previous timestep as the input to the RNN at the current timestep, we feed in the real observation, thereby eliminating the error that might have crept in in the previous timestep.</p>
+    <p class="normal">While this<a id="_idIndexMarker1056"/> sounds like the most straightforward thing to do, it does come with a few disadvantages as well. The main one is that the kinds of inputs that the decoder sees during training may not be the same as the ones it will see during actual prediction. During prediction, we will still be feeding the output of the model in the previous step to the decoder. This is because in the inference mode, we do not have access to real observations in the future. This can cause problems in some cases. One way to mitigate this problem is to randomly choose between the model’s output at the previous timestep and real observation while training (Bengio et al., 2015).</p>
+    <div class="note">
+      <p class="normal"><strong class="keyWord">Reference check:</strong></p>
+      <p class="normal">The research paper by Bengio et al., which proposed teacher forcing, is cited in reference <em class="italic">1</em>.</p>
+    </div>
+    <p class="normal">Now, let’s see how we can code the <code class="inlineCode">forward</code> method for both of these cases using a parameter called <code class="inlineCode">teacher_forcing_ratio</code>, which is a decimal from 0 to 1. This decides how frequently teacher forcing is implemented. For instance, if <code class="inlineCode">teacher_forcing_ratio</code> = 0, then teacher forcing is never done, and if <code class="inlineCode">teacher_forcing_ratio</code> = 1, then teacher forcing is always done.</p>
+    <p class="normal">The following code block has all the code necessary for decoding, and it comes with line numbers so that we can go line by line and explain what we are doing:</p>
+    <pre class="programlisting code"><code class="hljs-code">01  y_hat = torch.zeros_like(y, device=y.device)
+02  dec_input = x[:, -<span class="hljs-number">1</span>:, :]
+03  <span class="hljs-keyword">for</span> i <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(y.size(<span class="hljs-number">1</span>)):
+04      out, h = <span class="hljs-variable">self</span>.decoder(dec_input, h)
+05      out = <span class="hljs-variable">self</span>.fc(out)
+06      y_hat[:, i, :] = out.squeeze(<span class="hljs-number">1</span>)
+07      <span class="hljs-comment">#decide if we are going to use teacher forcing or not</span>
+08      teacher_force = random.random() &lt; teacher_forcing_ratio
+09      <span class="hljs-keyword">if</span> teacher_force:
+10          dec_input = y[:, i, :].unsqueeze(<span class="hljs-number">1</span>)
+11      <span class="hljs-keyword">else</span>:
+12          dec_input = out
+</code></pre>
+    <p class="normal">The first <a id="_idIndexMarker1057"/>thing we need to do is declare a placeholder to store the desired output during decoding. In <em class="italic">line number 1</em>, we do <a id="_idIndexMarker1058"/>that by using <code class="inlineCode">zeros_like</code>, which generates a tensor with all zeros with the same dimension as <code class="inlineCode">y</code>, and in <em class="italic">line number 2</em>, we set the initial input to the decoder as the last timestep in the input window. Now, we are all set to start the decoding process, and for that, in <em class="italic">line number 3</em>, we start a loop to run <code class="inlineCode">y.size(1)</code> times. If you remember the dimensions of <code class="inlineCode">y</code>, the second dimension was the sequence length, so we need to run the decoding process that many times.</p>
+    <p class="normal">In <em class="italic">line number 4</em>, we pass in the last input from the input window and the hidden state from the encoder to the decoder, and it returns the current output and the hidden state. We capture the current hidden state in the same variable, overwriting the old one. If you remember, the output from the RNN is the hidden state, and we will need to pass it through a fully connected layer for the prediction. So, in <em class="italic">line number 5</em>, we do just that. In <em class="italic">line number 6</em>, we store the output from the fully connected layer to the <em class="italic">i</em>-th timestep in <code class="inlineCode">y_hat</code>.</p>
+    <p class="normal">Now, we just have one more thing to do—decide whether to use teacher forcing or not and move on to decoding the next timestep. This we can do by generating a random number between <em class="italic">0</em> and <em class="italic">1</em> and checking whether that number is less than the <code class="inlineCode">teacher_forcing_ratio</code> parameter or not. <code class="inlineCode">random.random()</code> samples a number from a uniform distribution between <em class="italic">0</em> and <em class="italic">1</em>. If the <code class="inlineCode">teacher_forcing_ratio</code> parameter is <em class="italic">0.5</em>, checking whether <code class="inlineCode">random.random()</code>&lt;<code class="inlineCode">teacher_forcing_ratio</code> automatically ensures we only do teacher forcing 50% of the time. So, in <em class="italic">line number 8</em>, we do this check and get a Boolean output, <code class="inlineCode">teacher_force</code>, which tells us whether we need to do teacher forcing in the next timestep or not. For teacher forcing, we store the current timestep from <code class="inlineCode">y</code> as <code class="inlineCode">dec_input</code> (<em class="italic">line number 10</em>). Otherwise, we store the current output as <code class="inlineCode">dec_input</code> (<em class="italic">line number 12</em>), and this <code class="inlineCode">dec_input</code> parameter is used as the input to the RNN in the next timestep.</p>
+    <p class="normal">Now, all of this (both the fully connected decoder and the RNN decoder) has been put together into a single class called <code class="inlineCode">Seq2SeqModel</code> in <code class="inlineCode">src/dl/models.py</code>, and a config class (<code class="inlineCode">Seq2SeqConfig</code>) has <a id="_idIndexMarker1059"/>also been defined that has all the options and hyperparameters of the models. Let’s take a look at the <a id="_idIndexMarker1060"/>different parameters in the config:</p>
+    <ul>
+      <li class="bulletList"><code class="inlineCode">encoder_type</code>: A string parameter that takes in one of three values: <code class="inlineCode">RNN</code>, <code class="inlineCode">LSTM</code>, or <code class="inlineCode">GRU</code>. This decides the sequence model we need to use as the encoder.</li>
+      <li class="bulletList"><code class="inlineCode">decoder_type</code>: A string parameter that takes in one of four values: <code class="inlineCode">RNN</code>, <code class="inlineCode">LSTM</code>, <code class="inlineCode">GRU</code>, or <code class="inlineCode">FC</code> (for <em class="italic">fully connected</em>). This decides the sequence model we need to use as the decoder.</li>
+      <li class="bulletList"><code class="inlineCode">encoder_params</code> and <code class="inlineCode">decoder_params</code>: These parameters take a dictionary of key-value pairs as the input. These are the hyperparameters of the encoder and the decoder, respectively. For the RNN family of models, there is another config class, <code class="inlineCode">RNNConfig</code>, which sets standard hyperparameters such as <code class="inlineCode">hidden_size</code> and <code class="inlineCode">num_layers</code>. And for the <code class="inlineCode">FC</code> decoder, we need to give two parameters: <code class="inlineCode">window_size</code> as the number of timesteps included in the input window, and <code class="inlineCode">horizon</code> as the number of timesteps ahead we want to be forecasting.</li>
+      <li class="bulletList"><code class="inlineCode">decoder_use_all_hidden</code>: We discussed two ways we can use the fully connected decoder. This parameter is a flag that switches between the two. If <code class="inlineCode">True</code>, the fully connected decoder will flatten the hidden states of all timesteps and use them for the prediction, and if <code class="inlineCode">False</code>, it will just use the last hidden state.</li>
+      <li class="bulletList"><code class="inlineCode">teacher_forcing_ratio</code>: We discussed teacher forcing earlier, and this parameter decided the strength of teacher forcing while training. If <em class="italic">0</em>, there will be no teacher forcing, and if <em class="italic">1</em>, every timestep will be teacher-forced.</li>
+      <li class="bulletList"><code class="inlineCode">optimizer_params</code>, <code class="inlineCode">lr_scheduler</code>, and <code class="inlineCode">lr_scheduler_params</code>: These are parameters that let us tweak the optimization procedure. Let’s not worry about these for now because all of them have been set to intelligent defaults.</li>
+    </ul>
+    <p class="normal">Now, with this config and the model, let’s run a few experiments. These work exactly the same as the set of experiments we ran in the previous section. The exact code for the experiments is available in the accompanying notebook. So, we ran the following experiments:</p>
+    <ul>
+      <li class="bulletList"><code class="inlineCode">LSTM_FC_last_hidden</code>: Encoder = LSTM/Decoder = Fully Connected, using just the last hidden state</li>
+      <li class="bulletList"><code class="inlineCode">LSTM_FC_all_hidden</code>: Encoder = LSTM/Decoder = Fully Connected, using all the hidden states</li>
+      <li class="bulletList"><code class="inlineCode">LSTM_LSTM</code>: Encoder = LSTM/Decoder = LSTM</li>
+    </ul>
+    <p class="normal">Let’s see <a id="_idIndexMarker1061"/>how they performed<a id="_idIndexMarker1062"/> on the metrics we have been tracking:</p>
+    <figure class="mediaobject"><img src="../Images/B22389_13_10.png" alt="Figure 13.10 – Metrics for Seq2Seq models on MAC000193 household "/></figure>
+    <p class="packt_figref">Figure 13.10: Metrics for Seq2Seq models on MAC000193 household</p>
+    <p class="normal">The Seq2Seq models seem to be performing better on the metrics and the <code class="inlineCode">LSTM_LSTM</code><em class="italic"> </em>model is even better than the Random Forest model.</p>
+    <p class="normal">There are <a id="_idIndexMarker1063"/>visualizations of each of these forecasts in the notebook. I urge you to look at those visualizations, zoom in, look at different places in the horizon, and so on. The astute observers among you must have figured out something weird with the forecast. Let’s look at a zoomed-in version (on one day) of the forecasts we generated to make that point clear:</p>
+    <figure class="mediaobject"><img src="../Images/B22389_13_11.png" alt="Figure 13.11 – Single-step-ahead Seq2Seq predictions for MAC000193 household (1 day) "/></figure>
+    <p class="packt_figref">Figure 13.11: Single-step-ahead Seq2Seq predictions for MAC000193 household (one day)</p>
+    <p class="normal">What do <a id="_idIndexMarker1064"/>you see now? Focus on the peaks in the time series. Are they aligned or do they seem at an offset? This phenomenon that you are seeing now is when a model learns to mimic the last seen timestep (like the naïve forecast) rather than learn the true pattern in the data. We will be getting good metrics and we might be happy with the forecast, but upon investigation, we can see that this is not the forecast we want. This is especially true in the case of single-step-ahead models where we are just optimizing to predict the next timestep. Therefore, the model has no real incentive to learn long-term patterns, such as seasonality and so on, and ends up learning a model like the naïve forecast.</p>
+    <p class="normal">Models that are trained to predict longer horizons overcome this problem because, in this scenario, the model is forced to learn the longer-term patterns in the model. Although multi-step forecasting is a topic that will be covered in detail in <em class="chapterRef">Chapter 18</em>, <em class="italic">Multi-Step Forecasting</em>, let’s get a little bit of a sneak peek now. In the notebook, we also train multi-step <a id="_idIndexMarker1065"/>models using the Seq2Seq models.</p>
+    <p class="normal">The only changes we need to make are these:</p>
+    <ul>
+      <li class="bulletList">The horizon we define in the datamodule and the models should change.</li>
+      <li class="bulletList">The way we evaluate the models should also have a small change.</li>
+    </ul>
+    <p class="normal">Let’s see<a id="_idIndexMarker1066"/> how we can define a <code class="inlineCode">datamodule</code> for multi-step forecasting. We have chosen to forecast a complete day, which is 48 timesteps. And as an input window, we are giving <code class="inlineCode">2 X 48</code> timesteps:</p>
+    <pre class="programlisting code"><code class="hljs-code">HORIZON = <span class="hljs-number">48</span>
+WINDOW = <span class="hljs-number">48</span>*<span class="hljs-number">2</span>
+datamodule = TimeSeriesDataModule(data = sample_df[[target]],
+        n_val = sample_val_df.shape[<span class="hljs-number">0</span>],
+        n_test = sample_test_df.shape[<span class="hljs-number">0</span>],
+        window = WINDOW,
+        horizon = HORIZON,
+        normalize = <span class="hljs-string">"global"</span>, <span class="hljs-comment"># normalizing the data</span>
+        batch_size = <span class="hljs-number">32</span>,
+        num_workers = <span class="hljs-number">0</span>)
+</code></pre>
+    <p class="normal">Now that we have the <code class="inlineCode">datamodule</code>, we can initialize the models just like before and train them. The only change we have to make now is while predicting.</p>
+    <p class="normal">In the single-step setting, at each timestep, we were predicting the next one. But now, we are predicting the next 48 timesteps at each step. There are multiple ways to look at this and measure the metrics, which we will cover in detail in <em class="italic">Part 3</em>. For now, let’s choose a heuristic and say that we are considering that we are running this model only once a day, and each such prediction has 48 timesteps. But the test dataloader is still incremented by one—in other words, the test dataloader still gives us the next 48 timesteps, for each timestep. So, executing the following code, we will get a prediction array with dimensions (<em class="italic">timesteps</em>, <em class="italic">horizon</em>):</p>
+    <pre class="programlisting code"><code class="hljs-code">pred = trainer.predict(model, datamodule.test_dataloader())
+<span class="hljs-comment"># pred is a list of outputs, one for each batch</span>
+pred = torch.cat(pred).squeeze().detach().numpy()
+</code></pre>
+    <p class="normal">The predictions start at <code class="inlineCode">2014, Jan 1 00:00:00</code>. So, if we select the 48 timesteps, every 48 timesteps apart, it’ll be like considering only predictions that are made at the beginning of the day. Using a bit of fancy indexing <code class="inlineCode">numpy</code> provides us, it is easy to do just that:</p>
+    <pre class="programlisting code"><code class="hljs-code">pred = pred[<span class="hljs-number">0</span>::<span class="hljs-number">48</span>].ravel()
+</code></pre>
+    <p class="normal">We start<a id="_idIndexMarker1067"/> at index 0, which is the first<a id="_idIndexMarker1068"/> prediction of 48 timesteps, and pick every 48 indices (which are timesteps) and just flatten the array. We will get an array of predictions with the desired shape, and then the standard procedure of inverse transformation and metric calculation, and so on, proceeds.</p>
+    <p class="normal">The notebook has the code to do the following experiments:</p>
+    <ul>
+      <li class="bulletList"><code class="inlineCode">MultiStep LSTM_FC_last_hidden</code>: Encoder = LSTM/Decoder = Fully Connected Layer, using only the last hidden state</li>
+      <li class="bulletList"><code class="inlineCode">MultiStep LSTM_FC_all_hidden</code>: Encoder = LSTM/Decoder = Fully Connected Layer, using all the hidden states</li>
+      <li class="bulletList"><code class="inlineCode">MultiStep LSTM_LSTM_teacher_forcing_0.0</code>: Encoder = LSTM/ Decoder = LSTM, using no teacher forcing</li>
+      <li class="bulletList"><code class="inlineCode">MultiStep LSTM_LSTM_teacher_forcing_0.5</code>: Encoder = LSTM/ Decoder = LSTM, using stochastic teacher forcing (randomly, 50% of the time teacher forcing is enabled)</li>
+      <li class="bulletList"><code class="inlineCode">MultiStep LSTM_LSTM_teacher_forcing_1.0</code>: Encoder = LSTM/ Decoder = LSTM, using complete teacher forcing</li>
+    </ul>
+    <p class="normal">Let’s look at the metrics of these experiments:</p>
+    <figure class="mediaobject"><img src="../Images/B22389_13_12.png" alt="Figure 13.12 – Metrics for multi-step Seq2Seq models on MAC000193 household"/></figure>
+    <p class="packt_figref">Figure 13.12: Metrics for multi-step Seq2Seq models on MAC000193 household</p>
+    <p class="normal">Although<a id="_idIndexMarker1069"/> we<a id="_idIndexMarker1070"/> cannot compare single-step-ahead accuracy to multi-step ones, for the time being, let’s suspend that concern and use the single-step metrics as in the best-case scenario. So, we can see that our model that predicts one day ahead (48 timesteps) is not such a bad model after all, and if we visualize the predictions, the problem of imitating naïve forecasts is also not present because now the model is forced to learn long-term models and forecasts:</p>
+    <figure class="mediaobject"><img src="../Images/B22389_13_13.png" alt="Figure 13.13 – Multi-step-ahead Seq2Seq predictions for MAC000193 household (1 day) "/></figure>
+    <p class="packt_figref">Figure 13.13: Multi-step-ahead Seq2Seq predictions for MAC000193 household (one day)</p>
+    <p class="normal">We can <a id="_idIndexMarker1071"/>see that the model has<a id="_idIndexMarker1072"/> tried to learn the daily patterns because it is forced to predict the next 48 timesteps. With some tuning and other training tricks, we might get a better model as well. But running a separate model for all <code class="inlineCode">LCLid</code> (consumer ID) instances in the dataset may not be the best option, both from an engineering and a modeling perspective. We will tackle strategies for global modeling in <em class="chapterRef">Chapter 15</em>, <em class="italic">Strategies for Global Deep Learning Forecasting Models.</em></p>
+    <div class="packt_tip">
+      <p class="normal"><strong class="keyWord">Things to try:</strong></p>
+      <p class="normal">Can you train a better model? Tweak the hyperparameters and try to get better performance. Use GRUs or combine a GRU with an LSTM—the possibilities are endless.</p>
+    </div>
+    <p class="normal">Congratulations on getting through yet another hands-on and practical chapter. If this is the first time you are training NNs, I hope this lesson has made you confident enough to try more: trying and experimenting with these techniques is the best way to learn. There is no silver bullet for all datasets in ML, and therefore it is up to us practitioners to keep our options open and choose the right algorithm/model that suits our use case and works well in it. In this dataset, we can see that for single-step forecasting, LightGBM works really well. But the LSTM Seq2Seq model worked almost as well. When we extend to the <a id="_idIndexMarker1073"/>multi-step forecasting scenario, the advantage of having a single model doing multi-step forecast with good <a id="_idIndexMarker1074"/>enough performance may beat managing multiple ML models (more on this in <em class="chapterRef">Chapter 18</em>). The techniques we learned are still considered basic in the DL world and in the subsequent chapters, we will dive deeper into the DL sea and learn about more sophisticated approaches.</p>
+    <h1 id="_idParaDest-295" class="heading-1">Summary</h1>
+    <p class="normal">Although we learned about the basic blocks of DL in the previous chapter, we put all of that into action while we used those blocks in common modeling patterns using PyTorch.</p>
+    <p class="normal">We saw how standard sequence models such as RNN, LSTM, and GRU can be used for time series prediction, and then we moved on to another paradigm of models, called Seq2Seq models. Here, we talked about how we can mix and match encoders and decoders to get the model we want. Encoders and decoders can be arbitrarily complex. Although we looked at simple encoders and decoders, it is certainly possible to have something like a combination of a convolution block and an LSTM block working together for the encoder. Last but not least, we talked about teacher forcing and how it can help models train and converge faster and also with some performance boost.</p>
+    <p class="normal">In the next chapter, we will be tackling a subject that has captured a lot of attention (pun intended) in the past few years: attention and transformers.</p>
+    <h1 id="_idParaDest-296" class="heading-1">Reference</h1>
+    <ol>
+      <li class="numberedList" value="1">Samy Bengio, Oriol Vinyals, Navdeep Jaitly, and Noam Shazeer (2015). <em class="italic">Scheduled Sampling for Sequence Prediction with Recurrent Neural Networks</em>. <em class="italic">Proceedings of the 28th International Conference on Neural Information Processing Systems—Volume 1</em> (<em class="italic">NIPS’15</em>): <a href="https://proceedings.neurips.cc/paper/2015/file/e995f98d56967d946471af29d7bf99f1-Paper.pdf"><span class="url">https://proceedings.neurips.cc/paper/2015/file/e995f98d56967d946471af29d7bf99f1-Paper.pdf</span></a>.</li>
+    </ol>
+    <h1 id="_idParaDest-297" class="heading-1">Further reading</h1>
+    <p class="normal">Check out the following sources for further reading:</p>
+    <ul>
+      <li class="bulletList"><em class="italic">From PyTorch to PyTorch Lightning</em>—Alfredo Canziani and William Falcon: <a href="https://www.youtube.com/watch?v=DbESHcCoWbM"><span class="url">https://www.youtube.com/watch?v=DbESHcCoWbM</span></a></li>
+      <li class="bulletList"><em class="italic">Deep Learning</em>—Ian Goodfellow, Yoshua Bengio, and Aaron Courville (pages 376-377): <a href="https://www.deeplearningbook.org/contents/rnn.html"><span class="url">https://www.deeplearningbook.org/contents/rnn.html</span></a></li>
+      <li class="bulletList"><em class="italic">A Short Chronology Of Deep Learning For Tabular Data</em> by Sebastian Raschka: <a href="https://sebastianraschka.com/blog/2022/deep-learning-for-tabular-data.html"><span class="url">https://sebastianraschka.com/blog/2022/deep-learning-for-tabular-data.html</span></a></li>
+    </ul>
+    <h1 class="heading-1">Join our community on Discord</h1>
+    <p class="normal">Join our community’s Discord space for discussions with authors and other readers:</p>
+    <p class="normal"><a href="https://packt.link/mts"><span class="url">https://packt.link/mts</span></a></p>
+    <p class="normal"><img src="../Images/QR_Code15080603222089750.png" alt=""/></p>
+  </div>
+</body></html>

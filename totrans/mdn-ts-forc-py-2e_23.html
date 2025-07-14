@@ -1,0 +1,343 @@
+<html><head></head><body>
+  <div id="_idContainer1204" class="Basic-Text-Frame">
+    <h1 class="chapterNumber">19</h1>
+    <h1 id="_idParaDest-473" class="chapterTitle">Evaluating Forecast Errors—A Survey of Forecast Metrics</h1>
+    <p class="normal">We started getting into the nuances of forecasting in the previous chapter where we saw how to generate multi-step forecasts. While that covers one of the aspects, there is another aspect of forecasting that is as important as it is confusing—<em class="italic">how to evaluate forecasts</em>.</p>
+    <p class="normal">In the real world, we generate forecasts to enable some downstream processes to plan better and take relevant actions. For instance, the operations manager at a bike rental company should decide how many bikes he should make available at the metro station the next day at 4 p.m. However, instead of using the forecasts blindly, he may want to know which forecasts he should trust and which ones he shouldn’t. This can only be done by measuring how good a forecast is.</p>
+    <p class="normal">We have been using a few metrics throughout the book and it is now time to get down into the details to understand those metrics, when to use them, and when to not use them. We will also elucidate a few aspects of these metrics experimentally.</p>
+    <p class="normal">In this chapter, we will be covering these main topics:</p>
+    <ul>
+      <li class="bulletList">Taxonomy of forecast error measures</li>
+      <li class="bulletList">Investigating error measures</li>
+      <li class="bulletList">Experimental study of error measures</li>
+      <li class="bulletList">Guidelines for choosing a metric</li>
+    </ul>
+    <h1 id="_idParaDest-474" class="heading-1">Technical requirements</h1>
+    <p class="normal">You will need to set up the Anaconda environment following the instructions in the <em class="italic">Preface</em> of the book to get a working environment with all the packages and datasets required for the code in this book.</p>
+    <p class="normal">The associated code for the chapter can be found here: <a href="https://github.com/PacktPublishing/Modern-Time-Series-Forecasting-with-Python/tree/main/notebooks/Chapter19"><span class="url">https://github.com/PacktPublishing/Modern-Time-Series-Forecasting-with-Python/tree/main/notebooks/Chapter19</span></a>.</p>
+    <p class="normal">For this chapter, you need to run the notebooks in the <code class="inlineCode">Chapters02</code> and <code class="inlineCode">Chapter04</code> folders from the book’s GitHub repository.</p>
+    <h1 id="_idParaDest-475" class="heading-1">Taxonomy of forecast error measures</h1>
+    <blockquote class="packt_quote">
+      <p class="quote">Measurement is the first step that leads to control and eventually improvement.</p>
+      <p class="cite">– H. James Harrington</p>
+    </blockquote>
+    <p class="normal">Traditionally, in regression problems, we have very few general loss functions, such as the mean <a id="_idIndexMarker1588"/>squared error or the mean absolute error, but when you step into the world of time series forecasting, you will be hit with a myriad of different metrics.</p>
+    <div class="note">
+      <p class="normal">Since the focus of the book is on point predictions (and not probabilistic predictions), we will stick to reviewing point forecast metrics.</p>
+    </div>
+    <p class="normal">There are a few key factors that distinguish the metrics in time series forecasting:</p>
+    <ul>
+      <li class="bulletList"><strong class="keyWord">Temporal relevance</strong>: The<a id="_idIndexMarker1589"/> temporal aspect of the prediction we make is an essential aspect of a forecasting paradigm. Metrics such as Forecast Bias and the tracking signal take this aspect into account.</li>
+      <li class="bulletList"><strong class="keyWord">Aggregate metrics</strong>: In<a id="_idIndexMarker1590"/> most business use cases, we would not be forecasting a single time series but, rather, a set of time series, related or unrelated. In these situations, looking at the metrics of individual time series becomes infeasible. Therefore, there should be metrics that capture the idiosyncrasies of this mix of time series.</li>
+      <li class="bulletList"><strong class="keyWord">Over- or under-forecasting</strong>: Another<a id="_idIndexMarker1591"/> key concept in time series forecasting is over- and under-forecasting. In a traditional regression problem, we do not really worry whether the predictions are more than or less than expected, but in the forecasting paradigm, we must be careful about structural biases that always over- or under-forecast. This, when combined with the temporal aspect of time series, accumulates errors and leads to problems in downstream planning.</li>
+    </ul>
+    <p class="normal">These aforementioned factors, along with a few others, have led to an explosion in the number of forecast metrics. In a recent survey paper by Hewamalage et al. (Reference <em class="italic">1</em>), the number of metrics that were covered stood at <em class="italic">38</em>. Let’s try and unify these metrics under some structure. <em class="italic">Figure 19.1</em> depicts a taxonomy of forecast error measures:</p>
+    <figure class="mediaobject"><img src="../Images/B22389_19_01.png" alt="Figure 18.1 – Taxonomy of forecast error measures "/></figure>
+    <p class="packt_figref">Figure 19.1: Taxonomy of forecast error measures</p>
+    <p class="normal">We can <a id="_idIndexMarker1592"/>semantically separate the different forecast metrics into two buckets—<strong class="keyWord">intrinsic</strong> and <strong class="keyWord">extrinsic</strong>. <em class="italic">Intrinsic</em> metrics measure the generated forecast using nothing but the generated forecast and the corresponding actuals. As the name suggests, it is a very inward-looking metric. <em class="italic">Extrinsic</em> metrics, on the other hand, use an external reference or benchmark in addition to the generated forecast and ground truth to measure the quality of the forecast.</p>
+    <p class="normal">Before we start with the metrics, let’s establish some notation to help us understand. <em class="italic">y</em><sub class="subscript-italic" style="font-style: italic;">t</sub> and <img src="../Images/B22389_17_033.png" alt=""/> are the actual observation and the forecast at time <em class="italic">t</em>, respectively. The forecast horizon is denoted by <em class="italic">H</em>. In cases where we have a dataset of time series, we assume there are <em class="italic">M</em> time series, indexed by <em class="italic">m</em>, and finally, <img src="../Images/B22389_19_002.png" alt=""/> denotes the error at timestep <em class="italic">t</em>. Now, let’s start with the intrinsic metrics.</p>
+    <h2 id="_idParaDest-476" class="heading-2">Intrinsic metrics</h2>
+    <p class="normal">Intrinsic metrics<a id="_idIndexMarker1593"/> are used to assess a forecast without<a id="_idIndexMarker1594"/> any external information. These are ideal candidates for model development, hyperparameter tuning, and so on. That doesn’t mean we cannot use this type of metric to report performances to non-technical people, but it’ll have to be qualified with some other benchmark to show how well we are doing.</p>
+    <p class="normal">There are four major base errors—absolute error, squared error, percent error, and symmetric error—that are aggregated or summarized in different ways in a variety of metrics. Therefore, any property of these base errors also applies to the aggregate ones, so let’s look at these base errors first.</p>
+    <h3 id="_idParaDest-477" class="heading-3">Absolute error</h3>
+    <p class="normal">The<a id="_idIndexMarker1595"/> error, <em class="italic">e</em><sub class="subscript-italic" style="font-style: italic;">t</sub>, can be positive or negative, depending on whether <img src="../Images/B22389_19_003.png" alt=""/> or not, but then when we are calculating and adding this error over the horizon, the positive and negative errors may cancel each other out and that paints a rosier picture. Therefore, we include a function on top of <em class="italic">e</em><sub class="subscript-italic" style="font-style: italic;">t</sub> to ensure that the errors do not cancel each other out.</p>
+    <p class="normal">The absolute function is one of these functions: <em class="italic">Absolute Error</em> (<em class="italic">AE</em>) = |<em class="italic">e</em><sub class="subscript-italic" style="font-style: italic;">t</sub>|. The absolute error is a scale-dependent error. This means that the magnitude of the error depends on the scale of the time series. For instance, if you have an <em class="italic">AE</em> of 10, it doesn’t mean anything until you put it in context. For a time series with values of around 500 to 1,000, an <em class="italic">AE</em> of 10 may <a id="_idIndexMarker1596"/>be a very good number, but if the time series has values around 50 to 70, then it is bad.</p>
+    <div class="note">
+      <p class="normal">Scale dependence is not a deal breaker when we are looking at individual time series, but when we are aggregating or comparing across multiple time series, scale-dependent errors skew the metric in favor of the large-scale time series. The interesting thing to note here is that this is not necessarily bad. Sometimes, the scale in the time series is meaningful and it makes sense from the business perspective to focus more on the large-scale time series than the smaller ones. For instance, in a retail scenario, one would be more interested in getting the high-selling product forecast right than those of the low-selling ones. In these cases, using a scale-dependent error automatically favors the high-selling products.</p>
+      <p class="normal">You can see this by carrying out an experiment on your own. Generate a random time series, <em class="italic">A</em>. Now, similarly, generate a random forecast for the time series, <em class="italic">F</em>. Now, we multiply the forecast, <em class="italic">F</em>, and time series, <em class="italic">A</em>, by 100 to get two new time series and their forecasts, <em class="italic">A</em><sub class="subscript-italic" style="font-style: italic;">scaled</sub> and <em class="italic">F</em><sub class="subscript-italic" style="font-style: italic;">scaled</sub>, respectively. If we calculate the forecast metric for both these sets of time series and forecasts, the scaled-dependent metrics will give very different values, whereas the scale-independent ones will give the same values.</p>
+    </div>
+    <p class="normal">Many metrics <a id="_idIndexMarker1597"/>are <a id="_idIndexMarker1598"/>based on<a id="_idIndexMarker1599"/> this error:</p>
+    <p class="center"><img src="../Images/B22389_19_004.png" alt=""/></p>
+    <ul>
+      <li class="bulletList"><strong class="keyWord">Mean Absolute Error</strong> (<strong class="keyWord">MAE</strong>): <ul>
+          <li class="bulletList level-2"><strong class="keyWord">Median Absolute Error</strong>: <em class="italic">MdAE</em> = <em class="italic">median</em>(|<em class="italic">e</em><sub class="subscript-italic" style="font-style: italic;">t</sub>|)</li>
+          <li class="bulletList level-2"><strong class="keyWord">Geometric Mean Absolute Error</strong>: <img src="../Images/B22389_19_005.png" alt=""/></li>
+        </ul>
+      </li>
+      <li class="bulletList"><strong class="keyWord">Weighted Mean Absolute Error</strong>: This is a more esoteric method that lets you put <a id="_idIndexMarker1600"/>more weight on a particular timestep in the horizon:</li>
+    </ul>
+    <p class="center"><img src="../Images/B22389_19_006.png" alt=""/></p>
+    <p class="normal-one">Here, <em class="italic">w</em><sub class="subscript-italic" style="font-style: italic;">t</sub> is the weight of a particular timestep. This can be used to assign more weight to special days (such as weekends or promotion days).</p>
+    <ul>
+      <li class="bulletList"><strong class="keyWord">Normalized Deviation</strong> (<strong class="keyWord">ND</strong>): This <a id="_idIndexMarker1601"/>is a metric that is strictly used to calculate aggregate measures across a dataset of time series. This is also one of the popular metrics used in the industry to measure aggregate performance across different time series. This is not scale-free and will be skewed toward large-scale <a id="_idIndexMarker1602"/>time series. This metric has strong connections with another <a id="_idIndexMarker1603"/>metric called the <strong class="keyWord">Weighted Average Percent Error</strong> (<strong class="keyWord">WAPE</strong>). We will discuss these connections when we talk about the WAPE in the following sections.</li>
+    </ul>
+    <p class="normal-one">To calculate ND, we just sum all the absolute errors across the horizons and time series and scale it by the actual observations across the horizons and time series:</p>
+    <p class="center"><img src="../Images/B22389_19_007.png" alt=""/></p>
+    <h3 id="_idParaDest-478" class="heading-3">Squared error</h3>
+    <p class="normal">Squaring is<a id="_idIndexMarker1604"/> another function<a id="_idIndexMarker1605"/> that makes the error positive and thereby prevents the errors from canceling each other out:</p>
+    <p class="center"><img src="../Images/B22389_19_008.png" alt=""/></p>
+    <p class="normal">There are many <a id="_idIndexMarker1606"/>metrics that are based on this error:</p>
+    <p class="center"><img src="../Images/B22389_19_009.png" alt=""/></p>
+    <ul>
+      <li class="bulletList"><strong class="keyWord">Mean Squared Error</strong>: <ul>
+          <li class="bulletList level-2"><strong class="keyWord">Root Mean Squared Error</strong> (<strong class="keyWord">RMSE</strong>): </li>
+        </ul>
+        <p class="center"><img src="../Images/B22389_19_010.png" alt=""/></p>
+        <ul>
+          <li class="bulletList level-2"><strong class="keyWord">Root Median Squared Error</strong>: </li>
+        </ul>
+        <p class="center"><img src="../Images/B22389_19_011.png" alt=""/></p>
+        <ul>
+          <li class="bulletList level-2"><strong class="keyWord">Geometric Root Mean Squared Error</strong>: </li>
+        </ul>
+        <p class="center"><img src="../Images/B22389_19_012.png" alt=""/></p>
+      </li>
+      <li class="bulletList"><strong class="keyWord">Normalized Root Mean Squared Error</strong> (<strong class="keyWord">NRMSE</strong>): This is a metric that is very similar<a id="_idIndexMarker1607"/> to ND in<a id="_idIndexMarker1608"/> spirit. The<a id="_idIndexMarker1609"/> only difference<a id="_idIndexMarker1610"/> is that we take the square root of the squared errors in the numerator rather than the absolute error:</li>
+    </ul>
+    <p class="center"><img src="../Images/B22389_19_013.png" alt=""/></p>
+    <h3 id="_idParaDest-479" class="heading-3">Percent error</h3>
+    <p class="normal">While<a id="_idIndexMarker1611"/> absolute error and squared error <a id="_idIndexMarker1612"/>are scale-dependent, percent error is a scale-free error measure. In percent error, we scale the error using the actual time series observations: <img src="../Images/B22389_19_014.png" alt=""/>. Some of the<a id="_idIndexMarker1613"/> metrics that use percent error are as follows:</p>
+    <ul>
+      <li class="bulletList"><strong class="keyWord">Mean Absolute Percent Error</strong> (<strong class="keyWord">MAPE</strong>): </li>
+    </ul>
+    <p class="center"><img src="../Images/B22389_19_015.png" alt=""/></p>
+    <ul>
+      <li class="bulletList"><strong class="keyWord">Median Absolute Percent Error</strong>: </li>
+    </ul>
+    <p class="center"><img src="../Images/B22389_19_016.png" alt=""/></p>
+    <ul>
+      <li class="bulletList"><strong class="keyWord">WAPE</strong>: WAPE is <a id="_idIndexMarker1614"/>a metric that <a id="_idIndexMarker1615"/>embraces scale dependency and explicitly weights the errors with the scale of the timestep. If <a id="_idIndexMarker1616"/>we want to give more focus to high values on the horizon, we can weigh those timesteps more than the others. Instead of taking a simple mean, we use a weighted mean on the absolute percent error. We can choose the weight to be anything but, more often than not, it is chosen as the quantity of the observation itself. And, in that special case, the math (with some assumptions) works out to be a simple formula that reminds us of ND. The difference is that ND is a metric that aggregates across multiple time series, and WAPE is a metric that weighs across timesteps:</li>
+    </ul>
+    <p class="center"><img src="../Images/B22389_19_017.png" alt=""/></p>
+    <h3 id="_idParaDest-480" class="heading-3">Symmetric error</h3>
+    <p class="normal">Percent <a id="_idIndexMarker1617"/>error has a few problems—it is <a id="_idIndexMarker1618"/>asymmetrical (we will see this in detail later in the chapter), and it breaks down when the actual observation is zero (due to division by zero). Symmetric error was proposed as an alternative to avoid this asymmetry, but as it turns out, symmetric error is itself asymmetric—more on that later, but for now, let’s see what symmetric error is:</p>
+    <p class="center"><img src="../Images/B22389_19_018.png" alt=""/></p>
+    <p class="normal">There are only two <a id="_idIndexMarker1619"/>metrics that are<a id="_idIndexMarker1620"/> popularly used under this base error:</p>
+    <ul>
+      <li class="bulletList"><strong class="keyWord">Symmetric Mean Absolute Percent Error</strong> (<strong class="keyWord">sMAPE</strong>):</li>
+    </ul>
+    <p class="center"><img src="../Images/B22389_19_019.png" alt=""/></p>
+    <ul>
+      <li class="bulletList"><strong class="keyWord">Symmetric Median Absolute Percent Error</strong>:</li>
+    </ul>
+    <p class="center"><img src="../Images/B22389_19_020.png" alt=""/></p>
+    <h3 id="_idParaDest-481" class="heading-3">Other intrinsic metrics</h3>
+    <p class="normal">There are a few other metrics that are intrinsic in nature but don’t conform to the other metrics. Notable among those are three metrics that measure the over- or under-forecasting aspect of forecasts:</p>
+    <ul>
+      <li class="bulletList"><strong class="keyWord">Cumulative Forecast Error</strong> (<strong class="keyWord">CFE</strong>): CFE is<a id="_idIndexMarker1621"/> simply the sum of all the errors, including <a id="_idIndexMarker1622"/>the sign of the error. Here, we want the positives and negatives to cancel each other out so that we understand whether a forecast is consistently over- or under-forecasting in a given horizon. A CFE close to zero means the forecasting model is neither over- nor under-forecasting:</li>
+    </ul>
+    <p class="center"><img src="../Images/B22389_19_021.png" alt=""/></p>
+    <ul>
+      <li class="bulletList"><strong class="keyWord">Forecast Bias</strong> (<strong class="keyWord">FB</strong>): While <a id="_idIndexMarker1623"/>CFE measures the degree of over- and under-forecasting, it is <a id="_idIndexMarker1624"/>still scale-dependent. When we want to compare across time series or have an intuitive understanding of the degree of over- or under-forecasting, we can scale CFE by the actual observations. This is called Forecast Bias:</li>
+    </ul>
+    <p class="center"><img src="../Images/B22389_19_022.png" alt=""/></p>
+    <ul>
+      <li class="bulletList"><strong class="keyWord">Tracking Signal</strong> (<strong class="keyWord">TS</strong>): The<a id="_idIndexMarker1625"/> Tracking Signal is another metric that is used to <a id="_idIndexMarker1626"/>measure the same over- and under-forecasting in forecasts. While CFE and Forecast Bias are used more offline, the Tracking Signal finds its place in an online setting where we are tracking over- and under-forecasting over periodic time intervals, such as every hour or every week. It helps us detect structural biases in the forecasting model. Typically, the Tracking Signal is used along with a threshold value so that going above or below it throws a warning. Although a thumb rule is to use <img src="../Images/B22389_19_023.png" alt=""/>, it is totally up to you to decide the right threshold for your problem. The value 3.75 has its roots in the properties of normal distribution where it corresponds to a 99% confidence interval, which means this value is sensitive enough to trigger when there <a id="_idIndexMarker1627"/>is a structural bias while avoiding false positives. </li>
+    </ul>
+    <p class="bulletList">But at the end of the day, this value should just be a starting point to start backdated tests to figure out what is the threshold that raises the right kind of alarms in your data:</p>
+    <p class="center"><img src="../Images/B22389_19_024.png" alt=""/></p>
+    <p class="normal">Here, <em class="italic">w</em> is the past window over which <em class="italic">TS</em> is calculated.</p>
+    <p class="normal">Now, let’s turn our attention to a few extrinsic metrics.</p>
+    <h2 id="_idParaDest-482" class="heading-2">Extrinsic metrics</h2>
+    <p class="normal">Extrinsic metrics <a id="_idIndexMarker1628"/>evaluate the forecast quality by comparing<a id="_idIndexMarker1629"/> it not only to the actuals but also to some external reference or benchmark. This could be a baseline model, an industry standard, or a competitor’s forecast. These metrics are more suitable for reporting the performance of the model to non-technical people who can instantly get a sense of how good the model is doing. Suppose you have an existing forecast that you are trying to improve; using that forecast as a reference will instantly make your metrics interpretable.</p>
+    <p class="normal">There are two major buckets of metrics under the extrinsic umbrella—relative error and scaled error.</p>
+    <h3 id="_idParaDest-483" class="heading-3">Relative error</h3>
+    <p class="normal">One <a id="_idIndexMarker1630"/>of the problems of intrinsic metrics is that they don’t mean a lot unless a benchmark score exists. For instance, if we hear that the MAPE is 5%, it doesn’t mean a lot because we don’t know how forecastable that time series is. Maybe 5% is a bad error rate. Relative error solves this by including a benchmark forecast in the calculation so that the errors of the forecast we are measuring are measured against the benchmark and thus show the relative gains of the forecast. Therefore, in addition to the notation that we have established, we need to add some more.</p>
+    <p class="normal">Let <img src="../Images/B22389_19_025.png" alt=""/> be the forecast from the benchmark and <img src="../Images/B22389_19_026.png" alt=""/> be the benchmark error. There are two ways we can include the benchmark in the metric:</p>
+    <ul>
+      <li class="bulletList">Using errors from the benchmark forecast to scale the error of the forecast</li>
+      <li class="bulletList">Using forecast measures from the benchmark forecast to scale the forecast measure of the forecast we are measuring</li>
+    </ul>
+    <p class="normal">Let’s<a id="_idIndexMarker1631"/> look at a few <a id="_idIndexMarker1632"/>relative<a id="_idIndexMarker1633"/> errors:</p>
+    <ul>
+      <li class="bulletList"><strong class="keyWord">Mean Relative Absolute Error</strong> (<strong class="keyWord">MRAE</strong>):</li>
+    </ul>
+    <p class="center"><img src="../Images/B22389_19_027.png" alt=""/></p>
+    <ul>
+      <li class="bulletList"><strong class="keyWord">Median Relative Absolute Error</strong>: </li>
+    </ul>
+    <p class="center"><img src="../Images/B22389_19_028.png" alt=""/></p>
+    <ul>
+      <li class="bulletList"><strong class="keyWord">Geometric Mean Relative Absolute Error</strong>:</li>
+    </ul>
+    <p class="center"><img src="../Images/B22389_19_029.png" alt=""/></p>
+    <ul>
+      <li class="bulletList"><strong class="keyWord">Relative Mean Absolute Error</strong> (<strong class="keyWord">RelMAE</strong>): </li>
+    </ul>
+    <p class="normal-one"><img src="../Images/B22389_19_030.png" alt=""/>, where <img src="../Images/B22389_19_031.png" alt=""/> is the <a id="_idIndexMarker1634"/>MAE of the benchmark<a id="_idIndexMarker1635"/> forecast.</p>
+    <ul>
+      <li class="bulletList"><strong class="keyWord">Relative Root Mean Squared Error</strong> (<strong class="keyWord">RelRMSE</strong>): </li>
+    </ul>
+    <p class="normal-one"><img src="../Images/B22389_19_032.png" alt=""/>, where <img src="../Images/B22389_19_033.png" alt=""/> is the RMSE of the benchmark <a id="_idIndexMarker1636"/>forecast.</p>
+    <ul>
+      <li class="bulletList"><strong class="keyWord">Average Relative Mean Absolute Error</strong>: Davydenko and Fildes (Reference <em class="italic">2</em>) proposed <a id="_idIndexMarker1637"/>another metric that is strictly for calculating aggregate scores across <a id="_idIndexMarker1638"/>time series. They argued that using a geometric mean over the RelMAEs of individual time series is better than an arithmetic mean, so they defined the Average Relative Mean Absolute Error as follows:</li>
+    </ul>
+    <p class="center"><img src="../Images/B22389_19_034.png" alt=""/></p>
+    <h3 id="_idParaDest-484" class="heading-3">Scaled error</h3>
+    <p class="normal">Hyndman and Koehler introduced<a id="_idIndexMarker1639"/> the idea of scaled error in 2006. This was an alternative to relative error and measures and tries to get over some of the drawbacks and subjectivity of choosing the benchmark forecast. Scaled error <a id="_idIndexMarker1640"/>scales the forecast error using an in-sample MAE of a benchmark method such as naïve forecasting. Let the entire training history be of <em class="italic">T</em> timesteps, indexed by <em class="italic">i</em>.</p>
+    <p class="normal">So, the scaled error is defined as follows:</p>
+    <p class="center"><img src="../Images/B22389_19_035.png" alt=""/></p>
+    <p class="normal">There are a couple <a id="_idIndexMarker1641"/>of metrics that adopt this principle:</p>
+    <ul>
+      <li class="bulletList"><strong class="keyWord">Mean Absolute Scaled Error</strong> (<strong class="keyWord">MASE</strong>):</li>
+    </ul>
+    <p class="center"><img src="../Images/B22389_19_036.png" alt=""/></p>
+    <ul>
+      <li class="bulletList"><strong class="keyWord">Root Mean Squared Scaled Error</strong> (<strong class="keyWord">RMSSE</strong>): A similar scaled error was developed<a id="_idIndexMarker1642"/> for the <a id="_idIndexMarker1643"/>squared error and was used in the M5 Forecasting Competition in 2020:</li>
+    </ul>
+    <p class="center"><img src="../Images/B22389_19_037.png" alt=""/></p>
+    <h3 id="_idParaDest-485" class="heading-3">Other extrinsic metrics</h3>
+    <p class="normal">There are other extrinsic metrics that don’t fall into the categorization of errors we have made. One such error measure is the following.</p>
+    <p class="normal"><strong class="keyWord">Percent Better</strong> (<strong class="keyWord">PB</strong>) is a <a id="_idIndexMarker1644"/>method <a id="_idIndexMarker1645"/>that is based on counts and can be applied to individual time series as well as a dataset of time series. The idea here is to use a benchmark method and count how many times a given method is better than the benchmark and report it as a percentage. Formally, we can define it using MAE as the reference error, as follows:</p>
+    <p class="center"><img src="../Images/B22389_19_038.png" alt=""/></p>
+    <p class="normal">Here, <img src="../Images/B22389_19_039.png" alt=""/> is an indicator function that returns 1 if the condition is true and 0 otherwise.</p>
+    <p class="normal">We have seen a lot of metrics in the previous sections, but now it’s time to understand a bit more about the way they work and what they are suited for.</p>
+    <h1 id="_idParaDest-486" class="heading-1">Investigating the error measures</h1>
+    <p class="normal">It’s not<a id="_idIndexMarker1646"/> enough to just know the different metrics; we also need to understand how these work, what are they good for, and what are they not good for. We can start with the basic errors and work our way up because understanding the properties of basic errors such as <em class="italic">absolute error</em>, <em class="italic">squared error</em>, <em class="italic">percent error</em>, and <em class="italic">symmetric error</em> will help us understand the others as well, as most of the other metrics are derivatives of these primary errors, either aggregating them or using relative benchmarks.</p>
+    <p class="normal">Let’s do this investigation using a few experiments and understand them through the results.</p>
+    <div class="note">
+      <p class="normal"><strong class="keyWord">Notebook alert:</strong></p>
+      <p class="normal">The notebook for running these experiments on your own is <code class="inlineCode">01-Loss_Curves_and_Symmetry.ipynb</code> in the <code class="inlineCode">Chapter19</code> folder.</p>
+    </div>
+    <h2 id="_idParaDest-487" class="heading-2">Loss curves and complementarity</h2>
+    <p class="normal">All these <a id="_idIndexMarker1647"/>base errors depend on two factors—forecasts and actual observations. We can examine the behavior of these metrics if we fix one and alter the other in a symmetric range of potential errors. The expectation is that the metric will behave the same way on both sides because deviation from the actual observation on either side should be equally penalized in an unbiased metric. We can also swap the forecasts and actual observations; that also should not affect the metric.</p>
+    <p class="normal">In the notebook, we did exactly these experiments—loss curves and complementary pairs.</p>
+    <h3 id="_idParaDest-488" class="heading-3">Absolute error</h3>
+    <p class="normal">When<a id="_idIndexMarker1648"/> we plot these for absolute error, we get <em class="italic">Figure 19.2</em>:</p>
+    <figure class="mediaobject"><img src="../Images/B22389_19_02.png" alt="A graph of error and error  Description automatically generated with medium confidence"/></figure>
+    <p class="packt_figref">Figure 19.2: The loss curves and complementary pairs for absolute error</p>
+    <p class="normal">The first chart <a id="_idIndexMarker1649"/>plots the signed error against the absolute error and the second one plots the absolute error with all the combinations of actuals and forecast, which add up to 10. The two charts are obviously symmetrical, which means that an equal deviation from the actual observed on either side is penalized equally, and if we swap the actual observation and the forecast, the metric remains unchanged.</p>
+    <h3 id="_idParaDest-489" class="heading-3">Squared error</h3>
+    <p class="normal">Now, let’s look at <a id="_idIndexMarker1650"/>the squared error:</p>
+    <figure class="mediaobject"><img src="../Images/B22389_19_03.png" alt="Figure 18.3 – The loss curves and complementary pairs for squared error "/></figure>
+    <p class="packt_figref">Figure 19.3: The loss curves and complementary pairs for squared error</p>
+    <p class="normal">These charts also look symmetrical, so the squared error also doesn’t have an issue with asymmetric error distribution—but we can notice one thing here. The squared error increases exponentially as the error increases. This points to a property of the squared error—it gives undue weightage to outliers. If there are a few timesteps for which the forecast is really <a id="_idIndexMarker1651"/>bad and excellent at all other points, the squared error inflates the impact of those outlying errors.</p>
+    <h3 id="_idParaDest-490" class="heading-3">Percent error</h3>
+    <p class="normal">Now, let’s<a id="_idIndexMarker1652"/> look at the percent error:</p>
+    <figure class="mediaobject"><img src="../Images/B22389_19_04.png" alt="Figure 18.4 – The loss curves and complementary pairs for percent error "/></figure>
+    <p class="packt_figref">Figure 19.4: The loss curves and complementary pairs for percent error</p>
+    <p class="normal">There<a id="_idIndexMarker1653"/> goes our symmetry. The percent error is symmetrical when you move away from the actuals on both sides (mostly because we are keeping the actuals constant), but the complementary pairs tell us a whole different story. When the actual is 1 and the forecast is 9, the percent error is 8, but when we swap them, the percent error drops to 1. This kind of asymmetry can cause the metric to favor under-forecasting. The right half of the second chart in <em class="italic">Figure 19.4</em> are all cases where we are under-forecasting and we can see that the error is very low there when compared to the left half.</p>
+    <p class="normal">We will look at under- and over-forecasting in detail in another experiment.</p>
+    <h3 id="_idParaDest-491" class="heading-3">Symmetric error</h3>
+    <p class="normal">For <a id="_idIndexMarker1654"/>now, let’s move on and look at the last error we had—the symmetric error:</p>
+    <figure class="mediaobject"><img src="../Images/B22389_19_05.png" alt="Figure 18.5 – The loss curves and complementary pairs for symmetric error "/></figure>
+    <p class="packt_figref">Figure 19.5: The loss curves and complementary pairs for symmetric error</p>
+    <p class="normal">Symmetric error <a id="_idIndexMarker1655"/>was proposed mainly because of the asymmetry we saw in the percent error. MAPE, which uses percent error, is one of the most popular metrics used, and sMAPE was proposed to directly challenge and replace MAPE. True to its claim, it did resolve the asymmetry that was present in percent error. However, it introduced its own asymmetry. In the first chart, we can see that for a particular actual value, if the forecast moves on either side, it is penalized differently, so in effect, this metric favors over-forecasting (which is in direct contrast to percent error, which favors under-forecasting).</p>
+    <h3 id="_idParaDest-492" class="heading-3">Extrinsic errors</h3>
+    <p class="normal">With all the<a id="_idIndexMarker1656"/> intrinsic measures done, we can also take a look at the extrinsic ones. With extrinsic measures, plotting the loss curves and checking symmetry is not as easy. Instead of two variables, we now have three—the actual observation, the forecast, and the reference forecast. The value of the measure can vary with any of these. We can use a contour plot for this, as shown in <em class="italic">Figure 19.6</em>:</p>
+    <figure class="mediaobject"><img src="../Images/B22389_19_06.png" alt="Figure 18.6 – Contour plot of the loss surface – relative absolute error and absolute scaled error "/></figure>
+    <p class="packt_figref">Figure 19.6: Contour plot of the loss surface—relative absolute error and absolute scaled error</p>
+    <p class="normal">The contour plot enables us to plot three dimensions in a 2D plot. The two dimensions (error and reference forecast) are on the <em class="italic">x</em>- and <em class="italic">y</em>-axes. The third dimension (the relative absolute error and absolute scaled error values) is represented as color (refer to the color images file:<a href="https://packt.link/gbp/9781835883181"><span class="url">https://packt.link/gbp/9781835883181</span></a>), with contour lines bordering same-colored areas. The errors are symmetric around the error (horizontal) axis. This means that if we keep the reference forecast constant and vary the error, both measures vary equally on both sides of the errors. This is not surprising since both these errors have their base in absolute error, which we know was symmetric.</p>
+    <p class="normal">The interesting observation is the dependency on the reference forecast. We can see that for the same error, a <em class="italic">relative absolute error</em> has different values for different reference forecasts, but the <em class="italic">scaled error</em> doesn’t have this problem. This is because it is not directly dependent on the reference forecast and rather uses the MAE of a naïve forecast. This<a id="_idIndexMarker1657"/> value is fixed for a time series and eliminates the task of choosing a reference forecast. Therefore, scaled error has good symmetry for absolute error and very little or fixed dependency on the reference forecast.</p>
+    <h2 id="_idParaDest-493" class="heading-2">Bias toward over- or under-forecasting</h2>
+    <p class="normal">We<a id="_idIndexMarker1658"/> have seen indications of bias toward over- or under-forecasting in a few metrics that we looked at. In fact, it looked like the popular metric, MAPE, favors under-forecasting. To finally put that to the test, we can perform another experiment with synthetically generated time series; we included a lot more metrics in this experiment so that we know which are safe to use and which need to be looked at carefully.</p>
+    <div class="note">
+      <p class="normal"><strong class="keyWord">Notebook alert:</strong></p>
+      <p class="normal">The notebook to run these experiments on your own is <code class="inlineCode">02-Over_and_Under_Forecasting.ipynb</code> in the <code class="inlineCode">Chapter19</code> folder.</p>
+    </div>
+    <p class="normal">The experiment is simple and detailed as follows:</p>
+    <ol>
+      <li class="numberedList" value="1">We randomly sample a count time series of integers with a length of 100 from a uniform distribution between <code class="inlineCode">2</code> and <code class="inlineCode">5</code>:
+        <pre class="programlisting code-one"><code class="hljs-code">np.random.randint(<span class="hljs-number">2</span>,<span class="hljs-number">5</span>,n)
+</code></pre>
+      </li>
+      <li class="numberedList">We use the same process to generate a forecast, which is also drawn from a uniform distribution between <code class="inlineCode">2</code> and <code class="inlineCode">5</code>:
+        <pre class="programlisting code-one"><code class="hljs-code">np.random.randint(<span class="hljs-number">2</span>,<span class="hljs-number">5</span>,n)
+</code></pre>
+      </li>
+      <li class="numberedList">Now, we generate two additional forecasts, one from the uniform distribution between <code class="inlineCode">0</code> to <code class="inlineCode">4</code> and another between <code class="inlineCode">3</code> and <code class="inlineCode">7</code>. The former predominantly under-forecasts and the latter over-forecasts:
+        <pre class="programlisting code-one"><code class="hljs-code">np.random.randint(<span class="hljs-number">0</span>,<span class="hljs-number">4</span>,n)<span class="hljs-comment"># Underforecast</span>
+np.random.randint(<span class="hljs-number">3</span>,<span class="hljs-number">7</span>,n) <span class="hljs-comment"># Overforecast</span>
+</code></pre>
+      </li>
+      <li class="numberedList">We calculate all the measures we want to investigate using all three forecasts.</li>
+      <li class="numberedList">We repeat it 10,000 times to average out the effect of random draws.</li>
+    </ol>
+    <p class="normal">After the<a id="_idIndexMarker1659"/> experiment is done, we can plot a box plot of different metrics so that it shows the distribution of each metric for each of those three forecasts over these 10,000 runs of the experiment. Let’s see the box plot in <em class="italic">Figure 19.7</em>:</p>
+    <figure class="mediaobject"><img src="../Images/B22389_19_07.png" alt="Figure 18.7 – Over- and under-forecasting experiment "/></figure>
+    <p class="packt_figref">Figure 19.7: Over- and under-forecasting experiment</p>
+    <p class="normal">Let’s go over what we would expect from this experiment first. The over- (green) and under- (red) forecasted forecasts would have a higher error than the baseline (blue). The over- and under-forecasted errors would be similar.</p>
+    <p class="normal">With that, let’s summarize our major findings:</p>
+    <ul>
+      <li class="bulletList">MAPE clearly favors the under-forecasted with a lower MAPE than the over-forecasted.</li>
+      <li class="bulletList">WAPE, although based on percent error, managed to get over the problem by having explicit weighting. This may be counteracting the bias that percent error has.</li>
+      <li class="bulletList">sMAPE, in its attempt to fix MAPE, does a worse job in the opposite direction. sMAPE highly favors over-forecasting.</li>
+      <li class="bulletList">Metrics such as MAE and RMSE, which are based on absolute error and squared error, respectively, don’t show any preference for either over- or under-forecasting.</li>
+      <li class="bulletList">MASE and RMSSE (both using versions of scaled error) are also fine.</li>
+      <li class="bulletList">MRAE, in spite of some asymmetry regarding the reference forecast, turns out to be unbiased from the over- and under-forecasting perspective.</li>
+      <li class="bulletList">The relative measures with absolute and squared error bases (RelMAE and RelRMSE) also do not have any bias toward over- or under-forecasting.</li>
+      <li class="bulletList">The relative measure of mean absolute percentage error, RelMAPE, carries MAPE’s bias toward under-forecasting.</li>
+    </ul>
+    <p class="normal">We have<a id="_idIndexMarker1660"/> investigated a few properties of different error measures and understood the basic properties of some of them. To further that understanding and move closer to helping us select the right measure for our problem, let’s do one more experiment using the London Smart Meters dataset we have been using through this book.</p>
+    <h1 id="_idParaDest-494" class="heading-1">Experimental study of the error measures</h1>
+    <p class="normal">As<a id="_idIndexMarker1661"/> we discussed earlier, there are a lot of metrics for forecasting that people have come up with over the years. Although there are many different formulations of these metrics, there can be similarities in what they are measuring. Therefore, if we are going to choose a primary and secondary metric while modeling, we should pick some metrics that are diverse and measure different aspects of the forecast.</p>
+    <p class="normal">Through this experiment, we are going to try and figure out which of these metrics are similar to each other. We are going to use the subset of the <em class="italic">London Smart Meters</em> dataset we have been using all through the book and generate some forecasts for each household. I chose to do this exercise with the <code class="inlineCode">darts</code> library because I wanted multi-step forecasting. I used five different forecasting methods—seasonal naïve, exponential smoothing, Theta, FFT, and LightGBM (local)—and generated forecasts. On top of that, I also calculated the following metrics on all of these forecasts: MAPE, WAPE, sMAPE, MAE, MdAE, MSE, RMSE, MRAE, MASE, RMSSE, RelMAE, RelRMSE, RelMAPE, CFE, Forecast Bias, and PB(MAE). In addition to this, we also calculated a few aggregate metrics: meanMASE, meanRMSSE, meanWAPE, meanMRAE, AvgRelRMSE, ND, and NRMSE.</p>
+    <h2 id="_idParaDest-495" class="heading-2">Using Spearman’s rank correlation</h2>
+    <p class="normal">The basis<a id="_idIndexMarker1662"/> of the experiment is that if different metrics measure the same underlying factor, then they will also rank forecasts on <a id="_idIndexMarker1663"/>different households similarly. For instance, if we say that MAE and MASE are measuring one latent property of the forecast, then those two metrics would give similar rankings to different households. At the aggregated level, there are five different models and aggregate metrics that measure the same underlying latent factor and should also rank them in similar ways.</p>
+    <p class="normal">Let’s look at the aggregate metrics first. We ranked the different forecast methods at the aggregate level using each of the metrics and then we calculated the Pearson correlation of the ranks. This gives us Spearman’s rank correlation between the forecasting methods and metrics. The heatmap (refer to the color images file:<a href="https://packt.link/gbp/9781835883181"><span class="url">https://packt.link/gbp/9781835883181</span></a>) of the correlation matrix is in <em class="italic">Figure 19.8</em>:</p>
+    <figure class="mediaobject"><img src="../Images/B22389_19_08.png" alt="Figure 18.8 – Spearman’s rank correlation between the forecast methods and aggregate metrics "/></figure>
+    <p class="packt_figref">Figure 19.8: Spearman’s rank correlation between the forecast methods and aggregate metrics</p>
+    <p class="normal">These <a id="_idIndexMarker1664"/>are the<a id="_idIndexMarker1665"/> major observations:</p>
+    <ul>
+      <li class="bulletList">We can see that <em class="italic">meanMASE</em>, <em class="italic">meanWAPE,</em> and <em class="italic">ND</em> (all based on absolute error) are highly correlated, indicating that they might be measuring similar latent factors of the forecast.</li>
+      <li class="bulletList">The other pair that is highly correlated is <em class="italic">meanRMSSE</em> and <em class="italic">NRMSE</em>, which are both based on squared error.</li>
+      <li class="bulletList">There is a weak correlation between <em class="italic">meanMASE</em> and <em class="italic">meanRMSSE</em>, maybe because they are both using scaled error.</li>
+      <li class="bulletList"><em class="italic">meanMRAE</em> and <em class="italic">Forecast Bias</em> seem to be highly correlated, although there is no strong basis for that shared behavior. Some correlations can be because of chance and this needs to be validated further on more datasets.</li>
+      <li class="bulletList"><em class="italic">meanMRAE</em> and <em class="italic">AvgRelRMSE</em> seem to be measuring very different latent factors from the rest of the metrics and each other.</li>
+    </ul>
+    <p class="normal">Similarly, we <a id="_idIndexMarker1666"/>calculated Spearman’s rank correlation <a id="_idIndexMarker1667"/>between the forecast methods and metrics across all the households (<em class="italic">Figure 19.9</em>). This enables us to have the same kind of comparison as before at the item level:</p>
+    <figure class="mediaobject"><img src="../Images/B22389_19_09.png" alt="Figure 18.9 – Spearman’s rank correlation between the forecast methods and item-level metrics "/></figure>
+    <p class="packt_figref">Figure 19.9: Spearman’s rank correlation between the forecast methods and item-level metrics</p>
+    <p class="normal">The <a id="_idIndexMarker1668"/>major <a id="_idIndexMarker1669"/>observations are as follows:</p>
+    <ul>
+      <li class="bulletList">We can see there are five clusters of highly correlated metrics (the five darker green boxes).</li>
+      <li class="bulletList">The first group is <em class="italic">MASE</em> and <em class="italic">RMSSE</em>, which are highly correlated. This can be because of the scaled error formulation of both metrics.</li>
+      <li class="bulletList"><em class="italic">WAPE</em>, <em class="italic">MAPE</em>, and <em class="italic">sMAPE</em> are the second group. Frankly, this is a bit confusing because I would have expected <em class="italic">MAPE</em> and <em class="italic">sMAPE</em> to have less correlated results. They do behave in the opposite way from an over- and under-forecasting perspective. Maybe all the forecasts we have used to check this correlation don’t over- or under-forecast and, therefore, the similarity came out through the shared percent error base. This needs to be investigated further.</li>
+      <li class="bulletList"><em class="italic">MAE</em>, <em class="italic">MdAE</em>, <em class="italic">MSE</em>, and <em class="italic">RMSE</em> form the third group of highly similar metrics. <em class="italic">MAE</em> and <em class="italic">MdAE</em> are both absolute error metrics and <em class="italic">MSE</em> and <em class="italic">RMSE</em> are both squared error metrics. The similarity between these two could be because of the lack of outlying errors in the forecasts. The only difference between these two base errors is that the squared error puts a much greater weight on outlying errors.</li>
+      <li class="bulletList">The next group of similar metrics is the motley crew of relative measures—<em class="italic">MRAE,</em> <em class="italic">RelMAE</em>, <em class="italic">RelRMSE</em>, <em class="italic">RelMAPE</em>, and <em class="italic">PB(MAE)</em>—but the intercorrelation among this group is not as strong as the other groups. The pairs of metrics that stand out in terms of having low inter-correlations are <em class="italic">MRAE</em> and <em class="italic">RelRMSE</em> and <em class="italic">RelMAPE</em> and <em class="italic">RelRMSE</em>.</li>
+      <li class="bulletList">The last group that stands totally apart with much less correlation with any other metric but a higher correlation with each other is <em class="italic">Forecast Bias</em> and <em class="italic">CFE</em>. Both are calculated on unsigned errors and measure the amount of over- or under-forecasting.</li>
+      <li class="bulletList">If we look at intergroup similarities, the only thing that stands out is the similarity between the scaled error group and absolute error and squared error group.</li>
+    </ul>
+    <div class="note">
+      <p class="normal">Spearman’s rank correlation on aggregate metrics is done using a single dataset and has to be taken with a grain of salt. The item-level correlation has a bit more significance because it is made across many households, but there are still a few things in there that warrant further investigation. I urge you to repeat this experiment on some other datasets and check whether you see the same patterns repeated before adopting them as rules.</p>
+    </div>
+    <p class="normal">Now that <a id="_idIndexMarker1670"/>we <a id="_idIndexMarker1671"/>have explored the different metrics, it is time to summarize and leave you with a few guidelines for choosing a metric.</p>
+    <h1 id="_idParaDest-496" class="heading-1">Guidelines for choosing a metric</h1>
+    <p class="normal">Throughout<a id="_idIndexMarker1672"/> this chapter, we have come to understand that it is difficult to choose one forecast metric and apply it universally. There are advantages and disadvantages for each metric, and being cognizant of these while selecting a metric is the only rational way to go about it.</p>
+    <p class="normal">Let’s summarize and note a few points we have seen through different experiments in the chapter:</p>
+    <ul>
+      <li class="bulletList">Absolute error and squared error are both symmetric losses and are unbiased from the under- or over-forecasting perspective.</li>
+      <li class="bulletList">Squared error does have a tendency to magnify the outlying error because of the square term in it. Therefore, if we use a squared-error-based metric, we will be penalizing high errors much more than small errors.</li>
+      <li class="bulletList">RMSE is generally preferred over MSE because RMSE is on the same scale as the original input and, therefore, is a bit more interpretable.</li>
+      <li class="bulletList">Percent error and symmetric error are not symmetric in the complete sense and favor under-forecasting and over-forecasting, respectively. MAPE, which is a very popular metric, is plagued by this shortcoming. For instance, if we are forecasting demand, optimizing for MAPE will lead you to select a forecast that is conservative and, therefore, under-forecast. This will lead to an inventory shortage and out-of-stock situations. sMAPE, with all its shortcomings, has fallen out of favor with practitioners.</li>
+      <li class="bulletList">Relative measures are a good alternative to percent-error-based metrics because they are also inherently interpretable, but relative measures depend on the quality of the benchmark method. If the benchmark method performs poorly, the relative measures will tend to dampen the impact of errors from the model under evaluation. On the other hand, if the benchmark forecast is close to an oracle forecast with close to zero errors, the relative measure will exaggerate the errors of the model. Therefore, you have to be careful when choosing the benchmark forecast, which is an additional thing to worry about.</li>
+      <li class="bulletList">Although<a id="_idIndexMarker1673"/> a geometric mean offers a few advantages over an arithmetic mean (such as resistance to outliers and better approximation when there is high variation in data), it is not without its own problems. Geometric mean-based measures mean that even if a single series (when aggregating across time series) or a single timestep (when aggregating across timesteps) performs really well, it will make the overall error come down drastically due to the multiplication.</li>
+      <li class="bulletList">PB, although an intuitive metric, has one disadvantage. We are simply counting the instances in which we perform better. However, it doesn’t assess how well or poorly we are doing. The effect on the PB score is the same, whether our error is 50% less than the reference error or 1% less.</li>
+    </ul>
+    <p class="normal">Hewamalage et al. (Reference <em class="italic">1</em>) have proposed a very detailed flowchart to aid in decision-making, but that is also more of a guideline as to what not to use. The selection of a single metric is a very debatable task. There are a lot of conflicting opinions out there and I’m just adding another to that noise. Here are a few guidelines I propose to help you pick a forecasting metric:</p>
+    <ul>
+      <li class="bulletList">Avoid <em class="italic">MAPE</em>. In any situation, there is always a better metric to measure what you want. At the very least, stick to <em class="italic">WAPE</em> for single time series datasets.</li>
+      <li class="bulletList">For a single time series dataset, the best metrics to choose are <em class="italic">MAE</em> or <em class="italic">RMSE</em> (depending on whether you want to penalize large errors more or not).</li>
+      <li class="bulletList">For multiple time series datasets, use <em class="italic">ND</em> or <em class="italic">NRMSSE</em> (depending on whether you want to penalize large errors more or not). As a second choice, <em class="italic">meanMASE</em> or <em class="italic">meanRMSSE</em> can also be used.</li>
+      <li class="bulletList">If there are large changes in the time series (in the horizon we are measuring, there is a huge shift in time series levels), then something such as <em class="italic">PB</em> or <em class="italic">MRAE</em> can be used.</li>
+      <li class="bulletList">Whichever metric you choose, always make sure to use <em class="italic">Forecast Bias</em>, <em class="italic">CFE</em>, or Tracking Signal to keep an eye on structural over- or under-forecasting problems.</li>
+      <li class="bulletList">If the time series you are forecasting is intermittent (as in, has a lot of time steps with zero values), use <em class="italic">RMSE</em> and avoid <em class="italic">MAE</em>. <em class="italic">MAE</em> favors forecasts that generate all zeros. Avoid all percent-error-based metrics because intermittency brings to light another one of their shortcomings—it is undefined when actual observations are zero (the <em class="italic">Further reading</em> section has a link to a blog that explores other metrics for intermittent series).</li>
+    </ul>
+    <p class="normal">Congratulations <a id="_idIndexMarker1674"/>on finishing a chapter full of new terms and metrics. I hope you have gained the necessary intuition to intelligently select the metric to focus on for your next forecasting assignment!</p>
+    <h1 id="_idParaDest-497" class="heading-1">Summary</h1>
+    <p class="normal">In this chapter, we looked at the thickly populated and highly controversial area of forecast metrics. We started with a basic taxonomy of forecast measures to help you categorize and organize all the metrics in the field.</p>
+    <p class="normal">Then, we launched a few experiments through which we learned about the different properties of these metrics, slowly approaching a better understanding of what these metrics are measuring; looking at synthetic time series experiments, we learned how <em class="italic">MAPE</em> and <em class="italic">sMAPE</em> favor under- and over-forecasting, respectively.</p>
+    <p class="normal">We also analyzed the rank correlations between these metrics on real data to see how similar the different metrics are, and finally, rounded off by laying out a few guidelines that can help you pick a forecasting metric for your problem.</p>
+    <p class="normal">In the next chapter (our last chapter), we will look at cross-validation strategies for time series.</p>
+    <h1 id="_idParaDest-498" class="heading-1">References</h1>
+    <p class="normal">The following are the references that we used throughout the chapter:</p>
+    <ol>
+      <li class="numberedList" value="1">Hewamalage, Hansika; Ackermann, Klaus; and Bergmeir, Christoph. (2022). <em class="italic">Forecast Evaluation for Data Scientists: Common Pitfalls and Best Practices</em>. arXiv preprint arXiv: Arxiv-2203.10716: <a href="https://arxiv.org/abs/2203.10716v2"><span class="url">https://arxiv.org/abs/2203.10716v2</span></a>.</li>
+      <li class="numberedList">Davydenko, Andrey and Fildes, Robert. (2013). <em class="italic">Measuring forecasting accuracy: the case of judgmental adjustments to SKU-level demand forecasts</em>. In <em class="italic">International Journal of Forecasting</em>. Vol. 29, No. 3., 2013, pp. 510-522: <a href="https://doi.org/10.1016/j.ijforecast.2012.09.002"><span class="url">https://doi.org/10.1016/j.ijforecast.2012.09.002</span></a>.</li>
+      <li class="numberedList">Hyndman, Rob J. and Koehler, Anne B. (2006). <em class="italic">Another look at measures of forecast accuracy</em>. In <em class="italic">International Journal of Forecasting</em>, Vol. 22, Issue 4, 2006, pp. 679-688: <a href="https://robjhyndman.com/publications/another-look-at-measures-of-forecast-accuracy/"><span class="url">https://robjhyndman.com/publications/another-look-at-measures-of-forecast-accuracy/</span></a>.</li>
+    </ol>
+    <h1 id="_idParaDest-499" class="heading-1">Further reading</h1>
+    <ul>
+      <li class="bulletList">If you wish to read further about forecast metrics, you can check out the blog post <em class="italic">Forecast Error Measures: Intermittent Demand</em> by Manu Joseph: <a href="https://deep-and-shallow.com/2020/10/07/forecast-error-measures-intermittent-demand/"><span class="url">https://deep-and-shallow.com/2020/10/07/forecast-error-measures-intermittent-demand/</span></a></li>
+    </ul>
+    <h1 class="heading-1">Join our community on Discord</h1>
+    <p class="normal">Join our community’s Discord space for discussions with authors and other readers:</p>
+    <p class="normal"><a href="https://packt.link/mts"><span class="url">https://packt.link/mts</span></a></p>
+    <p class="normal"><img src="../Images/QR_Code15080603222089750.png" alt=""/></p>
+    <h1 class="heading-1">Leave a Review!</h1>
+    <p class="normal">Thank you for purchasing this book from Packt Publishing—we hope you enjoy it! Your feedback is invaluable and helps us improve and grow. Once you’ve completed reading it, please take a moment to leave an Amazon review; it will only take a minute, but it makes a big difference for readers like you.</p>
+    <p class="normal">Scan the QR or visit the link to receive a free ebook of your choice.</p>
+    <p class="normal"><a href="https://packt.link/NzOWQ"><span class="url">https://packt.link/NzOWQ</span></a></p>
+    <p class="normal"><img src="../Images/review.png" alt="A qr code with black squares  Description automatically generated"/></p>
+  </div>
+</body></html>

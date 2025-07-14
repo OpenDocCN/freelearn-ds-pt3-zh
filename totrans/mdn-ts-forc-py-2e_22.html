@@ -1,0 +1,332 @@
+<html><head></head><body>
+  <div id="_idContainer1147" class="Basic-Text-Frame">
+    <h1 class="chapterNumber">18</h1>
+    <h1 id="_idParaDest-445" class="chapterTitle">Multi-Step Forecasting</h1>
+    <p class="normal">In the previous parts, we covered some basics of forecasting and different types of modeling techniques for time series forecasting. However, a complete forecasting system is not just the model. There are a few mechanics of time series forecasting that make a lot of difference. These topics cannot be called <em class="italic">basics</em> because they require a nuanced understanding of the forecasting paradigm, and that is why we didn’t cover these upfront.</p>
+    <p class="normal">Now that you have worked on some forecasting models and are familiar with time series, it’s time to get more nuanced in our approach. Most of the forecasting exercises we have done throughout the book focus on forecasting the next timestep. In this chapter, we will look at strategies to generate multi-step forecasting—in other words, how to forecast the next <em class="italic">H</em> timesteps. In most practical applications of forecasting, we have to forecast multiple timesteps ahead, and being able to handle such cases is an essential skill.</p>
+    <p class="normal">In this chapter, we will cover these main topics:</p>
+    <ul>
+      <li class="bulletList">Why multi-step forecasting?</li>
+      <li class="bulletList">Standard notation</li>
+      <li class="bulletList">Recursive strategy</li>
+      <li class="bulletList">Direct strategy</li>
+      <li class="bulletList">Joint strategy</li>
+      <li class="bulletList">Hybrid strategies</li>
+      <li class="bulletList">How to choose a multi-step forecasting strategy</li>
+    </ul>
+    <h1 id="_idParaDest-446" class="heading-1">Why multi-step forecasting?</h1>
+    <p class="normal">A multi-step forecasting <a id="_idIndexMarker1540"/>task consists of forecasting the next <em class="italic">H</em> timesteps, <em class="italic">y</em><sub class="subscript-italic" style="font-style: italic;">t</sub><sub class="subscript">+1</sub>,…, <em class="italic">y</em><sub class="subscript-italic" style="font-style: italic;">t</sub><sub class="subscript">+</sub><sub class="subscript-italic" style="font-style: italic;">H</sub>, of a time series, <em class="italic">y</em><sub class="subscript">1</sub>, …, <em class="italic">y</em><sub class="subscript-italic" style="font-style: italic;">t</sub>, where <em class="italic">H</em> &gt; 1. Most real-world applications of time series forecasting demand multi-step forecasting, whether it is the energy consumption of a household or the sales of a product. This is because forecasts are never created to know what will happen in the future but, rather, to enable us to take action using the visibility we get. </p>
+    <p class="normal">To effectively take any action, we would want to know the forecast a little ahead of time. For instance, the dataset we have used throughout the book is about the energy consumption of households, logged every half an hour. If the energy provider wants to plan its energy production to meet customer demand, the next half an hour doesn’t help at all. Similarly, if we look at the retail scenario, where we want to forecast the sales of a product, we will want to forecast a few days ahead so that we can purchase necessary goods, ship them to the store, and so on, in time for the demand.</p>
+    <p class="normal">Despite being a more prevalent use case, multi-step forecasting has not received the attention it deserves. One of the reasons for that is the existence of classical statistical models or econometrics models, such as the <em class="italic">ARIMA</em> and <em class="italic">exponential smoothing</em> methods, which include the multi-step strategy bundled within what we call a model; because of that, these models can generate multiple timesteps without breaking a sweat (although, as we will see in the chapter, they rely on one specific multi-step strategy to generate their forecast). Because these models were the most popular models used, practitioners didn’t need to worry about multi-step forecasting strategies. However, the advent of <strong class="keyWord">machine learning</strong> (<strong class="keyWord">ML</strong>) and <strong class="keyWord">deep learning</strong> (<strong class="keyWord">DL</strong>) methods for time series forecasting has opened up the need for a more focused study of multi-step forecasting strategies once again.</p>
+    <p class="normal">Another reason for the lower popularity of multi-step forecasting is that it is simply harder than single-step forecasting. This is because the more steps we extrapolate into the future, the more uncertainty there is in the predictions, due to complex interactions between the different steps ahead. Depending on the strategy we choose, we will have to manage the dependencies on previous forecasts, the propagation and magnification of errors, and so on.</p>
+    <p class="normal">There are many strategies that can be used to generate multi-step forecasting, and the following figure<a id="_idIndexMarker1541"/> summarizes them neatly:</p>
+    <figure class="mediaobject"><img src="../Images/B22389_18_01.png" alt="Figure 17.1 – Multi-step forecasting strategies "/></figure>
+    <p class="packt_figref">Figure 18.1: Multi-step forecasting strategies</p>
+    <p class="normal">Each node of the graph in <em class="italic">Figure 18.1</em> is a strategy, and different strategies that have common elements have been linked together with edges in the graph. In the rest of the chapter, we will cover each of these nodes (strategies) and explain them in detail.</p>
+    <h1 id="_idParaDest-447" class="heading-1">Standard notation</h1>
+    <p class="normal">Let’s establish <a id="_idIndexMarker1542"/>a few basic notations to help us understand these strategies. We have a time series, <em class="italic">Y</em><sub class="subscript-italic" style="font-style: italic;">T</sub>, of <em class="italic">T</em> timesteps, <em class="italic">y</em><sub class="subscript">1</sub>, …, <em class="italic">y</em><sub class="subscript-italic" style="font-style: italic;">T</sub>. <em class="italic">Y</em><sub class="subscript-italic" style="font-style: italic;">T</sub> denotes the same series but ending at timestep <em class="italic">t</em>. We also consider a function, <em class="italic">W</em>, which generates a window of size <em class="italic">k</em> &gt; 0 from a time series. </p>
+    <p class="normal">This function is a proxy for how we prepare the input for the different models we have seen throughout the book. So if we see <em class="italic">W</em>(<em class="italic">Y</em><sub class="subscript-italic" style="font-style: italic;">t</sub>), it means the function will draw a window from <em class="italic">Y</em><sub class="subscript-italic" style="font-style: italic;">T</sub> that ends at timestep <em class="italic">t</em>. We will also consider <em class="italic">H</em> to be the forecast horizon, where <em class="italic">H</em> &gt; 1. We will also use ; as an operator, which denotes concatenation.</p>
+    <p class="normal">Now, let’s look at the different strategies (Reference <em class="italic">1</em> is a good survey paper for different strategies). The discussion about merits and where we can use each of them is bundled in another upcoming section.</p>
+    <h1 id="_idParaDest-448" class="heading-1">Recursive strategy</h1>
+    <p class="normal">The<a id="_idIndexMarker1543"/> recursive strategy is the oldest, most intuitive, and <a id="_idIndexMarker1544"/>most popular technique to generate multi-step forecasts. To understand a strategy, there are two major regimes we have to understand:</p>
+    <ul>
+      <li class="bulletList"><strong class="keyWord">Training regime</strong>: How is the training of the models done?</li>
+      <li class="bulletList"><strong class="keyWord">Forecasting regime</strong>: How are the trained models used to generate forecasts?</li>
+    </ul>
+    <p class="normal">Let’s take the help of a diagram to understand the recursive strategy:</p>
+    <figure class="mediaobject"><img src="../Images/B22389_18_02.png" alt="Figure 17.2 – Recursive strategy for multi-step forecasting "/></figure>
+    <p class="packt_figref">Figure 18.2: Recursive strategy for multi-step forecasting</p>
+    <p class="normal">Let’s discuss these regimes in detail.</p>
+    <h2 id="_idParaDest-449" class="heading-2">Training regime</h2>
+    <p class="normal">The <a id="_idIndexMarker1545"/>recursive strategy involves training a single model to perform a <em class="italic">one-step-ahead</em> forecast. We can see in <em class="italic">Figure 18.2</em> that we use the window function, <em class="italic">W</em>(<em class="italic">Y</em><sub class="subscript-italic" style="font-style: italic;">t</sub>), to draw a window from <em class="italic">Y</em><sub class="subscript-italic" style="font-style: italic;">t</sub> and train the model to predict <em class="italic">Y</em><sub class="subscript-italic" style="font-style: italic;">t</sub><sub class="subscript">+1</sub>. </p>
+    <p class="normal">During training, a loss function (which measures the divergence between the output of the model, <img src="../Images/B22389_18_001.png" alt=""/>, and the actual value, <em class="italic">Y</em><sub class="subscript-italic" style="font-style: italic;">t</sub><sub class="subscript">+1</sub>) is used to optimize the parameters of the model.</p>
+    <h2 id="_idParaDest-450" class="heading-2">Forecasting regime</h2>
+    <p class="normal">We have<a id="_idIndexMarker1546"/> trained a model to do <em class="italic">one-step-ahead</em> predictions. Now, we use this model in a recursive fashion to generate forecasts <em class="italic">H</em> timesteps ahead. For the first step, we use <em class="italic">W</em>(<em class="italic">Y</em><sub class="subscript-italic" style="font-style: italic;">t</sub>), the window using the latest timestamp in training data, and generate the forecast one step ahead, <img src="../Images/B22389_18_002.png" alt=""/>. Now, this generated forecast is added to the history, and a new window is drawn from this history, <img src="../Images/B22389_18_003.png" alt=""/>. This window is given as input to the same <em class="italic">one-step-ahead</em> model, and the forecast for the next timestep, <img src="../Images/B22389_18_004.png" alt=""/>, is generated. This process is repeated until we get forecasts for all <em class="italic">H</em> timesteps.</p>
+    <p class="normal">This is the strategy that classical models that have stood the test of time (such as <em class="italic">ARIMA</em> and <em class="italic">exponential smoothing</em>) use internally when they generate multi-step forecasts. In an ML context, this means that we will train a model to predict one step ahead (as we have done all through this book) and then do a recursive operation, where we forecast one step ahead, use the new forecast to recalculate all the features such as lags, rolling windows, and so on, and forecast the next step. The pseudocode for the method would be:</p>
+    <pre class="programlisting code"><code class="hljs-code"><span class="hljs-comment"># Function to create features (e.g., lags, rolling windows, external features like holidays or item category)</span>
+<span class="hljs-keyword">def</span> <span class="hljs-title">create_features</span>(<span class="hljs-params">df, **kwargs</span>):
+    <span class="hljs-comment">## Feature Pipeline goes here ##</span>
+    <span class="hljs-comment"># Return features DataFrame</span>
+    <span class="hljs-keyword">return</span> features
+<span class="hljs-comment"># Function to train the model</span>
+<span class="hljs-keyword">def</span> <span class="hljs-title">train_model</span>(<span class="hljs-params">train_df, **kwargs</span>):
+    <span class="hljs-comment"># Create features from the training data</span>
+    features = create_features(train_df, **kwargs)
+  
+    <span class="hljs-comment">## Training code goes here ##</span>
+  
+    <span class="hljs-comment"># Return the trained model</span>
+    <span class="hljs-keyword">return</span> model
+<span class="hljs-keyword">def</span> <span class="hljs-title">recursive_forecast</span>(<span class="hljs-params">model, train_df, forecast_steps, **kwargs</span>):
+    <span class="hljs-string">"""</span>
+<span class="hljs-string">    Perform recursive forecasting using the trained one-step model.</span>
+<span class="hljs-string">    - model: trained one-step-ahead model</span>
+<span class="hljs-string">    - train_df: DataFrame with time series data</span>
+<span class="hljs-string">    - forecast_steps: number of steps ahead to forecast</span>
+<span class="hljs-string">    - kwargs: other parameters necessary like lag size, rolling size etc.</span>
+<span class="hljs-string">    """</span>  
+    forecasts = []
+    <span class="hljs-keyword">for</span> step <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(forecast_steps):
+        input_features = create_features(train_df, **kwargs)
+        <span class="hljs-comment">## Replace with actual model.predict() code ##</span>
+        next_forecast = model.predict(input_features)
+        forecasts.append(next_forecast)
+        train_df = train_df.append({<span class="hljs-string">'target'</span>: next_forecast, <span class="hljs-string">"other_features"</span>: other_features}, ignore_index=<span class="hljs-literal">True</span>)
+  
+    <span class="hljs-keyword">return</span> forecasts
+</code></pre>
+    <p class="normal">In the context<a id="_idIndexMarker1547"/> of the DL models, we can think of this as adding the forecast to the context window and using the trained model to generate the next step. The pseudocode for this would be:</p>
+    <pre class="programlisting code"><code class="hljs-code"><span class="hljs-keyword">def</span> <span class="hljs-title">recursive_dl_forecast</span>(<span class="hljs-params">dl_model, train_df, forecast_steps, **kwargs</span>):
+    <span class="hljs-string">"""</span>
+<span class="hljs-string">    - dl_model: trained DL model (e.g., LSTM, Transformer)</span>
+<span class="hljs-string">    - train_df: DataFrame with time series data (context window)</span>
+<span class="hljs-string">    - forecast_steps: number of steps ahead to forecast</span>
+<span class="hljs-string">    - kwargs: other parameters like window size, etc.</span>
+<span class="hljs-string">    """</span>
+    forecasts = []
+    <span class="hljs-comment"># Extract initial context window from the end of the training data</span>
+    context_window = train_df[<span class="hljs-string">'target'</span>].values[-kwargs[<span class="hljs-string">'window_size'</span>]:]
+    <span class="hljs-keyword">for</span> step <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(forecast_steps):
+        <span class="hljs-comment">## Replace with actual dl_model.predict() code ##</span>
+        next_forecast = dl_model.predict(context_window)
+        forecasts.append(next_forecast)
+        <span class="hljs-comment"># Update the context window by removing the oldest value and adding the new forecast</span>
+        context_window = np.append(context_window[<span class="hljs-number">1</span>:], next_forecast)
+  
+    <span class="hljs-keyword">return</span> forecasts
+</code></pre>
+    <p class="normal">Do note that this<a id="_idIndexMarker1548"/> pseudocode is not ready-to-run code but more like a skeleton that you can adapt to your use case. Now, let’s look at another strategy for multi-step forecasting.</p>
+    <h1 id="_idParaDest-451" class="heading-1">Direct strategy</h1>
+    <p class="normal">The<a id="_idIndexMarker1549"/> <strong class="keyWord">direct strategy</strong>, also <a id="_idIndexMarker1550"/>called the independent strategy, is a popular strategy in forecasting that uses ML. This involves forecasting each horizon independently of each other. Let’s look at a diagram first:</p>
+    <figure class="mediaobject"><img src="../Images/B22389_18_03.png" alt="Figure 17.3 – Direct strategy for multi-step forecasting "/></figure>
+    <p class="packt_figref">Figure 18.3: Direct strategy for multi-step forecasting</p>
+    <p class="normal">Next, let’s discuss<a id="_idIndexMarker1551"/> the regimes in detail.</p>
+    <h2 id="_idParaDest-452" class="heading-2">Training regime</h2>
+    <p class="normal">Under <a id="_idIndexMarker1552"/>the direct strategy (<em class="italic">Figure 18.3</em>), we train <em class="italic">H</em> different models, which take in the same window function but are trained to predict different timesteps in the forecast horizon. Therefore, we learn a separate set of parameters, one for each timestep in the horizon, such that all the models combined learn a direct and independent mapping from the window, <em class="italic">W</em>(<em class="italic">Y</em><sub class="subscript-italic" style="font-style: italic;">t</sub>), to the forecast horizon, <em class="italic">H</em>.</p>
+    <p class="normal">This strategy<a id="_idIndexMarker1553"/> has gained ground along with the popularity of ML-based time series forecasting. From the ML context, we can practically implement it in two ways:</p>
+    <ul>
+      <li class="bulletList"><strong class="keyWord">Shifting targets</strong>: Each model in the horizon is trained by shifting the target by as many steps as the horizon we train the model to forecast.</li>
+      <li class="bulletList"><strong class="keyWord">Eliminating features</strong>: Each model in the horizon is trained by using only the allowable features, according to the rules. For instance, when predicting <em class="italic">H</em> = 2, we can’t use lag 1 (because to predict <em class="italic">H</em> = 2, we would not have actuals for <em class="italic">H</em> = 1).</li>
+    </ul>
+    <div class="note">
+      <p class="normal">The two ways mentioned in the preceding list work nicely if we only have lags as features. For instance, to eliminate features, we can just drop the offending lags and train the model. But in cases where we use rolling features and other more sophisticated features, simple dropping doesn’t work because lag 1 is already used to calculate the rolling features. This leads to data leakage. In such scenarios, we can make a dynamic function that calculates these features, taking in a parameter to specify the horizon we create these features for. All the helper methods we used in <em class="chapterRef">Chapter 6</em>, <em class="italic">Feature Engineering for Time Series Forecasting</em> (<code class="inlineCode">add_rolling_features</code>, <code class="inlineCode">add_seasonal_rolling_features</code>, and <code class="inlineCode">add_ewma</code>), have a parameter called <code class="inlineCode">n_shift</code>, which handles this condition. If we train a model for <em class="italic">H</em> = 2, we need to pass <code class="inlineCode">n_shift=2</code>, and then the method will take care of the rest. Now, while training the models, we use this dynamic method to recalculate these features for each horizon separately.</p>
+    </div>
+    <h2 id="_idParaDest-453" class="heading-2">Forecasting regime</h2>
+    <p class="normal">The <a id="_idIndexMarker1554"/>forecasting regime is also fairly straightforward. We have the <em class="italic">H</em>-trained models, one for each timestep in the horizon, and we use <em class="italic">W</em>(<em class="italic">Y</em><sub class="subscript-italic" style="font-style: italic;">t</sub>) to forecast each of them independently.</p>
+    <p class="normal">For ML models, this requires us to train separate models for each timestep, but <code class="inlineCode">MultiOutputRegressor</code> from <code class="inlineCode">scikit-learn</code> makes that a bit more manageable. Let’s look at some pseudocode:</p>
+    <pre class="programlisting code"><code class="hljs-code"><span class="hljs-comment"># Function to create shifted targets for direct strategy</span>
+<span class="hljs-keyword">def</span> <span class="hljs-title">create_shifted_targets</span>(<span class="hljs-params">df, horizon, **kwargs</span>):
+    <span class="hljs-comment">## Add one step ahead, 2 step ahead etc targets to the feature dataframe ##</span>
+    <span class="hljs-keyword">return</span> dataframe, target_cols
+<span class="hljs-keyword">def</span> <span class="hljs-title">train_direct_ml_model</span>(<span class="hljs-params">train_df, horizon, **kwargs</span>):
+    <span class="hljs-comment"># Create shifted target columns for the horizon</span>
+    train_df, target_cols = create_shifted_targets(train_df, horizon, **kwargs)
+    <span class="hljs-comment"># Prepare features (X) and shifted targets (y) for training</span>
+    X = train_df.loc[:, [c <span class="hljs-keyword">for</span> c <span class="hljs-keyword">in</span> train_df.columns <span class="hljs-keyword">if</span> c <span class="hljs-keyword">not</span> <span class="hljs-keyword">in</span> target_cols]]
+    y = train_df.loc[:, target_cols]
+    <span class="hljs-comment"># Initialize a base model (e.g., Linear Regression) and MultiOutputRegressor</span>
+    base_model = LinearRegression()  <span class="hljs-comment"># Example: can use any other model</span>
+    multioutput_model = MultiOutputRegressor(base_model)
+    <span class="hljs-comment"># Train the MultiOutputRegressor on the features and shifted targets</span>
+    multioutput_model.fit(X, y)
+    <span class="hljs-keyword">return</span> multioutput_model
+<span class="hljs-keyword">def</span> <span class="hljs-title">direct_ml_forecast</span>(<span class="hljs-params">multioutput_model, test_df, horizon, **kwargs</span>):
+    <span class="hljs-comment"># Adjust based on how test_df is structured</span>
+    X_test = test_df.loc[:, features]
+    <span class="hljs-comment"># (array with H steps)</span>
+    forecasts = multioutput_model.predict(X_test)
+    <span class="hljs-keyword">return</span> forecasts
+</code></pre>
+    <p class="normal">Now, it’s time to look at another strategy.</p>
+    <h1 id="_idParaDest-454" class="heading-1">The Joint strategy</h1>
+    <p class="normal">The previous<a id="_idIndexMarker1555"/> two strategies consider a model to have a single output. This is the case with most ML models; we formulate the model to predict a <a id="_idIndexMarker1556"/>single scalar value after taking in an array of<a id="_idIndexMarker1557"/> inputs: <strong class="keyWord">multiple input, single output</strong> (<strong class="keyWord">MISO</strong>). But there are some models, such as the DL models, which can be configured to give us multiple output. Therefore, the joint strategy, also called <strong class="keyWord">multiple input, multiple output</strong> (<strong class="keyWord">MIMO</strong>), aims <a id="_idIndexMarker1558"/>to learn a single model that produces the entire forecasting horizon as output:</p>
+    <figure class="mediaobject"><img src="../Images/B22389_18_04.png" alt="Figure 17.4 – Joint strategy for multi-step forecasting "/></figure>
+    <p class="packt_figref">Figure 18.4: Joint strategy for multi-step forecasting</p>
+    <p class="normal">Let’s see how these regimes work.</p>
+    <h2 id="_idParaDest-455" class="heading-2">Training regime</h2>
+    <p class="normal">The<a id="_idIndexMarker1559"/> joint strategy involves training a single multi-output model to forecast all the timesteps in the horizon at once. We can see in <em class="italic">Figure 18.4</em> that we use the window function, <em class="italic">W</em>(<em class="italic">Y</em><sub class="subscript-italic" style="font-style: italic;">t</sub>), to draw a window from <em class="italic">Y</em><sub class="subscript-italic" style="font-style: italic;">t</sub> and train the model to predict <em class="italic">y</em><sub class="subscript-italic" style="font-style: italic;">t</sub><sub class="subscript">+1</sub>,…, <em class="italic">y</em><sub class="subscript-italic" style="font-style: italic;">t</sub><sub class="subscript">+</sub><sub class="subscript-italic" style="font-style: italic;">H</sub>. During training, a loss function that measures the divergence between all the output of the model, <img src="../Images/B22389_18_005.png" alt=""/>, and the actual values, <em class="italic">y</em><sub class="subscript-italic" style="font-style: italic;">t</sub><sub class="subscript">+1</sub>,…, <em class="italic">y</em><sub class="subscript-italic" style="font-style: italic;">t</sub><sub class="subscript">+</sub><sub class="subscript-italic" style="font-style: italic;">H</sub>, is used to optimize the parameters of the model.</p>
+    <h2 id="_idParaDest-456" class="heading-2">Forecasting regime</h2>
+    <p class="normal">The forecasting regime <a id="_idIndexMarker1560"/>is also very simple. We have a trained model that is able to forecast all the timesteps in the horizon, and we use <em class="italic">W</em>(<em class="italic">Y</em><sub class="subscript-italic" style="font-style: italic;">t</sub>) to forecast them at once.</p>
+    <p class="normal">This strategy is typically used in DL models where we configure the last layer to output <em class="italic">H</em> scalars instead of 1.</p>
+    <p class="normal">We have already seen this strategy in action at multiple places in the book:</p>
+    <ul>
+      <li class="bulletList">The tabular regression (<em class="chapterRef">Chapter 13</em>, <em class="italic">Common Modeling Patterns for Time Series</em>) paradigm can easily be extended to output the whole horizon.</li>
+      <li class="bulletList">We have seen <em class="italic">Sequence-to-Sequence</em> models with a <em class="italic">fully connected</em> decoder (<em class="chapterRef">Chapter 13</em>, <em class="italic">Common Modeling Patterns for Time Series</em>) using this strategy for multi-step forecasting.</li>
+      <li class="bulletList">In <em class="chapterRef">Chapter 14</em>, <em class="italic">Attention and Transformers for Time Series</em>, we used this strategy to forecast using transformers.</li>
+      <li class="bulletList">In <em class="chapterRef">Chapter 16</em>, <em class="italic">Specialized Deep Learning Architectures for Forecasting</em>, we saw models such as <em class="italic">N-BEATS</em>, <em class="italic">N-HiTS</em>, and <em class="italic">Temporal Fusion Transformer</em>, which used this strategy to generate multi-step forecasts.</li>
+    </ul>
+    <h1 id="_idParaDest-457" class="heading-1">Hybrid strategies</h1>
+    <p class="normal">The<a id="_idIndexMarker1561"/> three strategies we have already covered are the three basic strategies for multi-step forecasting, each with its own merits and demerits. Over the years, researchers have tried to combine these as hybrid strategies that try to capture the good parts of each strategy. Let’s go through a few of them here. This is not a comprehensive list because there is none. Anyone with enough creativity can come up with alternate strategies, but we will just cover a few that have received some attention and deep study from the forecasting community.</p>
+    <h2 id="_idParaDest-458" class="heading-2">DirRec strategy</h2>
+    <p class="normal">As the <a id="_idIndexMarker1562"/>name suggests, the <strong class="keyWord">DirRec</strong> strategy is a <a id="_idIndexMarker1563"/>combination of <em class="italic">direct</em> and <em class="italic">recursive</em> strategies for multi-step forecasting. One of the disadvantages of the direct method is that it forecasts each timestep independently and, therefore, loses out on some context when predicting far into the future. To rectify this shortcoming, we combine the direct and recursive methods by using the forecast generated by the <em class="italic">n</em>-step-ahead model as a feature in the <em class="italic">n+1</em>-step-ahead <a id="_idIndexMarker1564"/>model. </p>
+    <p class="normal">Let’s<a id="_idIndexMarker1565"/> look at the following diagram and solidify that understanding:</p>
+    <figure class="mediaobject"><img src="../Images/B22389_18_05.png" alt="Figure 17.5 – DirRec strategy for multi-step forecasting "/></figure>
+    <p class="packt_figref">Figure 18.5: DirRec strategy for multi-step forecasting</p>
+    <p class="normal">Now, let’s see how these regimes work for the DirRec strategy.</p>
+    <h3 id="_idParaDest-459" class="heading-3">Training regime</h3>
+    <p class="normal">Similar to<a id="_idIndexMarker1566"/> the direct strategy, the DirRec strategy (<em class="italic">Figure 18.5</em>) also has <em class="italic">H</em> models for a forecasting horizon of <em class="italic">H</em>, but with a twist. We start the process by using <em class="italic">W</em>(<em class="italic">Y</em><sub class="subscript-italic" style="font-style: italic;">t</sub>) and train a model to predict one step ahead. In the recursive strategy, we used this forecasted timestep in the same model to predict the next timestep. But in DirRec, we train a separate model for <em class="italic">H</em> = 2, using the forecast we generated in <em class="italic">H</em> = 1. To generalize at timestep <em class="italic">h</em> &lt; <em class="italic">H</em>, in addition to <em class="italic">W</em>(<em class="italic">Y</em><sub class="subscript-italic" style="font-style: italic;">t</sub>), we include all the forecasts generated by different models at timesteps 1 to <em class="italic">h</em>.</p>
+    <h3 id="_idParaDest-460" class="heading-3">Forecasting regime</h3>
+    <p class="normal">The <a id="_idIndexMarker1567"/>forecasting regime is just like the training regime, but instead of training the models, we use the <em class="italic">H</em>-trained models to generate the forecasts recursively.</p>
+    <p class="normal">Let’s take a look at some high-level pseudocode to solidify our understanding:</p>
+    <pre class="programlisting code"><code class="hljs-code"><span class="hljs-keyword">def</span> <span class="hljs-title">train_dirrec_models</span>(<span class="hljs-params">train_data, horizon, **kwargs</span>):
+    models = []  <span class="hljs-comment"># To store the trained models for each timestep</span>
+    <span class="hljs-comment"># Train the first model to predict the first step ahead (t+1)</span>
+    model_t1 = train_model(train_data)  <span class="hljs-comment"># Train model for t+1</span>
+    models.append(model_t1)
+    <span class="hljs-keyword">for</span> step <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(<span class="hljs-number">2</span>, horizon + <span class="hljs-number">1</span>):
+        previous_forecasts = []
+        <span class="hljs-keyword">for</span> prev_model <span class="hljs-keyword">in</span> models:
+            <span class="hljs-comment"># Recursive prediction</span>
+            previous_forecasts.append(prev_model.predict(train_data))
+        <span class="hljs-comment"># Use the forecasts as features for the next model</span>
+        augmented_train_data = add_forecasts_as_features(train_data, previous_forecasts)
+        <span class="hljs-comment"># Train the next model (e.g., for t+2, t+3, ...)</span>
+        model = train_model(augmented_train_data)
+        models.append(model)
+    <span class="hljs-keyword">return</span> models
+<span class="hljs-keyword">def</span> <span class="hljs-title">dirrec_forecast</span>(<span class="hljs-params">models, input_data, horizon, **kwargs</span>):
+    forecasts = []  
+    <span class="hljs-comment"># Generate the first forecast (t+1)</span>
+    forecast_t1 = models[<span class="hljs-number">0</span>].predict(input_data)
+    forecasts.append(forecast_t1)
+    <span class="hljs-comment"># Generate subsequent forecasts recursively</span>
+    <span class="hljs-keyword">for</span> step <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(<span class="hljs-number">1</span>, horizon):
+        augmented_input_data = add_forecasts_as_features(input_data, forecasts)
+        next_forecast = models[step].predict(augmented_input_data)
+        forecasts.append(next_forecast)
+    <span class="hljs-keyword">return</span> forecasts
+</code></pre>
+    <p class="normal">Now, let’s learn <a id="_idIndexMarker1568"/>about another innovative way of multi-step forecasting.</p>
+    <h2 id="_idParaDest-461" class="heading-2">Iterative block-wise direct strategy</h2>
+    <p class="normal">The <strong class="keyWord">iterative block-wise direct</strong> (<strong class="keyWord">IBD</strong>) strategy<a id="_idIndexMarker1569"/> is also called <a id="_idIndexMarker1570"/>the <strong class="keyWord">iterative multi-SVR strategy</strong>, paying <a id="_idIndexMarker1571"/>homage to the research paper that suggested this (Reference<em class="italic"> 2</em>). The direct strategy requires <em class="italic">H</em> different models to train, and that makes it difficult to scale for long-horizon forecasting. </p>
+    <p class="normal">The IBD strategy tries to tackle that shortcoming by using a block-wise iterative style of forecasting:</p>
+    <figure class="mediaobject"><img src="../Images/B22389_18_06.png" alt="Figure 17.6 – IBD strategy for multi-step forecasting "/></figure>
+    <p class="packt_figref">Figure 18.6: IBD strategy for multi-step forecasting</p>
+    <p class="normal">Let’s understand the training and forecasting regimes for this strategy.</p>
+    <h3 id="_idParaDest-462" class="heading-3">Training regime</h3>
+    <p class="normal">In the IBD strategy, we <a id="_idIndexMarker1572"/>split the forecast horizon, <em class="italic">H</em>, into <em class="italic">R</em> blocks of length <em class="italic">L</em>, such that <em class="italic">H</em> = <em class="italic">L</em> x <em class="italic">R</em>. Instead of training <em class="italic">H</em> direct models, we train <em class="italic">L</em> direct models.</p>
+    <h3 id="_idParaDest-463" class="heading-3">Forecasting regime</h3>
+    <p class="normal">While <a id="_idIndexMarker1573"/>forecasting (<em class="italic">Figure 18.6</em>), we use the <em class="italic">L</em>-trained models to generate the forecast for the first <em class="italic">L</em> timesteps (<em class="italic">T</em> + 1 to <em class="italic">T</em> + <em class="italic">L</em>) in <em class="italic">H</em>, using the window, <em class="italic">W</em>(<em class="italic">Y</em><sub class="subscript-italic" style="font-style: italic;">T</sub>). Let’s denote this <em class="italic">L</em> forecast as <em class="italic">Y</em><sub class="subscript-italic" style="font-style: italic;">T</sub><sub class="subscript">+</sub><sub class="subscript-italic" style="font-style: italic;">L</sub>. Now, we will use <em class="italic">Y</em><sub class="subscript-italic" style="font-style: italic;">T</sub><sub class="subscript">+</sub><sub class="subscript-italic" style="font-style: italic;">L</sub>, along with <em class="italic">Y</em><sub class="subscript-italic" style="font-style: italic;">T</sub>, in the window function to draw a new window, <em class="italic">W</em>(<em class="italic">Y</em><sub class="subscript-italic" style="font-style: italic;">T</sub>;<em class="italic">Y</em><sub class="subscript-italic" style="font-style: italic;">T</sub><sub class="subscript">+</sub><sub class="subscript-italic" style="font-style: italic;">L</sub>). This new window is used to generate the forecast for the next <em class="italic">L</em> timesteps (<em class="italic">T</em> + <em class="italic">L</em> to <em class="italic">T</em> + 2<em class="italic">L</em>). This process is repeated many times to complete the full horizon forecast.</p>
+    <p class="normal">Let’s also see some high-level pseudocode for this process:</p>
+    <pre class="programlisting code"><code class="hljs-code"><span class="hljs-keyword">def</span> <span class="hljs-title">train_ibd_models</span>(<span class="hljs-params">train_data, horizon, block_size, **kwargs</span>):
+    <span class="hljs-comment"># Calculate the number of models (L)</span>
+    n_models = horizon // block_size
+    models = []
+    <span class="hljs-comment"># Train a model for each block</span>
+    <span class="hljs-keyword">for</span> n <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(n_models):
+        block_model = train_direct_model(train_data, n)
+        models.append(block_model)
+    <span class="hljs-keyword">return</span> models
+<span class="hljs-keyword">def</span> <span class="hljs-title">ibd_forecast</span>(<span class="hljs-params">models, input_data, horizon, block_size, **kwargs</span>):
+    forecasts = []
+    window = input_data  <span class="hljs-comment"># Initial window from the time series data</span>
+    num_blocks = horizon // block_size
+    <span class="hljs-comment"># Generate forecasts block by block</span>
+    <span class="hljs-keyword">for</span> _ <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(num_blocks):
+        <span class="hljs-comment"># Predict the next block of size L using direct models</span>
+        block_forecast = []
+        <span class="hljs-keyword">for</span> model <span class="hljs-keyword">in</span> models:
+            block_forecast.append(model.predict(window))
+        <span class="hljs-comment"># Append the block forecast to the overall forecast</span>
+        forecasts.extend(block_forecast)
+        <span class="hljs-comment"># Update the window by including the new block of predictions</span>
+        window = update_window(window, block_forecast)
+    <span class="hljs-keyword">return</span> forecasts
+</code></pre>
+    <p class="normal">Now, let’s move on to another creative way to hybridize different strategies.</p>
+    <h2 id="_idParaDest-464" class="heading-2">Rectify strategy</h2>
+    <p class="normal">The<a id="_idIndexMarker1574"/> <strong class="keyWord">rectify strategy</strong> is another way we<a id="_idIndexMarker1575"/> can combine direct and recursive strategies. It strikes a middle ground between the two by forming a two-stage training and inferencing methodology. We can see this as a model stacking approach (<em class="chapterRef">Chapter 9</em>, <em class="italic">Ensembling and Stacking</em>) but between different multi-step forecasting strategies. In stage 1, we train a one-step-ahead model and generate recursive forecasts using that model. </p>
+    <p class="normal">Then, in stage 2, we train direct models for the horizon using the original window and features, along with the recursive prediction.</p>
+    <figure class="mediaobject"><img src="../Images/B22389_18_07.png" alt="Figure 17.7 – Rectify strategy for multi-step forecasting "/></figure>
+    <p class="packt_figref">Figure 18.7: Rectify strategy for multi-step forecasting</p>
+    <p class="normal">Let’s understand how this strategy works in detail.</p>
+    <h3 id="_idParaDest-465" class="heading-3">Training regime</h3>
+    <p class="normal">The <a id="_idIndexMarker1576"/>training happens in two steps. The recursive strategy is applied to the horizon, and the forecast for all <em class="italic">H</em> timesteps is generated. Let’s call this <img src="../Images/B22389_18_006.png" alt=""/>. Now, we train direct models for each horizon using the original history, <em class="italic">Y</em><sub class="subscript-italic" style="font-style: italic;">t</sub>, and the recursive forecasts, <img src="../Images/B22389_18_006.png" alt=""/>, as input.</p>
+    <h3 id="_idParaDest-466" class="heading-3">Forecasting regime</h3>
+    <p class="normal">The<a id="_idIndexMarker1577"/> forecasting regime is similar to the training, where the recursive forecasts are generated first, and they, along with the original history, are used to generate the final forecasts.</p>
+    <p class="normal">Let’s see some high-level pseudocode for this:</p>
+    <pre class="programlisting code"><code class="hljs-code"><span class="hljs-comment"># Stage 1: Train recursive models</span>
+recursive_model, recursive_forecasts = train_one_step_ahead_model(train_data, horizon=horizon)
+<span class="hljs-comment"># Stage 2: Train direct models</span>
+direct_models = train_direct_models(train_data, recursive_forecasts, horizon=horizon)
+<span class="hljs-keyword">def</span> <span class="hljs-title">rectify_forecast</span>(<span class="hljs-params">recursive_model, direct_models, input_data, horizon, **kwargs</span>):
+    <span class="hljs-comment"># Generate recursive forecasts using the recursive model</span>
+    recursive_forecasts = generate_recursive_forecasts(recursive_model, input_data, horizon)
+    <span class="hljs-comment"># Generate final direct forecasts using original data and recursive forecasts</span>
+    direct_forecasts = generate_direct_forecasts(direct_models, input_data, recursive_forecasts, horizon)
+    <span class="hljs-keyword">return</span> direct_forecasts
+forecast = rectify_forecast(recursive_model, direct_models, train_data, horizon)
+</code></pre>
+    <p class="normal">Now, let’s move on to the last strategy we will cover here.</p>
+    <h2 id="_idParaDest-467" class="heading-2">RecJoint</h2>
+    <p class="normal">True to its <a id="_idIndexMarker1578"/>name, <strong class="keyWord">RecJoint</strong><strong class="keyWord"><a id="_idIndexMarker1579"/></strong> is a mashup between the recursive and joint strategies, but it is applicable for multi-output models. It aims to balance the benefits of both by leveraging recursive forecasting, while also considering dependencies between multiple timesteps in the forecast horizon.</p>
+    <figure class="mediaobject"><img src="../Images/B22389_18_08.png" alt="Figure 17.8 – RecJoint strategy for multi-step forecasting "/></figure>
+    <p class="packt_figref">Figure 18.8: RecJoint strategy for multi-step forecasting</p>
+    <p class="normal">The following<a id="_idIndexMarker1580"/> sections detail how this strategy works.</p>
+    <h3 id="_idParaDest-468" class="heading-3">Training regime</h3>
+    <p class="normal">The<a id="_idIndexMarker1581"/> training regime (<em class="italic">Figure 18.8</em>) in the RecJoint strategy is very similar to the recursive strategy, in the way it trains a single model and recursively uses prediction at <em class="italic">t</em> + 1 as input to train <em class="italic">t</em> + 2, and so on. But the recursive strategy trains the model on just the next timestep, whereas RecJoint generates the predictions for the entire horizon and jointly optimizes the entire horizon forecasts while training. This forces the model to look at the next <em class="italic">H</em> timesteps and jointly optimize the entire horizon, instead of the myopic one-step-ahead objective. We saw this strategy at play when we trained Seq2Seq models using an RNN encoder and decoder (<em class="chapterRef">Chapter 13</em>, <em class="italic">Common Modeling Patterns for Time Series</em>).</p>
+    <h3 id="_idParaDest-469" class="heading-3">Forecasting regime</h3>
+    <p class="normal">The<a id="_idIndexMarker1582"/> forecasting regime for RecJoint is exactly the same as for the recursive strategy.</p>
+    <p class="normal">Now that we understand a few strategies, let’s discuss their merits and demerits.</p>
+    <h1 id="_idParaDest-470" class="heading-1">How to choose a multi-step forecasting strategy</h1>
+    <p class="normal">Let’s summarize <a id="_idIndexMarker1583"/>all the different strategies that we have learned in a table:</p>
+    <figure class="mediaobject"><img src="../Images/B22389_18_09.png" alt="Figure 17.9 – Multi-step forecasting strategies – a summary "/></figure>
+    <p class="packt_figref">Figure 18.9: Multi-step forecasting strategies—a summary</p>
+    <p class="normal">Here, the following apply:</p>
+    <ul>
+      <li class="bulletList"><em class="italic">S.O</em>: Single output</li>
+      <li class="bulletList"><em class="italic">M.O</em>: Multi-output</li>
+      <li class="bulletList"><em class="italic">T</em><sub class="subscript-italic" style="font-style: italic;">SO</sub> and <em class="italic">I</em><sub class="subscript-italic" style="font-style: italic;">SO</sub>: Training and inferencing the time of a single-output model</li>
+      <li class="bulletList"><em class="italic">T</em><sub class="subscript-italic" style="font-style: italic;">mO</sub> and <em class="italic">I</em><sub class="subscript-italic" style="font-style: italic;">mO</sub>: Training and inferencing the time of a multi-output model (practically, <em class="italic">T</em><sub class="subscript-italic" style="font-style: italic;">mO</sub> is larger than <em class="italic">T</em><sub class="subscript-italic" style="font-style: italic;">SO</sub> mostly because multi-output models are typically DL models, and their training time is higher than standard ML models)</li>
+      <li class="bulletList"><em class="italic">H</em>: The horizon</li>
+      <li class="bulletList"><em class="italic">L</em> = <em class="italic">H</em>/<em class="italic">R</em>, where <em class="italic">R</em> is the number of blocks in the IBD strategy</li>
+      <li class="bulletList"><img src="../Images/B22389_10_002.png" alt=""/> is some positive real number</li>
+    </ul>
+    <p class="normal">The table<a id="_idIndexMarker1584"/> helps us understand and decide which strategy is better from multiple perspectives:</p>
+    <ul>
+      <li class="bulletList"><strong class="keyWord">Engineering complexity</strong>: <em class="italic">Recursive</em>, <em class="italic">Joint</em>, <em class="italic">RecJoint</em> &lt;&lt; <em class="italic">IBD</em> &lt;&lt; <em class="italic">Direct</em>, and <em class="italic">DirRec</em> &lt;&lt; <em class="italic">Rectify</em></li>
+      <li class="bulletList"><strong class="keyWord">Training time</strong>: <em class="italic">Recursive</em> &lt;&lt; <em class="italic">Joint</em> (typically <em class="italic">T</em><sub class="subscript-italic" style="font-style: italic;">mO</sub> &gt; <em class="italic">T</em><sub class="subscript-italic" style="font-style: italic;">SO</sub>) &lt;&lt; <em class="italic">RecJoint</em> &lt;&lt; <em class="italic">IBD</em> &lt;&lt; <em class="italic">Direct</em>, and <em class="italic">DirRec</em> &lt;&lt; <em class="italic">Rectify</em></li>
+      <li class="bulletList"><strong class="keyWord">Inference time</strong>: <em class="italic">Joint</em> &lt;&lt; <em class="italic">Direct</em>, <em class="italic">Recursive</em>, <em class="italic">DirRec</em>, <em class="italic">IBD</em>, and <em class="italic">RecJoint</em> &lt;&lt; <em class="italic">Rectify</em></li>
+    </ul>
+    <p class="normal">It also helps us to decide the kind of model we can use for each strategy. For instance, a joint strategy can only be implemented with a model that supports multi-output, such as a DL model. However, we have yet to discuss how these strategies affect accuracies.</p>
+    <p class="normal">Although, in ML, the final word goes to empirical evidence, there are ways we can analyze the different methods to provide us with some guidelines. <em class="italic">Taieb et al.</em> analyzed the bias and variance of these multi-step forecasting strategies, both theoretically and using simulated data. </p>
+    <p class="normal">With this analysis, along with other empirical findings over the years, we have an understanding of the strengths and weaknesses of these strategies, and some guidelines have emerged from these findings.</p>
+    <div class="note">
+      <p class="normal"><strong class="keyWord">Reference check</strong>:</p>
+      <p class="normal">The research paper by Taieb et al. is cited in Reference <em class="italic">3</em>.</p>
+    </div>
+    <p class="normal"><em class="italic">Taieb et al.</em> point out several disadvantages of the recursive strategy, contrasting with the direct strategy, based on the bias and variance components of error analysis. They further corroborated these observations through an empirical study.</p>
+    <p class="normal">The key points that elucidate the difference in performance are as follows:</p>
+    <ul>
+      <li class="bulletList">For the recursive strategy, the bias and variance components of error in step <em class="italic">h</em> = 1 affect step <em class="italic">h</em> = 2. Because of this phenomenon, the errors that a recursive model makes tend to accumulate as we move further in the forecast horizon. But for the direct strategy, this dependence is not explicit and, therefore, doesn’t suffer the same deterioration that we see in the recursive strategy. This was also seen in the empirical study, where the recursive strategy was very erratic and had the highest variance, which increased significantly as we moved further in the horizon.</li>
+      <li class="bulletList">For the direct strategy, the bias and variance components of error in step <em class="italic">h</em> = 1 do not affect <em class="italic">h</em> = 2. This is because each horizon, <em class="italic">h</em>, is forecasted in isolation. A downside of this approach is the fact that this strategy can produce completely unrelated forecasts across the horizon, leading to unrealistic forecasts. The complex dependencies that may exist between the forecast in the horizon are not captured in the direct strategy. For instance, a direct strategy on a time series with a non-linear trend may result in a broken<a id="_idIndexMarker1585"/> curve because of the independence of each timestep in the horizon.</li>
+      <li class="bulletList">Practically, in most cases, a direct strategy produces coherent forecasts.</li>
+      <li class="bulletList">The bias for the recursive strategy is also amplified when the forecasting model produces forecasts that have large variations. Highly complex models are known to have low bias but a high amount of variations, and these high variations seem to amplify the bias for recursive strategy models.</li>
+      <li class="bulletList">When we have very large datasets, the bias term of the direct strategy becomes zero, but the recursive strategy bias is still non-zero. This was further demonstrated in experiments—for long time series, the direct strategy almost always outperformed the recursive strategy. From a learning theory perspective, we learn <em class="italic">H</em> functions using the data for the direct strategy, whereas for recursive, we just learn one. So with the same amount of data, it is harder to learn <em class="italic">H</em> true functions than one. This is amplified in low-data situations.</li>
+      <li class="bulletList">Although the recursive strategy seems inferior to the direct strategy theoretically and empirically, it is not without some advantages:<ul>
+          <li class="bulletList level-2">For highly non-linear and noisy time series, learning direct functions for all the horizons can be hard. In such situations, recursive can work better.</li>
+          <li class="bulletList level-2">If the <a id="_idIndexMarker1586"/>underlying <strong class="keyWord">data-generating process</strong> (<strong class="keyWord">DGP</strong>) is very smooth and can be easily approximated, the recursive strategy can work better.</li>
+          <li class="bulletList level-2">When the time series is shorter, the recursive strategy can work better.</li>
+        </ul>
+      </li>
+      <li class="bulletList">We talked about the direct strategy generating possible unrelated forecasts for the horizon, but this is exactly the part that the joint strategy takes care of. The joint strategy can be thought of as an extension of the direct strategy, but instead of having <em class="italic">H</em> different models, we have a single model that produces <em class="italic">H</em> output. We learn a single function instead of <em class="italic">H</em> functions from the given data. Therefore, the joint strategy doesn’t have the same weakness as the direct strategy in short time series.</li>
+      <li class="bulletList">One of the <a id="_idIndexMarker1587"/>weaknesses of the joint strategy (and RecJoint) is the high bias on very short horizons (such as <em class="italic">H</em> = 2, <em class="italic">H</em> = 3, and so on). We learn a model that optimizes across all the <em class="italic">H</em> timesteps in the horizon using a standard loss function, such as the mean squared error. But these errors are at different scales. The errors that can occur further down the horizon are larger than the immediate ones, and this implicitly puts more weight on the longer horizons; thus, the model learns a function that is skewed toward getting the longer horizons right.</li>
+      <li class="bulletList">The joint and RecJoint strategies are comparable from a variance perspective. However, the joint strategy can give us a lower bias because the RecJoint strategy learns a recursive function, and it may not be flexible enough to capture the pattern. The joint strategy uses the full power of the forecasting model to directly forecast the horizon.</li>
+    </ul>
+    <p class="normal">Hybrid strategies, such as DirRec, IBD, and so on, try to balance the merits and demerits of fundamental strategies, such as direct, recursive, and joint. With these merits and demerits, we can create an informed experimentation framework to come up with the best strategy for the problem at hand.</p>
+    <h1 id="_idParaDest-471" class="heading-1">Summary</h1>
+    <p class="normal">In this chapter, we touched upon a particular aspect of forecasting that is highly relevant for real-world use cases but rarely talked about and studied. We saw why we needed multi-step forecasting and then went on to review a few popular strategies we can use. We explored the popular and fundamental strategies, such as direct, recursive, and joint, and then went on to look at a few hybrid strategies, such as DirRec, rectify, and so on. Finally, we looked at the merits and demerits of these strategies and discussed a few guidelines for selecting the right strategy for your problem.</p>
+    <p class="normal">In the next chapter, we will look at another important aspect of forecasting—evaluation.</p>
+    <h1 id="_idParaDest-472" class="heading-1">References</h1>
+    <p class="normal">The following is the list of the references that we used throughout the chapter:</p>
+    <ol>
+      <li class="numberedList" value="1">Taieb, S.B., Bontempi, G., Atiya, A.F., and Sorjamaa, A. (2012). <em class="italic">A review and comparison of strategies for multi-step ahead time series forecasting based on the NN5 forecasting competition</em>. Expert Syst. Appl., 39, 7067–7083: <a href="https://arxiv.org/pdf/1108.3259.pdf"><span class="url">https://arxiv.org/pdf/1108.3259.pdf</span></a></li>
+      <li class="numberedList">Li Zhang, Wei-Da Zhou, Pei-Chann Chang, Ji-Wen Yang, and Fan-Zhang Li. (2013). <em class="italic">Iterated time series prediction with multiple support vector regression models.</em> Neurocomputing, Volume 99, 2013: <a href="https://www.sciencedirect.com/science/article/pii/S0925231212005863"><span class="url">https://www.sciencedirect.com/science/article/pii/S0925231212005863</span></a></li>
+      <li class="numberedList">Taieb, S.B. and Atiya, A.F. (2016). <em class="italic">A Bias and Variance Analysis for Multistep-Ahead Time Series Forecasting.</em> in IEEE Transactions on Neural Networks and Learning Systems, vol. 27, no. 1, pp. 62–76, Jan. 2016: <a href="https://ieeexplore.ieee.org/document/7064712"><span class="url">https://ieeexplore.ieee.org/document/7064712</span></a></li>
+    </ol>
+    <h1 class="heading-1">Join our community on Discord</h1>
+    <p class="normal">Join our community’s Discord space for discussions with authors and other readers:</p>
+    <p class="normal"><a href="https://packt.link/mts"><span class="url">https://packt.link/mts</span></a></p>
+    <p class="normal"><img src="../Images/QR_Code15080603222089750.png" alt=""/></p>
+  </div>
+</body></html>

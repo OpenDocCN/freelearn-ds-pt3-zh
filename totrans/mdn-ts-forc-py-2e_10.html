@@ -1,0 +1,559 @@
+<html><head></head><body>
+  <div id="_idContainer385" class="Basic-Text-Frame">
+    <h1 class="chapterNumber">8</h1>
+    <h1 id="_idParaDest-177" class="chapterTitle">Forecasting Time Series with Machine Learning Models</h1>
+    <p class="normal">In the previous chapter, we started looking at machine learning as a tool to solve the problem of time series forecasting. We talked about a few techniques such as time delay embedding and temporal embedding, both of which cast a time series forecasting problem as a classical regression problem from the machine learning paradigm. In this chapter, we’ll look at these techniques in detail and go through them in a practical sense using the London Smart Meters dataset we have been working with throughout this book.</p>
+    <p class="normal">In this chapter, we will cover the following topics:</p>
+    <ul>
+      <li class="bulletList">Training and predicting with machine learning models</li>
+      <li class="bulletList">Generating single-step forecast baselines</li>
+      <li class="bulletList">Standardized code to train and evaluate machine learning models</li>
+      <li class="bulletList">Training and predicting for multiple households</li>
+    </ul>
+    <h1 id="_idParaDest-178" class="heading-1">Technical requirements</h1>
+    <p class="normal">You will need to set up the <strong class="keyWord">Anaconda</strong> environment following the instructions in the <em class="italic">Preface</em> of the book to get a working environment with all the libraries and datasets required for the code in this book. Any additional library will be installed while running the notebooks.</p>
+    <p class="normal">You will need to run the following notebooks before using the code in this chapter:</p>
+    <ul>
+      <li class="bulletList"><code class="inlineCode">02-Preprocessing_London_Smart_Meter_Dataset.ipynb</code> in <code class="inlineCode">Chapter02</code></li>
+      <li class="bulletList"><code class="inlineCode">01-Setting_up_Experiment_Harness.ipynb</code> in <code class="inlineCode">Chapter04</code></li>
+      <li class="bulletList"><code class="inlineCode">01-Feature_Engineering.ipynb</code> in <code class="inlineCode">Chapter06</code></li>
+      <li class="bulletList"><code class="inlineCode">02-Dealing_with_Non-Stationarity.ipynb</code> in <code class="inlineCode">Chapter07</code></li>
+      <li class="bulletList"><code class="inlineCode">02a-Dealing_with_Non-Stationarity-Train+Val.ipynb</code> in <code class="inlineCode">Chapter07</code></li>
+    </ul>
+    <p class="normal">The code for this chapter can be found at <a href="https://github.com/PacktPublishing/Modern-Time-Series-Forecasting-with-Python-/tree/main/notebooks/Chapter08"><span class="url">https://github.com/PacktPublishing/Modern-Time-Series-Forecasting-with-Python-/tree/main/notebooks/Chapter08</span></a>.</p>
+    <h1 id="_idParaDest-179" class="heading-1">Training and predicting with machine learning models</h1>
+    <p class="normal">In <em class="chapterRef">Chapter 5</em>, <em class="italic">Time Series Forecasting as Regression</em>, we talked about a schematic for supervised <a id="_idIndexMarker602"/>machine learning (<em class="italic">Figure 5.2</em>). In the schematic, we mentioned that the purpose of a supervised learning problem is to come up<a id="_idIndexMarker603"/> with a function, <img src="../Images/B22389_08_001.png" alt=""/>, where <img src="../Images/B22389_08_002.png" alt=""/> is the predicted value, <em class="italic">X</em> is the set of features as the input, <img src="../Images/B22389_08_003.png" alt=""/> is the model parameters, and <em class="italic">h</em> is the approximation of the ideal function. In this section, we are going to talk about <em class="italic">h</em> in more detail and see how we can use different machine learning models to estimate it.</p>
+    <p class="normal"><em class="italic">h</em> is any function that approximates the ideal function, but it can be thought of as an element of all possible functions from a family of functions. More formally, we can say the following:</p>
+    <p class="center"><img src="../Images/B22389_08_004.png" alt=""/></p>
+    <p class="normal">Here, <em class="italic">H</em> is a family of functions that we also call a model. For instance, linear regression is a type of model or a family of functions. For each value of the coefficients, the linear regression model gives you a different function and <em class="italic">H</em> becomes the set of all possible functions a linear regression model can produce.</p>
+    <p class="normal">There are many families of functions, or models, available. For a more complete understanding of the space, we will need to refer to other machine learning resources. The <em class="italic">Further reading</em> section contains a few resources that may help you start the journey. As for the scope of this book, we narrowly define it as the application of machine learning models for forecasting, rather than machine learning in general. And although we can <a id="_idIndexMarker604"/>use any regression model, we will only review a <a id="_idIndexMarker605"/>few popular and useful ones for time series forecasting and see them in action. We leave it to you to strike out on your own and explore the other algorithms to become familiar with them as well. But before we look at the different models, we need to generate a few baselines again.</p>
+    <h1 id="_idParaDest-180" class="heading-1">Generating single-step forecast baselines</h1>
+    <p class="normal">We <a id="_idIndexMarker606"/>reviewed and generated a few baseline models back in <em class="chapterRef">Chapter 4</em>, <em class="italic">Setting a Strong Baseline Forecast</em>. But there is a small issue – the prediction horizon. In <em class="chapterRef">Chapter 6</em>, <em class="italic">Feature Engineering for Time Series Forecasting</em>, we talked about how the machine learning model can only predict one target at a time and that we are sticking with a single-step forecast. The baselines we generated earlier were not single-step, but multi-step. Generating a single-step forecast for baseline algorithms such as ARIMA or ETS requires us to fit on history, predict one step ahead, and then fit again using one more day. Predicting in such an iterative fashion for our test or validation period requires us to do this iteration ~1,440 times (48 data points a day for 30 days) and repeat this for all the households in our selected dataset (150, in our case). This would take quite a long time to compute.</p>
+    <p class="normal">We have chosen the naïve method and seasonal naïve (<em class="chapterRef">Chapter 4</em>, <em class="italic">Setting a Strong Baseline Forecast</em>), which can be implemented as native pandas methods, as two baseline methods to generate single-step forecasts. </p>
+    <p class="normal">Naïve forecasts perform unreasonably well for single-step-ahead forecasts and can be considered a strong baseline. In the <code class="inlineCode">Chapter08</code> folder, there is a notebook named <code class="inlineCode">00-Single_Step_Backtesting_Baselines.ipynb</code> that generates these baselines and saves them to disk. Let’s run the notebook now. The notebook generates the baselines for both the validation and test datasets and saves the predictions, metrics, and aggregate metrics to disk. The aggregate metrics for the test period are as follows:</p>
+    <figure class="mediaobject"><img src="../Images/B22389_08_01.png" alt="Figure 8.1 – Aggregate metrics for a single-step baseline "/></figure>
+    <p class="packt_figref">Figure 8.1: Aggregate metrics for a single-step baseline</p>
+    <p class="normal">To make<a id="_idIndexMarker607"/> training and evaluating these models easier, we have used a standard structure throughout. Let’s quickly review that structure as well so that you can follow along with the notebooks closely.</p>
+    <h1 id="_idParaDest-181" class="heading-1">Standardized code to train and evaluate machine learning models</h1>
+    <p class="normal">There are<a id="_idIndexMarker608"/> two main ingredients while training a machine learning model – <em class="italic">data</em> and the <em class="italic">model</em> itself. Therefore, to standardize the pipeline, we defined three configuration classes (<code class="inlineCode">FeatureConfig</code>, <code class="inlineCode">MissingValueConfig</code>, and <code class="inlineCode">ModelConfig</code>) and another wrapper class (<code class="inlineCode">MLForecast</code>) over scikit-learn-style estimators <code class="inlineCode">(.fit - .predict</code>) to make the process smooth. Let’s look at each of them.</p>
+    <div class="note">
+      <p class="normal"><strong class="keyWord">Notebook alert:</strong></p>
+      <p class="normal">To follow along with the code, use the <code class="inlineCode">01-Forecasting_with_ML.ipynb</code> notebook in the <code class="inlineCode">Chapter08</code> folder and the code in the <code class="inlineCode">src</code> folder.</p>
+    </div>
+    <h2 id="_idParaDest-182" class="heading-2">FeatureConfig</h2>
+    <p class="normal"><code class="inlineCode">FeatureConfig</code> is a<a id="_idIndexMarker609"/> Python <code class="inlineCode">dataclass</code> that defines a few key attributes and functions that are necessary while processing the data. For instance, continuous, categorical, and Boolean columns need separate kinds of preprocessing before being fed into the machine learning model. Let’s see what <code class="inlineCode">FeatureConfig</code> holds:</p>
+    <ul>
+      <li class="bulletList"><code class="inlineCode">date</code>: A mandatory column that sets the name of the column with <code class="inlineCode">date</code> in the DataFrame.</li>
+      <li class="bulletList"><code class="inlineCode">target</code>: A mandatory column that sets the name of the column with <code class="inlineCode">target</code> in the DataFrame.</li>
+      <li class="bulletList"><code class="inlineCode">original_target</code>: If <code class="inlineCode">target</code> contains a transformed target (log, differenced, and so on), <code class="inlineCode">original_target</code> specifies the name of the column with the target <a id="_idIndexMarker610"/>without transformation. This is essential for calculating metrics such as MASE, which relies on training history. If not given, it is assumed that <code class="inlineCode">target</code> and <code class="inlineCode">original_target</code> are the same.</li>
+      <li class="bulletList"><code class="inlineCode">continuous_features</code>: A list of continuous features.</li>
+      <li class="bulletList"><code class="inlineCode">categorical_features</code>: A list of categorical features.</li>
+      <li class="bulletList"><code class="inlineCode">boolean_features</code>: A list of Boolean features. Boolean features are categorical but only have two unique values.</li>
+      <li class="bulletList"><code class="inlineCode">index_cols</code>: A list of columns that are set as a DataFrame index while preprocessing. Typically, we would give the datetime and, in some cases, the unique ID of a time series as indices.</li>
+      <li class="bulletList"><code class="inlineCode">exogenous_features</code>: A list of exogenous features. The features in the DataFrame may be from the feature engineering process, such as the lags or rolling features, but also external sources such as the temperature data in our dataset. This is an optional field that lets us bifurcate the exogenous features from the rest of the features. The items in this list should be a subset of <code class="inlineCode">continuous_features</code>, <code class="inlineCode">categorical_features</code>, or <code class="inlineCode">boolean_features</code>.</li>
+    </ul>
+    <p class="normal">In addition to a bit of validation on the inputs, there is also a helpful method called <code class="inlineCode">get_X_y</code> in the class, with the following parameters:</p>
+    <ul>
+      <li class="bulletList"><code class="inlineCode">df</code>: A DataFrame that contains all the necessary columns, including the target, if available</li>
+      <li class="bulletList"><code class="inlineCode">categorical</code>: A Boolean flag for including categorical features or not</li>
+      <li class="bulletList"><code class="inlineCode">exogenous</code>: A Boolean flag for including exogenous features or not</li>
+    </ul>
+    <p class="normal">The function returns a tuple of <code class="inlineCode">(features, target, original_target)</code>.</p>
+    <p class="normal">All we need to do is initialize the class, like any other class, with the feature names separated into the parameters of the class. The entire code that contains all the features is available in the accompanying notebook.</p>
+    <p class="normal">After setting the <code class="inlineCode">FeatureConfig</code> data class, we can pass any DataFrame with the features defined to the <code class="inlineCode">get_X_y</code> function to get the features, target, and original target:</p>
+    <pre class="programlisting code"><code class="hljs-code">train_features, train_target, train_original_target = feat_config.get_X_y(
+    sample_train_df, categorical=<span class="hljs-literal">False</span>, exogenous=<span class="hljs-literal">False</span>
+)
+</code></pre>
+    <p class="normal">As you can<a id="_idIndexMarker611"/> see, we are not using categorical features or exogenous features here, as I want to focus on the core algorithms and show how they can be drop-in replacements for other classical time series models we saw earlier. We will talk about how to handle categorical features in <em class="chapterRef">Chapter 15</em>, <em class="italic">Strategies for Global Deep Learning Forecasting Models</em>.</p>
+    <h2 id="_idParaDest-183" class="heading-2">MissingValueConfig</h2>
+    <p class="normal">Another<a id="_idIndexMarker612"/> key setting is how to deal with missing values. We saw a few ways to fill in missing values from a time series context in <em class="chapterRef">Chapter 3</em>, <em class="italic">Analyzing and Visualizing Time Series Data</em>, and we have already filled in missing values and prepared our datasets. But a few missing values will be created in the feature engineering required to convert a time series into a regression problem. For instance, when creating lag features, the earliest date in the dataset will not have enough data to create a lag and will be left empty.</p>
+    <div class="note">
+      <p class="normal"><strong class="keyWord">Best practice:</strong></p>
+      <p class="normal">Although filling with zero or mean is the default or go-to method for the majority of the data scientist community, we should always make an effort to fill in missing values as intelligently as possible. In terms of lag features, filling with zero can distort the feature. Instead of filling with zero, a backward fill (using the earliest value in the column to fill backward) might be a much better fit.</p>
+    </div>
+    <p class="normal">Some machine learning models handle empty or <code class="inlineCode">NaN</code> features naturally, while for other machine learning models, we will need to deal with such missing values before training. It’s helpful if we can define a <code class="inlineCode">config</code> in which we set for a few columns where we expect <code class="inlineCode">NaN</code> information on how to fill those. <code class="inlineCode">MissingValueConfig</code> is a Python <code class="inlineCode">dataclass</code> that does just that. Let’s see what it holds:</p>
+    <ul>
+      <li class="bulletList"><code class="inlineCode">bfill_columns</code>: A list of column names that need to use a backward fill strategy to fill missing values.</li>
+      <li class="bulletList"><code class="inlineCode">ffill_columns</code>: A list of column names that need to use a forward fill strategy to fill missing values. If a column name is repeated across both <code class="inlineCode">bfill_columns</code> and <code class="inlineCode">ffill_columns</code>, that column is filled using backward fill first and the rest of the missing values are filled with the forward fill strategy.</li>
+      <li class="bulletList"><code class="inlineCode">zero_fill_columns</code>: A list of column names that need to be filled with zeros.</li>
+    </ul>
+    <p class="normal">The order <a id="_idIndexMarker613"/>in which the missing values are filled is <code class="inlineCode">bfill_columns</code>, then <code class="inlineCode">ffill_columns</code>, and then <code class="inlineCode">zero_fill_columns</code>. As the default strategy, the data class uses the column mean to fill in missing values so that even if you have not defined any strategy for a column, the missing value will be filled in using a column mean. There is a method called <code class="inlineCode">impute_missing_values</code> that takes in the DataFrame and fills the empty cells with a value according to the specified strategy.</p>
+    <h2 id="_idParaDest-184" class="heading-2">ModelConfig</h2>
+    <p class="normal"><code class="inlineCode">ModelConfig</code> is a <a id="_idIndexMarker614"/>Python <code class="inlineCode">dataclass</code> that holds a few details regarding the modeling process, such as whether to normalize the data, whether to fill in missing values, and so on. Let’s take a detailed look at what it holds:</p>
+    <ul>
+      <li class="bulletList"><code class="inlineCode">model</code>: This is a mandatory parameter that can be any scikit-learn-style estimator.</li>
+      <li class="bulletList"><code class="inlineCode">name</code>: A string name or identifier for the model. If it’s not used, it will revert to the name of the class that was passed in as <code class="inlineCode">model</code>.</li>
+      <li class="bulletList"><code class="inlineCode">normalize</code>: A Boolean flag to set whether to apply <code class="inlineCode">StandardScaler</code> to the input or not.</li>
+      <li class="bulletList"><code class="inlineCode">fill_missing</code>: A Boolean flag to set whether to fill empty values before training or not. Some models can handle <code class="inlineCode">NaN</code> naturally, while others can’t.</li>
+      <li class="bulletList"><code class="inlineCode">encode_categorical</code>: A Boolean flag to set whether to encode categorical columns as part of the fitting procedure. If <code class="inlineCode">False</code>, categorical encoding is expected to be done separately and included as part of continuous features.</li>
+      <li class="bulletList"><code class="inlineCode">categorical_encoder</code>: If <code class="inlineCode">encode_categorical</code> is <code class="inlineCode">True</code>, <code class="inlineCode">categorical_encoder</code> is the scikit-learn-style encoder we can use.</li>
+    </ul>
+    <p class="normal">Let’s see how we can define the <code class="inlineCode">ModelConfig</code> data class:</p>
+    <pre class="programlisting code"><code class="hljs-code">model_config = ModelConfig(
+    model=LinearRegression(),
+    name=<span class="hljs-string">"Linear Regression"</span>,
+    normalize=<span class="hljs-literal">True</span>,
+    fill_missing=<span class="hljs-literal">True</span>,
+)
+</code></pre>
+    <p class="normal">This has just one <a id="_idIndexMarker615"/>method, <code class="inlineCode">clone</code>, that clones the estimator, along with the config, into a new instance.</p>
+    <h2 id="_idParaDest-185" class="heading-2">MLForecast</h2>
+    <p class="normal">Last but not least, we<a id="_idIndexMarker616"/> have the wrapper class around a scikit-learn-style model. It uses the different configurations we have discussed to encapsulate the training and prediction functions. Let’s see what parameters are available when initializing the model:</p>
+    <ul>
+      <li class="bulletList"><code class="inlineCode">model_config</code>: The instance of the <code class="inlineCode">ModelConfig</code> class we discussed in the <em class="italic">ModelConfig</em> section.</li>
+      <li class="bulletList"><code class="inlineCode">feature_config</code>: The instance of the <code class="inlineCode">FeatureConfig</code> class we discussed earlier.</li>
+      <li class="bulletList"><code class="inlineCode">missing_config</code>: The instance of the <code class="inlineCode">MissingValueConfig</code> class we discussed earlier.</li>
+      <li class="bulletList"><code class="inlineCode">target_transformer</code>: The instance of target transformers from <code class="inlineCode">src.transforms</code>. It should support <code class="inlineCode">fit</code>, <code class="inlineCode">transform</code>, and <code class="inlineCode">inverse_transform</code>. It should also return <code class="inlineCode">pd.Series</code> with a datetime index to work without errors. If we have done the target transform separately, then this is also used to perform <code class="inlineCode">inverse_transform</code> during prediction.</li>
+    </ul>
+    <p class="normal"><code class="inlineCode">MLForecast</code> has a few functions that can help us manage the life cycle of a model, once initialized. Let’s take a look.</p>
+    <h3 id="_idParaDest-186" class="heading-3">The fit function</h3>
+    <p class="normal">The <code class="inlineCode">fit</code> function<a id="_idIndexMarker617"/> is similar in purpose to the scikit-learn <code class="inlineCode">fit</code> function but does a little extra by handling the standardization, categorical encoding, and target transformations using the information in the three configs. The parameters of the function are as follows:</p>
+    <ul>
+      <li class="bulletList"><code class="inlineCode">X</code>: This is the pandas DataFrame with features to be used in the model as columns.</li>
+      <li class="bulletList"><code class="inlineCode">y</code>: This is the target and can be a pandas DataFrame, pandas Series, or a numpy array.</li>
+      <li class="bulletList"><code class="inlineCode">is_transformed</code>: This<a id="_idIndexMarker618"/> is a Boolean parameter that lets us know whether the target is already transformed or not. If <code class="inlineCode">True</code>, the <code class="inlineCode">fit</code> method won’t be transforming the target, even if we have initialized the object with <code class="inlineCode">target_transformer</code>.</li>
+      <li class="bulletList"><code class="inlineCode">fit_kwargs</code>: This is a Python dictionary of keyword arguments that need to be passed to the <code class="inlineCode">fit</code> function of the estimator.</li>
+    </ul>
+    <h3 id="_idParaDest-187" class="heading-3">The predict function</h3>
+    <p class="normal">The <code class="inlineCode">predict</code> function<a id="_idIndexMarker619"/> handles inferencing. It wraps around the <code class="inlineCode">predict</code> function of the scikit-learn estimator, but like <code class="inlineCode">fit</code>, it does a few other things, such as standardization, categorical encoding, and reversing the target transformation. There is only one parameter for this function:</p>
+    <ul>
+      <li class="bulletList"><code class="inlineCode">X</code>: The pandas DataFrame with features to be used in the model as columns. The index of the DataFrame is passed on to the prediction.</li>
+    </ul>
+    <h3 id="_idParaDest-188" class="heading-3">The feature_importance function</h3>
+    <p class="normal">The <code class="inlineCode">feature_importance</code> function <a id="_idIndexMarker620"/>retrieves the feature importance from the model, if available. For linear models, it extracts the coefficients, while for tree-based models, it extracts the built-in importance and returns it in a sorted DataFrame.</p>
+    <h2 id="_idParaDest-189" class="heading-2">Helper functions for evaluating models</h2>
+    <p class="normal">While the <a id="_idIndexMarker621"/>other functions we saw earlier deal with core training and predicting, we also want to evaluate the model, plot the results, and so on. We have also defined these functions in the notebooks or in the code base. The below function is to evaluate the models in the notebook:</p>
+    <pre class="programlisting code"><code class="hljs-code"><span class="hljs-keyword">def</span> <span class="hljs-title">evaluate_model</span>(
+<span class="hljs-params">    model_config,</span>
+<span class="hljs-params">    feature_config,</span>
+<span class="hljs-params">    missing_config,</span>
+<span class="hljs-params">    train_features,</span>
+<span class="hljs-params">    train_target,</span>
+<span class="hljs-params">    test_features,</span>
+<span class="hljs-params">    test_target,</span>
+):
+    ml_model = MLForecast(
+        model_config=model_config,
+        feature_config=feat_config,
+        missing_config=missing_value_config,
+    )
+    ml_model.fit(train_features, train_target)
+    y_pred = ml_model.predict(test_features)
+    feat_df = ml_model.feature_importance()
+    metrics = calculate_metrics(test_target, y_pred, model_config.name, train_target)
+    <span class="hljs-keyword">return</span> y_pred, metrics, feat_df
+</code></pre>
+    <p class="normal">This <a id="_idIndexMarker622"/>provides us with a standard way of evaluating all the different models, as well as automating the process at scale. We also have a function for calculating the metrics, <code class="inlineCode">calculate_metrics</code>, defined in <code class="inlineCode">src/forecasting/ml_forecasting.py</code>.</p>
+    <div class="note">
+      <p class="normal">The standard implementation that we have provided with this book is in no way a one-size-fits-all approach, but rather something that works best with the flow and dataset of this book. Please do not consider it as a robust library, but rather a good starting point and guide to help you develop your own code.</p>
+    </div>
+    <p class="normal">Now that we have the baselines and a standard way to apply different models, let’s get back to what the different models are. For the discussion ahead, let’s keep <em class="italic">time</em> out of our minds because we have converted a time series forecasting problem into a regression problem and factored in <em class="italic">time</em> as a feature of the problem (the lags and rolling features).</p>
+    <h2 id="_idParaDest-190" class="heading-2">Linear regression</h2>
+    <p class="normal">Linear regression<a id="_idIndexMarker623"/> is a family of functions that takes the following form:</p>
+    <p class="center"><img src="../Images/B22389_08_005.png" alt=""/></p>
+    <p class="normal">Here, <em class="italic">k</em> is the number of features in the model and <img src="../Images/B22389_04_010.png" alt=""/> are the parameters of the model. There is a <img src="../Images/B22389_04_010.png" alt=""/> for<a id="_idIndexMarker624"/> each feature, as well as a <img src="../Images/B22389_07_017.png" alt=""/>, which we call the intercept, which is estimated from data. Essentially, the output is a linear combination of the feature vectors, <em class="italic">X</em><sub class="subscript-italic" style="font-style: italic;">i</sub>. As the name suggests, this is a linear function.</p>
+    <p class="normal">The model parameters can be estimated from data,D(<em class="italic">X</em><sub class="subscript-italic" style="font-style: italic;">i, </sub><em class="italic">y</em><sub class="subscript-italic" style="font-style: italic;">i</sub>), using an optimization method and loss, but <a id="_idIndexMarker625"/>the most popular method of estimation is using <strong class="keyWord">ordinary least squares</strong> (<strong class="keyWord">OLS</strong>). Here, we find the model parameters, <img src="../Images/B22389_04_010.png" alt=""/>, which minimizes the residual<a id="_idIndexMarker626"/> sum of squares (<strong class="keyWord">mean squared error</strong> (<strong class="keyWord">MSE</strong>)):</p>
+    <p class="center"><img src="../Images/B22389_08_010.png" alt=""/></p>
+    <p class="normal">The loss function here is very intuitive. We are essentially minimizing the distance between the training samples and our predicted points. The square term acts as a technique that does not cancel out positive and negative errors. Apart from the intuitiveness of the loss, another reason why this is widely chosen is that an analytical solution exists for least squares and because of that, we don’t need to resort to more compute-intensive optimization techniques such as gradient descent.</p>
+    <p class="normal">Linear regression has one foot firmly planted in statistics and with the right assumptions, it can be a powerful tool. Commonly, five assumptions are associated with linear regression, as follows:</p>
+    <ul>
+      <li class="bulletList">The relationship between the independent and dependent variables is linear.</li>
+      <li class="bulletList">The errors are normally distributed.</li>
+      <li class="bulletList">The variance of the errors is constant across all the values of the independent variable.</li>
+      <li class="bulletList">There is no autocorrelation in the errors.</li>
+      <li class="bulletList">There is little to no correlation between independent variables (multi-collinearity).</li>
+    </ul>
+    <p class="normal">But unless you are concerned about using linear regression to come up with prediction intervals (a band in which the prediction would lie with some probability), we can disregard all but the first assumption to some extent.</p>
+    <p class="normal">The linearity <a id="_idIndexMarker627"/>assumption (the first assumption) is relevant because if the variables are not linearly related, it will result in an underfit and thus poor performance. We can get around this problem to some extent by projecting the inputs into a higher dimensional space. Theoretically, we can project a non-linear problem into a higher-dimensional space, where the problem is linear. For instance, let’s consider a non-linear function, <img src="../Images/B22389_08_011.png" alt=""/>. If we run linear regression in the input space of <img src="../Images/B22389_08_012.png" alt=""/> and <img src="../Images/B22389_08_013.png" alt=""/>, we know the resulting model will be highly underfitting. But if we project the input space from <img src="../Images/B22389_08_012.png" alt=""/> and <img src="../Images/B22389_08_013.png" alt=""/> to <img src="../Images/B22389_08_016.png" alt=""/>, <img src="../Images/B22389_08_017.png" alt=""/>, and <img src="../Images/B22389_08_018.png" alt=""/> by using a polynomial transform, the function for <em class="italic">y</em> becomes a perfect linear fit.</p>
+    <p class="normal">The multi-collinearity assumption (the final assumption) is partly relevant to the fit of the linear function because when we have highly correlated independent variables, the estimated coefficients are highly unstable and difficult to interpret. The fitted function would still be working well, but because we have multi-collinearity, even small changes in the inputs would make the coefficients change magnitude and sign. It is a best practice to check for multi-collinearity if you are using a pure linear regression. This is typically a problem in time series because the features we have extracted, such as the lag and rolling features, may be correlated with each other. Therefore, we will have to be careful while using and interpreting linear regression on time series data.</p>
+    <p class="normal">Now, let’s see how we can use linear regression and evaluate the fit of a sample household from our validation dataset:</p>
+    <pre class="programlisting code"><code class="hljs-code"><span class="hljs-keyword">from</span> sklearn.linear_model <span class="hljs-keyword">import</span> LinearRegression
+model_config = ModelConfig(
+    model=LinearRegression(),
+    name=<span class="hljs-string">"Linear Regression"</span>,
+    <span class="hljs-comment"># LinearRegression is sensitive to normalized data</span>
+    normalize=<span class="hljs-literal">True</span>,
+    <span class="hljs-comment"># LinearRegression cannot handle missing values</span>
+    fill_missing=<span class="hljs-literal">True</span>,
+)
+y_pred, metrics, feat_df = evaluate_model(
+    model_config,
+    feat_config,
+    missing_value_config,
+    train_features,
+    train_target,
+    test_features,
+    test_target,
+)
+</code></pre>
+    <p class="normal">The single-step <a id="_idIndexMarker628"/>forecast looks good and is already better than the naïve forecast (MAE = 0.173):</p>
+    <figure class="mediaobject"><img src="../Images/B22389_08_02.png" alt="Figure 8.2 – Linear regression forecast "/></figure>
+    <p class="packt_figref">Figure 8.2: Linear regression forecast</p>
+    <p class="normal">The coefficients of the model, <img src="../Images/B22389_04_010.png" alt=""/> (which can be accessed using the <code class="inlineCode">coef_</code> attribute of a trained scikit-learn model), show how much influence each feature has on the output. So, extracting and plotting them gives us our first level of visibility into the model. Let’s take a look at the coefficients of the model:</p>
+    <figure class="mediaobject"><img src="../Images/B22389_08_03.png" alt="Figure 8.3 – Feature importance of linear regression (top 15) "/></figure>
+    <p class="packt_figref">Figure 8.3: Feature importance of linear regression (top 15)</p>
+    <p class="normal">If we look <a id="_idIndexMarker629"/>at the <em class="italic">Y</em>-axis in the feature importance chart, we can see it is in billions as the coefficient for a couple of features is in orders of magnitude in billions. We can also see that those features are Fourier series-based features, which are correlated with each other. Even though we have a lot of coefficients that are in billions, we can find them on both sides of zero, so they will essentially cancel out each other in the function. This is the problem with multi-collinearity that we talked about earlier. We can go about removing multi-collinear features and then perform some sort of feature selection (forward selection or backward elimination) to make the linear model even better.</p>
+    <p class="normal">But instead of doing that, let’s look at a few modifications we can make to the linear model that are a bit more robust to multi-collinearity and feature selection.</p>
+    <h2 id="_idParaDest-191" class="heading-2">Regularized linear regression</h2>
+    <p class="normal">We <a id="_idIndexMarker630"/>briefly talked about regularization in <em class="chapterRef">Chapter 5</em>, <em class="italic">Time Series Forecasting as Regression</em>, and mentioned that regularization, in the general sense, is any kind of constraint we place on the learning process to reduce the complexity of the learned function. One of the ways linear models can become more complex is by having a high magnitude of coefficients. For instance, in the linear fit, we have a coefficient of 20 billion. Any small change in that feature is going to cause a huge fluctuation in the resulting prediction. Intuitively, if we have a large coefficient, the function becomes more flexible and complex. One way we can fix this is to apply regularization<a id="_idIndexMarker631"/> in the form of weight decay. Weight decay is when we add a term that penalizes the magnitude of the coefficients to the loss function. The loss function, the residual sum of squares, now becomes as follows:</p>
+    <p class="center"><img src="../Images/B22389_08_020.png" alt=""/></p>
+    <p class="normal">Here, <em class="italic">W</em> is the weight decay and <img src="../Images/B22389_08_021.png" alt=""/> is the strength of regularization.</p>
+    <p class="normal"><em class="italic">W</em> is typically the norm of the weight matrix. In linear algebra, the norm of a matrix is a measure of how large its elements are. There are many norms for a matrix, but the two most common norms that are used for regularization are the <strong class="keyWord">L1</strong> and <strong class="keyWord">L2</strong> norms. When we use the L1 norm to regularize linear regression, we<a id="_idIndexMarker632"/> call it <strong class="keyWord">lasso regression</strong>, while when we use the L2 norm, we <a id="_idIndexMarker633"/>call it <strong class="keyWord">ridge regression</strong>. When we apply weight decay regularization, we are forcing the coefficients to be lower, which means that it also acts as an internal feature selection because the features that don’t add a lot of value will get very low or zero (depending on the type of regularization) coefficients, which means they contribute little to nothing in the resulting function.</p>
+    <p class="normal">The L1 norm is defined as the sum of the absolute values of the matrix. For weight decay regularization, the L1 norm would be as follows:</p>
+    <p class="center"><img src="../Images/B22389_08_022.png" alt=""/></p>
+    <p class="normal">The L2 norm is defined as the sum of squared values of a matrix. For weight decay regularization, the L2 norm would be as follows:</p>
+    <p class="center"><img src="../Images/B22389_08_023.png" alt=""/></p>
+    <p class="normal">By adding this term to the loss function of linear regression, we are forcing the coefficients to be small because while the optimizer is reducing the RSS, it is also incentivized to reduce <em class="italic">W</em>.</p>
+    <p class="normal">Another <a id="_idIndexMarker634"/>way we can think about regularization is in terms of linear algebra and geometry.</p>
+    <div class="note">
+      <p class="normal">The following section discusses the geometric intuition of regularization. Although it would make your understanding of regularization more solid, it is not essential to be able to follow the rest of this book. So, feel free to skip the next section and just read the <em class="italic">Key point</em> callout if you are pressed for time or if you want to come back to it later when you have time.</p>
+    </div>
+    <h3 id="_idParaDest-192" class="heading-3">Regularization–a geometric perspective</h3>
+    <p class="normal">If we look <a id="_idIndexMarker635"/>at the L1 and L2 norms from a slightly different perspective, we will see that they are measures of distance.</p>
+    <p class="normal">Let <em class="italic">B</em> be the vector of all the coefficients, <img src="../Images/B22389_04_010.png" alt=""/>, in linear regression. A vector is an array of numbers, but geometrically, it is also an arrow from the origin to a point in the <em class="italic">n</em>-dimensional coordinate space. Now, the L2 norm is nothing but the Euclidean distance from the origin on that point in space defined by the vector, <em class="italic">B</em>. The L1 norm is the Manhattan distance or taxicab distance from the origin on that point in space defined by the vector, <em class="italic">B</em>. Let’s see this in a diagram:</p>
+    <figure class="mediaobject"><img src="../Images/B22389_08_04.png" alt="Figure 8.4 – Euclidean versus Manhattan distance "/></figure>
+    <p class="packt_figref">Figure 8.4: Euclidean versus Manhattan distance</p>
+    <p class="normal">Euclidean distance is<a id="_idIndexMarker636"/> the length of the direct path from<a id="_idIndexMarker637"/> the origin to the point. But if we can only move parallel to the two axes, we will have to travel the distance of <img src="../Images/B22389_07_017.png" alt=""/> along the one axis first, and then a distance of <img src="../Images/B22389_07_018.png" alt=""/> along the other. This <a id="_idIndexMarker638"/>is the Manhattan distance.</p>
+    <p class="normal">Let’s say we are in a city (for example, Manhattan) where the buildings are laid out in square blocks and the straight streets intersect at right angles, and we want to travel from point A to point B. Euclidean distance is the direct distance from point A to point B, which in the real sense is only possible if we parkour along the tops of the buildings. On the other hand, the Manhattan distance is the actual distance a taxicab would take while traveling along the right-angled roads from point A to point B.</p>
+    <p class="normal">To develop further geometrical intuition about the L1 and L2 norms, let’s do one thought experiment. If we move the point, <img src="../Images/B22389_08_027.png" alt=""/>, in the 2D space while keeping the Euclidean distance or the L2 norm the same, we will end up with a circle with its center at the origin. This becomes a sphere in 3D and a hypersphere in <em class="italic">n</em>-D. If we trace out the same but keep the L1 norm the same, we will end up with a diamond with its center at the origin. This would become a cube in 3D and a hypercube in <em class="italic">n</em>-D.</p>
+    <p class="normal">Now, when we are <a id="_idIndexMarker639"/>optimizing for the weights, in addition to the main objective of reducing the loss function, we are also encouraging the coefficients to stay within a defined distance (norm) from the origin. Geometrically, this means that we are asking the optimization to find a vector, <img src="../Images/B22389_04_010.png" alt=""/>, that minimizes the loss function and stays within the geometric shape (circle or square) defined by the norm. We can see this in the following diagram:</p>
+    <figure class="mediaobject"><img src="../Images/B22389_08_05.png" alt="Figure 8.5 – Regularization with the L1 Norm (lasso regression) versus the L2 Norm (ridge regression) "/></figure>
+    <p class="packt_figref">Figure 8.5: Regularization with the L1 norm (lasso regression) versus the L2 norm (ridge regression)</p>
+    <p class="normal">The concentric circles in the diagram are the contours of the loss function, with the innermost being the lowest. As we move outward, the loss increases. So, instead of selecting a <img src="../Images/B22389_08_029.png" alt=""/>, regularized regression will select a <img src="../Images/B22389_04_010.png" alt=""/> that intersects with the norm geometry.</p>
+    <p class="normal">This<a id="_idIndexMarker640"/> geometric interpretation also makes understanding another key difference between ridge and lasso regression easier. Lasso regression, because of the L1 norm, produces a sparse solution. Earlier, we mentioned that weight decay regularization does implicit feature selection. But depending on whether you are applying the L1 or L2 norm, the kind of implicit feature selection differs.</p>
+    <div class="note">
+      <p class="normal"><strong class="keyWord">Key point:</strong></p>
+      <p class="normal">For an L2 norm, the coefficients of less relevant features are pushed close to zero, but not exactly zero. The feature will still play a role in the final function, but its influence will be minuscule. The L1 norm, on the other hand, pushes the coefficients of such features completely to zero, resulting in a sparse solution. Therefore, L1 regularization promotes sparsity and feature selection, whereas L2 regularization reduces model complexity by shrinking the coefficients toward zero without necessarily eliminating any.</p>
+    </div>
+    <p class="normal">This can be understood better using the geometrical interpretation of regularization. In optimization, the interesting points are usually found in the extrema or <em class="italic">corners</em> of a shape. There are no corners in a circle, so an L2 norm is created; the minima can lie anywhere on the edge of the circle. But for the diamond, we have four corners, and the minima would lie in those corners. So, with the L2 norm, the solution can move very close to zero, but not necessarily zero. However, with the L1 norm, the solution would be on the corners, where the coefficient can be pushed to an absolute zero.</p>
+    <p class="normal">Now, let’s see how we can use ridge regression and evaluate the fit on a sample household from our validation dataset:</p>
+    <pre class="programlisting code"><code class="hljs-code"><span class="hljs-keyword">from</span> sklearn.linear_model <span class="hljs-keyword">import</span> RidgeCV
+model_config = ModelConfig(
+    model=RidgeCV(),
+    name=<span class="hljs-string">"Ridge Regression"</span>,
+    <span class="hljs-comment"># RidgeCV is sensitive to normalized data</span>
+    normalize=<span class="hljs-literal">True</span>,
+    <span class="hljs-comment"># RidgeCV does not handle missing values</span>
+    fill_missing=<span class="hljs-literal">True</span>
+)
+y_pred, metrics, feat_df = evaluate_model(
+    model_config,
+    feat_config,
+    missing_value_config,
+    train_features,
+    train_target,
+    test_features,
+    test_target,
+)
+</code></pre>
+    <p class="normal">Let’s look<a id="_idIndexMarker641"/> at the single-step-ahead forecast from <code class="inlineCode">RidgeCV</code>. It looks very similar to linear regression. Even the MAE is the same for this household:</p>
+    <figure class="mediaobject"><img src="../Images/B22389_08_06.png" alt="Figure 8.6 – Ridge regression forecast "/></figure>
+    <p class="packt_figref">Figure 8.6: Ridge regression forecast</p>
+    <p class="normal">But it is interesting to look at the coefficients with the L2 regularized model. Let’s take a look at the coefficients of the model:</p>
+    <figure class="mediaobject"><img src="../Images/B22389_08_07.png" alt="Figure 8.7 – Feature importance of ridge regression (top 15) "/></figure>
+    <p class="packt_figref">Figure 8.7: Feature importance of ridge regression (top 15)</p>
+    <p class="normal">Now, the <em class="italic">Y</em>-axis looks reasonable and small. The coefficients for the multi-collinear features<a id="_idIndexMarker642"/> have shrunk to a more reasonable level. Features such as the lag features, which should ideally be highly influential, have gained the top spots. As you may recall, in the linear regression (<em class="italic">Figure 8.3</em>), these features were dwarfed by the huge coefficients on the Fourier features. We have just plotted the top 15 features here, but if you look at the entire list, you will see that there will be a lot of features for which the coefficients are close to zero.</p>
+    <p class="normal">Now, let’s try lasso regression on the sample household:</p>
+    <pre class="programlisting code"><code class="hljs-code"><span class="hljs-keyword">from</span> sklearn.linear_model <span class="hljs-keyword">import</span> LassoCV
+model_config = ModelConfig(
+    model=LassoCV(),
+    name=<span class="hljs-string">"Lasso Regression"</span>,
+    <span class="hljs-comment"># LassoCV is sensitive to normalized data</span>
+    normalize=<span class="hljs-literal">True</span>,
+    <span class="hljs-comment"># LassoCV does not handle missing values</span>
+    fill_missing=<span class="hljs-literal">True</span>
+)
+y_pred, metrics, feat_df = evaluate_model(
+    model_config,
+    feat_config,
+    missing_value_config,
+    train_features,
+    train_target,
+    test_features,
+    test_target,
+)
+</code></pre>
+    <p class="normal">Let’s look<a id="_idIndexMarker643"/> at the single-step-ahead forecast from <code class="inlineCode">LassoCV</code>. Like ridge regression, there is hardly any visual difference from linear regression:</p>
+    <figure class="mediaobject"><img src="../Images/B22389_08_08.png" alt="Figure 8.8 – Lasso regression forecast "/></figure>
+    <p class="packt_figref">Figure 8.8: Lasso regression forecast</p>
+    <p class="normal">Let’s look at the coefficients of the model:</p>
+    <figure class="mediaobject"><img src="../Images/B22389_08_09.png" alt="Figure 8.9 – Feature importance of lasso regression (top 15) "/></figure>
+    <p class="packt_figref">Figure 8.9: Feature importance of lasso regression (top 15)</p>
+    <p class="normal">The <a id="_idIndexMarker644"/>coefficients are very similar to ridge regression, but if you look at the full list of coefficients (in the notebook), you will see that there are a lot of features where the coefficients will be zero.</p>
+    <p class="normal">Even with the same MAE, MSE, and so on, ridge or lasso regression is preferred to linear regression because of the additional stability and robustness that comes with regularized regression, especially for forecasting, where multi-collinearity is almost always present. But we need to keep in mind that all the linear regression models are still only capturing linear relationships. If the dataset has a non-linear relationship, the resulting fit from linear regression won’t be as good and, sometimes, will be terrible.</p>
+    <p class="normal">Now, let’s switch tracks and look at another class of models – <strong class="keyWord">decision trees</strong>.</p>
+    <h2 id="_idParaDest-193" class="heading-2">Decision trees</h2>
+    <p class="normal">Decision trees<a id="_idIndexMarker645"/> are another family of functions that is much more expressive than a linear function. Decision trees split the feature space into different sub-spaces and fit a very simple model (such as an average) to each. Let’s understand how this partitioning works with an example. Let’s consider a regression problem for predicting <em class="italic">Y</em> with just one feature, <em class="italic">X</em>, as shown in the following diagram:</p>
+    <figure class="mediaobject"><img src="../Images/B22389_08_10.png" alt="Figure 8.10 – The feature space partitioned by a decision tree "/></figure>
+    <p class="packt_figref">Figure 8.10: The feature space partitioned by a decision tree</p>
+    <p class="normal">Right away, we <a id="_idIndexMarker646"/>can see that fitting a linear function would result in an underfit. But what decision trees do is split the feature space (here, it is just <em class="italic">X</em>) into different regions where the target, <em class="italic">Y</em>, is similar and then fit a simple function such as an average (because it is a regression problem). In this case, the decision tree has split the feature space into partitions – A, B, and C. Now, for any <em class="italic">X</em> that falls into partition A, the prediction function will return the average of all the points in partition A.</p>
+    <p class="normal">These partitions are formed by creating a decision tree using data. Intuitively, a decision tree creates a set of if-else conditions and tries to arrive at the best way to partition the feature space to maximize the homogeneity of the target variable within the partition. One helpful way to understand what a decision tree does is to think of data points as beads flowing down a tree, taking a path based on its features, and ending up in a final resting place. Before<a id="_idIndexMarker647"/> we talk about how to create a decision tree from data, let’s take a look at its components and understand the terminology surrounding it:</p>
+    <figure class="mediaobject"><img src="../Images/B22389_08_11.png" alt="Figure 8.11 – Anatomy of a decision tree "/></figure>
+    <p class="packt_figref">Figure 8.11: Anatomy of a decision tree</p>
+    <p class="normal">There are two<a id="_idIndexMarker648"/> types of nodes in a decision tree—a <strong class="keyWord">decision node</strong> and a <strong class="keyWord">leaf node</strong>. A decision node is the <em class="italic">if-else</em> statement <a id="_idIndexMarker649"/>we mentioned previously. This <a id="_idIndexMarker650"/>node will have a condition <a id="_idIndexMarker651"/>based on whether the data points that flow down the tree take the left or right <strong class="keyWord">branch</strong>. The decision node that sits right at the top has a<a id="_idIndexMarker652"/> special name—the <strong class="keyWord">root node</strong>. Finally, the process of dividing the data points based on a condition and directing it to the right or<a id="_idIndexMarker653"/> left branch is called <strong class="keyWord">splitting</strong>. Leaf nodes are nodes that don’t have any other branches below them. These are the final resting points in the <em class="italic">beads flowing down a tree</em> analogy. These are the partitions we discussed earlier in this section.</p>
+    <p class="normal">Formally, we<a id="_idIndexMarker654"/> can define the function that’s been generated by a decision tree that has <em class="italic">M</em> partitions, <em class="italic">P</em><sub class="subscript-italic" style="font-style: italic;">1</sub>, <em class="italic">P</em><sub class="subscript-italic" style="font-style: italic;">2</sub>, …, <em class="italic">P</em><sub class="subscript-italic" style="font-style: italic;">M</sub>, as follows:</p>
+    <p class="center"><img src="../Images/B22389_08_031.png" alt=""/></p>
+    <p class="normal">Here, <em class="italic">x</em> is the input, <em class="italic">c</em><sub class="subscript-italic" style="font-style: italic;">m</sub> is the constant response for the region, <em class="italic">P</em><sub class="subscript-italic" style="font-style: italic;">m</sub>, and <em class="italic">I</em> is a function that is 1 if <img src="../Images/B22389_08_032.png" alt=""/>; otherwise, it’s 0.</p>
+    <p class="normal">For regression trees, we usually adopt the squared loss as the loss function. In that case, <em class="italic">c</em><sub class="subscript-italic" style="font-style: italic;">m</sub> is usually set as the average of all <em class="italic">y</em>, where the corresponding <em class="italic">x</em> falls in the <em class="italic">P</em><sub class="subscript-italic" style="font-style: italic;">m</sub> partition.</p>
+    <p class="normal">Now that we know how a decision tree functions, the only thing left to understand is how to decide which feature to split on and where to split the feature.</p>
+    <div class="note">
+      <p class="normal">Many algorithms have been proposed over the years on how to create a decision tree <a id="_idIndexMarker655"/>from data such as ID3, C4.5, CART, and so on. Using <strong class="keyWord">Classification and Regression Trees</strong> (<strong class="keyWord">CART</strong>) is one of the most popular methods out of the lot and supports regression as well. Therefore, we will just stick to CART in this book. Classification Trees are used when the target variable is categorical (e.g., predicting a class label). Regression Trees are used when the target variable is continuous (e.g., predicting a numerical value).</p>
+    </div>
+    <p class="normal">The most optimal set of binary partitions that minimizes the sum of squares globally is generally intractable. So, we adopt a greedy algorithm to create the decision tree. Greedy optimization is a heuristic that builds up a solution stage by stage, selecting a local optimum at each stage. Therefore, instead of finding the best feature splits globally, we will create the decision tree, decision node by decision node, where we choose the most optimal feature split at each stage. For a regression tree, we choose a split feature, <em class="italic">f</em>, and split point, <em class="italic">s</em>, so that it creates two partitions, <em class="italic">P</em><sub class="subscript-italic" style="font-style: italic;">1</sub> and <em class="italic">P</em><sub class="subscript-italic" style="font-style: italic;">2</sub>, that minimize as follows:</p>
+    <p class="center"><img src="../Images/B22389_08_033.png" alt=""/></p>
+    <p class="normal">Here, <em class="italic">c</em><sub class="subscript-italic" style="font-style: italic;">1</sub> and <em class="italic">c</em><sub class="subscript-italic" style="font-style: italic;">2</sub> are the averages of all <em class="italic">y</em>, where the corresponding <em class="italic">x</em> falls in between <em class="italic">P</em><sub class="subscript-italic" style="font-style: italic;">1</sub> and <em class="italic">P</em><sub class="subscript-italic" style="font-style: italic;">2</sub>.</p>
+    <p class="normal">Therefore, by<a id="_idIndexMarker656"/> using this criterion, we can keep splitting the regions further and further. With each level we split, we increase the <strong class="keyWord">depth</strong> of the tree by one. At some point, we will start overfitting the dataset. But if we don’t do enough splits, we might be underfitting the data as well. One strategy is to stop creating further splits when we reach a predetermined depth. In the scikit-learn implementation of <code class="inlineCode">DecisionTreeRegressor</code>, this corresponds to the <code class="inlineCode">max_depth</code> parameter. This is a hyperparameter that needs to be estimated using a validation dataset. There are other strategies to stop the splits, such as setting a minimum number of samples required to split (<code class="inlineCode">min_samples_split</code>), or a minimum decrease in cost to carry out a split (<code class="inlineCode">min_impurity_decrease</code>). For a complete list of parameters in <code class="inlineCode">DecisionTreeRegressor</code>, please refer to the documentation at <a href="https://scikit-learn.org/stable/modules/generated/sklearn.tree.DecisionTreeRegressor.html"><span class="url">https://scikit-learn.org/stable/modules/generated/sklearn.tree.DecisionTreeRegressor.html</span></a>.</p>
+    <p class="normal">Now, let’s see how we can use a decision tree and evaluate the fit on a sample household from our validation dataset:</p>
+    <pre class="programlisting code"><code class="hljs-code"><span class="hljs-keyword">from</span> sklearn.tree <span class="hljs-keyword">import</span> DecisionTreeRegressor
+model_config = ModelConfig(
+    model=DecisionTreeRegressor(max_depth=<span class="hljs-number">4</span>, random_state=<span class="hljs-number">42</span>),
+    name=<span class="hljs-string">"Decision Tree"</span>,
+    <span class="hljs-comment"># Decision Tree is not affected by normalization</span>
+    normalize=<span class="hljs-literal">False</span>,
+    <span class="hljs-comment"># Decision Tree in scikit-learn does not handle missing values</span>
+    fill_missing=<span class="hljs-literal">True</span>,
+)
+y_pred, metrics, feat_df = evaluate_model(
+    model_config,
+    feat_config,
+    missing_value_config,
+    train_features,
+    train_target,
+    test_features,
+    test_target,
+)
+</code></pre>
+    <p class="normal">Let’s take a look at the single-step forecast from <code class="inlineCode">DecisionTreeRegressor</code>. It’s not doing as well as the<a id="_idIndexMarker657"/> linear or regularized linear regression models we have run so far:</p>
+    <figure class="mediaobject"><img src="../Images/B22389_08_12.png" alt="Figure 8.12 – Decision tree forecast "/></figure>
+    <p class="packt_figref">Figure 8.12: Decision tree forecast</p>
+    <p class="normal">For the<a id="_idIndexMarker658"/> linear models, some coefficients helped us understand how much each feature was important to the prediction function. In decision trees, we don’t have any coefficients, but the feature importance is still estimated using the mean decrease in the loss function, which is attributed to each feature in the tree construction process. This can be accessed in scikit-learn models by using the <code class="inlineCode">feature_importance_</code> attribute of the trained model. Let’s take a look at this feature importance:</p>
+    <figure class="mediaobject"><img src="../Images/B22389_08_13.png" alt="Figure 8.13 – Feature importance of a decision tree (top 15) "/></figure>
+    <p class="packt_figref">Figure 8.13: Feature importance of a decision tree (top 15)</p>
+    <div class="note">
+      <p class="normal"><strong class="keyWord">Best practice:</strong></p>
+      <p class="normal">Although the default feature importance is a quick and easy way to check how the different features are used, due diligence should be applied before using them for any other purposes, such as feature selection or making business decisions. This way of assessing feature importance gives misleadingly high values for some continuous features and high cardinality categorical features. It is recommended to use permutation importance (<code class="inlineCode">sklearn.inspection.permutation_importance</code>) for an easy but better assessment of feature importance. The <em class="italic">Further reading</em> section contains some resources regarding the interpretability of models, which can be a good start to understanding what influences the models.</p>
+    </div>
+    <p class="normal">Here, we can see that<a id="_idIndexMarker659"/> the important features such as the lag and seasonal rolling features are coming up at the top.</p>
+    <p class="normal">We talked about overfitting and underfitting in <em class="chapterRef">Chapter 5</em>, <em class="italic">Time Series Forecasting as Regression</em>. These are also referred to as high bias (underfitting) and high variance (overfitting) in machine learning parlance (the <em class="italic">Further reading</em> section contains links if you wish to read up more about bias and variance and the trade-off between them). </p>
+    <p class="normal">A decision tree is an algorithm that is highly prone to overfitting or high variance because, unlike the linear function, if given enough expressiveness, it can memorize the training dataset by <a id="_idIndexMarker660"/>partitioning the feature space. Another key disadvantage is a decision tree’s inability to extrapolate. Let’s consider a feature, <em class="italic">f</em>, that linearly increases our target variable, <em class="italic">y</em>. The training data we have has <em class="italic">f</em><sub class="subscript-italic" style="font-style: italic;">max</sub> as the maximum value for <em class="italic">f</em> and <em class="italic">y</em><sub class="subscript-italic" style="font-style: italic;">max</sub> as the maximum value for <em class="italic">y</em>. Since the decision tree partitions the feature space and assigns a constant value for that partition, even if we provide <em class="italic">f</em> &gt; <em class="italic">f</em><sub class="subscript-italic" style="font-style: italic;">max</sub>, we will still only get a prediction of <img src="../Images/B22389_08_034.png" alt=""/>.</p>
+    <p class="normal">Now, let’s look at a model that uses decision trees, but in an ensemble, and doesn’t overfit as much.</p>
+    <h2 id="_idParaDest-194" class="heading-2">Random forest</h2>
+    <p class="normal">Random Forest is <a id="_idIndexMarker661"/>an ensemble learning method that builds multiple decision trees during training and merges their results for improved accuracy and robustness. It excels in both classification and regression tasks by reducing overfitting and enhancing predictive performance through bagging and feature randomness.</p>
+    <p class="normal"><strong class="keyWord">Ensemble learning</strong> is a<a id="_idIndexMarker662"/> process in which we use multiple models, or experts, and combine them in a way to solve the problem at hand. It taps into the <em class="italic">wisdom of the crowd</em> approach, which suggests that the decision-making of a group of people is typically better than any individual in that group. In the machine learning context, these individual models are <a id="_idIndexMarker663"/>called <strong class="keyWord">base learners</strong>. A single model may not perform well because it’s overfitting the dataset, but when we combine multiple such models, they can form a strong learner.</p>
+    <p class="normal"><strong class="keyWord">Bagging</strong> is a<a id="_idIndexMarker664"/> form of ensemble learning where we use bootstrap sampling (sampling repeatedly with replacement from a population) to draw different subsets of the dataset, train weak learners on each of these subsets, and combine them by averaging or voting (for regression and classification, respectively). Bagging works best for high-variance, low-bias weak learners and the decision tree is a prime successful candidate with bagging. Theoretically, bagging maintains the same level of bias on the weak learners but reduces the variance, resulting in a better model. But if the weak learners are correlated with each other, the benefits of bagging will be limited.</p>
+    <p class="normal">In 2001, Leo Brieman <a id="_idIndexMarker665"/>proposed <strong class="keyWord">Random Forest</strong>, which substantially modifies standard bagging by building a large collection of decorrelated trees. He proposed to alter the tree-building procedure slightly to make sure all the trees that are grown on bootstrapped datasets are not correlated with each other.</p>
+    <div class="note">
+      <p class="normal"><strong class="keyWord">Reference check:</strong></p>
+      <p class="normal">The original research paper for Random Forest is cited in the <em class="italic">References</em> section as reference <em class="italic">1</em>.</p>
+    </div>
+    <p class="normal">In the Random Forest algorithm, we decide how many trees to build. Let’s call that <em class="italic">M</em> trees. Now, for each tree, the following steps are repeated:</p>
+    <ol>
+      <li class="numberedList" value="1">Draw a bootstrap sample from the training dataset.</li>
+      <li class="numberedList">Select <em class="italic">f</em> features at random from all the features.</li>
+      <li class="numberedList">Pick the best split just using <em class="italic">f</em> features and split the node into two child nodes.</li>
+      <li class="numberedList">Repeat <em class="italic">steps 2</em> and <em class="italic">3</em> until we hit any of the defined stopping criteria.</li>
+    </ol>
+    <p class="normal">This set of <em class="italic">M</em> trees is the Random Forest. The key difference here from regular trees is the random sampling of features at each split, which increases randomness and reduces the correlation in the outputs of different trees. While predicting, we use each of these <em class="italic">M</em> trees to get a prediction. For regression problems, we average them, while for classification problems, we take the majority vote. The final prediction function that we learn from the Random Forest for regression is as follows:</p>
+    <p class="center"><img src="../Images/B22389_08_035.png" alt=""/></p>
+    <p class="normal">Here, <em class="italic">T</em><sub class="subscript-italic" style="font-style: italic;">t</sub>(<em class="italic">x</em>) is the output of the <em class="italic">t</em><sup class="superscript">th</sup> tree in the Random Forest.</p>
+    <p class="normal">All the hyperparameters that we have to control the complexity of the decision tree are applicable here as well (<code class="inlineCode">RandomForestRegressor</code> from scikit-learn). In addition to those, we have two other important parameters – the number of trees to build in the ensemble (<code class="inlineCode">n_estimators</code>) and the number of features randomly chosen for each split (<code class="inlineCode">max_features</code>).</p>
+    <p class="normal">Now, let’s see how<a id="_idIndexMarker666"/> we can use Random Forest and evaluate the fit on a sample household from our validation dataset:</p>
+    <pre class="programlisting code"><code class="hljs-code"><span class="hljs-keyword">from</span> sklearn.ensemble <span class="hljs-keyword">import</span> RandomForestRegressor
+model_config = ModelConfig(
+    model=RandomForestRegressor(random_state=<span class="hljs-number">42</span>, max_depth=<span class="hljs-number">4</span>),
+    name=<span class="hljs-string">"Random Forest"</span>,
+    <span class="hljs-comment"># RandomForest is not affected by normalization</span>
+    normalize=<span class="hljs-literal">False</span>,
+    <span class="hljs-comment"># RandomForest in scikit-learn does not handle missing values</span>
+    fill_missing=<span class="hljs-literal">True</span>,
+)
+y_pred, metrics, feat_df = evaluate_model(
+    model_config,
+    feat_config,
+    missing_value_config,
+    train_features,
+    train_target,
+    test_features,
+    test_target,
+)
+</code></pre>
+    <p class="normal">Let’s take a look at this single-step forecast from <code class="inlineCode">RandomForestRegressor</code>. It’s better than the decision tree, but it’s not as good as the linear models. However, we should keep in mind that we have not tuned the model and may be able to get better results by setting the right hyperparameters.</p>
+    <p class="normal">Now, let’s take a look at the forecast that was generated using Random Forest:</p>
+    <figure class="mediaobject"><img src="../Images/B22389_08_14.png" alt="Figure 8.14 – Random Forest forecast "/></figure>
+    <p class="packt_figref">Figure 8.14: Random Forest forecast</p>
+    <p class="normal">Just like<a id="_idIndexMarker667"/> the feature importance in decision trees, Random Forests also have a very similar mechanism for estimating the feature importance. Since we have a lot of trees in the Random Forest, we accumulate the decrease in split criterion across all the trees in the forest and arrive at a single feature of importance for the Random Forest. This can be accessed in scikit-learn models by using the <code class="inlineCode">feature_importance_</code> attribute of the trained model. Let’s take a look at the feature importance:</p>
+    <figure class="mediaobject"><img src="../Images/B22389_08_15.png" alt="Figure 8.15 – Feature importance of a decision tree (top 15) "/></figure>
+    <p class="packt_figref">Figure 8.15: Feature importance of a decision tree (top 15)</p>
+    <p class="normal">Here, we can see that the feature importance is very similar to decision trees. The same caveat about this kind of feature importance applies here as well. This is just a quick and dirty way of looking at what the model is using internally.</p>
+    <p class="normal">Typically, Random Forest<a id="_idIndexMarker668"/> achieves good performance on many datasets with very little tuning, so Random Forests are a very popular option in machine learning. The fact that it is difficult to overfit with a Random Forest also increases their appeal. But since Random Forest uses decision trees as the weak learners, the inability of decision trees to extrapolate is passed down to Random Forest as well.</p>
+    <div class="note">
+      <p class="normal">The scikit-learn implementation of Random Forest can get a bit slow for a large number of trees and data sizes. The <code class="inlineCode">XGBRFRegressor</code> from the <code class="inlineCode">XGBoost</code> library offers an alternative implementation of a Random Forest that can be faster, especially on larger datasets, due to <code class="inlineCode">XGBoost</code>'s optimized algorithms and parallelization capabilities. Moreover, <code class="inlineCode">XGBRFRegressor</code> uses similar hyperparameters to those in the scikit-learn Random Forest, making it relatively straightforward to switch between implementations while tuning the model. In most cases, this is a drop-in replacement and gives almost the same results. The minor difference is due to small implementation details. We have used this variant in the notebooks as well. This variant is preferred going forward because of obvious runtime considerations. It also handles missing values natively and saves us from an additional preprocessing step. More details about the implementation and how to use it can be found at <a href="https://xgboost.readthedocs.io/en/latest/tutorials/rf.html"><span class="url">https://xgboost.readthedocs.io/en/latest/tutorials/rf.html</span></a>.</p>
+    </div>
+    <p class="normal">Now, let’s look at one last family of functions that is one of the most powerful learning methods and has been proven exceedingly well in a wide variety of datasets–gradient boosting.</p>
+    <h2 id="_idParaDest-195" class="heading-2">Gradient boosting decision trees</h2>
+    <p class="normal">Boosting, like<a id="_idIndexMarker669"/> bagging, is another ensemble method that uses a few weak learners to produce a powerful committee of models. The key difference between bagging and boosting is in the way the weak learners are combined. Instead of building different models in parallel on bootstrapped datasets, as bagging does, boosting uses the weak learners in a sequential manner, with each weak learner applied to repeatedly modified versions of the data.</p>
+    <p class="normal">To understand the additive function formulation, let’s consider this function:</p>
+    <p class="center"><img src="../Images/B22389_08_036.png" alt=""/></p>
+    <p class="normal">We can break this function into <em class="italic">f</em><sub class="subscript">1</sub>(<em class="italic">x</em>)= 25, <em class="italic">f</em><sub class="subscript">2</sub>(<em class="italic">x</em>)= <em class="italic">x</em><sup class="superscript">2</sup>, <em class="italic">f</em><sub class="subscript">3</sub>(<em class="italic">x</em>)= cos(<em class="italic">x</em>) and rewrite <em class="italic">F</em>(<em class="italic">x</em>) as follows:</p>
+    <p class="center"><em class="italic">F</em>(<em class="italic">x</em>) = <em class="italic">f</em><sub class="subscript">1</sub>(<em class="italic">x</em>) + <em class="italic">f</em><sub class="subscript">2</sub>(<em class="italic">x</em>) +<em class="italic">f</em><sub class="subscript">3</sub>(<em class="italic">x</em>)</p>
+    <p class="normal">This is the kind of additive ensemble function we are learning in boosting. Although, in theory, we can use any weak learner, decision trees are the most popular choice. So, let’s use decision trees to explore how gradient boosting works.</p>
+    <p class="normal">Earlier, when we were discussing decision trees, we saw that a decision tree that has <em class="italic">M</em> partitions, <em class="italic">P</em><sub class="subscript">1</sub>, <em class="italic">P</em><sub class="subscript">2</sub>, …, <em class="italic">P</em><sub class="subscript">M</sub>, is as follows:</p>
+    <p class="center"><img src="../Images/B22389_08_037.png" alt=""/></p>
+    <p class="normal">Here, <em class="italic">x</em> is the input, <em class="italic">C</em><sub class="subscript-italic" style="font-style: italic;">m</sub> is the constant response for the region, <em class="italic">P</em><sub class="subscript-italic" style="font-style: italic;">m</sub>, and <em class="italic">I</em> is a function that is 1 if <img src="../Images/B22389_08_038.png" alt=""/>; otherwise, it is 0. A boosted decision tree model is a sum of such trees:</p>
+    <p class="center"><img src="../Images/B22389_08_039.png" alt=""/></p>
+    <p class="normal">Since <a id="_idIndexMarker670"/>finding the optimal partitions, <em class="italic">P</em>, and the constant value, <em class="italic">c</em>, for all the trees in the ensemble is a very difficult optimization problem, we usually adopt a suboptimal, stagewise solution where we optimize each step as we build the ensemble. In gradient boosting, we use the gradient of the loss to direct our optimization, hence the name.</p>
+    <p class="normal">Let the loss function we are using in the training be <img src="../Images/B22389_08_040.png" alt=""/>. Since we are looking at a stagewise additive functional form, we can replace <img src="../Images/B22389_08_041.png" alt=""/> with <img src="../Images/B22389_08_042.png" alt=""/>, where <img src="../Images/B22389_08_043.png" alt=""/> is the prediction of the sum of all trees until <em class="italic">k-1</em> and <em class="italic">T</em><sub class="subscript-italic" style="font-style: italic;">k</sub>(<em class="italic">x</em>) is the prediction of the tree at stage <em class="italic">k</em>. Let’s look at what the gradient boosting learning procedure for training data <em class="italic">D</em> with <em class="italic">N</em> samples is:</p>
+    <ol>
+      <li class="numberedList" value="1">Initialize the model with a constant value by minimizing the loss function:</li>
+    </ol>
+    <p class="center"><img src="../Images/B22389_08_044.png" alt=""/></p>
+    <ul>
+      <li class="bulletList level-2"><em class="italic">b</em><sub class="subscript">0</sub> is the prediction of the model that minimizes the loss function at the 0th iteration. At this iteration, we do not have any weak learners yet and this optimization is independent of any feature.</li>
+      <li class="bulletList level-2">For squared error loss, this works out to be the average of all training samples, while for the absolute error loss, it’s the median.</li>
+    </ul>
+    <ol>
+      <li class="numberedList" value="2">Now that we have the initial solution, we can start the tree-building process. For <em class="italic">k=1 to M</em>, we must do the following:<ol class="romanList level-2" style="list-style-type: lower-roman;">
+          <li class="romanList level-2" value="1">Compute <img src="../Images/B22389_08_045.png" alt=""/> for all the training samples:<ul>
+              <li class="bulletList level-3"><em class="italic">r</em><sub class="subscript-italic" style="font-style: italic;">k</sub> is the derivative of the loss function with respect to <em class="italic">F</em>(<em class="italic">x</em>) from the last iteration. It’s also called pseudo-residuals.</li>
+              <li class="bulletList level-3">For squared error loss, this is just the residual, (<img src="../Images/B22389_08_046.png" alt=""/>).</li>
+            </ul>
+          </li>
+          <li class="romanList level-2">Build a regular regression tree to the <em class="italic">r</em><sub class="subscript-italic" style="font-style: italic;">k</sub> values with <em class="italic">M</em><sub class="subscript-italic" style="font-style: italic;">k</sub> partitions or leaf nodes, <em class="italic">P</em><sub class="subscript-italic" style="font-style: italic;">mk</sub>.</li>
+          <li class="romanList level-2">Compute <img src="../Images/B22389_08_047.png" alt=""/>
+            <ul>
+              <li class="bulletList level-3"><img src="../Images/B22389_08_048.png" alt=""/> is the scaling factor of the leaf or partition values for the current stage.</li>
+              <li class="bulletList level-3"><img src="../Images/B22389_08_049.png" alt=""/> is the function that was learned by the decision tree from the current stage.</li>
+            </ul>
+          </li>
+          <li class="romanList level-2">Update <img src="../Images/B22389_08_050.png" alt=""/>
+            <ul>
+              <li class="bulletList level-3"><img src="../Images/B22389_04_044.png" alt=""/> is the shrinkage parameter or learning rate.</li>
+            </ul>
+          </li>
+        </ol>
+      </li>
+    </ol>
+    <p class="normal">This <a id="_idIndexMarker671"/>process of “boosting” the errors of the previous weak model gives the algorithm its name—gradient boosting, where the gradient here means the residual on the previous weak model.</p>
+    <p class="normal">Boosting, typically, is a high-variance algorithm. This means that the chance of overfitting the training dataset is quite high and that enough measures need to be taken to make sure it doesn’t happen. There are many ways regularization and capacity constraining have been implemented in gradient-boosted trees. As always, all the key parameters that decision trees have to reduce capacity to fit the data are valid here because the weak learner is a decision tree. In addition to that, there are two other key parameters – the number of trees, <em class="italic">M</em> (<code class="inlineCode">n_estimators</code> in scikit-learn), and the learning rate, <img src="../Images/B22389_04_044.png" alt=""/> (<code class="inlineCode">learning_rate</code> in scikit-learn).</p>
+    <p class="normal">When we apply a learning rate in the additive formulation, we are essentially shrinking each weak learner, thus reducing the effect of any one weak learner on the overall function. This was originally referred to as shrinkage, but now, in all the popular implementations of gradient-boosted trees, it is referred to as the learning rate. The number of trees and the learning rate are highly interdependent. For the same problem, we will need a greater number of trees if we reduce the learning rate. It has been empirically shown that a lower learning rate improves the generalization error. Therefore, a very effective and convenient way is to set the learning rate to a very low value (&lt;0.1), set a very high value for the number of trees (&gt;5,000), and train the gradient-boosted tree with early stopping. Early stopping is when we use a validation dataset to monitor the out-of-sample performance while training the model. We stop adding more trees to the ensemble when the out-of-sample error stops reducing.</p>
+    <p class="normal">Another key <a id="_idIndexMarker672"/>technique a lot of the implementations adopt is subsampling. Subsampling can be done on rows and columns. Row subsampling is similar to bootstrapping, where each candidate in the ensemble is trained on a subsample of the dataset. Column subsampling is similar to random feature selection in Random Forest. Both of these techniques introduce a regularization effect to the ensemble and help reduce generalization errors. Some implementations of gradient-boosted trees, such as <code class="inlineCode">XGBoost</code> and <code class="inlineCode">LightGBM</code>, implement L1 and L2 regularization directly in the objective function as well.</p>
+    <p class="normal">There are many implementations of regression gradient-boosted trees. A few popular implementations are as follows:</p>
+    <ul>
+      <li class="bulletList"><code class="inlineCode">GradientBoostingRegressor</code> and <code class="inlineCode">HistGradientBoostingRegressor</code> in scikit-learn</li>
+      <li class="bulletList">XGBoost by T Chen</li>
+      <li class="bulletList">LightGBM from Microsoft</li>
+      <li class="bulletList">CatBoost from Yandex</li>
+    </ul>
+    <p class="normal">Each of these implementations offers changes that range from subtle to very fundamental regarding the standard gradient boosting algorithm. We have included a few resources in the <em class="italic">Further reading</em> section so that you can read up on these differences and get acquainted with the different parameters they support.</p>
+    <p class="normal">For our exercise, we are going to use LightGBM from Microsoft Research because it is one of the fastest and best-performing implementations. LightGBM and CatBoost also support categorical features out of the box and handle missing values natively.</p>
+    <div class="note">
+      <p class="normal"><strong class="keyWord">Reference check:</strong></p>
+      <p class="normal">The original research papers for XGBoost, LightGBM, and CatBoost are cited in the <em class="italic">References</em> section as <em class="italic">2</em>, <em class="italic">3</em>, and <em class="italic">4</em>, respectively.</p>
+    </div>
+    <p class="normal">Now, let’s see how we can use LightGBM and evaluate the fit on a sample household from our validation dataset:</p>
+    <pre class="programlisting code"><code class="hljs-code"><span class="hljs-keyword">from</span> lightgbm <span class="hljs-keyword">import</span> LGBMRegressor
+model_config = ModelConfig(
+    model=LGBMRegressor(random_state=<span class="hljs-number">42</span>),
+    name=<span class="hljs-string">"LightGBM"</span>,
+    <span class="hljs-comment"># LightGBM is not affected by normalization</span>
+    normalize=<span class="hljs-literal">False</span>,
+    <span class="hljs-comment"># LightGBM handles missing values</span>
+    fill_missing=<span class="hljs-literal">False</span>,
+)
+y_pred, metrics, feat_df = evaluate_model(
+    model_config,
+    feat_config,
+    missing_value_config,
+    train_features,
+    train_target,
+    test_features,
+    test_target,
+)
+</code></pre>
+    <p class="normal">Let’s take a<a id="_idIndexMarker673"/> look at the single-step forecast from <code class="inlineCode">LGBMRegressor</code>. It’s already significantly better than all the other models we have tried so far:</p>
+    <figure class="mediaobject"><img src="../Images/B22389_08_16.png" alt="Figure 8.16 – LightGBM forecast "/></figure>
+    <p class="packt_figref">Figure 8.16: LightGBM forecast</p>
+    <p class="normal">Just like the <a id="_idIndexMarker674"/>feature importance in decision trees, gradient-boosting implementations also have a very similar mechanism for estimating the feature importance. The feature importance for the ensemble is given by the average of split criteria reduction attributed to each feature in all the trees. This can be accessed in the scikit-learn API as the <code class="inlineCode">feature_importance_</code> attribute of the trained model. Let’s take a look at the feature importance:</p>
+    <figure class="mediaobject"><img src="../Images/B22389_08_17.png" alt="Figure 8.17 – Feature importance of LightGBM (top 15) "/></figure>
+    <p class="packt_figref">Figure 8.17: Feature importance of LightGBM (top 15)</p>
+    <p class="normal">There are multiple ways of getting feature importance from the model, and each implementation has slightly different ways of calculating it. This is controlled by parameters. The most common ways of extracting it (sticking to LightGBM terminology) are <code class="inlineCode">split</code> and <code class="inlineCode">gain</code>. If we choose <code class="inlineCode">split</code>, the feature importance is the number of times a feature is used to split nodes in the trees. On the other hand, <code class="inlineCode">gain</code> is the total reduction in the split criterion. This can be attributed to any feature. <em class="italic">Figure 8.17</em> shows <code class="inlineCode">split</code>, which is the default value in LightGBM. We can see that the order of the feature importance is very much similar to decision trees, or Random Forests, with almost the same features taking the top three spots.</p>
+    <p class="normal"><strong class="keyWord">Gradient boosted decision trees</strong> (<strong class="keyWord">GBDTs</strong>) typically give us very good performance on tabular data and time series as regression is no exception. This very strong model has usually been part of almost all <a id="_idIndexMarker675"/>winning entries in Kaggle competitions on time series forecasting in the recent past. While it is one of the best machine learning model families, it still has a few disadvantages:</p>
+    <ul>
+      <li class="bulletList">GBDTs are high-variance algorithms and hence prone to overfitting. This is why all kinds of regularizations are applied in different ways in most of the successful implementations of GBDTs.</li>
+      <li class="bulletList">GBDTs usually take longer to train (although many modern implementations have made this faster) and are not easily parallelizable as a Random Forest. In Random Forest, we can train all the trees in parallel because they are independent of each other. But in GBDTs, the sequential nature of the algorithm restricts parallelization. All the successful implementations have clever ways of enabling parallelization when creating a decision tree. LightGBM has many parallelization strategies, such as feature parallel, data parallel, and voting parallel. Details regarding these can be found at <a href="https://lightgbm.readthedocs.io/en/latest/Features.html#optimization-in-distributed-learning"><span class="url">https://lightgbm.readthedocs.io/en/latest/Features.html#optimization-in-distributed-learning</span></a> and are worth understanding. The documentation of the library also contains a helpful guide for choosing between these parallelization strategies in a table:</li>
+    </ul>
+    <figure class="mediaobject"><img src="../Images/B22389_08_18.png" alt="Table 8.1 – Parallelization strategies in LightGBM "/></figure>
+    <p class="packt_figref">Figure 8.18: Parallelization strategies in LightGBM</p>
+    <ul>
+      <li class="bulletList">Extrapolation is a problem for GBDTs, just like it is a problem for all tree-based models. There is some very weak potential for extrapolation in GBDTs, but nothing that solves the problem. Therefore, if your time series has some strong trends, tree-based methods will, most likely, fail to capture the trend. Either training the model on detrended data or switching to another model class would be the way forward. An easy way to do detrending would be to use <code class="inlineCode">AutoStationaryTransformer</code>, which we discussed in <em class="chapterRef">Chapter 6</em>, <em class="italic">Feature Engineering for Time Series Forecasting</em>.</li>
+    </ul>
+    <p class="normal">To summarize, let’s look at the metrics and runtime that were taken by these machine learning models. If you have run the notebook along with this chapter, then you will find the following summary table there as well:</p>
+    <figure class="mediaobject"><img src="../Images/B22389_08_19.png" alt="Figure 8.18 – Summary of the metrics and runtimes for a sample household "/></figure>
+    <p class="packt_figref">Figure 8.18: Summary of the metrics and runtimes for a sample household</p>
+    <p class="normal">Right off the bat, we <a id="_idIndexMarker676"/>can see that all of the machine learning models we tried have performed better than the baselines in all metrics except the forecast bias. The three linear regression models perform well with almost equal performance on MAE, MASE, and MSE, with a slight increase in runtimes for regularized models. The decision tree has underperformed, but this is usually expected. Decision trees need to be tuned a little better to reduce overfitting. Random Forest (both the scikit-learn and <code class="inlineCode">XGBoost</code> implementations) has improved the decision tree’s performance, which is what we would expect. One key thing to note here is that the <code class="inlineCode">XGBoost</code> implementation of Random Forest is almost six times faster than the scikit-learn one. Finally, LightGWM has the best performance across all metrics and a faster runtime.</p>
+    <p class="normal">Now, this was just one household out of all the selected ones. To see how well these models are doing, we need to evaluate them on all selected households.</p>
+    <h1 id="_idParaDest-196" class="heading-1">Training and predicting for multiple households</h1>
+    <p class="normal">We have<a id="_idIndexMarker677"/> picked a few models (<code class="inlineCode">LassoCV</code>, <code class="inlineCode">XGBRFRegressor</code>, and <code class="inlineCode">LGBMRegressor</code>) that are doing better in terms of metrics, as well as runtime, to run on all the selected households in our validation dataset. The process is straightforward: loop over all the unique combinations, inner loop over the different models to run, and then <a id="_idIndexMarker678"/>train, predict, and evaluate. The code is available in the <code class="inlineCode">01-Forecasting_with_ML.ipynb</code> notebook in <code class="inlineCode">Chapter08</code>, under the <em class="italic">Running an ML Forecast For All Consumers</em> heading. You can run the code and take a break because this is going to take a little less than an hour. The notebook also calculates the metrics and contains a summary table that will be ready for you when you’re back. </p>
+    <p class="normal">Let’s look at the summary now:</p>
+    <figure class="mediaobject"><img src="../Images/B22389_08_20.png" alt="Figure 8.19 – Aggregate metrics on all the households in the validation dataset "/></figure>
+    <p class="packt_figref">Figure 8.19: Aggregate metrics on all the households in the validation dataset</p>
+    <p class="normal">Here, we can see that even at the aggregated level, the different models we used perform as expected. The notebook also saves the predictions for the validation set on disk.</p>
+    <div class="note">
+      <p class="normal"><strong class="keyWord">Notebook alert:</strong></p>
+      <p class="normal">We also need to run another notebook, called <code class="inlineCode">01a-Forecasting_with_ML_for_Test_Dataset.ipynb</code>, in <code class="inlineCode">Chapter08</code>. This notebook follows the same process, generates the forecast, and calculates the metrics on the test dataset.</p>
+    </div>
+    <p class="normal">The<a id="_idIndexMarker679"/> aggregate<a id="_idIndexMarker680"/> metrics for<a id="_idIndexMarker681"/> the test dataset are as follows (from the notebook):</p>
+    <figure class="mediaobject"><img src="../Images/B22389_08_21.png" alt="Figure 8.20 – Aggregate metrics on all the households in the test dataset "/></figure>
+    <p class="packt_figref">Figure 8.20: Aggregate metrics on all the households in the test dataset</p>
+    <p class="normal">In <em class="chapterRef">Chapter 6</em>, <em class="italic">Feature Engineering for Time Series Forecasting</em>, we used <code class="inlineCode">AutoStationaryTransformer</code> (not the Transformer model, which we will learn about in <em class="chapterRef">Chapter 14</em>) on all the households and saved the transformed dataset.</p>
+    <h2 id="_idParaDest-197" class="heading-2">Using AutoStationaryTransformer</h2>
+    <p class="normal">The <a id="_idIndexMarker682"/>process is really similar to what we did earlier in this chapter, but with small changes. We read in the transformed targets and joined them to our regular dataset in such a way that the original target is named <code class="inlineCode">energy_consumption</code> and the transformed target is named <code class="inlineCode">energy_consumption_auto_stat</code>:</p>
+    <pre class="programlisting code"><code class="hljs-code"><span class="hljs-comment">#Reading the missing value imputed and train test split data</span>
+train_df = pd.read_parquet(preprocessed/<span class="hljs-string">"block_0-7_train_missing_imputed_feature_engg.parquet"</span>)
+auto_stat_target = pd.read_parquet(preprocessed/<span class="hljs-string">"block_0-7_train_auto_stat_target.parquet"</span>)
+transformer_pipelines = joblib.load(preprocessed/<span class="hljs-string">"auto_transformer_pipelines_train.pkl"</span>)
+<span class="hljs-comment">#Reading in validation as test</span>
+test_df = pd.read_parquet(preprocessed/<span class="hljs-string">"block_0-7_val_missing_imputed_feature_engg.parquet"</span>)
+<span class="hljs-comment"># Joining the transformed target</span>
+train_df = train_df.set_index([<span class="hljs-string">'LCLid'</span>,<span class="hljs-string">'timestamp'</span>]).join(auto_stat_target).reset_index()
+</code></pre>
+    <p class="normal">And <a id="_idIndexMarker683"/>while defining <code class="inlineCode">FeatureConfig</code>, we used <code class="inlineCode">energy_consumption_auto_stat</code> as <code class="inlineCode">target</code> and <code class="inlineCode">energy_consumption</code> as <code class="inlineCode">original_target</code>.</p>
+    <div class="note">
+      <p class="normal"><strong class="keyWord">Notebook alert:</strong></p>
+      <p class="normal">The <code class="inlineCode">02-Forecasting_with_ML_and_Target_Transformation.ipynb</code> and <code class="inlineCode">02a-Forecasting_with_ML_and_Target_Transformation_for_Test_Dataset.ipynb</code> notebooks use these transformed targets to generate the forecasts for the validation and test datasets, respectively.</p>
+    </div>
+    <p class="normal">Let’s look at the summary metrics that were generated by these notebooks on the transformed data:</p>
+    <figure class="mediaobject"><img src="../Images/B22389_08_22.png" alt="Figure 8.21 – Aggregate metrics on all the households with transformed targets in the validation dataset "/></figure>
+    <p class="packt_figref">Figure 8.21: Aggregate metrics on all the households with transformed targets in the validation dataset</p>
+    <p class="normal">The target<a id="_idIndexMarker684"/> transformed models are not performing as well as the original ones. This might be because the dataset doesn’t have any strong trends.</p>
+    <p class="normal">Congratulations on making it through a very heavy and packed chapter full of theory as well as practice. We hope this has enhanced your understanding of machine learning and ability to apply these modern techniques to time series data.</p>
+    <h1 id="_idParaDest-198" class="heading-1">Summary</h1>
+    <p class="normal">This was a very practical and hands-on chapter in which we developed some standard code to train and evaluate multiple machine learning models. Then, we reviewed a few key machine learning models like ridge regression, lasso regression, decision trees, Random Forest, and gradient-boosted trees and how they work behind the hood. To complete and reinforce what we learned, we applied the machine learning models we learned about to the London Smart Meters dataset and saw how well they did. This chapter sets you up to tackle the coming chapters, where we will use the standardized code and these models to go deeper into forecasting with machine learning.</p>
+    <p class="normal">In the next chapter, we will start combining different forecasts into a single forecast and explore concepts such as combinatorial optimization and stacking to achieve state-of-the-art results.</p>
+    <h1 id="_idParaDest-199" class="heading-1">References</h1>
+    <p class="normal">The following references were provided in this chapter:</p>
+    <ol>
+      <li class="numberedList" value="1">Breiman, L. Random Forests, Machine Learning 45, 5–32 (2001): <a href="https://doi.org/10.1023/A:1010933404324"><span class="url">https://doi.org/10.1023/A:1010933404324</span></a>.</li>
+      <li class="numberedList">Chen, Tianqi and Guestrin, Carlos. (2016). <em class="italic">XGBoost: A Scalable Tree Boosting System</em>. Proceedings of the 22nd ACM SIGKDD International Conference on Knowledge Discovery and Data Mining (KDD ‘16). Association for Computing Machinery, New York, NY, USA, 785–794: <a href="https://doi.org/10.1145/2939672.2939785"><span class="url">https://doi.org/10.1145/2939672.2939785</span></a>.</li>
+      <li class="numberedList">Ke, Guolin et.al. (2017), <em class="italic">LightGBM: A Highly Efficient Gradient Boosting Decision Tree</em>. Advances in Neural Information Processing Systems, pages 3149-3157: <a href="https://dl.acm.org/doi/pdf/10.5555/3294996.3295074"><span class="url">https://dl.acm.org/doi/pdf/10.5555/3294996.3295074</span></a>.</li>
+      <li class="numberedList">Prokhorenkova, Liudmila et al. (2018), <em class="italic">CatBoost: unbiased boosting with categorical features</em>. Proceedings of the 32nd International Conference on Neural Information Processing Systems (NIPS’18): <a href="https://dl.acm.org/doi/abs/10.5555/3327757.3327770"><span class="url">https://dl.acm.org/doi/abs/10.5555/3327757.3327770</span></a>.</li>
+    </ol>
+    <h1 id="_idParaDest-200" class="heading-1">Further reading</h1>
+    <p class="normal">To learn more about the topics that were covered in this chapter, take a look at the following resources:</p>
+    <ul>
+      <li class="bulletList"><em class="italic">The difference between L1 and L2 regularization</em>, by Terrence Parr: <a href="https://explained.ai/regularization/L1vsL2.html"><span class="url">https://explained.ai/regularization/L1vsL2.html</span></a></li>
+      <li class="bulletList"><em class="italic">L1 Norms versus L2 Norms</em>, by Aleksey Bilogur: <a href="https://www.kaggle.com/residentmario/l1-norms-versus-l2-norms"><span class="url">https://www.kaggle.com/residentmario/l1-norms-versus-l2-norms</span></a></li>
+      <li class="bulletList"><em class="italic">Interpretability – Cracking Open the Black Box</em>, by Manu Joseph: <a href="https://deep-and-shallow.com/2019/11/13/interpretability-cracking-open-the-black-box-part-ii/"><span class="url">https://deep-and-shallow.com/2019/11/13/interpretability-cracking-open-the-black-box-part-ii/</span></a></li>
+      <li class="bulletList"><em class="italic">The Gradient Boosters – Part III: XGBoost</em>, by Manu Joseph: <a href="https://deep-and-shallow.com/2020/02/12/the-gradient-boosters-iii-xgboost/"><span class="url">https://deep-and-shallow.com/2020/02/12/the-gradient-boosters-iii-xgboost/</span></a></li>
+      <li class="bulletList"><em class="italic">The Gradient Boosters – Part IV: LightGBM</em>, by Manu Joseph: <a href="https://deep-and-shallow.com/2020/02/21/the-gradient-boosters-iii-lightgbm/"><span class="url">https://deep-and-shallow.com/2020/02/21/the-gradient-boosters-iii-lightgbm/</span></a></li>
+      <li class="bulletList"><em class="italic">The Gradient Boosters – Part V: CatBoost</em>, by Manu Joseph: <a href="https://deep-and-shallow.com/2020/02/29/the-gradient-boosters-v-catboost/"><span class="url">https://deep-and-shallow.com/2020/02/29/the-gradient-boosters-v-catboost/</span></a></li>
+      <li class="bulletList"><em class="italic">The Gradient Boosters – Part II: Regularized Greedy Forest</em>, by Manu Joseph: <a href="https://deep-and-shallow.com/2020/02/09/the-gradient-boosters-ii-regularized-greedy-forest/"><span class="url">https://deep-and-shallow.com/2020/02/09/the-gradient-boosters-ii-regularized-greedy-forest/</span></a></li>
+      <li class="bulletList"><em class="italic">LightGBM Distributed Learning Guide</em>: <a href="https://lightgbm.readthedocs.io/en/latest/Parallel-Learning-Guide.html"><span class="url">https://lightgbm.readthedocs.io/en/latest/Parallel-Learning-Guide.html</span></a></li>
+    </ul>
+    <h1 class="heading-1">Join our community on Discord</h1>
+    <p class="normal">Join our community’s Discord space for discussions with authors and other readers:</p>
+    <p class="normal"><a href="https://packt.link/mts"><span class="url">https://packt.link/mts</span></a></p>
+    <p class="normal"><img src="../Images/QR_Code15080603222089750.png" alt=""/></p>
+  </div>
+</body></html>
