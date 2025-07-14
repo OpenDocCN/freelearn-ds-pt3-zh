@@ -1,0 +1,924 @@
+<html><head></head><body>
+		<div id="_idContainer266">
+			<h1 id="_idParaDest-107"><em class="italic"><a id="_idTextAnchor106"/>Chapter 5</em>: Visualizing Data with Pandas and Matplotlib</h1>
+			<p>So far, we have been working with data strictly in a tabular format. However, the human brain excels at picking out visual patterns; hence, our natural next step is learning how to visualize our data. Visualizations make it much easier to spot aberrations in our data and explain our findings to others. However, we should not reserve data visualizations exclusively for those we present our conclusions to, as visualizations will be crucial in helping us understand our data quickly and more completely in our exploratory data analysis.</p>
+			<p>There are numerous types of visualizations that go way beyond what we may have seen in the past. In this chapter, we will cover the most common plot types, such as line plots, histograms, scatter plots, and bar plots, along with several other plot types that build upon these. We won't be covering pie charts—they are notorious for being difficult to read properly, and there are better ways to get our point across.</p>
+			<p>Python has many libraries for creating visualizations, but the main one for data analysis (and other purposes) is <strong class="source-inline">matplotlib</strong>. The <strong class="source-inline">matplotlib</strong> library can be a little tricky to learn at first, but thankfully, <strong class="source-inline">pandas</strong> has its own wrappers around some of the <strong class="source-inline">matplotlib</strong> functionality, allowing us to create many different types of visualizations without needing to write a single line with <strong class="source-inline">matplotlib</strong> (or, at least, very few). For more complicated plot types that aren't built into <strong class="source-inline">pandas</strong> or <strong class="source-inline">matplotlib</strong>, we have the <strong class="source-inline">seaborn</strong> library, which we will discuss in the next chapter. With these three at our disposal, we should be able to create most (if not all) of the visualizations we desire. Animations and interactive plots are beyond the scope of this book, but you can check out the <em class="italic">Further reading</em> section for more information.</p>
+			<p>In this chapter, we will cover the following topics:</p>
+			<ul>
+				<li>An introduction to matplotlib</li>
+				<li>Plotting with pandas</li>
+				<li>The pandas.plotting module</li>
+			</ul>
+			<h1 id="_idParaDest-108"><a id="_idTextAnchor107"/>Chapter materials</h1>
+			<p>The materials for this chapter can be found on GitHub at <a href="https://github.com/stefmolin/Hands-On-Data-Analysis-with-Pandas-2nd-edition/tree/master/ch_05">https://github.com/stefmolin/Hands-On-Data-Analysis-with-Pandas-2nd-edition/tree/master/ch_05</a>. We will be working with three datasets, all of which can be found in the <strong class="source-inline">data/</strong> directory. In the <strong class="source-inline">fb_stock_prices_2018.csv</strong> file, we have the daily opening, high, low, and closing prices of Facebook stock from January through December 2018, along with the volume traded. This was obtained using the <strong class="source-inline">stock_analysis</strong> package, which we will build in <a href="B16834_07_Final_SK_ePub.xhtml#_idTextAnchor146"><em class="italic">Chapter 7</em></a>, <em class="italic">Financial Analysis – Bitcoin and the Stock Market</em>. The stock market is closed on the weekends, so we only have data for the trading days.</p>
+			<p>The <strong class="source-inline">earthquakes.csv</strong> file contains earthquake data collected from the <strong class="bold">United States Geological Survey</strong> (<strong class="bold">USGS</strong>) API (<a href="https://earthquake.usgs.gov/fdsnws/event/1/">https://earthquake.usgs.gov/fdsnws/event/1/</a>) for September 18, 2018 through October 13, 2018. For each earthquake, we have the value of the magnitude (the <strong class="source-inline">mag</strong> column), the scale it was measured on (the <strong class="source-inline">magType</strong> column), when (the <strong class="source-inline">time</strong> column) and where (the <strong class="source-inline">place</strong> column) it occurred, and the <strong class="source-inline">parsed_place</strong> column for the state or country where the earthquake occurred (we added this column back in <a href="B16834_02_Final_SK_ePub.xhtml#_idTextAnchor035"><em class="italic">Chapter 2</em></a>, <em class="italic">Working with Pandas DataFrames</em>). Other unnecessary columns have been removed.</p>
+			<p>In the <strong class="source-inline">covid19_cases.csv</strong> file, we have an export from the <em class="italic">daily number of new reported cases of COVID-19 by country worldwide</em> dataset provided by the <strong class="bold">European Centre for Disease Prevention and Control</strong> (<strong class="bold">ECDC</strong>), which can be found at <a href="https://www.ecdc.europa.eu/en/publications-data/download-todays-data-geographic-distribution-covid-19-cases-worldwide">https://www.ecdc.europa.eu/en/publications-data/download-todays-data-geographic-distribution-covid-19-cases-worldwide</a>. For scripted or automated collection of this data, the ECDC makes the current day's CSV file available via <a href="https://opendata.ecdc.europa.eu/covid19/casedistribution/csv">https://opendata.ecdc.europa.eu/covid19/casedistribution/csv</a>. The snapshot we will be using was collected on September 19, 2020 and contains the number of new COVID-19 cases per country from December 31, 2019 through September 18, 2020, with partial data for September 19, 2020. For this chapter, we will look at the 8-month span from January 18, 2020 through September 18, 2020.</p>
+			<p>Throughout this chapter, we will be working through three notebooks. These are numbered in the order they will be used—one for each of the main sections of this chapter. We will begin our discussion of plotting in Python with an introduction to <strong class="source-inline">matplotlib</strong> in the <strong class="source-inline">1-introducing_matplotlib.ipynb</strong> notebook. Then, we will learn how to create visualizations using <strong class="source-inline">pandas</strong> in the <strong class="source-inline">2-plotting_with_pandas.ipynb</strong> notebook. Finally, we will explore some additional plotting options that <strong class="source-inline">pandas</strong> provides in the <strong class="source-inline">3-pandas_plotting_module.ipynb</strong> notebook. You will be prompted when it is time to switch between the notebooks.</p>
+			<h1 id="_idParaDest-109"><a id="_idTextAnchor108"/>An introduction to matplotlib</h1>
+			<p>The plotting capabilities in <strong class="source-inline">pandas</strong> and <strong class="source-inline">seaborn</strong> are powered by <strong class="source-inline">matplotlib</strong>: both of these packages <a id="_idIndexMarker633"/>provide wrappers around the lower-level functionality in <strong class="source-inline">matplotlib</strong>. Consequently, we have many visualization options at our fingertips with minimal code to write; however, this comes at a price: reduced flexibility in what we can create.</p>
+			<p>We may find that the <strong class="source-inline">pandas</strong> or <strong class="source-inline">seaborn</strong> implementation isn't quite meeting our needs, and, indeed, it may be impossible to override a particular setting after creating the plot with them, meaning we will have to do some of the legwork with <strong class="source-inline">matplotlib</strong>. Additionally, many of the tweaks that will be made to the final appearance of the visualization will be handled with <strong class="source-inline">matplotlib</strong> commands, which we will discuss in the next chapter. Therefore, it would greatly benefit us to have some understanding of how <strong class="source-inline">matplotlib</strong> works.</p>
+			<h2 id="_idParaDest-110"><a id="_idTextAnchor109"/>The basics</h2>
+			<p>The <strong class="source-inline">matplotlib</strong> package is rather large since it encompasses quite a bit of functionality. Fortunately for us, for most of our plotting tasks, all we need is the <strong class="source-inline">pyplot</strong> module, which provides <a id="_idIndexMarker634"/>a MATLAB-like plotting framework. Occasionally, we will need to import additional modules for other tasks, such as animations, changing the style, or altering the default parameters; we will see some examples of this in the next chapter.</p>
+			<p>Rather than importing the whole <strong class="source-inline">matplotlib</strong> package, we will only import the <strong class="source-inline">pyplot</strong> module using the dot (<strong class="source-inline">.</strong>) notation; this reduces the amount of typing we need to do in order to access what we need, and we don't take up more space in memory with code we won't use. Note that <strong class="source-inline">pyplot</strong> is traditionally aliased as <strong class="source-inline">plt</strong>:</p>
+			<p class="source-code">import matplotlib.pyplot as plt</p>
+			<p>Before we look at our first plots, let's cover how to actually view them. Matplotlib will create our visualizations with the plot commands; however, we won't see the visualization until we request to see it. It is done in this fashion so that we can continually tweak the visualization with additional code, until we are ready to finalize it. Unless we save a reference to our plot, once it is displayed, we will have to recreate it to change something. This is because the reference to the last plot will have been destroyed to free up resources in memory.</p>
+			<p>Matplotlib uses the <strong class="source-inline">plt.show()</strong> function to display the visualization. It must be called after each visualization we create. When using the Python shell, it will also prevent additional code <a id="_idIndexMarker635"/>from being executed until the window is closed because it is a blocking function. In Jupyter Notebooks, we can simply use the <strong class="source-inline">%matplotlib inline</strong> <strong class="bold">magic command</strong> (a special IPython command preceded by a <strong class="source-inline">%</strong> sign) once, and our visualizations will be automatically displayed when the cell with our visualization code is executed. Magic commands (or <em class="italic">magics</em> for short) are run as regular code within a Jupyter Notebook cell. If, up to this point in the book, you haven't been keen on using Jupyter Notebooks and would like to get that set up now, you can refer to <a href="B16834_01_Final_SK_ePub.xhtml#_idTextAnchor015"><em class="italic">Chapter 1</em></a>, <em class="italic">Introduction to Data Analysis</em>.</p>
+			<p class="callout-heading">Important note</p>
+			<p class="callout">The <strong class="source-inline">%matplotlib inline</strong> magic embeds static images of the plot into our notebook. Another common option is the <strong class="source-inline">%matplotlib notebook</strong> magic. It provides a small level of interactivity to the plot by allowing actions such as resizing and zooming, though note that this requires some additional setup if you're using JupyterLab and can lead to some confusing bugs, depending on the code that's running in the notebook. Check out this article for more information: <a href="mailto:https://medium.com/@1522933668924/using-matplotlib-in-jupyter-notebooks-comparing-methods-and-some-tips-python-c38e85b40ba1">https://medium.com/@1522933668924/using-matplotlib-in-jupyter-notebooks-comparing-methods-and-some-tips-python-c38e85b40ba1</a>.</p>
+			<p>Let's create our first plot in the <strong class="source-inline">1-introducing_matplotlib.ipynb</strong> notebook, using the Facebook stock prices data from the <strong class="source-inline">fb_stock_prices_2018.csv</strong> file in the repository for this chapter. First, we need to import <strong class="source-inline">pyplot</strong> and <strong class="source-inline">pandas</strong> (in this example, we will use <strong class="source-inline">plt.show()</strong>, so we don't need to run the magic here):</p>
+			<p class="source-code">&gt;&gt;&gt; import matplotlib.pyplot as plt</p>
+			<p class="source-code">&gt;&gt;&gt; import pandas as pd</p>
+			<p>Next, we read in the CSV file and specify the index as the <strong class="source-inline">date</strong> column, since we know what the data looks like from previous chapters:</p>
+			<p class="source-code">&gt;&gt;&gt; fb = pd.read_csv(</p>
+			<p class="source-code">...     'data/fb_stock_prices_2018.csv', </p>
+			<p class="source-code">...     index_col='date',</p>
+			<p class="source-code">...     parse_dates=True</p>
+			<p class="source-code">... )</p>
+			<p>To understand how Facebook's stock has evolved over time, we can create a line plot of the daily opening price. For this task, we will use the <strong class="source-inline">plt.plot()</strong> function, providing the data to be <a id="_idIndexMarker636"/>used on the <em class="italic">x</em>-axis and <em class="italic">y</em>-axis, respectively. We will then follow up with a call to <strong class="source-inline">plt.show()</strong> to display it:</p>
+			<p class="source-code">&gt;&gt;&gt; plt.plot(fb.index, fb.open)</p>
+			<p class="source-code">&gt;&gt;&gt; plt.show()</p>
+			<p>The result is the following plot:</p>
+			<div>
+				<div id="_idContainer220" class="IMG---Figure">
+					<img src="image/Figure_5.1_B16834.jpg" alt="Figure 5.1 – Our first plot with matplotlib&#13;&#10;"/>
+				</div>
+			</div>
+			<p class="figure-caption">Figure 5.1 – Our first plot with matplotlib</p>
+			<p>If we want to present this visualization, we would have to go back and add our axis labels, plot title, legend (if applicable), and possibly fix the <em class="italic">y</em>-axis range; this will be covered in the next chapter when we discuss formatting and customizing the appearance of our plots. Pandas and <strong class="source-inline">seaborn</strong> will take care of some of this for us, at least.</p>
+			<p>For the remainder of this book, we will be using the <strong class="source-inline">%matplotlib inline</strong> magic command (remember, this needs to be used in a Jupyter Notebook to work), so we won't be calling <strong class="source-inline">plt.show()</strong> after our plotting code. The following code gives the same output as the preceding block:</p>
+			<p class="source-code">&gt;&gt;&gt; <strong class="bold">%matplotlib inline</strong></p>
+			<p class="source-code">&gt;&gt;&gt; import matplotlib.pyplot as plt</p>
+			<p class="source-code">&gt;&gt;&gt; import pandas as pd</p>
+			<p class="source-code">&gt;&gt;&gt; fb = pd.read_csv(</p>
+			<p class="source-code">...     'data/fb_stock_prices_2018.csv', </p>
+			<p class="source-code">...     index_col='date',</p>
+			<p class="source-code">...     parse_dates=True</p>
+			<p class="source-code">... )</p>
+			<p class="source-code">&gt;&gt;&gt; plt.plot(fb.index, fb.open)</p>
+			<p class="callout-heading">Important note</p>
+			<p class="callout">Be sure to run the <strong class="source-inline">%matplotlib inline</strong> magic command now if you are using a Jupyter Notebook. This ensures that the plotting code in the rest of this chapter displays the output automatically.</p>
+			<p>We can also <a id="_idIndexMarker637"/>use the <strong class="source-inline">plt.plot()</strong> function to generate scatter plots, provided that we specify a format string for the plot as the third argument. A format string is of the form <strong class="source-inline">'[marker][linestyle][color]'</strong>; for example, <strong class="source-inline">'--k'</strong> for a black dashed line. Since we don't want a line for the scatter plot, we omit the <strong class="source-inline">linestyle</strong> component. We can make a scatter plot of red circles with the <strong class="source-inline">'or'</strong> format string; here, <strong class="source-inline">o</strong> is for circles and <strong class="source-inline">r</strong> is for the color red. The following code generates a scatter plot of high price versus low price. Notice that we can pass our dataframe in the <strong class="source-inline">data</strong> argument and then use the string names for the columns, instead of passing the series as <strong class="source-inline">x</strong> and <strong class="source-inline">y</strong>:</p>
+			<p class="source-code">&gt;&gt;&gt; plt.plot('high', 'low', <strong class="bold">'or'</strong>, data=fb.head(20))</p>
+			<p>Barring days of large fluctuations, we would expect the points to be in the form of a line, since the high and low prices won't be far from each other. This is true for the most part, but be careful of the scale that was generated automatically—the <em class="italic">x</em>-axis and the <em class="italic">y</em>-axis don't line up perfectly:</p>
+			<div>
+				<div id="_idContainer221" class="IMG---Figure">
+					<img src="image/Figure_5.2_B16834.jpg" alt="Figure 5.2 – Making a scatter plot with matplotlib&#13;&#10;"/>
+				</div>
+			</div>
+			<p class="figure-caption">Figure 5.2 – Making a scatter plot with matplotlib</p>
+			<p>Note that there <a id="_idIndexMarker638"/>is some flexibility in specifying the format string. For instance, a format string of the form <strong class="source-inline">'[color][marker][linestyle]'</strong> will work unless it is ambiguous. The following table shows some examples of how to formulate a format string for a variety of plot styles; the complete list of options can be found in the <strong class="bold">Notes</strong> section in the documentation at <a href="https://matplotlib.org/api/_as_gen/matplotlib.pyplot.plot.html">https://matplotlib.org/api/_as_gen/matplotlib.pyplot.plot.html</a>:</p>
+			<div>
+				<div id="_idContainer222" class="IMG---Figure">
+					<img src="image/Figure_5.3_B16834.jpg" alt="Figure 5.3 – Styling shortcuts for matplotlib&#13;&#10;"/>
+				</div>
+			</div>
+			<p class="figure-caption">Figure 5.3 – Styling shortcuts for matplotlib</p>
+			<p>The format <a id="_idIndexMarker639"/>string is a handy way of specifying many options at once, and the good news, as we will see in the <em class="italic">Plotting with pandas</em> section, is that it works with the <strong class="source-inline">plot()</strong> method in <strong class="source-inline">pandas</strong> as well. However, if we would rather specify each option separately, we can use the <strong class="source-inline">color</strong>, <strong class="source-inline">linestyle</strong>, and <strong class="source-inline">marker</strong> arguments; check out the values we can pass as keyword arguments to <strong class="source-inline">plt.plot()</strong> in the documentation—<strong class="source-inline">pandas</strong> will also pass these down to <strong class="source-inline">matplotlib</strong> for us.</p>
+			<p class="callout-heading">Tip</p>
+			<p class="callout">As an alternative to defining styles per variable being plotted, consider trying out <strong class="source-inline">cycler</strong> from the <strong class="source-inline">matplotlib</strong> team to specify which combinations <strong class="source-inline">matplotlib</strong> should cycle between (<a href="https://matplotlib.org/gallery/color/color_cycler.html">https://matplotlib.org/gallery/color/color_cycler.html</a>). We will see an example of this in <a href="B16834_07_Final_SK_ePub.xhtml#_idTextAnchor146"><em class="italic">Chapter 7</em></a>, <em class="italic">Financial Analysis – Bitcoin and the Stock Market</em>.</p>
+			<p>To create histograms with <strong class="source-inline">matplotlib</strong>, we use the <strong class="source-inline">hist()</strong> function instead. Let's make a histogram of the earthquake magnitudes in the <strong class="source-inline">earthquakes.csv</strong> file, using those measured with the <strong class="source-inline">ml</strong> magnitude type:</p>
+			<p class="source-code">&gt;&gt;&gt; quakes = pd.read_csv('data/earthquakes.csv')</p>
+			<p class="source-code">&gt;&gt;&gt; <strong class="bold">plt.hist(quakes.query('magType == "ml"').mag)</strong></p>
+			<p>The resulting histogram gives us an idea of the range of earthquake magnitudes we can expect using the <strong class="source-inline">ml</strong> measurement technique:</p>
+			<div>
+				<div id="_idContainer223" class="IMG---Figure">
+					<img src="image/Figure_5.4_B16834.jpg" alt="Figure 5.4 – Making a histogram with matplotlib&#13;&#10;"/>
+				</div>
+			</div>
+			<p class="figure-caption">Figure 5.4 – Making a histogram with matplotlib</p>
+			<p>As we could have guessed, the magnitudes tend to be small, and the distribution appears to be somewhat normal. However, a word of caution regarding histograms—bin size matters. There are cases where we can change the number of bins the data is divided into and <a id="_idIndexMarker640"/>change what the histogram indicates the distribution to be. For example, if we make two histograms for this data using different numbers of bins, the distributions look different:</p>
+			<p class="source-code">&gt;&gt;&gt; x = quakes.query('magType == "ml"').mag</p>
+			<p class="source-code">&gt;&gt;&gt; fig, axes = plt.subplots(1, 2, figsize=(10, 3))</p>
+			<p class="source-code">&gt;&gt;&gt; for ax, bins in zip(axes, [7, 35]):</p>
+			<p class="source-code">...     ax.hist(x, <strong class="bold">bins=bins</strong>)</p>
+			<p class="source-code">...     ax.set_title(f'bins param: {bins}')</p>
+			<p>Notice how the distribution appears unimodal in the left subplot, but seems bimodal in the right subplot:</p>
+			<div>
+				<div id="_idContainer224" class="IMG---Figure">
+					<img src="image/Figure_5.5_B16834.jpg" alt="Figure 5.5 – Different bin sizes can drastically change a histogram&#13;&#10;"/>
+				</div>
+			</div>
+			<p class="figure-caption">Figure 5.5 – Different bin sizes can drastically change a histogram</p>
+			<p class="callout-heading">Tip</p>
+			<p class="callout">Some common rules of thumb for selecting the number of bins can be found at <a href="https://en.wikipedia.org/wiki/Histogram#Number_of_bins_and_width">https://en.wikipedia.org/wiki/Histogram#Number_of_bins_and_width</a>. However, note that, in some cases, a bee swarm plot can be easier to interpret than a histogram; this can be created with <strong class="source-inline">seaborn</strong>, as we will see in <a href="B16834_06_Final_SK_ePub.xhtml#_idTextAnchor125"><em class="italic">Chapter 6</em></a>, <em class="italic">Plotting with Seaborn and Customization Techniques</em>.</p>
+			<p>There are a couple of additional things to note from this example, which we will address in the next section on plot components:</p>
+			<ul>
+				<li>We can make subplots.</li>
+				<li>Plotting functions in <strong class="source-inline">pyplot</strong> can also be used as methods of <strong class="source-inline">matplotlib</strong> objects, such as <strong class="source-inline">Figure</strong> and <strong class="source-inline">Axes</strong> objects.</li>
+			</ul>
+			<p>One last thing <a id="_idIndexMarker641"/>regarding basic usage that we will find handy is saving plots as images—we shouldn't be limited to showing the figures in Python only. We can save the last figure with the <strong class="source-inline">plt.savefig()</strong> function by passing in the path to save the image at; for example, <strong class="source-inline">plt.savefig('my_plot.png')</strong>. Note that, if <strong class="source-inline">plt.show()</strong> was called prior to saving, the file will be empty, since the reference to the last plot will be gone after the call to <strong class="source-inline">plt.show()</strong> (<strong class="source-inline">matplotlib</strong> closes the <strong class="source-inline">Figure</strong> object to free up resources in memory). With the <strong class="source-inline">%matplotlib inline</strong> magic command, we can both see and save our image in the same cell.</p>
+			<h2 id="_idParaDest-111"><a id="_idTextAnchor110"/>Plot components</h2>
+			<p>In the prior examples using <strong class="source-inline">plt.plot()</strong>, we didn't have to create a <strong class="source-inline">Figure</strong> object—<strong class="source-inline">matplotlib</strong> took care of creating it for us in the background. However, as we saw <a id="_idIndexMarker642"/>when creating <em class="italic">Figure 5.5</em>, anything beyond a basic plot will require a little more legwork, including creating a <strong class="source-inline">Figure</strong> object ourselves. The <strong class="source-inline">Figure</strong> class is the top level for <strong class="source-inline">matplotlib</strong> visualizations. It contains the <strong class="source-inline">Axes</strong> objects, which themselves contain additional plot objects, such as lines and ticks. In the case of subplots, the <strong class="source-inline">Figure</strong> object contains <strong class="source-inline">Axes</strong> objects with additional functionality.</p>
+			<p>We use the <strong class="source-inline">plt.figure()</strong> function to create <strong class="source-inline">Figure</strong> objects; these will have zero <strong class="source-inline">Axes</strong> objects until a plot is added:</p>
+			<p class="source-code">&gt;&gt;&gt; fig = plt.figure()</p>
+			<p class="source-code">&lt;Figure size 432x288 with <strong class="bold">0 Axes</strong>&gt;</p>
+			<p>The <strong class="source-inline">plt.subplots()</strong> function creates a <strong class="source-inline">Figure</strong> object with <strong class="source-inline">Axes</strong> objects for subplots in the arrangement specified. If we ask <strong class="source-inline">plt.subplots()</strong> for one row and one column, a <strong class="source-inline">Figure</strong> object with one <strong class="source-inline">Axes</strong> object will be returned. This can be useful when writing functions that generate subplot layouts based on the input, since we don't need to worry about needing a special case to handle a single subplot. Here, we will specify an arrangement of one row and two columns; this returns a <strong class="source-inline">(Figure, Axes)</strong> tuple, which we can unpack:</p>
+			<p class="source-code">&gt;&gt;&gt; fig, axes = plt.subplots(1, 2)</p>
+			<p>When using the <strong class="source-inline">%matplotlib inline</strong> magic command, we will see the figure that was created:</p>
+			<div>
+				<div id="_idContainer225" class="IMG---Figure">
+					<img src="image/Figure_5.6_B16834.jpg" alt="Figure 5.6 – Creating subplots&#13;&#10;"/>
+				</div>
+			</div>
+			<p class="figure-caption">Figure 5.6 – Creating subplots</p>
+			<p>The alternative <a id="_idIndexMarker643"/>to using <strong class="source-inline">plt.subplots()</strong> would be to use the <strong class="source-inline">add_axes()</strong> method on the <strong class="source-inline">Figure</strong> object that we get after running <strong class="source-inline">plt.figure()</strong>. The <strong class="source-inline">add_axes()</strong> method takes a list in the form of <strong class="source-inline">[left, bottom, width, height]</strong> as proportions of the figure dimensions, representing the area in the figure this subplot should occupy:</p>
+			<p class="source-code">&gt;&gt;&gt; fig = plt.figure(figsize=(3, 3))</p>
+			<p class="source-code">&gt;&gt;&gt; outside = fig.add_axes([0.1, 0.1, 0.9, 0.9])</p>
+			<p class="source-code">&gt;&gt;&gt; inside = fig.add_axes([0.7, 0.7, 0.25, 0.25])</p>
+			<p>This enables the creation of plots inside of plots:</p>
+			<div>
+				<div id="_idContainer226" class="IMG---Figure">
+					<img src="image/Figure_5.7_B16834.jpg" alt="Figure 5.7 – Plot with an inset plot using matplotlib&#13;&#10;"/>
+				</div>
+			</div>
+			<p class="figure-caption">Figure 5.7 – Plot with an inset plot using matplotlib</p>
+			<p>If our goal <a id="_idIndexMarker644"/>is to keep all the plots separate but not all equally sized, we can use the <strong class="source-inline">add_gridspec()</strong> method on a <strong class="source-inline">Figure</strong> object to create a grid for the subplots. Then, we can run <strong class="source-inline">add_subplot()</strong>, passing in the area(s) from the grid that the given subplot should occupy:</p>
+			<p class="source-code">&gt;&gt;&gt; fig = plt.figure(figsize=(8, 8))</p>
+			<p class="source-code">&gt;&gt;&gt; <strong class="bold">gs = fig.add_gridspec(3, 3)</strong></p>
+			<p class="source-code">&gt;&gt;&gt; top_left = <strong class="bold">fig.add_subplot(gs[0, 0])</strong></p>
+			<p class="source-code">&gt;&gt;&gt; mid_left = fig.add_subplot(gs[1, 0])</p>
+			<p class="source-code">&gt;&gt;&gt; top_right = fig.add_subplot(gs[:2, 1:])</p>
+			<p class="source-code">&gt;&gt;&gt; bottom = fig.add_subplot(gs[2,:])</p>
+			<p>This results in the following layout:</p>
+			<div>
+				<div id="_idContainer227" class="IMG---Figure">
+					<img src="image/Figure_5.8_B16834.jpg" alt="Figure 5.8 – Building custom plot layouts with matplotlib&#13;&#10;"/>
+				</div>
+			</div>
+			<p class="figure-caption">Figure 5.8 – Building custom plot layouts with matplotlib</p>
+			<p>In the previous section, we discussed how to save visualizations using <strong class="source-inline">plt.savefig()</strong> but we also can use the <strong class="source-inline">savefig()</strong> method on <strong class="source-inline">Figure</strong> objects:</p>
+			<p class="source-code">&gt;&gt;&gt; fig.savefig('empty.png')</p>
+			<p>This is very <a id="_idIndexMarker645"/>useful to remember since with <strong class="source-inline">plt.&lt;func&gt;()</strong>, we only have access to the last <strong class="source-inline">Figure</strong> object; however, if we save the references to our <strong class="source-inline">Figure</strong> objects, we can work with any of them, regardless of when they were created. Additionally, this foreshadows an important concept that you will notice throughout this chapter: <strong class="source-inline">Figure</strong> and <strong class="source-inline">Axes</strong> objects have methods with similar or identical names to their <strong class="source-inline">pyplot</strong> function counterparts.</p>
+			<p>While it's convenient to have references to all of the <strong class="source-inline">Figure</strong> objects we create, it is good practice to close them when we are done with them so that we don't waste any resources. This can be accomplished with the <strong class="source-inline">plt.close()</strong> function. If we don't pass in anything, it will close the last <strong class="source-inline">Figure</strong> object; however, we can pass in a specific <strong class="source-inline">Figure</strong> object to close only that one or <strong class="source-inline">'all'</strong> to close all of the <strong class="source-inline">Figure</strong> objects we have open:</p>
+			<p class="source-code">&gt;&gt;&gt; plt.close('all')</p>
+			<p>It's important to get comfortable working with <strong class="source-inline">Figure</strong> and <strong class="source-inline">Axes</strong> objects directly as it enables more <a id="_idIndexMarker646"/>fine-grained control of the resulting visualizations. This will become evident in the next chapter.</p>
+			<h2 id="_idParaDest-112"><a id="_idTextAnchor111"/>Additional options</h2>
+			<p>A few of our visualizations looked a little squished. To remedy this, we can pass in a value for <strong class="source-inline">figsize</strong> in <a id="_idIndexMarker647"/>our call to <strong class="source-inline">plt.figure()</strong> or <strong class="source-inline">plt.subplots()</strong>. We specify the dimensions with a <strong class="source-inline">(width, height)</strong> tuple in inches. The <strong class="source-inline">plot()</strong> method we will see with <strong class="source-inline">pandas</strong> also accepts the <strong class="source-inline">figsize</strong> parameter, so bear this in mind:</p>
+			<p class="source-code">&gt;&gt;&gt; fig = plt.figure(figsize=(10, 4))</p>
+			<p class="source-code">&lt;Figure size 720x288 with 0 Axes&gt;</p>
+			<p class="source-code">&gt;&gt;&gt; fig, axes = plt.subplots(1, 2, figsize=(10, 4))</p>
+			<p>Notice that these subplots are more square-shaped than the subplots in <em class="italic">Figure 5.6</em> when we didn't specify <strong class="source-inline">figsize</strong>:</p>
+			<div>
+				<div id="_idContainer228" class="IMG---Figure">
+					<img src="image/Figure_5.9_B16834.jpg" alt="Figure 5.9 – Specifying plot size&#13;&#10;"/>
+				</div>
+			</div>
+			<p class="figure-caption">Figure 5.9 – Specifying plot size</p>
+			<p>It's not too bad specifying the <strong class="source-inline">figsize</strong> parameter for our plots one by one. However, if we find that we are resizing everything to the same size, there's a better alternative. Matplotlib houses its defaults in <strong class="source-inline">rcParams</strong>, which acts like a dictionary, meaning we can easily overwrite what we wish for our session and get the defaults back when we restart our Python session. Since there are many options in this dictionary (over 300 at the time of writing), let's <a id="_idIndexMarker648"/>randomly select a few of them to get an idea of what is available:</p>
+			<p class="source-code">&gt;&gt;&gt; import random</p>
+			<p class="source-code">&gt;&gt;&gt; import matplotlib as mpl</p>
+			<p class="source-code">&gt;&gt;&gt; rcparams_list = list(<strong class="bold">mpl.rcParams</strong>.keys())</p>
+			<p class="source-code">&gt;&gt;&gt; random.seed(20) # make this repeatable</p>
+			<p class="source-code">&gt;&gt;&gt; random.shuffle(rcparams_list)</p>
+			<p class="source-code">&gt;&gt;&gt; sorted(rcparams_list[:20])</p>
+			<p class="source-code">['axes.axisbelow',</p>
+			<p class="source-code"> 'axes.formatter.limits',</p>
+			<p class="source-code"> 'boxplot.vertical',</p>
+			<p class="source-code"> 'contour.corner_mask',</p>
+			<p class="source-code"> 'date.autoformatter.month',</p>
+			<p class="source-code"> 'legend.labelspacing',</p>
+			<p class="source-code"> 'lines.dashed_pattern',</p>
+			<p class="source-code"> 'lines.dotted_pattern',</p>
+			<p class="source-code"> 'lines.scale_dashes',</p>
+			<p class="source-code"> 'lines.solid_capstyle',</p>
+			<p class="source-code"> 'lines.solid_joinstyle',</p>
+			<p class="source-code"> 'mathtext.tt',</p>
+			<p class="source-code"> 'patch.linewidth',</p>
+			<p class="source-code"> 'pdf.fonttype',</p>
+			<p class="source-code"> 'savefig.jpeg_quality',</p>
+			<p class="source-code"> 'svg.fonttype',</p>
+			<p class="source-code"> 'text.latex.preview',</p>
+			<p class="source-code"> 'toolbar',</p>
+			<p class="source-code"> 'ytick.labelright',</p>
+			<p class="source-code"> 'ytick.minor.size'] </p>
+			<p>As you <a id="_idIndexMarker649"/>can see, there are many options we can tinker with here. Let's check what the current default value for <strong class="source-inline">figsize</strong> is:</p>
+			<p class="source-code">&gt;&gt;&gt; mpl.rcParams['figure.figsize']</p>
+			<p class="source-code">[6.0, 4.0]</p>
+			<p>To change this for our current session, simply set it equal to a new value:</p>
+			<p class="source-code">&gt;&gt;&gt; mpl.rcParams['figure.figsize'] = (300, 10)</p>
+			<p class="source-code">&gt;&gt;&gt; mpl.rcParams['figure.figsize']</p>
+			<p class="source-code">[300.0, 10.0]</p>
+			<p>Before we move on, let's restore the default settings by using the <strong class="source-inline">mpl.rcdefaults()</strong> function. The default value for <strong class="source-inline">figsize</strong> is actually different than what we had previously; this is because <strong class="source-inline">%matplotlib inline</strong> sets different values for a few of the plot-related parameters when it is first run (<a href="https://github.com/ipython/ipykernel/blob/master/ipykernel/pylab/config.py#L42-L56">https://github.com/ipython/ipykernel/blob/master/ipykernel/pylab/config.py#L42-L56</a>):</p>
+			<p class="source-code">&gt;&gt;&gt; <strong class="bold">mpl.rcdefaults()</strong></p>
+			<p class="source-code">&gt;&gt;&gt; mpl.rcParams['figure.figsize']</p>
+			<p class="source-code">[6.8, 4.8]</p>
+			<p>Note that we can also use the <strong class="source-inline">plt.rc()</strong> function to update a particular setting if we know its group (<strong class="source-inline">figure</strong>, in this case) and parameter name (<strong class="source-inline">figsize</strong>). As we did previously, we can use <strong class="source-inline">plt.rcdefaults()</strong> to reset the defaults:</p>
+			<p class="source-code"># change `figsize` default to (20, 20)</p>
+			<p class="source-code">&gt;&gt;&gt; plt.rc('figure', figsize=(20, 20)) </p>
+			<p class="source-code">&gt;&gt;&gt; plt.rcdefaults() # reset the default</p>
+			<p class="callout-heading">Tip</p>
+			<p class="callout">If we find ourselves making the same changes every time we start Python, we should look into reading our configuration in rather than updating the default values each time. Consult the <strong class="source-inline">mpl.rc_file()</strong> function for more information.</p>
+			<h1 id="_idParaDest-113"><a id="_idTextAnchor112"/>Plotting with pandas</h1>
+			<p>Both <strong class="source-inline">Series</strong> and <strong class="source-inline">DataFrame</strong> objects have a <strong class="source-inline">plot()</strong> method that allows us to create several different <a id="_idIndexMarker650"/>plots and control some aspects of their formatting, such as subplot layout, figure size, titles, and whether to share an axis across subplots. This makes plotting our data much more convenient, as the bulk of the work to create presentable plots is achieved with a single method call. Under the hood, <strong class="source-inline">pandas</strong> is making several calls to <strong class="source-inline">matplotlib</strong> to produce our plot. Some of the most frequently used arguments to the <strong class="source-inline">plot()</strong> method include the following:</p>
+			<div>
+				<div id="_idContainer229" class="IMG---Figure">
+					<img src="image/Figure_5.10_B16834.jpg" alt="Figure 5.10 – Frequently used pandas plotting arguments&#13;&#10;"/>
+				</div>
+			</div>
+			<p class="figure-caption">Figure 5.10 – Frequently used pandas plotting arguments</p>
+			<p>Rather than having separate functions for each plot type, as we saw during our discussion of <strong class="source-inline">matplotlib</strong>, the <strong class="source-inline">plot()</strong> method from <strong class="source-inline">pandas</strong> allows us to specify the type of plot we want using the <strong class="source-inline">kind</strong> argument. The choice of plot will determine which other arguments are required. We can use the <strong class="source-inline">Axes</strong> object that's returned by the <strong class="source-inline">plot()</strong> method to further modify our plot.</p>
+			<p>Let's explore <a id="_idIndexMarker651"/>this functionality in the <strong class="source-inline">2-plotting_with_pandas.ipynb</strong> notebook. Before we begin, we need to handle our imports for this section and read in the data we will be using (Facebook stock prices, earthquakes, and COVID-19 cases):</p>
+			<p class="source-code">&gt;&gt;&gt; %matplotlib inline</p>
+			<p class="source-code">&gt;&gt;&gt; import matplotlib.pyplot as plt</p>
+			<p class="source-code">&gt;&gt;&gt; import numpy as np</p>
+			<p class="source-code">&gt;&gt;&gt; import pandas as pd</p>
+			<p class="source-code">&gt;&gt;&gt; fb = pd.read_csv(</p>
+			<p class="source-code">...     'data/fb_stock_prices_2018.csv', </p>
+			<p class="source-code">...     index_col='date',</p>
+			<p class="source-code">...     parse_dates=True</p>
+			<p class="source-code">... )</p>
+			<p class="source-code">&gt;&gt;&gt; quakes = pd.read_csv('data/earthquakes.csv')</p>
+			<p class="source-code">&gt;&gt;&gt; covid = pd.read_csv('data/covid19_cases.csv').assign(</p>
+			<p class="source-code">...     date=lambda x: \</p>
+			<p class="source-code">...         pd.to_datetime(x.dateRep, format='%d/%m/%Y')</p>
+			<p class="source-code">... ).set_index('date').replace(</p>
+			<p class="source-code">...     'United_States_of_America', 'USA'</p>
+			<p class="source-code">... ).sort_index()['2020-01-18':'2020-09-18']</p>
+			<p>In the next few sections, we will discuss how to generate an appropriate visualization for a specific analysis goal, such as showing the evolution over time or the relationship between the <a id="_idIndexMarker652"/>variables in the data. Note that, wherever possible, the plots have been styled so that they can be interpreted in black and white for this book.</p>
+			<h2 id="_idParaDest-114"><a id="_idTextAnchor113"/>Evolution over time</h2>
+			<p>When working with time series data (such as the Facebook stock data stored in the <strong class="source-inline">fb</strong> variable), we often <a id="_idIndexMarker653"/>want to show how the data has changed over time. To do this, we use line plots and, in some cases, bar plots (covered in the <em class="italic">Counts and frequencies</em> section). In the case of a line plot, we simply provide <strong class="source-inline">kind='line'</strong> to <strong class="source-inline">plot()</strong>, indicating which columns will be <strong class="source-inline">x</strong> and <strong class="source-inline">y</strong>. Note that we actually don't need to provide a column for <strong class="source-inline">x</strong> because <strong class="source-inline">pandas</strong>, by default, will use the index (this also makes it possible to generate the line plot of a <strong class="source-inline">Series</strong> object). Additionally, notice that we can provide a format string to the <strong class="source-inline">style</strong> argument, just like we did with the <strong class="source-inline">matplotlib</strong> plots:</p>
+			<p class="source-code">&gt;&gt;&gt; fb.plot(</p>
+			<p class="source-code">...     kind='line', y='open', figsize=(10, 5), <strong class="bold">style='-b'</strong>,</p>
+			<p class="source-code">...     legend=False, title='Evolution of Facebook Open Price'</p>
+			<p class="source-code">... )</p>
+			<p>This gives us a plot similar to what we achieved with <strong class="source-inline">matplotlib</strong>; however, in this single method call, we specified the figure size for this plot only, turned off the legend, and gave it a title:</p>
+			<div>
+				<div id="_idContainer230" class="IMG---Figure">
+					<img src="image/Figure_5.11_B16834.jpg" alt="Figure 5.11 – Our first plot with pandas&#13;&#10;"/>
+				</div>
+			</div>
+			<p class="figure-caption">Figure 5.11 – Our first plot with pandas</p>
+			<p>As with <strong class="source-inline">matplotlib</strong>, we don't have to use the style format strings—instead, we can pass each component <a id="_idIndexMarker654"/>separately with its associated keyword. For example, the following code gives us the same result as the previous one:</p>
+			<p class="source-code">fb.plot(</p>
+			<p class="source-code">    kind='line', y='open', figsize=(10, 5),</p>
+			<p class="source-code"><strong class="bold">    color='blue', linestyle='solid'</strong>,</p>
+			<p class="source-code">    legend=False, title='Evolution of Facebook Open Price'</p>
+			<p class="source-code">)</p>
+			<p>We aren't limited to plotting one line at a time with the <strong class="source-inline">plot()</strong> method; we can also pass in a list of columns to plot and style them individually. Note that we actually don't need to specify <strong class="source-inline">kind='line'</strong> because that is the default:</p>
+			<p class="source-code">&gt;&gt;&gt; fb.first('1W').plot(</p>
+			<p class="source-code">...     <strong class="bold">y=['open', 'high', 'low', 'close']</strong>, </p>
+			<p class="source-code">...     <strong class="bold">style=['o-b', '--r', ':k', '.-g']</strong>,</p>
+			<p class="source-code">...     title='Facebook OHLC Prices during '</p>
+			<p class="source-code">...           '1st Week of Trading 2018'</p>
+			<p class="source-code">... ).autoscale() # add space between data and axes</p>
+			<p>This results <a id="_idIndexMarker655"/>in the following plot, where each line is styled differently:</p>
+			<div>
+				<div id="_idContainer231" class="IMG---Figure">
+					<img src="image/Figure_5.12_B16834.jpg" alt="Figure 5.12 – Plotting multiple columns&#13;&#10;"/>
+				</div>
+			</div>
+			<p class="figure-caption">Figure 5.12 – Plotting multiple columns</p>
+			<p>Additionally, we can easily have <strong class="source-inline">pandas</strong> plot all our columns in that same call. The <strong class="source-inline">x</strong> and <strong class="source-inline">y</strong> arguments can take a single column name or a list of them; if we provide nothing, <strong class="source-inline">pandas</strong> will use all of them. Note that the columns must be passed as the <strong class="source-inline">y</strong> argument when <strong class="source-inline">kind='line'</strong>; however, other plot types support passing lists of columns to <strong class="source-inline">x</strong> as well. In this case, it may be helpful to ask for subplots instead of having all the lines on the same plot. Let's visualize all the columns in the Facebook data as line plots:</p>
+			<p class="source-code">&gt;&gt;&gt; fb.plot(</p>
+			<p class="source-code">...     kind='line', <strong class="bold">subplots=True, layout=(3, 2)</strong>,</p>
+			<p class="source-code">...     figsize=(15, 10), title='Facebook Stock 2018'</p>
+			<p class="source-code">... )</p>
+			<p>Using <a id="_idIndexMarker656"/>the <strong class="source-inline">layout</strong> argument, we told <strong class="source-inline">pandas</strong> how to arrange our subplots (three rows and two columns):</p>
+			<div>
+				<div id="_idContainer232" class="IMG---Figure">
+					<img src="image/Figure_5.13_B16834.jpg" alt="Figure 5.13 – Creating subplots with pandas&#13;&#10;"/>
+				</div>
+			</div>
+			<p class="figure-caption">Figure 5.13 – Creating subplots with pandas</p>
+			<p>Notice that the subplots automatically share the <em class="italic">x</em>-axis, since they share an index. The <em class="italic">y</em>-axis is not shared because the <strong class="source-inline">volume</strong> time series is on a different scale. We can alter this behavior in some plot types by passing the <strong class="source-inline">sharex</strong> or <strong class="source-inline">sharey</strong> argument with a Boolean to <strong class="source-inline">plot()</strong>. The legend will be rendered by default, so, for each subplot, we have a single item in the legend indicating which data it contains. We didn't provide a list of subplot titles with the <strong class="source-inline">title</strong> argument in this case, since the legend served that purpose; however, we passed a single string for the title of the plot as a whole. To summarize, when working with subplots, we have two options when it comes to the title:</p>
+			<ul>
+				<li>Passing a single string for the title of the figure as a whole.</li>
+				<li>Passing a list of strings to use as the title for each subplot.</li>
+			</ul>
+			<p>Sometimes, we want <a id="_idIndexMarker657"/>to make subplots where each has a few variables in them for comparison. This can be achieved by first creating the subplots with <strong class="source-inline">plt.subplots()</strong> and then providing the <strong class="source-inline">Axes</strong> objects to the <strong class="source-inline">ax</strong> parameter. To illustrate this, let's take a look at daily new cases of COVID-19 in China, Spain, Italy, the USA, Brazil, and India. This is long format data, so we must first pivot it so that the dates (which we set as the index when we read in the CSV file) are in the index of the pivot table and the countries (<strong class="source-inline">countriesAndTerritories</strong>) are in the columns. Since there is a lot of fluctuation in these values, we will plot the 7-day moving average of new cases using the <strong class="source-inline">rolling()</strong> method introduced in <a href="B16834_04_Final_SK_ePub.xhtml#_idTextAnchor082"><em class="italic">Chapter 4</em></a>, <em class="italic">Aggregating Pandas DataFrames</em>:</p>
+			<p class="source-code">&gt;&gt;&gt; new_cases_rolling_average = covid.pivot_table(</p>
+			<p class="source-code">...     index=covid.index,</p>
+			<p class="source-code">...     columns='countriesAndTerritories',</p>
+			<p class="source-code">...     values='cases'</p>
+			<p class="source-code">... ).rolling(7).mean()</p>
+			<p>Rather than create a separate plot for each country (which makes it harder to compare) or plot them all together (which will make it difficult to see the smaller values), we will plot countries that have had a similar number of cases in the same subplot. We will also use different line styles in order to distinguish between them in black and white:</p>
+			<p class="source-code">&gt;&gt;&gt; <strong class="bold">fig, axes = plt.subplots(1, 3, figsize=(15, 5))</strong></p>
+			<p class="source-code">&gt;&gt;&gt; new_cases_rolling_average[['China']]\</p>
+			<p class="source-code">...     .plot(<strong class="bold">ax=axes[0]</strong>, style='-.c')</p>
+			<p class="source-code">&gt;&gt;&gt; new_cases_rolling_average[['Italy', 'Spain']].plot(</p>
+			<p class="source-code">...     <strong class="bold">ax=axes[1]</strong>, style=['-', '--'],</p>
+			<p class="source-code">...     title='7-day rolling average of new '</p>
+			<p class="source-code">...           'COVID-19 cases\n(source: ECDC)'</p>
+			<p class="source-code">... )</p>
+			<p class="source-code">&gt;&gt;&gt; new_cases_rolling_average[['Brazil', 'India', 'USA']]\ </p>
+			<p class="source-code">...     .plot(<strong class="bold">ax=axes[2]</strong>, style=['--', ':', '-'])</p>
+			<p>By directly <a id="_idIndexMarker658"/>using <strong class="source-inline">matplotlib</strong> to generate the <strong class="source-inline">Axes</strong> objects for each subplot, we gained a lot more flexibility in the resulting layout:</p>
+			<p class="figure-caption"> </p>
+			<div>
+				<div id="_idContainer233" class="IMG---Figure">
+					<img src="image/Figure_5.14_B16834.jpg" alt="Figure 5.14 – Controlling which data gets plotted in each of the subplots&#13;&#10;"/>
+				</div>
+			</div>
+			<p class="figure-caption">Figure 5.14 – Controlling which data gets plotted in each of the subplots</p>
+			<p>In the previous plot, we were able to compare countries with similar levels of daily new COVID-19 cases, but we couldn't compare all of them in the same subplot due to scale. One way to get around this is to use an <strong class="bold">area plot</strong>, which makes it possible for us to visualize the overall 7-day rolling average of new COVID-19 cases and, at the same time, how much each country is contributing to the total. In the interest of readability, we will group Italy and Spain together and create another category for countries other than the USA, Brazil, and India:</p>
+			<p class="source-code">&gt;&gt;&gt; cols = [</p>
+			<p class="source-code">...     col for col in new_cases_rolling_average.columns </p>
+			<p class="source-code">...     if col not in [</p>
+			<p class="source-code">...         'USA', 'Brazil', 'India', 'Italy &amp; Spain'</p>
+			<p class="source-code">...     ]</p>
+			<p class="source-code">... ]</p>
+			<p class="source-code">&gt;&gt;&gt; new_cases_rolling_average.assign(</p>
+			<p class="source-code">...     **{'Italy &amp; Spain': lambda x: x.Italy + x.Spain}</p>
+			<p class="source-code">... ).sort_index(axis=1).assign(</p>
+			<p class="source-code">...     Other=lambda x: x[cols].sum(axis=1)</p>
+			<p class="source-code">... ).drop(columns=cols).plot(</p>
+			<p class="source-code">...     <strong class="bold">kind='area'</strong>, figsize=(15, 5), </p>
+			<p class="source-code">...     title='7-day rolling average of new '</p>
+			<p class="source-code">...           'COVID-19 cases\n(source: ECDC)'</p>
+			<p class="source-code">... )</p>
+			<p>For those <a id="_idIndexMarker659"/>viewing the resulting plot in black and white, Brazil is the bottom layer, with India on top of it and so on. The combined height of the plot areas is the overall value, and the height of a given shaded region is the value for that country. This shows us that more than half of the daily new cases are in Brazil, India, Italy, Spain, and the USA combined:</p>
+			<div>
+				<div id="_idContainer234" class="IMG---Figure">
+					<img src="image/Figure_5.15_B16834.jpg" alt="Figure 5.15 – Creating an area plot&#13;&#10;"/>
+				</div>
+			</div>
+			<p class="figure-caption">Figure 5.15 – Creating an area plot</p>
+			<p>Another way to visualize evolution over time is to look at the cumulative sum over time. Let's plot the cumulative number of COVID-19 cases in China, Spain, Italy, the USA, Brazil, and India, using the <strong class="source-inline">ax</strong> parameter to once again to create subplots. To calculate the cumulative <a id="_idIndexMarker660"/>sum over time, we group by the location (<strong class="source-inline">countriesAndTerritories</strong>) and the date, which is our index, so we use <strong class="source-inline">pd.Grouper()</strong>; this time, we will use <strong class="source-inline">groupby()</strong> and <strong class="source-inline">unstack()</strong> to pivot our data into wide format for the plot:</p>
+			<p class="source-code">&gt;&gt;&gt; fig, axes = plt.subplots(1, 3, figsize=(15, 3))</p>
+			<p class="source-code">&gt;&gt;&gt; cumulative_covid_cases = covid.groupby(</p>
+			<p class="source-code">...     ['countriesAndTerritories', pd.Grouper(freq='1D')]</p>
+			<p class="source-code">... ).cases.sum().unstack(0).apply('cumsum')</p>
+			<p class="source-code">&gt;&gt;&gt; cumulative_covid_cases[['China']]\</p>
+			<p class="source-code">...     .plot(ax=axes[0], style='-.c')</p>
+			<p class="source-code">&gt;&gt;&gt; cumulative_covid_cases[['Italy', 'Spain']].plot(</p>
+			<p class="source-code">...     ax=axes[1], style=['-', '--'], </p>
+			<p class="source-code">...     title='Cumulative COVID-19 Cases\n(source: ECDC)'</p>
+			<p class="source-code">... )</p>
+			<p class="source-code">&gt;&gt;&gt; cumulative_covid_cases[['Brazil', 'India', 'USA']]\ </p>
+			<p class="source-code">...     .plot(ax=axes[2], style=['--', ':', '-'])</p>
+			<p>Viewing the <a id="_idIndexMarker661"/>cumulative COVID-19 cases shows that while China and Italy appear to have COVID-19 cases under control, Spain, the USA, Brazil, and India are struggling: </p>
+			<div>
+				<div id="_idContainer235" class="IMG---Figure">
+					<img src="image/Figure_5.16_B16834.jpg" alt="Figure 5.16 – Plotting the cumulative sum over time&#13;&#10;"/>
+				</div>
+			</div>
+			<p class="figure-caption">Figure 5.16 – Plotting the cumulative sum over time</p>
+			<p class="callout-heading">Important note</p>
+			<p class="callout">We used dotted and dashed lines multiple times in this section to ensure that the resulting plots could be interpreted in black and white; note, however, that accepting the default colors and line styles will suffice when presenting these plots in color. Often, different line styles signify a difference in the data types—for example, we could use a solid line for the evolution over time and a dashed line to represent the rolling average.</p>
+			<h2 id="_idParaDest-115"><a id="_idTextAnchor114"/>Relationships between variables</h2>
+			<p>When we <a id="_idIndexMarker662"/>want to visualize the relationship between variables, we often begin with scatter plots, which show us the value of the <strong class="source-inline">y</strong> variable at different values of the <strong class="source-inline">x</strong> variable. This makes it very easy for us to spot correlations and possible non-linear relationships. In the previous chapter, when we looked at the Facebook stock data, we saw that the days of high volume traded appeared to be correlated with large drops in stock price. We can use a scatter plot to visualize this relationship:</p>
+			<p class="source-code">&gt;&gt;&gt; fb.assign(</p>
+			<p class="source-code">...     max_abs_change=fb.high - fb.low</p>
+			<p class="source-code">... ).plot(</p>
+			<p class="source-code">...     <strong class="bold">kind='scatter'</strong>, x='volume', y='max_abs_change',</p>
+			<p class="source-code">...     title='Facebook Daily High - Low vs. Volume Traded'</p>
+			<p class="source-code">... )</p>
+			<p>There <a id="_idIndexMarker663"/>appears to be a relationship, but it does not seem linear:</p>
+			<div>
+				<div id="_idContainer236" class="IMG---Figure">
+					<img src="image/Figure_5.17_B16834.jpg" alt="Figure 5.17 – Making scatter plots with pandas&#13;&#10;"/>
+				</div>
+			</div>
+			<p class="figure-caption">Figure 5.17 – Making scatter plots with pandas</p>
+			<p>Let's try taking the logarithm (log) of the volume. To do so, we have a couple of options:</p>
+			<ul>
+				<li>Create a new column that is the log of the volume using <strong class="source-inline">np.log()</strong>.</li>
+				<li>Use a logarithmic scale for the <em class="italic">x</em>-axis by passing in <strong class="source-inline">logx=True</strong> to the <strong class="source-inline">plot()</strong> method or calling <strong class="source-inline">plt.xscale('log')</strong>.</li>
+			</ul>
+			<p>In this case, it makes the most sense to simply change how we display our data, since we aren't going to use the new column:</p>
+			<p class="source-code">&gt;&gt;&gt; fb.assign(</p>
+			<p class="source-code">...     max_abs_change=fb.high - fb.low</p>
+			<p class="source-code">... ).plot(</p>
+			<p class="source-code">...     kind='scatter', x='volume', y='max_abs_change',</p>
+			<p class="source-code">...     title='Facebook Daily High - '</p>
+			<p class="source-code">...           'Low vs. log(Volume Traded)',</p>
+			<p class="source-code">...     <strong class="bold">logx=True</strong></p>
+			<p class="source-code">... )</p>
+			<p>After <a id="_idIndexMarker664"/>modifying the <em class="italic">x</em>-axis scale, we get the following scatter plot:</p>
+			<div>
+				<div id="_idContainer237" class="IMG---Figure">
+					<img src="image/Figure_5.18_B16834.jpg" alt="Figure 5.18 – Applying a logarithmic scale to the x-axis&#13;&#10;"/>
+				</div>
+			</div>
+			<p class="figure-caption">Figure 5.18 – Applying a logarithmic scale to the <em class="italic">x</em>-axis</p>
+			<p class="callout-heading">Tip</p>
+			<p class="callout">The <strong class="source-inline">plot()</strong> method from <strong class="source-inline">pandas</strong> has three arguments for logarithmic scales: <strong class="source-inline">logx</strong>/<strong class="source-inline">logy</strong> for single axis adjustments and <strong class="source-inline">loglog</strong> for setting both to the logarithmic scale.</p>
+			<p>One problem with scatter plots is that it can be very difficult to discern the concentration of points in a given area, since they are simply plotted one of top of the other. We can use the <strong class="source-inline">alpha</strong> argument to control the transparency of the points; this argument takes values from <strong class="source-inline">0</strong> to <strong class="source-inline">1</strong>, where <strong class="source-inline">0</strong> is entirely transparent and <strong class="source-inline">1</strong> is completely opaque. By default, they are opaque (value of <strong class="source-inline">1</strong>); however, if we make them more transparent, we should be able to see some of the overlap:</p>
+			<p class="source-code">&gt;&gt;&gt; fb.assign(</p>
+			<p class="source-code">...     max_abs_change=fb.high - fb.low</p>
+			<p class="source-code">... ).plot(</p>
+			<p class="source-code">...     kind='scatter', x='volume', y='max_abs_change',</p>
+			<p class="source-code">...     title='Facebook Daily High - '</p>
+			<p class="source-code">...           'Low vs. log(Volume Traded)', </p>
+			<p class="source-code">...     logx=True, <strong class="bold">alpha=0.25</strong></p>
+			<p class="source-code">... )</p>
+			<p>We can <a id="_idIndexMarker665"/>now begin to make out the density of points in the lower-left region of the plot, but it's still relatively difficult:</p>
+			<div>
+				<div id="_idContainer238" class="IMG---Figure">
+					<img src="image/Figure_5.19_B16834.jpg" alt="Figure 5.19 – Modifying transparency to visualize overlap&#13;&#10;"/>
+				</div>
+			</div>
+			<p class="figure-caption">Figure 5.19 – Modifying transparency to visualize overlap</p>
+			<p>Thankfully, we have another plot type at our disposal: <strong class="source-inline">hexbin</strong>. <strong class="bold">Hexbins</strong> form a two-dimensional histogram by dividing the plot into a grid of hexagons and shading them based on the concentration of points in each bin. Let's view this data as hexbins:</p>
+			<p class="source-code">&gt;&gt;&gt; fb.assign(</p>
+			<p class="source-code">...     log_volume=np.log(fb.volume),</p>
+			<p class="source-code">...     max_abs_change=fb.high - fb.low</p>
+			<p class="source-code">... ).plot(</p>
+			<p class="source-code">...     <strong class="bold">kind='hexbin'</strong>, </p>
+			<p class="source-code">...     x='log_volume', </p>
+			<p class="source-code">...     y='max_abs_change', </p>
+			<p class="source-code">...     title='Facebook Daily High - '</p>
+			<p class="source-code">...           'Low vs. log(Volume Traded)', </p>
+			<p class="source-code">...     colormap='gray_r', </p>
+			<p class="source-code">...     <strong class="bold">gridsize=20</strong>,</p>
+			<p class="source-code">...     sharex=False # bug fix to keep the x-axis label</p>
+			<p class="source-code">... )</p>
+			<p>The colorbar on the <a id="_idIndexMarker666"/>side indicates the relationship between color and the number of points in that bin. The colormap we chose (<strong class="source-inline">gray_r</strong>) shades the bins darker (toward black) for high density, and lighter (toward white) for low density. By passing in <strong class="source-inline">gridsize=20</strong>, we are specifying that 20 hexagons should be used across the <em class="italic">x</em>-axis, and then having <strong class="source-inline">pandas</strong> determine how many to use along the <em class="italic">y</em>-axis so that they are approximately regular in shape; we can, however, pass a tuple to choose the number in both directions. A larger value for <strong class="source-inline">gridsize</strong> will make the bins harder to see, while a smaller one will result in fuller bins that take up more space on the plot—we must strike a balance:</p>
+			<div>
+				<div id="_idContainer239" class="IMG---Figure">
+					<img src="image/Figure_5.20_B16834.jpg" alt="Figure 5.20 – Plotting hexbins with pandas&#13;&#10;"/>
+				</div>
+			</div>
+			<p class="figure-caption">Figure 5.20 – Plotting hexbins with pandas</p>
+			<p>Finally, if we simply want to visualize the correlation between variables, we can plot a correlation matrix. A <strong class="bold">correlation matrix</strong> depicts the magnitude and direction (positive or negative) of the correlation. Let's take a look at the correlation matrix for the Facebook <a id="_idIndexMarker667"/>data we have been working with. To do so, we can use a combination of <strong class="source-inline">pandas</strong> and either the <strong class="source-inline">plt.matshow()</strong> or <strong class="source-inline">plt.imshow()</strong> function from <strong class="source-inline">matplotlib</strong>. Since there is a lot of code that needs to be run in the same cell, we will discuss the purpose of each section immediately after this code block:</p>
+			<p class="source-code">&gt;&gt;&gt; fig, ax = plt.subplots(figsize=(20, 10))</p>
+			<p class="source-code"># calculate the correlation matrix</p>
+			<p class="source-code">&gt;&gt;&gt; fb_corr = fb.assign(</p>
+			<p class="source-code">...     log_volume=np.log(fb.volume),</p>
+			<p class="source-code">...     max_abs_change=fb.high - fb.low</p>
+			<p class="source-code">... ).corr()</p>
+			<p class="source-code"># create the heatmap and colorbar</p>
+			<p class="source-code">&gt;&gt;&gt; im = <strong class="bold">ax.matshow(fb_corr, cmap='seismic')</strong></p>
+			<p class="source-code">&gt;&gt;&gt; im.set_clim(-1, 1)</p>
+			<p class="source-code">&gt;&gt;&gt; fig.colorbar(im)</p>
+			<p class="source-code"># label the ticks with the column names</p>
+			<p class="source-code">&gt;&gt;&gt; labels = [col.lower() for col in fb_corr.columns]</p>
+			<p class="source-code">&gt;&gt;&gt; ax.set_xticks(ax.get_xticks()[1:-1])</p>
+			<p class="source-code">&gt;&gt;&gt; ax.set_xtickabels(labels, rotation=45)</p>
+			<p class="source-code">&gt;&gt;&gt; ax.set_yticks(ax.get_yticks()[1:-1])</p>
+			<p class="source-code">&gt;&gt;&gt; ax.set_yticklabels(labels)</p>
+			<p class="source-code"># include the value of the correlation coefficient in the boxes</p>
+			<p class="source-code">&gt;&gt;&gt; for (i, j), coef in np.ndenumerate(fb_corr):</p>
+			<p class="source-code">...     ax.text(</p>
+			<p class="source-code">...         i, j, fr'$\rho$ = {coef:.2f}', </p>
+			<p class="source-code">...         ha='center', va='center', </p>
+			<p class="source-code">...         color='white', fontsize=14</p>
+			<p class="source-code">...     )</p>
+			<p>A <strong class="bold">heatmap</strong> lets us easily visualize the correlation coefficients, provided we choose a diverging colormap—we will discuss the different types of colormaps when we discuss customizing plots in <a href="B16834_06_Final_SK_ePub.xhtml#_idTextAnchor125"><em class="italic">Chapter 6</em></a>, <em class="italic">Plotting with Seaborn and Customization Techniques</em>. Essentially, for this plot, we want red for correlation coefficients greater than zero <a id="_idIndexMarker668"/>and blue for those below; correlation coefficients near zero will be devoid of color, and stronger correlations will be darker shades of their respective colors. This can be achieved by selecting the <strong class="source-inline">seismic</strong> colormap and then setting the limits of the color scale to [-1, 1], since the correlation coefficient has those bounds:</p>
+			<p class="source-code">im = ax.matshow(fb_corr, cmap='seismic')</p>
+			<p class="source-code">im.set_clim(-1, 1) # set the bounds of the color scale</p>
+			<p class="source-code">fig.colorbar(im) # add the colorbar to the figure</p>
+			<p>To be able to read the resulting heatmap, we need to label the rows and columns with the names of the variables in our data:</p>
+			<p class="source-code">labels = [col.lower() for col in fb_corr.columns]</p>
+			<p class="source-code">ax.set_xticks(ax.get_xticks()[1:-1]) # to handle matplotlib bug</p>
+			<p class="source-code">ax.set_xticklabels(labels, rotation=45)</p>
+			<p class="source-code">ax.set_yticks(ax.get_yticks()[1:-1]) # to handle matplotlib bug</p>
+			<p class="source-code">ax.set_yticklabels(labels)</p>
+			<p>While the color scale will make it easy for us to differentiate between weak and strong correlations, it is often helpful to annotate the heatmap with the actual correlation coefficients. This can <a id="_idIndexMarker669"/>be accomplished by using the <strong class="source-inline">text()</strong> method on the <strong class="source-inline">Axes</strong> object containing the plot. For this plot, we placed white, center-aligned text indicating the value of the Pearson correlation coefficient for each variable combination:</p>
+			<p class="source-code"># iterate over the matrix </p>
+			<p class="source-code">for (i, j), coef in np.ndenumerate(fb_corr): </p>
+			<p class="source-code">    ax.text(</p>
+			<p class="source-code">        i, j, </p>
+			<p class="source-code">        fr'$\rho$ = {coef:.2f}', # raw (r), format (f) string</p>
+			<p class="source-code">        ha='center', va='center', </p>
+			<p class="source-code">        color='white', fontsize=14</p>
+			<p class="source-code">    )</p>
+			<p>This results in an annotated heatmap showing the correlations between the variables in the Facebook dataset:</p>
+			<div>
+				<div id="_idContainer240" class="IMG---Figure">
+					<img src="image/Figure_5.21_B16834.jpg" alt="Figure 5.21 – Visualizing correlations as a heatmap&#13;&#10;"/>
+				</div>
+			</div>
+			<p class="figure-caption">Figure 5.21 – Visualizing correlations as a heatmap</p>
+			<p>In <em class="italic">Figure 5.21</em>, we can easily see strong positive correlations among the OHLC time series, as well as among the volume traded and maximum absolute value of change. However, there <a id="_idIndexMarker670"/>are weak negative correlations between these groups. Furthermore, we can see that taking the logarithm of the volume does indeed increase the coefficient of correlation with <strong class="source-inline">max_abs_change</strong> from 0.64 to 0.73. When we discuss <strong class="source-inline">seaborn</strong> in the next chapter, we will learn an easier way to generate a heatmap, and also cover annotations in more detail.</p>
+			<h2 id="_idParaDest-116"><a id="_idTextAnchor115"/>Distributions</h2>
+			<p>Often, we want to visualize the distribution of our data to see what values it takes on. Depending on <a id="_idIndexMarker671"/>the type of data we have, we may choose to use <a id="_idIndexMarker672"/>histograms, <strong class="bold">kernel density estimates</strong> (<strong class="bold">KDEs</strong>), box plots, or <strong class="bold">empirical cumulative distribution functions</strong> (<strong class="bold">ECDFs</strong>). When working with discrete data, histograms are a good place to start. Let's <a id="_idIndexMarker673"/>take a look at the histogram of daily volume traded in Facebook stock:</p>
+			<p class="source-code">&gt;&gt;&gt; fb.volume.plot(</p>
+			<p class="source-code">...     <strong class="bold">kind='hist'</strong>, </p>
+			<p class="source-code">...     title='Histogram of Daily Volume Traded '</p>
+			<p class="source-code">...           'in Facebook Stock'</p>
+			<p class="source-code">... )</p>
+			<p class="source-code">&gt;&gt;&gt; plt.xlabel('Volume traded') # label x-axis (see ch 6)</p>
+			<p>This is a great example of real-world data that is, most definitely, not normally distributed. The volume traded is right skewed, with a long tail to the right. Recall that in <a href="B16834_04_Final_SK_ePub.xhtml#_idTextAnchor082"><em class="italic">Chapter 4</em></a>, <em class="italic">Aggregating Pandas DataFrames</em>, when we discussed binning and looked at low, medium, and high volume traded, almost all of the data fell in the low bucket, which aligns with what we see in this histogram:</p>
+			<div>
+				<div id="_idContainer241" class="IMG---Figure">
+					<img src="image/Figure_5.22_B16834.jpg" alt="Figure 5.22 – Creating a histogram with pandas&#13;&#10;"/>
+				</div>
+			</div>
+			<p class="figure-caption">Figure 5.22 – Creating a histogram with pandas</p>
+			<p class="callout-heading">Tip</p>
+			<p class="callout">As with the <strong class="source-inline">plt.hist()</strong> function from <strong class="source-inline">matplotlib</strong>, we can provide a custom value for the number of bins with the <strong class="source-inline">bins</strong> argument. However, we must be careful that we don't misrepresent the distribution.</p>
+			<p>We can <a id="_idIndexMarker674"/>also create multiple histograms on the same plot to compare distributions by using the <strong class="source-inline">ax</strong> parameter to specify the same <strong class="source-inline">Axes</strong> object for each plot. In this case, we must use the <strong class="source-inline">alpha</strong> parameter to see any overlaps. Given that we have many different measurement techniques for earthquakes (the <strong class="source-inline">magType</strong> column), we may be interested in comparing the different ranges of magnitudes they yield:</p>
+			<p class="source-code">&gt;&gt;&gt; fig, axes = plt.subplots(figsize=(8, 5))</p>
+			<p class="source-code">&gt;&gt;&gt; for magtype in quakes.magType.unique():</p>
+			<p class="source-code">...     data = quakes.query(f'magType == "{magtype}"').mag</p>
+			<p class="source-code">...     if not data.empty:</p>
+			<p class="source-code">...         data.plot(</p>
+			<p class="source-code">...             <strong class="bold">kind='hist', </strong></p>
+			<p class="source-code">...             <strong class="bold">ax=axes, </strong></p>
+			<p class="source-code">...             <strong class="bold">alpha=0.4</strong>, </p>
+			<p class="source-code">...             label=magtype, </p>
+			<p class="source-code">...             legend=True, </p>
+			<p class="source-code">...             title='Comparing histograms '</p>
+			<p class="source-code">...                   'of earthquake magnitude by magType'</p>
+			<p class="source-code">...         )</p>
+			<p class="source-code">&gt;&gt;&gt; plt.xlabel('magnitude') # label x-axis (discussed in ch 6)</p>
+			<p>This shows us that <strong class="source-inline">ml</strong> is the most common <strong class="source-inline">magType</strong>, followed by <strong class="source-inline">md</strong>, and that they yield similar <a id="_idIndexMarker675"/>ranges of magnitudes; however, <strong class="source-inline">mb</strong>, which is the third-most common, yields higher magnitudes:</p>
+			<div>
+				<div id="_idContainer242" class="IMG---Figure">
+					<img src="image/Figure_5.23_B16834.jpg" alt="Figure 5.23 – Plotting overlapping histograms with pandas&#13;&#10;"/>
+				</div>
+			</div>
+			<p class="figure-caption">Figure 5.23 – Plotting overlapping histograms with pandas</p>
+			<p>When working with continuous data (such as stock prices), we can use KDEs. Let's take a look at the KDE of the daily high price for Facebook stock. Note that we can pass either <strong class="source-inline">kind='kde'</strong> or <strong class="source-inline">kind='density'</strong>:</p>
+			<p class="source-code">&gt;&gt;&gt; fb.high.plot(</p>
+			<p class="source-code">...     <strong class="bold">kind='kde'</strong>, </p>
+			<p class="source-code">...     title='KDE of Daily High Price for Facebook Stock'</p>
+			<p class="source-code">... )</p>
+			<p class="source-code">&gt;&gt;&gt; plt.xlabel('Price ($)') # label x-axis (discussed in ch 6)</p>
+			<p>The resulting <a id="_idIndexMarker676"/>density curve has some left skew:</p>
+			<div>
+				<div id="_idContainer243" class="IMG---Figure">
+					<img src="image/Figure_5.24_B16834.jpg" alt="Figure 5.24 – Visualizing the KDE with pandas&#13;&#10;"/>
+				</div>
+			</div>
+			<p class="figure-caption">Figure 5.24 – Visualizing the KDE with pandas</p>
+			<p>We may also want to visualize the KDE superimposed on top of the histogram. Pandas allows us to pass the <strong class="source-inline">Axes</strong> object we want to plot on, and also returns one after creating the visualization, which makes this a cinch:</p>
+			<p class="source-code">&gt;&gt;&gt; ax = fb.high.plot(kind='hist', <strong class="bold">density=True</strong>, alpha=0.5)</p>
+			<p class="source-code">&gt;&gt;&gt; fb.high.plot(</p>
+			<p class="source-code">...     <strong class="bold">ax=ax</strong>, kind='kde', color='blue', </p>
+			<p class="source-code">...     title='Distribution of Facebook Stock\'s '</p>
+			<p class="source-code">...           'Daily High Price in 2018'</p>
+			<p class="source-code">... )</p>
+			<p class="source-code">&gt;&gt;&gt; plt.xlabel('Price ($)') # label x-axis (discussed in ch 6)</p>
+			<p>Notice that we had to pass <strong class="source-inline">density=True</strong> when we generated the histogram to make sure that the <em class="italic">y</em>-axis for the histogram and KDE were on the same scale. Otherwise, the KDE would have been too small to see. The histogram then gets plotted with density on the <em class="italic">y</em>-axis so that we can better understand how the KDE got its shape. We also increased the transparency of the histogram so that we could see the KDE line on top. Note that if we <a id="_idIndexMarker677"/>remove the <strong class="source-inline">color='blue'</strong> part of the KDE call, we don't need to change the value of <strong class="source-inline">alpha</strong> in the histogram call because the KDE and histogram will be different colors; we are plotting them both in blue since they represent the same data:</p>
+			<div>
+				<div id="_idContainer244" class="IMG---Figure">
+					<img src="image/Figure_5.25_B16834.jpg" alt="Figure 5.25 – Combining a KDE and a histogram with pandas&#13;&#10;"/>
+				</div>
+			</div>
+			<p class="figure-caption">Figure 5.25 – Combining a KDE and a histogram with pandas</p>
+			<p>The KDE shows us an estimated <strong class="bold">probability density function</strong> (<strong class="bold">PDF</strong>), which tells us how probability <a id="_idIndexMarker678"/>is distributed over the values of the data. However, in some cases, we are more interested in the probability of getting <a id="_idIndexMarker679"/>less than or equal to (or greater than or equal to) some value, which we can see with the <strong class="bold">cumulative distribution function</strong> (<strong class="bold">CDF</strong>).</p>
+			<p class="callout-heading">Important note</p>
+			<p class="callout">With a CDF, the values for the <em class="italic">x</em> variable go along the <em class="italic">x</em>-axis, while the cumulative probability of getting, at most, a given <em class="italic">x</em> goes along the <em class="italic">y</em>-axis. This cumulative probability is between 0 and 1 and is written as <em class="italic">P(X ≤ x)</em>, where the lowercase (<em class="italic">x</em>) is the value for comparison and the uppercase (<em class="italic">X</em>) is the random variable, <em class="italic">X</em>. More information can be found at <a href="https://www.itl.nist.gov/div898/handbook/eda/section3/eda362.htm">https://www.itl.nist.gov/div898/handbook/eda/section3/eda362.htm</a>.</p>
+			<p>Using the <strong class="source-inline">statsmodels</strong> package, we can estimate the CDF giving us the <strong class="bold">empirical cumulative distribution function</strong> (<strong class="bold">ECDF</strong>). Let's use this to understand the distribution of magnitudes for earthquakes measured with the <strong class="source-inline">ml</strong> magnitude type:</p>
+			<p class="source-code">&gt;&gt;&gt; from statsmodels.distributions.empirical_distribution \</p>
+			<p class="source-code">...     import ECDF</p>
+			<p class="source-code">&gt;&gt;&gt; <strong class="bold">ecdf = ECDF(quakes.query('magType == "ml"').mag)</strong></p>
+			<p class="source-code">&gt;&gt;&gt; plt.plot(ecdf.x, ecdf.y)</p>
+			<p class="source-code"># axis labels (we will cover this in chapter 6)</p>
+			<p class="source-code">&gt;&gt;&gt; plt.xlabel('mag') # add x-axis label </p>
+			<p class="source-code">&gt;&gt;&gt; plt.ylabel('cumulative probability') # add y-axis label</p>
+			<p class="source-code"># add title (we will cover this in chapter 6)</p>
+			<p class="source-code">&gt;&gt;&gt; plt.title('ECDF of earthquake magnitude with magType ml')</p>
+			<p>This yields <a id="_idIndexMarker680"/>the following ECDF:</p>
+			<div>
+				<div id="_idContainer245" class="IMG---Figure">
+					<img src="image/Figure_5.26_B16834.jpg" alt="Figure 5.26 – Visualizing the ECDF&#13;&#10;"/>
+				</div>
+			</div>
+			<p class="figure-caption">Figure 5.26 – Visualizing the ECDF</p>
+			<p>This can be very useful in gaining a better understanding of our data when we conduct our EDA. However, we must be careful how we interpret this and how we explain it to others, if we choose to do so. Here, we can see that if this distribution is indeed representative of the population, the probability of the <strong class="source-inline">ml</strong> magnitude of the earthquake being less than or equal to <strong class="bold">3</strong> is <strong class="bold">98%</strong> for earthquakes measured with that measurement technique:</p>
+			<div>
+				<div id="_idContainer246" class="IMG---Figure">
+					<img src="image/Figure_5.27_B16834.jpg" alt="Figure 5.27 – Interpreting the ECDF&#13;&#10;"/>
+				</div>
+			</div>
+			<p class="figure-caption">Figure 5.27 – Interpreting the ECDF</p>
+			<p>Finally, we can <a id="_idIndexMarker681"/>use box plots to visualize potential outliers and the distribution using quartiles. As an example, let's visualize the OHLC prices for Facebook stock across the whole dataset:</p>
+			<p class="source-code">&gt;&gt;&gt; fb.iloc[:,:4].plot(</p>
+			<p class="source-code">...     <strong class="bold">kind='box'</strong>, </p>
+			<p class="source-code">...     title='Facebook OHLC Prices Box Plot'</p>
+			<p class="source-code">... )</p>
+			<p class="source-code">&gt;&gt;&gt; plt.ylabel('price ($)') # label x-axis (discussed in ch 6)</p>
+			<p>Notice that we do lose some information we had in the other plots. We no longer have an idea of the density of points throughout the distribution; with the box plot, we focus on the 5-number summary instead:</p>
+			<div>
+				<div id="_idContainer247" class="IMG---Figure">
+					<img src="image/Figure_5.28_B16834.jpg" alt="Figure 5.28 – Creating box plots with pandas&#13;&#10;"/>
+				</div>
+			</div>
+			<p class="figure-caption">Figure 5.28 – Creating box plots with pandas</p>
+			<p class="callout-heading">Tip</p>
+			<p class="callout">We can create a notched box plot by passing in <strong class="source-inline">notch=True</strong>. The notch marks a 95% confidence interval around the median, which can be helpful when comparing differences between groups. There is an example in the notebook.</p>
+			<p>We can <a id="_idIndexMarker682"/>also call the <strong class="source-inline">boxplot()</strong> method after calling <strong class="source-inline">groupby()</strong>. Let's examine how the box plots change when we calculate them based on the volume traded:</p>
+			<p class="source-code">&gt;&gt;&gt; fb.assign(</p>
+			<p class="source-code">...     volume_bin=\</p>
+			<p class="source-code">...         pd.cut(fb.volume, 3, labels=['low', 'med', 'high']) </p>
+			<p class="source-code">... ).<strong class="bold">groupby('volume_bin').boxplot(</strong></p>
+			<p class="source-code">...     <strong class="bold">column=['open', 'high', 'low', 'close'],</strong> </p>
+			<p class="source-code">...     <strong class="bold">layout=(1, 3), figsize=(12, 3)</strong></p>
+			<p class="source-code">... <strong class="bold">)</strong></p>
+			<p class="source-code">&gt;&gt;&gt; plt.suptitle(</p>
+			<p class="source-code">...     'Facebook OHLC Box Plots by Volume Traded', y=1.1</p>
+			<p class="source-code">... )</p>
+			<p>Remember from <a href="B16834_04_Final_SK_ePub.xhtml#_idTextAnchor082"><em class="italic">Chapter 4</em></a>, <em class="italic">Aggregating Pandas DataFrames,</em> that most of the days fell in the low volume traded bucket, so we would expect to see more variation there because of what the stock data looked like over time:</p>
+			<div>
+				<div id="_idContainer248" class="IMG---Figure">
+					<img src="image/Figure_5.29_B16834.jpg" alt="Figure 5.29 – Box plots per group with pandas&#13;&#10;"/>
+				</div>
+			</div>
+			<p class="figure-caption">Figure 5.29 – Box plots per group with pandas</p>
+			<p>We can <a id="_idIndexMarker683"/>also use this technique to see the distribution of earthquake magnitudes based on which <strong class="source-inline">magType</strong> was used and compare it with the expected ranges on the USGS website (<a href="https://www.usgs.gov/natural-hazards/earthquake-hazards/science/magnitude-types">https://www.usgs.gov/natural-hazards/earthquake-hazards/science/magnitude-types</a>):</p>
+			<p class="source-code">&gt;&gt;&gt; quakes[['mag', 'magType']]\</p>
+			<p class="source-code">...     .groupby('magType')\</p>
+			<p class="source-code">...     .boxplot(figsize=(15, 8), subplots=False)</p>
+			<p class="source-code"># formatting (covered in chapter 6)</p>
+			<p class="source-code">&gt;&gt;&gt; plt.title('Earthquake Magnitude Box Plots by magType')</p>
+			<p class="source-code">&gt;&gt;&gt; plt.ylabel('magnitude')</p>
+			<p>The USGS website mentions situations in which certain measurement techniques can't be used and the range of magnitudes each measurement technique is authoritative for (when outside that range, other techniques are used). Here, we can see that, together, the techniques cover a wide spectrum of magnitudes, while none of them cover everything:</p>
+			<div>
+				<div id="_idContainer249" class="IMG---Figure">
+					<img src="image/Figure_5.30_B16834.jpg" alt="Figure 5.30 – Box plots per group in a single plot&#13;&#10;"/>
+				</div>
+			</div>
+			<p class="figure-caption">Figure 5.30 – Box plots per group in a single plot</p>
+			<p class="callout-heading">Important note</p>
+			<p class="callout">While histograms, KDEs, ECDFs, and box plots are all ways of looking at the distribution of the data, we saw <a id="_idIndexMarker684"/>that each visualization showed us a different aspect of it. It's important to visualize the data from many angles before drawing any conclusions.</p>
+			<h2 id="_idParaDest-117"><a id="_idTextAnchor116"/>Counts and frequencies</h2>
+			<p>When working with categorical data, we can create bar plots for displaying counts of our data or <a id="_idIndexMarker685"/>frequencies of particular values. The bars can be vertical (<strong class="source-inline">kind='bar'</strong>) or horizontal (<strong class="source-inline">kind='barh'</strong>). Vertical bar plots are useful when we have many categories or there is some order to the categories (for example, an evolution over time). Horizontal bar plots make it easy to compare the size of each category while allowing sufficient space on the margin for long category names (without the need to rotate them).</p>
+			<p>We can use a horizontal bar plot to see which places in the <strong class="source-inline">quakes</strong> dataframe have had the most earthquakes. First, we call the <strong class="source-inline">value_counts()</strong> method on the <strong class="source-inline">parsed_place</strong> series and take the top 15 places for earthquakes. Next, we reverse the order so that the smallest <a id="_idIndexMarker686"/>ones in this list are on top, which will sort the highest to the top of the bar plot that we will make. Note that we could reverse the sort order as an argument to <strong class="source-inline">value_counts()</strong>, but since we would still have to grab the top 15, we are doing both in a single <strong class="source-inline">iloc</strong> call:</p>
+			<p class="source-code">&gt;&gt;&gt; <strong class="bold">quakes.parsed_place.value_counts().iloc[14::-1,].plot(</strong></p>
+			<p class="source-code">...     <strong class="bold">kind='barh'</strong>, figsize=(10, 5), </p>
+			<p class="source-code">...     title='Top 15 Places for Earthquakes '</p>
+			<p class="source-code">...           '(September 18, 2018 - October 13, 2018)'</p>
+			<p class="source-code">... <strong class="bold">)</strong></p>
+			<p class="source-code">&gt;&gt;&gt; plt.xlabel('earthquakes') # label x-axis (see ch 6)</p>
+			<p>Remember, slicing notation is <strong class="source-inline">[start:stop:step]</strong>, and in this case, since the step is negative, the order is reversed; we start at index <strong class="source-inline">14</strong> (the 15<span class="superscript">th</span> entry) and get closer to index <strong class="source-inline">0</strong> each time. By passing <strong class="source-inline">kind='barh'</strong>, we get a horizontal bar plot that shows that most of the earthquakes in this dataset occur in Alaska. Perhaps it is surprising to see the number of earthquakes over such a short time period, but many of these earthquakes are so small in magnitude that people don't even feel them:</p>
+			<div>
+				<div id="_idContainer250" class="IMG---Figure">
+					<img src="image/Figure_5.31_B16834.jpg" alt="Figure 5.31 – Plotting horizontal bars with pandas&#13;&#10;"/>
+				</div>
+			</div>
+			<p class="figure-caption">Figure 5.31 – Plotting horizontal bars with pandas</p>
+			<p>Our data <a id="_idIndexMarker687"/>also contains information about whether the earthquake was accompanied by a tsunami. Let's use <strong class="source-inline">groupby()</strong> to make a bar plot of the top 10 places that were hit by tsunamis during the time period we have in our data:</p>
+			<p class="source-code">&gt;&gt;&gt; quakes.groupby(</p>
+			<p class="source-code">...     'parsed_place'</p>
+			<p class="source-code">... ).<strong class="bold">tsunami.sum().sort_values().iloc[-10:,]</strong>.plot(</p>
+			<p class="source-code">...     kind='barh', figsize=(10, 5), </p>
+			<p class="source-code">...     title='Top 10 Places for Tsunamis '</p>
+			<p class="source-code">...           '(September 18, 2018 - October 13, 2018)'</p>
+			<p class="source-code">... )</p>
+			<p class="source-code">&gt;&gt;&gt; plt.xlabel('tsunamis') # label x-axis (discussed in ch 6)</p>
+			<p>Notice that this time, we used <strong class="source-inline">iloc[-10:,]</strong>, which starts at the 10<span class="superscript">th</span> largest value (since <strong class="source-inline">sort_values()</strong> sorts in ascending order by default) and goes to the largest value, giving us the top 10. Here, we can see that Indonesia had many more tsunamis than the other places during this time period:</p>
+			<div>
+				<div id="_idContainer251" class="IMG---Figure">
+					<img src="image/Figure_5.32_B16834.jpg" alt="Figure 5.32 – Plotting the result of a group by calculation&#13;&#10;"/>
+				</div>
+			</div>
+			<p class="figure-caption">Figure 5.32 – Plotting the result of a group by calculation</p>
+			<p>After seeing something like this, we may be prompted to look further into the number of tsunamis <a id="_idIndexMarker688"/>in Indonesia each day. We can visualize this evolution over time as a line plot or with a vertical bar plot by using <strong class="source-inline">kind='bar'</strong>. Here, we will use bars to avoid interpolating the points:</p>
+			<p class="source-code">&gt;&gt;&gt; indonesia_quakes = quakes.query(</p>
+			<p class="source-code">...     'parsed_place == "Indonesia"'</p>
+			<p class="source-code">... ).assign(</p>
+			<p class="source-code">...     time=lambda x: pd.to_datetime(x.time, unit='ms'),</p>
+			<p class="source-code">...     earthquake=1</p>
+			<p class="source-code">... ).set_index('time').resample('1D').sum()</p>
+			<p class="source-code"># format the datetimes in the index for the x-axis</p>
+			<p class="source-code">&gt;&gt;&gt; indonesia_quakes.index = \</p>
+			<p class="source-code">...     indonesia_quakes.index.strftime('%b\n%d')</p>
+			<p class="source-code">&gt;&gt;&gt; indonesia_quakes.plot(</p>
+			<p class="source-code">...     y=['earthquake', 'tsunami'], <strong class="bold">kind='bar'</strong>, rot=0, </p>
+			<p class="source-code">...     figsize=(15, 3), label=['earthquakes', 'tsunamis'], </p>
+			<p class="source-code">...     title='Earthquakes and Tsunamis in Indonesia '</p>
+			<p class="source-code">...           '(September 18, 2018 - October 13, 2018)'</p>
+			<p class="source-code">... )</p>
+			<p class="source-code"># label the axes (discussed in chapter 6)</p>
+			<p class="source-code">&gt;&gt;&gt; plt.xlabel('date')</p>
+			<p class="source-code">&gt;&gt;&gt; plt.ylabel('count')</p>
+			<p>On September 28, 2018, we can see a spike in both earthquakes and tsunamis in Indonesia; on this date a 7.5 magnitude earthquake occurred, causing a devastating tsunami:</p>
+			<div>
+				<div id="_idContainer252" class="IMG---Figure">
+					<img src="image/Figure_5.33_B16834.jpg" alt="Figure 5.33 – Comparing counts over time&#13;&#10;"/>
+				</div>
+			</div>
+			<p class="figure-caption">Figure 5.33 – Comparing counts over time</p>
+			<p>We can also <a id="_idIndexMarker689"/>create grouped bars from a single column's values by using <strong class="source-inline">groupby()</strong> and <strong class="source-inline">unstack()</strong>. This makes it possible for us to generate bars for each distinct value in the column. Let's use this strategy to take a look at the frequency of a tsunami accompanying an earthquake, as a percentage. We can handle this using the <strong class="source-inline">apply()</strong> method, as we learned in <a href="B16834_04_Final_SK_ePub.xhtml#_idTextAnchor082"><em class="italic">Chapter 4</em></a>, <em class="italic">Aggregating Pandas DataFrames</em>, along <strong class="source-inline">axis=1</strong> (to apply row by row). For illustration purposes, we will look at the seven places with the highest percentage of earthquakes accompanied by a tsunami:</p>
+			<p class="source-code">&gt;&gt;&gt; quakes.groupby(['parsed_place', 'tsunami']).mag.count()\</p>
+			<p class="source-code">...     .unstack().<strong class="bold">apply(lambda x: x / x.sum(), axis=1)</strong>\</p>
+			<p class="source-code">...     .rename(columns={0: 'no', 1: 'yes'})\</p>
+			<p class="source-code">...     .sort_values('yes', ascending=False)[7::-1]\</p>
+			<p class="source-code">...     .plot.barh(</p>
+			<p class="source-code">...         title='Frequency of a tsunami accompanying '</p>
+			<p class="source-code">...               'an earthquake'</p>
+			<p class="source-code">...     )</p>
+			<p class="source-code"># move legend to the right of the plot; label axes</p>
+			<p class="source-code">&gt;&gt;&gt; plt.legend(title='tsunami?', bbox_to_anchor=(1, 0.65))</p>
+			<p class="source-code">&gt;&gt;&gt; plt.xlabel('percentage of earthquakes')</p>
+			<p class="source-code">&gt;&gt;&gt; plt.ylabel('')</p>
+			<p>Christmas Island <a id="_idIndexMarker690"/>had one earthquake during this time period, but it was accompanied by a tsunami. Papua New Guinea, on the other hand, had tsunamis alongside roughly 40% of its earthquakes:</p>
+			<div>
+				<div id="_idContainer253" class="IMG---Figure">
+					<img src="image/Figure_5.34_B16834.jpg" alt="Figure 5.34 – Bar plot with a group by&#13;&#10;"/>
+				</div>
+			</div>
+			<p class="figure-caption">Figure 5.34 – Bar plot with a group by</p>
+			<p class="callout-heading">Tip</p>
+			<p class="callout">When saving the preceding plots, long category names may get cut off; if that's the case, try running <strong class="source-inline">plt.tight_layout()</strong> before saving.</p>
+			<p>Now, let's use <a id="_idIndexMarker691"/>vertical bars to see which methods of measuring earthquake magnitude are most prevalent by using <strong class="source-inline">kind='bar'</strong>:</p>
+			<p class="source-code">&gt;&gt;&gt; quakes.magType.value_counts().plot(</p>
+			<p class="source-code">...     <strong class="bold">kind='bar'</strong>, rot=0,</p>
+			<p class="source-code">...     title='Earthquakes Recorded per magType'</p>
+			<p class="source-code">... )</p>
+			<p class="source-code"># label the axes (discussed in ch 6)</p>
+			<p class="source-code">&gt;&gt;&gt; plt.xlabel('magType')</p>
+			<p class="source-code">&gt;&gt;&gt; plt.ylabel('earthquakes')</p>
+			<p>It appears that <strong class="source-inline">ml</strong> is, by far, the most common method for measuring earthquake magnitudes. This makes sense since it is the <em class="italic">original magnitude relationship defined by Richter and Gutenberg in 1935 for local earthquakes</em>, according to the USGS page explaining the <strong class="source-inline">magType</strong> field in the dataset we are using (<a href="https://www.usgs.gov/natural-hazards/earthquake-hazards/science/magnitude-types">https://www.usgs.gov/natural-hazards/earthquake-hazards/science/magnitude-types</a>):</p>
+			<div>
+				<div id="_idContainer254" class="IMG---Figure">
+					<img src="image/Figure_5.35_B16834.jpg" alt="Figure 5.35 – Comparing category counts&#13;&#10;"/>
+				</div>
+			</div>
+			<p class="figure-caption">Figure 5.35 – Comparing category counts</p>
+			<p>Say we want <a id="_idIndexMarker692"/>to see how many earthquakes of a given magnitude there were and to distinguish them by <strong class="source-inline">magType</strong>. This shows us a few things in a single plot:</p>
+			<ul>
+				<li>Which magnitudes occur most often across <strong class="source-inline">magType</strong>.</li>
+				<li>The relative ranges of magnitude that each <strong class="source-inline">magType</strong> yields.</li>
+				<li>The most common values for <strong class="source-inline">magType</strong>.</li>
+			</ul>
+			<p>To do so, we can make a stacked bar plot. First, we will round all magnitudes down to the nearest integer. This means that all earthquakes will be marked as the part of the magnitude before the decimal point (for example, 5.5 gets marked as 5, just like 5.7, 5.2, and 5.0). Next, we will need to create a pivot table with the magnitude in the index and the magnitude type along the columns; we will count the number of earthquakes for the values:</p>
+			<p class="source-code">&gt;&gt;&gt; pivot = quakes.assign(</p>
+			<p class="source-code">...     mag_bin=lambda x: np.floor(x.mag)</p>
+			<p class="source-code">... ).pivot_table(</p>
+			<p class="source-code">...     index='mag_bin', </p>
+			<p class="source-code">...     columns='magType', </p>
+			<p class="source-code">...     values='mag', </p>
+			<p class="source-code">...     aggfunc='count'</p>
+			<p class="source-code">... )</p>
+			<p>Once we have the pivot table, we can create a stacked bar plot by passing in <strong class="source-inline">stacked=True</strong> when plotting:</p>
+			<p class="source-code">&gt;&gt;&gt; pivot.plot.bar(</p>
+			<p class="source-code">...     <strong class="bold">stacked=True</strong>,</p>
+			<p class="source-code">...     rot=0, </p>
+			<p class="source-code">...     title='Earthquakes by integer magnitude and magType'</p>
+			<p class="source-code">... )</p>
+			<p class="source-code">&gt;&gt;&gt; plt.ylabel('earthquakes') # label axes (discussed in ch 6)</p>
+			<p>This results <a id="_idIndexMarker693"/>in the following plot, which shows that most of the earthquakes are measured with the <strong class="source-inline">ml</strong> magnitude type and have magnitudes below four:</p>
+			<div>
+				<div id="_idContainer255" class="IMG---Figure">
+					<img src="image/Figure_5.36_B16834.jpg" alt="Figure 5.36 – Stacked bar plot&#13;&#10;"/>
+				</div>
+			</div>
+			<p class="figure-caption">Figure 5.36 – Stacked bar plot</p>
+			<p>The other bars are dwarfed in comparison to <strong class="source-inline">ml</strong>, which makes it difficult for us to see which magnitude types assign higher magnitudes to earthquakes. To address this, we can make a normalized stacked bar plot. Rather than showing the count of earthquakes for each combination of magnitude and <strong class="source-inline">magType</strong>, we will show what percentage of earthquakes of a given magnitude used each <strong class="source-inline">magType</strong>:</p>
+			<p class="source-code">&gt;&gt;&gt; normalized_pivot = \</p>
+			<p class="source-code">...     <strong class="bold">pivot.fillna(0).apply(lambda x: x / x.sum(), axis=1)</strong></p>
+			<p class="source-code">... </p>
+			<p class="source-code">&gt;&gt;&gt; ax = normalized_pivot.plot.bar(</p>
+			<p class="source-code">...     stacked=True, rot=0, figsize=(10, 5),</p>
+			<p class="source-code">...     title='Percentage of earthquakes by integer magnitude '</p>
+			<p class="source-code">...           'for each magType'</p>
+			<p class="source-code">... )</p>
+			<p class="source-code">&gt;&gt;&gt; ax.legend(bbox_to_anchor=(1, 0.8)) # move legend</p>
+			<p class="source-code">&gt;&gt;&gt; plt.ylabel('percentage') # label axes (discussed in ch 6)</p>
+			<p>Now, we can <a id="_idIndexMarker694"/>easily see that <strong class="source-inline">mww</strong> yields higher magnitudes and that <strong class="source-inline">ml</strong> appears to be spread across the lower end of the spectrum:</p>
+			<div>
+				<div id="_idContainer256" class="IMG---Figure">
+					<img src="image/Figure_5.37_B16834.jpg" alt="Figure 5.37 – Normalized stacked bar plot&#13;&#10;"/>
+				</div>
+			</div>
+			<p class="figure-caption">Figure 5.37 – Normalized stacked bar plot</p>
+			<p>Note that we can also use this strategy with a call to the <strong class="source-inline">groupby()</strong> and then <strong class="source-inline">unstack()</strong> methods. Let's revisit the frequency of a tsunami accompanying an earthquake plot, but rather than <a id="_idIndexMarker695"/>use grouped bars, we will stack them:</p>
+			<p class="source-code">&gt;&gt;&gt; quakes.groupby(['parsed_place', 'tsunami']).mag.count()\</p>
+			<p class="source-code">...     .unstack().apply(lambda x: x / x.sum(), axis=1)\</p>
+			<p class="source-code">...     .rename(columns={0: 'no', 1: 'yes'})\</p>
+			<p class="source-code">...     .sort_values('yes', ascending=False)[7::-1]\</p>
+			<p class="source-code">...     .plot.barh(</p>
+			<p class="source-code">...         title='Frequency of a tsunami accompanying '</p>
+			<p class="source-code">...               'an earthquake',</p>
+			<p class="source-code">...         <strong class="bold">stacked=True</strong></p>
+			<p class="source-code">...     )</p>
+			<p class="source-code"># move legend to the right of the plot</p>
+			<p class="source-code">&gt;&gt;&gt; plt.legend(title='tsunami?', bbox_to_anchor=(1, 0.65))</p>
+			<p class="source-code"># label the axes (discussed in chapter 6)</p>
+			<p class="source-code">&gt;&gt;&gt; plt.xlabel('percentage of earthquakes')</p>
+			<p class="source-code">&gt;&gt;&gt; plt.ylabel('')</p>
+			<p>This stacked bar plot makes it very easy for us to compare the frequencies of tsunamis across different places:</p>
+			<div>
+				<div id="_idContainer257" class="IMG---Figure">
+					<img src="image/Figure_5.38_B16834.jpg" alt="Figure 5.38 – Normalized stacked bar plot with a group by&#13;&#10;"/>
+				</div>
+			</div>
+			<p class="figure-caption">Figure 5.38 – Normalized stacked bar plot with a group by</p>
+			<p>Categorical <a id="_idIndexMarker696"/>data limits us in terms of the types of plots we can use, but there are some alternatives to the bar plot. We will take a look at them in the <em class="italic">Utilizing seaborn for advanced plotting</em> section in the next chapter; for now, let's take a look at the <strong class="source-inline">pandas.plotting</strong> module.</p>
+			<h1 id="_idParaDest-118"><a id="_idTextAnchor117"/>The pandas.plotting module</h1>
+			<p>In the <em class="italic">Plotting with pandas</em> section, we covered standard plots that <strong class="source-inline">pandas</strong> has provided <a id="_idIndexMarker697"/>easier implementations for. However, <strong class="source-inline">pandas</strong> also has a module (which is appropriately named <strong class="source-inline">plotting</strong>) with special plots that we can use on our data. Note that the customization options of these may be more limited because of how they are composed and returned to us.</p>
+			<p>We will be working in the <strong class="source-inline">3-pandas_plotting_module.ipynb</strong> notebook for this section. As usual, we will begin with our imports and reading in the data; we will only be using the Facebook data here:</p>
+			<p class="source-code">&gt;&gt;&gt; %matplotlib inline</p>
+			<p class="source-code">&gt;&gt;&gt; import matplotlib.pyplot as plt</p>
+			<p class="source-code">&gt;&gt;&gt; import numpy as np</p>
+			<p class="source-code">&gt;&gt;&gt; import pandas as pd</p>
+			<p class="source-code">&gt;&gt;&gt; fb = pd.read_csv(</p>
+			<p class="source-code">...     'data/fb_stock_prices_2018.csv', </p>
+			<p class="source-code">...     index_col='date', </p>
+			<p class="source-code">...     parse_dates=True</p>
+			<p class="source-code">... )</p>
+			<p>Now, let's <a id="_idIndexMarker698"/>take a tour of some of the plots available in the <strong class="source-inline">pandas.plotting</strong> module and learn how we can utilize the resulting visualizations in our EDA.</p>
+			<h2 id="_idParaDest-119"><a id="_idTextAnchor118"/>Scatter matrices</h2>
+			<p>Earlier in this chapter, we discussed using scatter plots to show relationships among variables. Often, we want to see these for each combination of variables in the data, which can <a id="_idIndexMarker699"/>be tedious to execute. The <strong class="source-inline">pandas.plotting</strong> module contains the <strong class="source-inline">scatter_matrix()</strong> function, which makes this much easier. Let's use <a id="_idIndexMarker700"/>it to view the scatter plots for each combination of columns in our Facebook stock prices data:</p>
+			<p class="source-code">&gt;&gt;&gt; from pandas.plotting import scatter_matrix</p>
+			<p class="source-code">&gt;&gt;&gt; scatter_matrix(fb, figsize=(10, 10))</p>
+			<p>This results in the following plot matrix, which is often used in machine learning to see which variables could be useful in building a model. We can easily see that we have strong positive correlations between the opening, high, low, and closing prices:</p>
+			<div>
+				<div id="_idContainer258" class="IMG---Figure">
+					<img src="image/Figure_5.39_B16834.jpg" alt="Figure 5.39 – Pandas scatter matrix&#13;&#10;"/>
+				</div>
+			</div>
+			<p class="figure-caption">Figure 5.39 – Pandas scatter matrix</p>
+			<p>By default, on <a id="_idIndexMarker701"/>the diagonal, where the column is <a id="_idIndexMarker702"/>paired with itself, we get its histogram. Alternatively, we can ask for the KDE by passing in <strong class="source-inline">diagonal='kde'</strong>:</p>
+			<p class="source-code">&gt;&gt;&gt; scatter_matrix(fb, figsize=(10, 10), <strong class="bold">diagonal='kde'</strong>)</p>
+			<p>This results in a scatter <a id="_idIndexMarker703"/>matrix with KDEs along <a id="_idIndexMarker704"/>the diagonal instead of histograms:</p>
+			<div>
+				<div id="_idContainer259" class="IMG---Figure">
+					<img src="image/Figure_5.40_B16834.jpg" alt="Figure 5.40 – Scatter matrix with KDEs&#13;&#10;"/>
+				</div>
+			</div>
+			<p class="figure-caption">Figure 5.40 – Scatter matrix with KDEs</p>
+			<p>While a scatter matrix makes it easy to examine the relationships between our variables, sometimes, we are interested in <strong class="bold">autocorrelation</strong>, which means that the time <a id="_idIndexMarker705"/>series is correlated with a lagged version <a id="_idIndexMarker706"/>of itself. One way to visualize this is with a lag plot.</p>
+			<h2 id="_idParaDest-120"><a id="_idTextAnchor119"/>Lag plots</h2>
+			<p>We can use a <strong class="bold">lag plot</strong> to check <a id="_idIndexMarker707"/>for relationships among values at a given time to those a certain <a id="_idIndexMarker708"/>number of periods before that time; that is, for a 1-period lag, we create a scatter plot of <strong class="source-inline">data[:-1]</strong> (all but the last entry) and <strong class="source-inline">data[1:]</strong> (from the second entry to the last one).</p>
+			<p>If our data is random, this plot will have no pattern. Let's test this with some random data generated with NumPy:</p>
+			<p class="source-code">&gt;&gt;&gt; from pandas.plotting import lag_plot</p>
+			<p class="source-code">&gt;&gt;&gt; np.random.seed(0) # make this repeatable</p>
+			<p class="source-code">&gt;&gt;&gt; lag_plot(pd.Series(np.random.random(size=200)))</p>
+			<p>The random data points don't indicate any pattern, just random noise:</p>
+			<div>
+				<div id="_idContainer260" class="IMG---Figure">
+					<img src="image/Figure_5.41_B16834.jpg" alt="Figure 5.41 – Lag plot of random noise&#13;&#10;"/>
+				</div>
+			</div>
+			<p class="figure-caption">Figure 5.41 – Lag plot of random noise</p>
+			<p>With our stock data, we know that the prices on a given day are determined by what happened the day before; therefore, we would expect to see a pattern in the lag plot. Let's use the closing price of Facebook's stock to test whether our intuition is correct:</p>
+			<p class="source-code">&gt;&gt;&gt; lag_plot(fb.close)</p>
+			<p>As expected, this results in a linear pattern:</p>
+			<div>
+				<div id="_idContainer261" class="IMG---Figure">
+					<img src="image/Figure_5.42_B16834.jpg" alt="Figure 5.42 – Lag plot of Facebook stock prices&#13;&#10;"/>
+				</div>
+			</div>
+			<p class="figure-caption">Figure 5.42 – Lag plot of Facebook stock prices</p>
+			<p>We can also specify the number of periods to use for the lag. The default lag is one, but we can <a id="_idIndexMarker709"/>change this with the <strong class="source-inline">lag</strong> parameter. For example, we can compare each <a id="_idIndexMarker710"/>value to the value of the week prior with <strong class="source-inline">lag=5</strong> (remember that the stock data only contains data for weekdays since the market is closed on the weekends):</p>
+			<p class="source-code">&gt;&gt;&gt; lag_plot(fb.close, <strong class="bold">lag=5</strong>)</p>
+			<p>This still yields a strong correlation, but, compared to <em class="italic">Figure 5.42</em>, it definitely looks weaker:</p>
+			<div>
+				<div id="_idContainer262" class="IMG---Figure">
+					<img src="image/Figure_5.43_B16834.jpg" alt="Figure 5.43 – Customizing the number of periods for the lag plot&#13;&#10;"/>
+				</div>
+			</div>
+			<p class="figure-caption">Figure 5.43 – Customizing the number of periods for the lag plot</p>
+			<p>While lag <a id="_idIndexMarker711"/>plots help us visualize autocorrelation, they don't <a id="_idIndexMarker712"/>show us how many periods of autocorrelation our data contains. For this purpose, we can use autocorrelation plots.</p>
+			<h2 id="_idParaDest-121"><a id="_idTextAnchor120"/>Autocorrelation plots</h2>
+			<p>Pandas provides <a id="_idIndexMarker713"/>an additional way for us to <a id="_idIndexMarker714"/>look for autocorrelation in our data with the <strong class="source-inline">autocorrelation_plot()</strong> function, which shows the autocorrelation by the number of lags. Random data will be near an autocorrelation of zero.</p>
+			<p>As we did when discussing lag plots, let's first examine what this looks like for random data generated with NumPy:</p>
+			<p class="source-code">&gt;&gt;&gt; from pandas.plotting import autocorrelation_plot</p>
+			<p class="source-code">&gt;&gt;&gt; np.random.seed(0) # make this repeatable</p>
+			<p class="source-code">&gt;&gt;&gt; autocorrelation_plot(pd.Series(np.random.random(size=200)))</p>
+			<p>Indeed, the autocorrelation is near zero, and the line is within the confidence bands (99% is dashed; 95% is solid):</p>
+			<div>
+				<div id="_idContainer263" class="IMG---Figure">
+					<img src="image/Figure_5.44_B16834.jpg" alt="Figure 5.44 – Autocorrelation plot of random data&#13;&#10;"/>
+				</div>
+			</div>
+			<p class="figure-caption">Figure 5.44 – Autocorrelation plot of random data</p>
+			<p>Let's explore <a id="_idIndexMarker715"/>what the autocorrelation plot looks like for the closing <a id="_idIndexMarker716"/>price of Facebook's stock, since the lag plots indicated several periods of autocorrelation:</p>
+			<p class="source-code">&gt;&gt;&gt; autocorrelation_plot(fb.close)</p>
+			<p>Here, we can see that there is autocorrelation for many lag periods before it becomes noise:</p>
+			<div>
+				<div id="_idContainer264" class="IMG---Figure">
+					<img src="image/Figure_5.45_B16834.jpg" alt="Figure 5.45 – Autocorrelation plot of Facebook stock prices&#13;&#10;"/>
+				</div>
+			</div>
+			<p class="figure-caption">Figure 5.45 – Autocorrelation plot of Facebook stock prices</p>
+			<p class="callout-heading">Tip</p>
+			<p class="callout">Recall from <a href="B16834_01_Final_SK_ePub.xhtml#_idTextAnchor015"><em class="italic">Chapter 1</em></a>, <em class="italic">Introduction to Data Analysis</em>, that one of the components in an ARIMA model is the autoregressive component. The autocorrelation plot can be used to help determine the number of time lags to use. We will build an ARIMA model in <a href="B16834_07_Final_SK_ePub.xhtml#_idTextAnchor146"><em class="italic">Chapter 7</em></a>, <em class="italic">Financial Analysis – Bitcoin and the Stock Market</em>.</p>
+			<h2 id="_idParaDest-122"><a id="_idTextAnchor121"/>Bootstrap plots</h2>
+			<p>Pandas also <a id="_idIndexMarker717"/>provides a plotting function for assessing the uncertainty of common <a id="_idIndexMarker718"/>summary statistics via <strong class="bold">bootstrapping</strong>. The function will take the specified number of random samples of a given size (with replacement) from the variable in question (the <strong class="source-inline">samples</strong> and <strong class="source-inline">size</strong> parameters, respectively) and calculate the summary statistics. Then, it will <a id="_idIndexMarker719"/>return a visualization of the results.</p>
+			<p>Let's see what the uncertainty for the summary statistics of the volume traded data looks like:</p>
+			<p class="source-code">&gt;&gt;&gt; from pandas.plotting import bootstrap_plot</p>
+			<p class="source-code">&gt;&gt;&gt; fig = bootstrap_plot(</p>
+			<p class="source-code">...     fb.volume, fig=plt.figure(figsize=(10, 6))</p>
+			<p class="source-code">... )</p>
+			<p>This results in the following subplots, which we can use to assess the uncertainty in the mean, median, and midrange (the midpoint of the range):</p>
+			<div>
+				<div id="_idContainer265" class="IMG---Figure">
+					<img src="image/Figure_5.46_B16834.jpg" alt="Figure 5.46 – Pandas bootstrap plot&#13;&#10;"/>
+				</div>
+			</div>
+			<p class="figure-caption">Figure 5.46 – Pandas bootstrap plot</p>
+			<p>This was <a id="_idIndexMarker720"/>a sample of a few of the functions <a id="_idIndexMarker721"/>in the <strong class="source-inline">pandas.plotting</strong> module. For the full list, check out <a href="https://pandas.pydata.org/pandas-docs/stable/reference/plotting.html">https://pandas.pydata.org/pandas-docs/stable/reference/plotting.html</a>.</p>
+			<h1 id="_idParaDest-123"><a id="_idTextAnchor122"/>Summary</h1>
+			<p>Now that we've completed this chapter, we are well-equipped to quickly create a variety of visualizations in Python using <strong class="source-inline">pandas</strong> and <strong class="source-inline">matplotlib</strong>. We now understand the basics of how <strong class="source-inline">matplotlib</strong> works and the main components of a plot. Additionally, we discussed various plot types and the situations in which to use them—a crucial component of data visualization is choosing the appropriate plot. Be sure to check out the <em class="italic">Choosing the appropriate visualization</em> section in the <em class="italic">Appendix</em> for future reference.</p>
+			<p>Note that the best practices for visualization don't just apply to the plot type, but also to the formatting of the plot, which we will discuss in the next chapter. In addition to this, we will build upon the foundation we laid here to discuss additional plots using <strong class="source-inline">seaborn</strong> and how to customize our plots using <strong class="source-inline">matplotlib</strong>. Be sure to complete the end-of-chapter exercises to practice plotting before moving on, as we will be building on this chapter's material.</p>
+			<h1 id="_idParaDest-124"><a id="_idTextAnchor123"/>Exercises</h1>
+			<p>Create the following visualizations using what you have learned up to this point in this book. Use the data from this chapter's <strong class="source-inline">data/</strong> directory:</p>
+			<ol>
+				<li>Plot the rolling 20-day minimum of the Facebook closing price using <strong class="source-inline">pandas</strong>.</li>
+				<li>Create a histogram and KDE of the change from open to close in the price of Facebook stock.</li>
+				<li>Using the earthquake data, create box plots for the magnitudes of each <strong class="source-inline">magType</strong> used in Indonesia.</li>
+				<li>Make a line plot of the difference between the weekly maximum high price and the weekly minimum low price for Facebook. This should be a single line.</li>
+				<li>Plot the 14-day moving average of the daily change in new COVID-19 cases in Brazil, China, India, Italy, Spain, and the USA:<p>a) First, use the <strong class="source-inline">diff()</strong> method that was introduced in the <em class="italic">Working with time series data</em> section of <a href="B16834_04_Final_SK_ePub.xhtml#_idTextAnchor082"><em class="italic">Chapter 4</em></a>, <em class="italic">Aggregating Pandas DataFrames</em>, to calculate the day-over-day change in new cases. Then, use <strong class="source-inline">rolling()</strong> to calculate the 14-day moving average.</p><p>b) Make three subplots: one for China; one for Spain and Italy; and one for Brazil, India, and the USA.</p></li>
+				<li>Using <strong class="source-inline">matplotlib</strong> and <strong class="source-inline">pandas</strong>, create two subplots side-by-side showing the effect that after-hours trading has had on Facebook's stock prices:<p>a) The first subplot will contain a line plot of the daily difference between that day's opening price and the prior day's closing price (be sure to review the <em class="italic">Working with time series data</em> section of <a href="B16834_04_Final_SK_ePub.xhtml#_idTextAnchor082"><em class="italic">Chapter 4</em></a>, <em class="italic">Aggregating Pandas DataFrames</em>, for an easy way to do this).</p><p>b) The second subplot will be a bar plot showing the net effect this had monthly, using <strong class="source-inline">resample()</strong>.</p><p>c) Bonus #1: Color the bars according to whether there are gains in the stock price (green) or drops in the stock price (red).</p><p>d) Bonus #2: Modify the <em class="italic">x</em>-axis of the bar plot to show the three-letter abbreviation for the month.</p></li>
+			</ol>
+			<h1 id="_idParaDest-125"><a id="_idTextAnchor124"/>Further reading</h1>
+			<p>Take a look at the following resources for additional information on the concepts that were discussed in this chapter:</p>
+			<ul>
+				<li><em class="italic">Bootstrapping (statistics)</em>: <a href="https://en.wikipedia.org/wiki/Bootstrapping_(statistics)">https://en.wikipedia.org/wiki/Bootstrapping_(statistics)</a></li>
+				<li><em class="italic">Data Visualization – Best Practices and Foundations</em>: <a href="https://www.toptal.com/designers/data-visualization/data-visualization-best-practices">https://www.toptal.com/designers/data-visualization/data-visualization-best-practices</a></li>
+				<li><em class="italic">How to Create Animated Graphs in Python (with matplotlib)</em>: <a href="https://towardsdatascience.com/how-to-create-animated-graphs-in-python-bb619cc2dec1">https://towardsdatascience.com/how-to-create-animated-graphs-in-python-bb619cc2dec1</a></li>
+				<li><em class="italic">Interactive Plots with JavaScript (D3.js)</em>: <a href="https://d3js.org/">https://d3js.org/</a></li>
+				<li><em class="italic">Intro to Animations in Python (with plotly)</em>: <a href="https://plot.ly/python/animations/">https://plot.ly/python/animations/</a></li>
+				<li><em class="italic">IPython: Built-in magic commands</em>: <a href="https://ipython.readthedocs.io/en/stable/interactive/magics.html">https://ipython.readthedocs.io/en/stable/interactive/magics.html</a></li>
+				<li><em class="italic">The Importance of Integrity: How Plot Parameters Influence Interpretation</em>: <a href="https://www.t4g.com/insights/plot-parameters-influence-interpretation/">https://www.t4g.com/insights/plot-parameters-influence-interpretation/</a></li>
+				<li><em class="italic">5 Python Libraries for Creating Interactive Plots</em>: <a href="https://mode.com/blog/python-interactive-plot-libraries/">https://mode.com/blog/python-interactive-plot-libraries/</a></li>
+			</ul>
+		</div>
+	</body></html>

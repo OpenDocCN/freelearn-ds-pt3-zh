@@ -1,0 +1,231 @@
+<html><head></head><body><div id="sbo-rt-content"><div id="_idContainer052">
+			<h1 id="_idParaDest-164"><a id="_idTextAnchor164"/>Chapter 9: Machine Learning Life Cycle Management</h1>
+			<p>In the previous chapters, we explored the basics of <strong class="bold">scalable machine learning</strong> using Apache Spark. Algorithms dealing with <strong class="bold">supervised</strong> and <strong class="bold">unsupervised</strong> learning were introduced and their implementation details were presented using <strong class="bold">Apache Spark MLlib</strong>. In real-world scenarios, it is not sufficient to just train one model. Instead, multiple versions of the same model must be built using the same dataset by varying the model parameters to get the best possible model. Also, the same model might not be suitable for all applications, so multiple models are trained. Thus, it is necessary to track various experiments, their parameters, their metrics, and the version of the data they were trained on. Furthermore, models often drift, meaning that their prediction power decreases due to changes in the environment, so they need to be monitored and retrained when necessary.</p>
+			<p>This chapter will introduce the concepts of experiment tracking, model tuning, productionizing models, and model inferencing using offline and online techniques. This chapter will present these concepts using an end-to-end open source machine learning life cycle management tool called <strong class="bold">MLflow</strong>. Finally, we will look at the concept of continuous deployment for machine learning to automate the entire <strong class="bold">machine learning</strong> (<strong class="bold">ML</strong>) life cycle management process.</p>
+			<p>In this chapter, we're going to cover the following main topics: </p>
+			<ul>
+				<li>Introduction to the ML life cycle</li>
+				<li>Tracking experiments with <strong class="bold">MLflow</strong></li>
+				<li>Tracking model versions using <strong class="bold">MLflow Model Registry</strong></li>
+				<li>Model serving and inferencing</li>
+				<li>Continuous deployment for ML</li>
+			</ul>
+			<h1 id="_idParaDest-165"><a id="_idTextAnchor165"/>Technical requirements</h1>
+			<p>In this chapter, we will be using Databricks Community Edition to run our code (<a href="https://community.cloud.databricks.com">https://community.cloud.databricks.com</a>). </p>
+			<ul>
+				<li>Sign-up instructions can be found at <a href="https://databricks.com/try-databricks">https://databricks.com/try-databricks</a>. </li>
+				<li>The code for this chapter can be downloaded from <a href="https://github.com/PacktPublishing/Essential-PySpark-for-Data-Analytics/tree/main/Chapter09">https://github.com/PacktPublishing/Essential-PySpark-for-Data-Analytics/tree/main/Chapter09</a>, while the datasets for this chapter can be found at <a href="https://github.com/PacktPublishing/Essential-PySpark-for-Data-Analytics/tree/main/data">https://github.com/PacktPublishing/Essential-PySpark-for-Data-Analytics/tree/main/data</a>.</li>
+			</ul>
+			<p>We will also be using a managed MLflow that comes with Databricks Community Edition. Instructions for installing a standalone version of MLflow can be found here: <a href="https://mlflow.org/docs/latest/quickstart.html">https://mlflow.org/docs/latest/quickstart.html</a>.</p>
+			<h1 id="_idParaDest-166"><a id="_idTextAnchor166"/>Introduction to the ML life cycle</h1>
+			<p>The <strong class="bold">ML life cycle</strong> is a continuous process that a data science project follows. It contains four major stages, starting with data collection and preparation, model training, model <a id="_idIndexMarker682"/>evaluation, and finally model inferencing and monitoring. The ML process is a continuous one, where the cycle iterates between improving the data and constantly improving the model's performance; or, rather, keeping it from degrading over time:</p>
+			<div>
+				<div id="_idContainer047" class="IMG---Figure">
+					<img src="Images/B16736_09_01.jpg" alt="Figure 9.1 – ML life cycle&#13;&#10;" width="439" height="439"/>
+				</div>
+			</div>
+			<p class="figure-caption">Figure 9.1 – ML life cycle</p>
+			<p>The previous diagram presents the continuous process of ML life cycle management, from data preparation to <a id="_idIndexMarker683"/>model development, and then from training to model deployment and monitoring. When model performance degrades due to either a change in the training data or the model code or changes in model parameters, the cyclic process starts all over again.</p>
+			<p>Processes for data collection and preparation, cleansing, and consolidation, as well as techniques for training various ML models at scale, were introduced in the previous chapters. This chapter will introduce the remaining stages of the ML life cycle, including model evaluation and model inferencing and monitoring.</p>
+			<p>This cyclic process of ML life cycle management helps you continuously refine your datasets and models and maintain model performance. The speed at which you can iterate through the ML life cycle determines how fast you can put the model to practical use, which determines the value of your data science project to businesses, as well as the cost associated with the data science project. Thus, it is important to make use of an ML life cycle management tool to streamline the entire ML process, derive the maximum value <a id="_idIndexMarker684"/>out of your data science project, and ensure that business users can derive tangible benefits from it. Several ML life cycle management tools exist today that can handle this task. <em class="italic">Pacyderm</em>, <em class="italic">Kubeflow</em>, <em class="italic">MLflow</em>, and <em class="italic">Metaflow</em> are a few of the available open source tools, while <em class="italic">AWS Sagemaker</em>, <em class="italic">Google Cloud AutoML</em>, and <em class="italic">Microsoft Azure ML</em> are all cloud-native services with full ML life cycle management support. In this chapter, we will explore MLflow as an ML life cycle management tool. The following sections will explore MLflow in greater detail.</p>
+			<h2 id="_idParaDest-167"><a id="_idTextAnchor167"/>Introduction to MLflow</h2>
+			<p>In traditional software development, life cycle code is written to a given functional specification. However, in ML, the goal is to optimize a specific metric until you have achieved a desired level of accuracy. This process of optimizing a certain metric doesn't happen <a id="_idIndexMarker685"/>just once; it is a continuous process of experimentation and improvement. Moreover, in ML, the quality of the outcome not just depends on the quality of the code but also on other parameters, such as the data that's used for the ML training process and the parameters that are supplied to the training algorithm. The programming stack that's used by traditional ML also varies widely between different data scientists. Finally, ML models created in one environment are typically deployed in a different environment, so it is also important to ensure model portability and reproducibility. Thus, the entire ML life cycle is very iterative and involves multiple parameters, datasets, and various programming libraries. </p>
+			<p>MLflow is an easy-to-use, modular, end-to-end ML life <a id="_idIndexMarker686"/>cycle management open source software, developed to solve the aforementioned challenges of the ML life cycle:</p>
+			<div>
+				<div id="_idContainer048" class="IMG---Figure">
+					<img src="Images/B16736_09_02.jpg" alt="Figure 9.2 – ML life cycle with Mlflow&#13;&#10;" width="1201" height="522"/>
+				</div>
+			</div>
+			<p class="figure-caption">Figure 9.2 – ML life cycle with Mlflow</p>
+			<p>MLflow consists of the following four components to solve the challenges of the ML life cycle, such as <a id="_idIndexMarker687"/>management experiment tracking, experiment reproducibility, model repositories, and model deployment:</p>
+			<ul>
+				<li>MLflow Tracking</li>
+				<li>MLflow Projects</li>
+				<li>MLflow Model</li>
+				<li>Model Registry</li>
+			</ul>
+			<p>Each of these components will be explored further in the following sections. You will learn how these components help solve your ML life cycle management challenges while looking at some code samples.</p>
+			<h1 id="_idParaDest-168"><a id="_idTextAnchor168"/>Tracking experiments with MLflow</h1>
+			<p>In real life, building a single model is never sufficient. A typical model-building process requires iterating over the process several times, sometimes changing the model parameters <a id="_idIndexMarker688"/>and other times tweaking the training dataset, until the desired level of model accuracy is achieved. Sometimes, a model that's suitable <a id="_idIndexMarker689"/>for a certain use case might not be useful for another. This means that a typical data science process involves experimenting with several models to solve a single business problem and keeping track of all the datasets, model parameters, and model metrics for future reference. Traditionally, experiment tracking is done using rudimentary tools such as spreadsheets, but this slows down the time to production and is also a tedious process that's prone to mistakes. </p>
+			<p>The MLflow Tracking component solves this problem with its API and UI for logging ML <a id="_idIndexMarker690"/>experiments, including model parameters, model code, metrics, the output of the model training process, as well as any arbitrary artifacts associated with the experiment. Let's learn how to install MLflow and track our experiments using the tracking server: </p>
+			<p class="source-code">%pip install mlflow</p>
+			<p>The previous command will install MLflow in your Databricks notebook and restart the Python session. </p>
+			<p class="callout-heading">Note</p>
+			<p class="callout">The previous command only installs the MLflow client libraries in your local Python session in your notebook. We will be using the managed MLflow that comes with Databricks Community Edition for the tracking server component. Instructions for configuring and running <a id="_idIndexMarker691"/>an MLflow Tracking server outside of Databricks can be found here: <a href="https://mlflow.org/docs/latest/tracking.html#how-runs-and-artifacts-are-recorded">https://mlflow.org/docs/latest/tracking.html#how-runs-and-artifacts-are-recorded</a>.</p>
+			<p>In the following code sample, we are building a simple regression model that we used in the previous chapters and use MLflow Tracking to track the experiment:</p>
+			<p class="source-code">import mlflow</p>
+			<p class="source-code">import mlflow.spark</p>
+			<p class="source-code">from pyspark.ml.evaluation import RegressionEvaluator</p>
+			<p class="source-code">from pyspark.ml.regression import LinearRegression</p>
+			<p class="source-code">from pyspark.ml.tuning import ParamGridBuilder, CrossValidator</p>
+			<p>In the previous code example, we performed the following actions:</p>
+			<ul>
+				<li>First, we imported <a id="_idIndexMarker692"/>the relevant libraries. Here, we imported various MLflow client libraries and also imported the Spark-specific MLflow components via <strong class="source-inline">mlflow.spark</strong>.</li>
+				<li>In this code <a id="_idIndexMarker693"/>sample, we built multiple <a id="_idIndexMarker694"/>regression models using the <strong class="bold">cross-validation</strong> technique, so we imported the relevant <strong class="source-inline">pyspark.ml</strong> libraries to perform these actions to measure the accuracy of our models.</li>
+			</ul>
+			<p>Now, we need to initialize MLflow Tracking so that we can start tracking our experiments, as shown in the following code block:</p>
+			<p class="source-code">mlflow.set_tracking_uri("databricks")</p>
+			<p class="source-code">retail_features = spark.read.table("retail_features")</p>
+			<p class="source-code">retail_df = retail_features.selectExpr("cust_age as label", "selected_features as features")</p>
+			<p class="source-code">train_df, test_df = retail_df.randomSplit([0.9, 0.1])</p>
+			<p>Now, we must initialize the training dataset, as shown in the following code block:</p>
+			<ul>
+				<li>First, create a <strong class="source-inline">retail_features</strong> DataFrame out of the features Delta table that we created in the previous chapters. We must select the label and feature columns that are required for our model training from the DataFrame, which contains all the features that we extracted from the enriched retail transactional data.</li>
+				<li>Now, we must randomly split the DataFrame containing the label and the feature columns into two separate DataFrames using the <strong class="source-inline">randomSplit()</strong> function. The training DataFrame is used for model training purposes, while the test DataFrame <a id="_idIndexMarker695"/>is preserved to check the accuracy of the model once a model has been trained.</li>
+			</ul>
+			<p>At this point, we can <a id="_idIndexMarker696"/>get started with the experimentation process, as shown in the following code block:</p>
+			<p class="source-code">evaluator = RegressionEvaluator(labelCol="label", </p>
+			<p class="source-code">                                metricName="rmse")</p>
+			<p class="source-code">mlflow.set_tracking_uri("databricks")</p>
+			<p class="source-code">mlflow.set_experiment("/Users/snudurupati@outlook.com/linregexp")</p>
+			<p class="source-code">experiment = mlflow.get_experiment_by_name("/Users/snudurupati@outlook.com/linregexp")</p>
+			<p>In the previous code block, we set our initial algorithm parameters and the MLflow Tracking server parameters:</p>
+			<ul>
+				<li>We instantiated the <strong class="source-inline">RegressionEvaluator</strong> object, which passes the label column and uses RMSE as the accuracy metric. This is useful in calculating <strong class="source-inline">rmse</strong> on the label column during the cross-validation process. </li>
+				<li>Now that we are ready to start our experimentation, we configured our experiment with the MLflow Tracking server by providing the URI for the tracking server using the <strong class="source-inline">mlflow.set_tracking_uri("databricks")</strong> function. </li>
+				<li>The MLflow Tracking server can track multiple experiments from multiple users from multiple sessions. Thus, you must provide your experiment with a unique name, which we can achieve using <strong class="source-inline">mlflow.set_experiment("/Users/user_name/exp_name")</strong>. The path specified for the experiment name needs to be a form of persistent storage, such as a <a id="_idIndexMarker697"/>local disk or a data lake location. In this case, we made use of the <strong class="bold">Databricks filesystem</strong> (<strong class="bold">DBFS</strong>).</li>
+			</ul>
+			<p>In the previous code block, we specified the URI as <strong class="source-inline">databricks</strong> because we intend to use the MLflow Tracking server <a id="_idIndexMarker698"/>that comes with Databricks <a id="_idIndexMarker699"/>Community Edition. You can specify the URI as <strong class="source-inline">./mlruns</strong> if you are running MLflow locally or provide the URI for your remote tracking server if you have set one up yourself. Instructions on how to set up your own tracking server can be found at <a href="https://mlflow.org/docs/latest/tracking.html#mlflow-tracking-servers">https://mlflow.org/docs/latest/tracking.html#mlflow-tracking-servers</a>:</p>
+			<p class="source-code">lr = LinearRegression(maxIter=10)</p>
+			<p class="source-code">paramGrid = (ParamGridBuilder()</p>
+			<p class="source-code">    .addGrid(lr.regParam, [0.1, 0.01]) </p>
+			<p class="source-code">    .addGrid(lr.fitIntercept, [False, True])</p>
+			<p class="source-code">    .addGrid(lr.elasticNetParam, [0.0, 0.5, 1.0])</p>
+			<p class="source-code">    .build())</p>
+			<p class="source-code">csv = CrossValidator(estimator=lr,</p>
+			<p class="source-code">                          estimatorParamMaps=param_grid,</p>
+			<p class="source-code">                          evaluator=RegressionEvaluator(),</p>
+			<p class="source-code">                          numFolds=2)</p>
+			<p>Now that we have initialized all the required objects for experimentation and configured experiment tracking with MLflow, we can start the training process:</p>
+			<ul>
+				<li>First, we must instantiate the <strong class="source-inline">LinearRegression</strong> model object with the <strong class="source-inline">maxIter</strong> parameter set to <strong class="source-inline">10</strong>.</li>
+				<li>Then, we must set up a parameter grid for the cross-validation process and specify a range of values for model parameters.</li>
+				<li>Finally, we must configure the train-validation split process by initializing the <strong class="source-inline">CrossValidator</strong> object. We can do this by passing in the actual model object, the parameter grid object, and the evaluation objects as parameters. </li>
+			</ul>
+			<p>More details on how the <strong class="source-inline">CrossValidator</strong> objects works will be provided in the following section. Now, we are ready to start the model training experimentation process, as shown in the following code block:</p>
+			<p class="source-code">with mlflow.start_run() as run_id:</p>
+			<p class="source-code">  lr_model = csv.fit(train_df)</p>
+			<p class="source-code">  test_metric = evaluator.evaluate(lr_model.transform(test_df))</p>
+			<p class="source-code">  mlflow.log_metric(evaluator.getMetricName(), </p>
+			<p class="source-code">                    test_metric) </p>
+			<p class="source-code">  mlflow.spark.log_model(spark_model=lr_model.bestModel, </p>
+			<p class="source-code">                         artifact_path='best-model') </p>
+			<p>In the previous code example, we invoked the MLflow Tracking server to start tracking our experiments:</p>
+			<ul>
+				<li>Since we are <a id="_idIndexMarker700"/>using the cross-validation technique and have defined a parameter grid with a range of values, the <strong class="source-inline">fit()</strong> process <a id="_idIndexMarker701"/>builds multiple models instead of a single model and records the best model based on the specified accuracy metric. Since we would like to keep a record of all the models we've built in this process, we must invoke the MLflow Tracking service using the <strong class="source-inline">mlflow.start_run()</strong> method. </li>
+				<li>The metrics that were generated during the cross-validation process are logged to the MLflow Tracking server using the <strong class="source-inline">mlflow.log_metric()</strong> function. Within the Databricks managed MLflow environment, the model parameters are automatically logged when <strong class="source-inline">CrossValidator</strong> is used. However, model parameters can also be explicitly logged using the <strong class="source-inline">mlflow.log_parameter()</strong> function and any arbitrary artifacts such as graphs or charts can be logged using the <strong class="source-inline">mlflow.log_artifact()</strong> function.</li>
+				<li><strong class="source-inline">CrossValidator</strong> iterates over multiple models and generates the best model based on the specified accuracy metric. The best model that's generated during this process is available as a <strong class="source-inline">bestModel</strong> object. This can be logged using the <strong class="source-inline">mlflow.spark.log_model(spark_model=lr_model.bestModel, artifact_path='best-model')</strong> command. Here, <strong class="source-inline">artifact_path</strong> denotes the path where the model is stored in the MLflow Tracking server. </li>
+			</ul>
+			<p>The following screenshot shows the MLflow Tracking UI for the ML experiment that we just executed:</p>
+			<div>
+				<div id="_idContainer049" class="IMG---Figure">
+					<img src="Images/B16736_09_03.jpg" alt="Figure 9.3 – MLflow Model tracking UI&#13;&#10;" width="1117" height="254"/>
+				</div>
+			</div>
+			<p class="figure-caption">Figure 9.3 – MLflow Model tracking UI</p>
+			<p>In the preceding screenshot, we can see that MLflow recorded the accuracy metrics and model parameters <a id="_idIndexMarker702"/>for each of the models we built during the <strong class="bold">cross-validation</strong> process as a single experiment. However, only the best model <a id="_idIndexMarker703"/>out of all the runs was recorded. Details of <a id="_idIndexMarker704"/>an individual run can be accessed by clicking on one of the runs, as shown in the following screenshot:</p>
+			<div>
+				<div id="_idContainer050" class="IMG---Figure">
+					<img src="Images/B16736_09_4.jpg" alt="Figure 9.4 – Individual models being run from the MLflow Tracking UI&#13;&#10;" width="551" height="482"/>
+				</div>
+			</div>
+			<p class="figure-caption">Figure 9.4 – Individual models being run from the MLflow Tracking UI</p>
+			<p>In the preceding screenshot, all the model parameters and metrics have been recorded in the MLflow <a id="_idIndexMarker705"/>Tracking UI, along with other metadata such as the model's run date and time, username, the source code version for this specific <a id="_idIndexMarker706"/>model run, the duration of the model's run, and the status of the model. This information is very useful in reproducing the experiment in the future or reproducing the same experiment in a different environment, so long as the same version of the data is available.</p>
+			<p class="callout-heading">Tip</p>
+			<p class="callout">MLflow Tracking can also be used to track the version of the data that's being used for the experiment if the <a id="_idIndexMarker707"/>data is stored in a Delta table, as Delta provides built-in data versioning. This can be done by logging the Delta table's version as an arbitrary artifact to MLflow.</p>
+			<p>The <strong class="source-inline">mlflow.</strong> command in the previous code snippet specifies that we are using a Spark flavor <a id="_idIndexMarker708"/>of the MLflow Model. MLflow supports other flavors of models, as described in the following section.</p>
+			<h3>MLflow Model</h3>
+			<p>MLflow Model is a general-purpose, portable model format that supports a variety of model flavors, ranging <a id="_idIndexMarker709"/>from simple Python pickle objects to scikit-learn, TensorFlow, PyTorch, MLeap, and other model formats, including Spark models in Parquet format. MLflow Models present abstractions that can be produced using a variety of common ML tools and then deployed to a variety of ML environments. MLflow Model provides models from popular ML frameworks in MLflow format. An MLflow Model has a standard directory structure that contains configuration files and a serialized model artifact. It also contains all the model evaluation dependencies for model portability and reproducibility in the form of a <strong class="source-inline">conda</strong> environment via the <strong class="source-inline">conda.yaml</strong> file:</p>
+			<div>
+				<div id="_idContainer051" class="IMG---Figure">
+					<img src="Images/B16736_09_5.jpg" alt="Figure 9.5 – MLflow Model&#13;&#10;" width="180" height="150"/>
+				</div>
+			</div>
+			<p class="figure-caption">Figure 9.5 – MLflow Model</p>
+			<p>The preceding screenshot shows the structure of a typical MLflow Model. This standard model format creates a model flavor that can be understood by any downstream tool. Model flavors are used for deployment purposes to help us understand the models from any ML library, without <a id="_idIndexMarker710"/>having to integrate each tool with each library. MLflow supports many of the prominent model flavors that all its built-in deployment tools support, such as a simple Python function flavor that describes how to run the model as a Python function. For instance, in the <a id="_idIndexMarker711"/>previous code example, we stored our model as a Spark model, which can then be loaded as a <strong class="bold">Spark</strong> object or as a simple Python function that can be used in any Python application, even those that may not understand Spark at all.</p>
+			<h2 id="_idParaDest-169"><a id="_idTextAnchor169"/>ML model tuning</h2>
+			<p>Model tuning is an important aspect of the model building process, where the best model parameters are <a id="_idIndexMarker712"/>identified programmatically to achieve optimal model performance. This process of model selection by iteratively varying the model parameters is called <em class="italic">hyperparameter tuning</em>. A typical hyperparameter tuning process involves splitting <a id="_idIndexMarker713"/>the available data into multiple training and test datasets. Then, for each training dataset, a test pair iterates through a set of model parameters, called the parameter grid, and selects the model that yields the best performance among all the models that have been trained.</p>
+			<p>Spark ML provides a <strong class="source-inline">ParamGridbuilder</strong> utility to help build the parameter grid, as well as the <strong class="source-inline">CrossValidator</strong> and <strong class="source-inline">TrainValidationSplit</strong> classes to handle model selection. <strong class="source-inline">CrossValidator</strong> performs model selection by splitting the dataset into a set of folds that <a id="_idIndexMarker714"/>are used as separate training and test dataset pairs, and each fold is used as the test set exactly once. The use of model tuning and selection using <strong class="source-inline">ParamGridBuilder</strong> and <strong class="source-inline">CrossValidator</strong> was presented in the code sample presented in the previous section. <strong class="source-inline">TrainValidationSplit</strong> is another popular technique for model selection that uses hyperparameter tuning. Details on its implementation in Apache <a id="_idIndexMarker715"/>Spark can be found on Spark's documentation page at <a href="https://spark.apache.org/docs/latest/ml-tuning.html#train-validation-split">https://spark.apache.org/docs/latest/ml-tuning.html#train-validation-split</a>. </p>
+			<p>Now that we have learned how to perform model selection tuning using Apache Spark and how to track experiments using MLflow, the next step in ML life cycle management is storing the models and their versions in a central model repository for use later. We will explore this in the following section using <strong class="bold">MLflow Model Registry</strong>.</p>
+			<h1 id="_idParaDest-170"><a id="_idTextAnchor170"/>Tracking model versions using MLflow Model Registry</h1>
+			<p>While the MLflow Tracking server lets you track all the attributes of your ML experiments, MLflow Model Registry provides a central model repository that lets you track all the <a id="_idIndexMarker716"/>aspects of your model life cycle. MLflow Model Registry consists of a user interface and APIs to track the model's version, lineage, stage transitions, annotations, and any developer comments. MLflow Model Registry also contains webhooks for CI/CD integrations and a model server for online model serving.</p>
+			<p>MLflow Model Registry provides us with a way to track and organize the many ML models that <a id="_idIndexMarker717"/>are produced and used by businesses during development, testing, and production. Model Registry provides a secure way to share models by leveraging access control lists and provides a way to integrate with model governance and approval workflows. Model Registry also allows us to monitor ML deployments and their performance via its API.</p>
+			<p class="callout-heading">Tip</p>
+			<p class="callout">Model Registry's access controls and the ability to set permissions on registered models are only available in the full version of Databricks. They are not available in the Community Edition of Databricks or the open source version of MLflow.</p>
+			<p>Once a model has been logged to the Model Registry, you can add, modify, update, transition, or <a id="_idIndexMarker718"/>delete the model through the UI or the API, as shown in the following code sample:</p>
+			<p class="source-code">import mlflow</p>
+			<p class="source-code">from mlflow.tracking.client import MlflowClient</p>
+			<p class="source-code">client = MlflowClient()</p>
+			<p class="source-code">model_name = "linear-regression-model"</p>
+			<p class="source-code">artifact_path = "best_model"</p>
+			<p class="source-code">model_uri = "runs:/{run_id}/{artifact_path}".format (run_id=run_id, artifact_path=artifact_path)</p>
+			<p class="source-code">registered_model = mlflow.register_model(model_uri=model_uri, name=model_name, )</p>
+			<p class="source-code">client.update_model_version(</p>
+			<p class="source-code">  name=registered_model.name,</p>
+			<p class="source-code">  version=registered_model.version,</p>
+			<p class="source-code">  description="This predicts the age of a customer using transaction history."</p>
+			<p class="source-code">)</p>
+			<p class="source-code">client.transition_model_version_stage(</p>
+			<p class="source-code">  name=registered_model.name,</p>
+			<p class="source-code">  version=registered_model.version,</p>
+			<p class="source-code">  stage='Staging',</p>
+			<p class="source-code">)</p>
+			<p class="source-code">model_version = client.get_model_version(</p>
+			<p class="source-code">  name=registered_model.name,</p>
+			<p class="source-code">  version=registered_model.version,</p>
+			<p class="source-code">)</p>
+			<p class="source-code">model_uri = "models:/{model_name}/staging".format(model_name=model_name)</p>
+			<p class="source-code">spark_model = mlflow.spark.load_model(model_uri)</p>
+			<p>In the previous code snippet, we did the following:</p>
+			<ol>
+				<li>First, we imported the relevant MLflow libraries and <strong class="source-inline">MlflowClient</strong>, an MLflow interface for accessing the MLflow Tracking server and Model Registry artifacts <a id="_idIndexMarker719"/>via Python. The client interface is invoked using the <strong class="source-inline">MlflowClient()</strong> method.</li>
+				<li>Then, we constructed <strong class="source-inline">model_uri</strong> by providing the model, name, the model artifact location, and the <strong class="source-inline">run_id</strong> property from a tracked experiment. This information can be accessed via the MLflow Tracking server, either via the API or the UI.</li>
+				<li>Since we had reconstructed the model URI from the tracking server, we registered the model to the Model Registry using the<strong class="source-inline"> register_model()</strong> function. If the model doesn't already exist in the Model Registry, a new model with a version of <strong class="bold">1</strong> is registered instead.</li>
+				<li>Once the model was registered, we had the opportunity to add or update the model description using the <strong class="source-inline">update_model_version()</strong> method. </li>
+				<li>During the life cycle of a model, it often evolves and needs to transition its stage, say from staging to production or the archival stage. This can be accomplished using the <strong class="source-inline">transition_model_version_stage()</strong> method.</li>
+				<li>A registered model's version and stage can be listed using the <strong class="source-inline">get_model_version()</strong> method.</li>
+				<li>Finally, we loaded a specific version/stage of the model from the Model Registry using the <strong class="source-inline">load_model()</strong> method after constructing the model URI using the <strong class="source-inline">models</strong> keyword, the model's name, and its version or stage name.</li>
+			</ol>
+			<p>Model Registry <a id="_idIndexMarker720"/>also provides other handy functions for listing and searching through various versions of an individual registered model, as well as archiving and deleting registered models. References <a id="_idIndexMarker721"/>for those methods can be found at <a href="https://www.mlflow.org/docs/latest/model-registry.html#model-registry-workflows">https://www.mlflow.org/docs/latest/model-registry.html#model-registry-workflows</a>.</p>
+			<p class="callout-heading">Important Note</p>
+			<p class="callout">Databricks Community Edition, which we will be using throughout this book, does not include Model Registry, so you will have to use the full version of Databricks to execute the preceding code sample. Alternatively, you can deploy your own MLflow Remote Tracking Server, along with a database-backed backend store outside of the Databricks environment, as described here: <a href="https://mlflow.org/docs/latest/tracking.html#mlflow-tracking-servers">https://mlflow.org/docs/latest/tracking.html#mlflow-tracking-servers</a>.</p>
+			<p>Now that you have learned how to store, version, and retrieve models using MLflow Model Registry, the next step of the ML life cycle is putting the trained, evaluated, and tuned models to practical use by leveraging them in business applications to draw inferences. We will discuss this in the next section.</p>
+			<h1 id="_idParaDest-171"><a id="_idTextAnchor171"/>Model serving and inferencing</h1>
+			<p>Model serving and inferencing is the most important step of the entire ML life cycle. This is where the models that have been build are deployed to business applications so that we can draw inferences from them. Model serving and inferencing can happen in two ways: using batch processing in offline mode or in real time in online mode.</p>
+			<h2 id="_idParaDest-172"><a id="_idTextAnchor172"/>Offline model inferencing</h2>
+			<p>Offline model inferencing is the process of generating predictions from a ML <a id="_idIndexMarker722"/>model using batch processing. The batch processing inference jobs run periodically on a recurring schedule, producing predictions on a new set of fresh data every time. These predictions are then stored in a database <a id="_idIndexMarker723"/>or on the data lake and are consumed by business applications in an offline or asynchronous way. An example of batch inferencing would be data-driven customer segmentation being used by the marketing teams at an organization or a retailer predicting customer lifetime value. These use cases do not demand real-time predictions; batch inferencing can serve the purpose here. </p>
+			<p>In the case of Apache Spark, batch inferencing can take advantage of Spark's scalability to produce predictions at scale on very large datasets, as demonstrated in the following code sample:</p>
+			<p class="source-code">model_uri = "runs:/{run_id}/{artifact_path}".format(run_id=active_run.info.run_id, artifact_path="best-model")</p>
+			<p class="source-code">spark_udf = mlflow.pyfunc.spark_udf(spark, model_uri)</p>
+			<p class="source-code">predictions_df = retail_df.withColumn("predictions", spark_udf(struct("features")))</p>
+			<p class="source-code">predictions_df.write.format("delta").save("/tmp/retail_predictions")</p>
+			<p>In the previous code block, we recreated the model URI using the model's name and the artifact location from the tracking server. Then, we created a Spark <strong class="bold">user-defined function</strong> (<strong class="bold">UDF</strong>) using the MLflow Python function model flavor from the Spark model stored on the <a id="_idIndexMarker724"/>tracking server. This Spark UDF can be used with a Spark DataFrame to produce inferences in a batch manner at scale. This piece of code can be scheduled as a job that runs periodically, and the predictions can be saved to a location on the data lake.</p>
+			<p>The Apache Spark framework can help us implement the complete ML life cycle, from model training to model inferencing, using a single, unified data processing framework. Spark can also be used to extend batch inferencing to near-real-time inferencing using Spark Structured Streaming. However, when it comes to ultra-low latency real-time model serving, Apache Spark is not suitable. We will explore this further in the next section.</p>
+			<h2 id="_idParaDest-173"><a id="_idTextAnchor173"/>Online model inferencing</h2>
+			<p>Online inference is the process of generating ML predictions in real time, either by embedding the inference code in the business application itself or by using ultra-low latency APIs. Unlike batch inferences, which are generated in bulk on a large dataset, real-time <a id="_idIndexMarker725"/>online inferences are typically generated on one observation at a time. Online inferencing can help with a new and novel application of ML by generating predictions in milliseconds to seconds instead of hours to days. </p>
+			<p>Consider the example of a mobile gaming application, where you want to show personalized promotions to a gamer based on their level or the type of game they are playing. Online inferencing can quickly collect user behavior data from the mobile app and either generate a predictive recommendation within the app itself or by using a low latency API server. This can, for example, help businesses generate personalized experiences in real time for their customers. While Apache Spark itself is not suitable for online inferencing, MLflow Model Registry includes a model serving component that can be activated using the following command:</p>
+			<p class="source-code">mlflow models serve -m "models:/ linear-regression-model/Production"</p>
+			<p>In the previous command, we invoked MLflow's built-in model server to serve the model that we previously registered with Model Registry. This model server makes a RESTful API available for external applications to communicate via HTTP with the model server, sends in a single observation called the payload, and receives a single prediction at a time.</p>
+			<p class="callout-heading">Note</p>
+			<p class="callout">MLflow's model serving capabilities are not available in Databricks Community Edition, so the previous command will not execute if you are using that version. This feature can be used either in open source MLflow or Databrick's full version.</p>
+			<p>MLflow's model serving feature is still in preview at the time of writing and has some limitations, such as a target throughput of 20 queries per second and a payload size limitation of 16 MB <a id="_idIndexMarker726"/>per request. Thus, this option is only recommended for low throughput, non-production applications. MLflow does offer integrations with other model serving platforms, however, such as <strong class="bold">AWS Sagemaker</strong>, <strong class="bold">Azure ML</strong>, and <strong class="bold">Google Cloud AI</strong>. Details of <a id="_idIndexMarker727"/>these integrations can be found <a id="_idIndexMarker728"/>in the respective cloud provider's documentation.</p>
+			<h1 id="_idParaDest-174"><a id="_idTextAnchor174"/>Continuous delivery for ML</h1>
+			<p>ML code, unlike traditional software code, is dynamic and is constantly affected by changes to the model code itself, the underlying training data, or the model parameters. Thus, ML model performance needs to be continuously monitored, and models need to <a id="_idIndexMarker729"/>be retrained and redeployed periodically to maintain the desired level of model performance. This process can be daunting and time-consuming and prone to mistakes when performed manually. However <strong class="bold">Continuous Delivery for ML</strong> (<strong class="bold">CD4ML</strong>) can help streamline and automate this process.</p>
+			<p>CD4ML is derived from the software engineering principles of <strong class="bold">continuous integration</strong> and <strong class="bold">continuous delivery</strong> (<strong class="bold">CI/CD</strong>), which were developed to promote automation, quality, and discipline and help create a reliable and repeatable process that can <a id="_idIndexMarker730"/>release software into production. CD4ML builds on and adapts this CI/CD process to ML, where data teams produce artifacts <a id="_idIndexMarker731"/>related to the ML process, such as code data and models, in safe and small increments that can be reproduced and released reliably at any time.</p>
+			<p>The CD4ML process involves a data scientist building a model and its parameters, source code, and the training data required. The next step is model evaluation and tuning. After an acceptable level of model accuracy has been achieved, the model needs to be productionized, and testing must be performed on the model. The final step is deploying and monitoring the model. If the model needs to be adjusted, the CD4ML pipeline should trigger the ML process so that it starts from the beginning. This ensures the continuous delivery occurs and that the latest code changes and models are pushed to the production environment. MLflow provides most of the components that are required to implement this CD4ML process, as follows:</p>
+			<ol>
+				<li value="1">Firstly, the MLflow Tracking server can help you track the model training process, including all the training artifacts, along with the data version and the models that have been versioned and marked for testing or production using Model Registry. </li>
+				<li>Then, the registered models can be annotated with custom tags, which helps encode a variety of information. This includes indicating the deployment mode of the model, whether it be batch or online mode, or the region where the model was deployed. </li>
+				<li>Comments can be added to models to specify test failures, model inaccuracies, or production <a id="_idIndexMarker732"/>deployment failure notes by data scientists, test engineers, and ML engineers to aid discussion between cross-functional teams. </li>
+				<li>Notifications can be pushed via webhooks within Model Registry to help invoke various <a id="_idIndexMarker733"/>actions and automated tests via external CI/CD tools. Actions can be triggered for events such as model creation, version change, adding new comments, and more. </li>
+				<li>Finally, MLflow Projects helps package the entire model development workflow into a reusable, parameterized module.</li>
+			</ol>
+			<p>This way, by leveraging MLflow components such as the MLflow Tracking server, Model Registry, MLflow Projects, and its webhooks functionality, combined with a process automation server such as Jenkins, an entire CD4ML pipeline can be orchestrated.</p>
+			<p class="callout-heading">Note</p>
+			<p class="callout">MLflow Model Registry's webhooks feature is only available in the full version of Databricks; it's not available in the Community Edition or open source MLflow. More information <a id="_idIndexMarker734"/>on MLflow Projects and their usage can be found here: <a href="https://www.mlflow.org/docs/latest/projects.html">https://www.mlflow.org/docs/latest/projects.html</a>.</p>
+			<p>This way, MLflow, with its Model Tracking and Model Registry processes, can help streamline the entire CD4ML process, which would otherwise be a difficult process with a lot of manual steps, lack reproducibility, and cause errors and confusion among cross-functional teams.</p>
+			<h1 id="_idParaDest-175"><a id="_idTextAnchor175"/>Summary</h1>
+			<p>In this chapter, you were introduced to the end-to-end ML life cycle and the various steps involved in it. MLflow is a complete, end-to-end ML life cycle management tool. The MLflow Tracking component was presented, which is useful for streaming the ML experimentation process and helps you track all its attributes, including the data version, ML code, model parameters and metrics, and any other arbitrary artifacts. MLflow Model was introduced as a standards-based model format that provides model portability and reproducibility. MLflow Model Registry was also explored, which is a central model repository that supports the entire life cycle of a newly created model, from staging to production to archival. Model serving mechanisms, such as using batch and online processes, were also introduced. Finally, continuous delivery for ML was introduced. It is used to streamline the entire ML life cycle and automate the model life cycle using Model Registry features, such as the ability to transition model stages, a way to add comments and annotations, and using webhooks to help automate the model life cycle process via external orchestration tools. </p>
+			<p>So far in this book, you have acquired practical skills to perform data engineering and data science at scale. In the next chapter, we will focus on techniques for scaling out single-machine-based ML libraries based on standard Python.</p>
+		</div>
+	</div></body></html>

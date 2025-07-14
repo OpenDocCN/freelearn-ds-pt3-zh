@@ -1,0 +1,168 @@
+<html><head></head><body><div id="sbo-rt-content"><div id="_idContainer053">
+			<h1 id="_idParaDest-176"><a id="_idTextAnchor176"/>Chapter 10: Scaling Out Single-Node Machine Learning Using PySpark</h1>
+			<p>In <a href="B16736_05_Final_JM_ePub.xhtml#_idTextAnchor094"><em class="italic">Chapter 5</em></a><em class="italic">, Scalable Machine Learning with PySpark</em>, you learned how you could use the power of <strong class="bold">Apache</strong> <strong class="bold">Spark</strong>'s distributed computing framework to train and score <strong class="bold">machine learning</strong> (<strong class="bold">ML</strong>) models at scale. Spark's native ML library provides good coverage of standard tasks that data scientists typically perform; however, there is a wide variety of functionality provided by standard single-node <strong class="bold">Python</strong> libraries that were not designed to work in a distributed manner. This chapter deals with techniques for horizontally scaling out standard Python data processing and ML libraries such as <strong class="bold">pandas</strong>, <strong class="bold">scikit-learn,</strong> <strong class="bold">XGBoost</strong>, and more. It also covers scaling out of typical data science tasks such as <strong class="bold">exploratory data analysis</strong> (<strong class="bold">EDA</strong>), <strong class="bold">model training</strong>, <strong class="bold">model inferencing</strong>, and, finally, also covers a scalable Python library named <strong class="bold">Koalas</strong> that lets you effortlessly write <strong class="bold">PySpark</strong> code using the very familiar and easy-to-use pandas-like syntax.</p>
+			<p>In this chapter, we're going to cover the following main topics:</p>
+			<ul>
+				<li>Scaling out EDA</li>
+				<li>Scaling out model inferencing</li>
+				<li>Distributed hyperparameter tuning</li>
+				<li>Model training using <strong class="bold">embarrassingly parallel computing</strong></li>
+				<li>Upgrading pandas to PySpark using Koalas</li>
+			</ul>
+			<p>Some of the skills gained in this chapter will be performing EDA at scale, performing model inferencing and scoring in a scalable fashion, hyperparameter tuning, and best model selection at scale for single-node models. You will also learn to horizontally scale out pretty much any single-node ML model and finally Koalas that lets us use pandas-like API to write scalable PySpark code.</p>
+			<h1 id="_idParaDest-177"><a id="_idTextAnchor177"/>Technical requirements</h1>
+			<ul>
+				<li>In this chapter, we will be using the Databricks Community Edition to run our code:<p><a href="https://community.cloud.databricks.com">https://community.cloud.databricks.com</a></p><p>Sign-up instructions can be found at <a href="https://databricks.com/try-databricks">https://databricks.com/try-databricks</a>. </p></li>
+				<li>The code and data used in this chapter can be downloaded from <a href="https://github.com/PacktPublishing/Essential-PySpark-for-Scalable-Data-Analytics/tree/main/Chapter10">https://github.com/PacktPublishing/Essential-PySpark-for-Scalable-Data-Analytics/tree/main/Chapter10</a>.</li>
+			</ul>
+			<h1 id="_idParaDest-178"><a id="_idTextAnchor178"/>Scaling out EDA</h1>
+			<p>EDA<a id="_idIndexMarker735"/> is a data science process that involves analysis of a given dataset to understand its main characteristics, sometimes graphically using visualizations and other times just by aggregating and slicing data. You have already learned some visual EDA techniques in <a href="B16736_11_Final_JM_ePub.xhtml#_idTextAnchor188"><em class="italic">Chapter 11</em></a><em class="italic">, Data Visualization with PySpark</em>. In this section, we will explore non-graphical EDA using pandas and compare it with the same process using PySpark and Koalas.</p>
+			<h2 id="_idParaDest-179"><a id="_idTextAnchor179"/>EDA using pandas</h2>
+			<p>Typical EDA in standard Python<a id="_idIndexMarker736"/> involves using pandas for data<a id="_idIndexMarker737"/> manipulation and <strong class="source-inline">matplotlib</strong> for data visualization. Let's take a sample dataset that comes with scikit-learn and perform some basic EDA steps on it, as shown in the following code example:</p>
+			<p class="source-code">import pandas as pd</p>
+			<p class="source-code">from sklearn.datasets import load_boston</p>
+			<p class="source-code">boston_data = datasets.load_boston()</p>
+			<p class="source-code">boston_pd = pd.DataFrame(boston_data.data, </p>
+			<p class="source-code">                         columns=boston_data.feature_names)</p>
+			<p class="source-code">boston_pd.info()</p>
+			<p class="source-code">boston_pd.head()</p>
+			<p class="source-code">boston_pd.shape</p>
+			<p class="source-code">boston_pd.isnull().sum()</p>
+			<p class="source-code">boston_pd.describe()</p>
+			<p>In the previous code example, we perform the following steps:</p>
+			<ol>
+				<li value="1">We import the pandas<a id="_idIndexMarker738"/> library and import the sample<a id="_idIndexMarker739"/> dataset, <strong class="source-inline">load_boston</strong>, that comes with scikit-learn.</li>
+				<li>Then, we convert the scikit-learn dataset into a pandas DataFrame using the <strong class="source-inline">pd.DataFrame()</strong> method.</li>
+				<li>Now that we have a pandas DataFrame, we can perform analysis on it, starting with the <strong class="source-inline">info()</strong> method, which prints information about the pandas DataFrame such as its column names and their data types.</li>
+				<li>The <strong class="source-inline">head()</strong> function on the pandas DataFrame prints a few rows and columns of the actual DataFrame and helps us visually examine some sample data from the DataFrame.</li>
+				<li>The <strong class="source-inline">shape</strong> attribute on the pandas DataFrame prints the number of rows and columns.</li>
+				<li>The <strong class="source-inline">isnull()</strong> method shows the number of NULL values in each column in the DataFrame.</li>
+				<li>Finally, the <strong class="source-inline">describe()</strong> method prints some statistics on each column sum as the mean, median, and standard deviation.</li>
+			</ol>
+			<p>This code snippet shows some typical EDA steps performed using the Python pandas data processing library. Now, let's see how you can perform similar EDA steps using PySpark.</p>
+			<h2 id="_idParaDest-180"><a id="_idTextAnchor180"/>EDA using PySpark</h2>
+			<p>PySpark also has a DataFrame construct<a id="_idIndexMarker740"/> similar to pandas DataFrames, and you<a id="_idIndexMarker741"/> can perform EDA using PySpark, as shown in the following code example:</p>
+			<p class="source-code">boston_df = spark.createDataFrame(boston_pd)</p>
+			<p class="source-code">boston_df.show()</p>
+			<p class="source-code">print((boston_df.count(), len(boston_df.columns)))</p>
+			<p class="source-code">boston_df.where(boston_df.AGE.isNull()).count()</p>
+			<p class="source-code">boston_df.describe().display()</p>
+			<p>In the previous code example, we perform the following steps:</p>
+			<ol>
+				<li value="1">We first convert the pandas DataFrame created in the previous section to a Spark DataFrame using the <strong class="source-inline">createDataFrame()</strong> function.</li>
+				<li>Then, we use the <strong class="source-inline">show()</strong> function to display a small sample of data from the Spark DataFrame. While the <strong class="source-inline">head()</strong> function is available, <strong class="source-inline">show()</strong> shows the data in a better formatted and more readable way.</li>
+				<li>Spark DataFrames do not have a built-in function to display the shape of the Spark DataFrame. Instead, we use the <strong class="source-inline">count()</strong> function on the rows and the <strong class="source-inline">len()</strong> method on the columns to accomplish the same functionality.</li>
+				<li>Similarly, Spark DataFrames also do not support a pandas-equivalent <strong class="source-inline">isnull()</strong> function to count NULL values in all columns. Instead, a combination of <strong class="source-inline">isNull()</strong> and <strong class="source-inline">where()</strong> is used to filter out NULL values from each column individually and then count them.</li>
+				<li>Spark DataFrames do support a <strong class="source-inline">describe()</strong> function that can calculate basic statistics on each of the DataFrames' columns in a distributed manner by running a Spark job behind the scenes. This may not seem very useful for small datasets but can be very useful when describing very large datasets.</li>
+			</ol>
+			<p>This way, by using the built-in functions and operations available with Spark DataFrames, you can easily scale<a id="_idIndexMarker742"/> out your EDA. Since Spark DataFrames<a id="_idIndexMarker743"/> inherently support <strong class="bold">Spark</strong> <strong class="bold">SQL</strong>, you can also perform your<a id="_idIndexMarker744"/> scalable EDA using Spark SQL in addition to using DataFrame APIs.</p>
+			<h1 id="_idParaDest-181"><a id="_idTextAnchor181"/>Scaling out model inferencing</h1>
+			<p>Another important aspect<a id="_idIndexMarker745"/> of the whole ML process, apart from data cleansing and model training and tuning, is the productionization of models itself. Despite having access to huge amounts of data, sometimes it is useful to downsample the data and train models on a smaller subset of the larger dataset. This could be due to reasons such as low signal-to-noise ratio, for example. In this, it is not necessary to scale up or scale out the model training process itself. However, since the raw dataset size is very large, it becomes necessary to scale out the actual model inferencing process to keep up with the large amount of raw data that is being generated.</p>
+			<p>Apache Spark, along with <strong class="bold">MLflow</strong>, can be used to score<a id="_idIndexMarker746"/> models trained using standard, non-distributed Python libraries like scikit-learn. An example of a model trained using scikit-learn and then productionized at scale using Spark is shown in the following code example:</p>
+			<p class="source-code">import mlflow</p>
+			<p class="source-code">from sklearn.model_selection import train_test_split</p>
+			<p class="source-code">from sklearn.linear_model import LinearRegression</p>
+			<p class="source-code">X = boston_pd[features]</p>
+			<p class="source-code">y = boston_pd['MEDV']</p>
+			<p class="source-code">with mlflow.start_run() as run1:</p>
+			<p class="source-code">  lr = LinearRegression()</p>
+			<p class="source-code">  lr_model = lr.fit(X_train,y_train)</p>
+			<p class="source-code">  mlflow.sklearn.log_model(lr_model, "model")</p>
+			<p>In the previous code example, we perform the following steps:</p>
+			<ol>
+				<li value="1">We intend to train a linear regression model using scikit-learn that predicts the median house value (given a set of features) on the sample Boston housing dataset that comes with scikit-learn.</li>
+				<li>First, we import<a id="_idIndexMarker747"/> all the required scikit-learn modules, and we also import MLflow, as we intend<a id="_idIndexMarker748"/> to log the trained model to the <strong class="bold">MLflow</strong> <strong class="bold">Tracking</strong> <strong class="bold">Server</strong>.</li>
+				<li>Then, we define the feature columns as a variable, <strong class="source-inline">X</strong>, and the label column as <strong class="source-inline">y</strong>.</li>
+				<li>Then, we invoke an MLflow experiment using the <strong class="source-inline">with mlflow.start_run()</strong> method.</li>
+				<li>Then, we train the actual linear regression model by using the <strong class="source-inline">LinearRegression</strong> class and calling the <strong class="source-inline">fit()</strong> method on the training pandas DataFrame.</li>
+				<li>Then, we log the resultant model to the MLflow Tracking Server using the <strong class="source-inline">mlflow.sklearn.log_model()</strong> method. The <strong class="source-inline">sklearn</strong> qualifier specifies that the model being logged is of a scikit-learn flavor.</li>
+			</ol>
+			<p>Once we have the<a id="_idIndexMarker749"/> trained linear regression model logged to the MLflow Tracking Server, we need to convert it into a PySpark <strong class="bold">user-defined function</strong> (<strong class="bold">UDF</strong>) to allow it to be used for inferencing<a id="_idIndexMarker750"/> in a distributed manner. The code required to achieve this is presented in the following code example:</p>
+			<p class="source-code">import mlflow.pyfunc</p>
+			<p class="source-code">from pyspark.sql.functions import struct</p>
+			<p class="source-code">model_uri = "runs:/" + run1.info.run_id + "/model"</p>
+			<p class="source-code">pyfunc_udf = mlflow.pyfunc.spark_udf(spark, model_uri=model_uri)</p>
+			<p class="source-code">predicted_df = boston_df.withColumn("prediction", pyfunc_udf(struct('CRIM','ZN','INDUS','CHAS','NOX','RM','AGE','DIS','RAD','TAX','PTRATIO', 'B', 'LSTAT')))</p>
+			<p class="source-code">predicted_df.show()</p>
+			<p>In the previous code example, we perform the following steps:</p>
+			<ol>
+				<li value="1">We import the <strong class="source-inline">pyfunc</strong> method used to convert the mlflow model into a PySpark UDF from the mlflow library.</li>
+				<li>Then, we construct the <strong class="source-inline">model_uri</strong> from MLflow using the <strong class="source-inline">run_id </strong>experiment.</li>
+				<li>Once we have the <strong class="source-inline">model_uri</strong>, we register the model as a PySpark UDF using the <strong class="source-inline">mlflow.pyfunc()</strong> method. We specify the model flavor as <strong class="source-inline">spark</strong> as we intend to use this with a Spark DataFrame.</li>
+				<li>Now that the model has been<a id="_idIndexMarker751"/> registered as a PySpark UDF, we use it to make predictions on a Spark DataFrame. We do this by using it to create a new column in the Spark DataFrame, then pass in all the feature columns as input. The result is a new DataFrame with a new column that consists of the predictions for each row.</li>
+				<li>It should be noted that when the <strong class="source-inline">show</strong> action is called it invokes a Spark job and performs the model scoring in a distributed way.</li>
+			</ol>
+			<p>In this way, using the <strong class="source-inline">pyfunc</strong> method of MLflow along with Spark DataFrame operations, a model built using a standard, single-node Python ML library like scikit-learn can also be used to derive inferences at scale in a distributed manner. Furthermore, the inferencing Spark job can be made to write predictions to a persistent storage method like a database, data warehouse, or data lake, and the job itself can be scheduled to run periodically. This can also<a id="_idIndexMarker752"/> be easily extended to perform model inferencing in near real-time by using <strong class="bold">structured streaming</strong> to perform predictions on a streaming DataFrame.</p>
+			<h1 id="_idParaDest-182"><a id="_idTextAnchor182"/>Model training using embarrassingly parallel computing</h1>
+			<p>As you learned previously, Apache Spark follows the <strong class="bold">data parallel processing</strong> paradigm of <strong class="bold">distributed computing</strong>. In data parallel processing, the data processing code is moved<a id="_idIndexMarker753"/> to where the data resides. However, in traditional computing<a id="_idIndexMarker754"/> models, such as those used by standard Python<a id="_idIndexMarker755"/> and single-node ML libraries, data<a id="_idIndexMarker756"/> is processed on a single machine and the data is expected to be present locally. Algorithms designed for single-node computing can be designed to be multiprocessed, where the process makes use of multiprocessing and multithreading techniques offered by the local CPUs to achieve some level of parallel computing. However, these algorithms are not inherently capable of being distributed and need to be rewritten entirely to be capable of distributed computing. <strong class="bold">Spark</strong> <strong class="bold">ML</strong> <strong class="bold">library</strong> is an example where traditional ML algorithms<a id="_idIndexMarker757"/> have been completely redesigned to work in a distributed computing environment. However, redesigning every existing algorithm would be very time-consuming and impractical as well. Moreover, a rich set of standard-based Python libraries for ML and data processing already exist and it would be useful if there was a way to leverage them in a distributed computing setting. This is where the embarrassingly parallel computing paradigm comes into play.</p>
+			<p>In distributed computing, the same compute process executes on different chunks of data residing on different machines, and these compute processes need to communicate with each other to achieve the overall compute task at hand. However, in embarrassingly parallel computing, the algorithm requires no communication between the various processes, and they can run completely independently. There are two ways of exploiting embarrassingly parallel computing for ML training within the Apache Spark framework, and they are presented in the following sections.</p>
+			<h2 id="_idParaDest-183"><a id="_idTextAnchor183"/>Distributed hyperparameter tuning </h2>
+			<p>One of the critical steps of ML processes is model tuning, where data scientists train several models by varying<a id="_idIndexMarker758"/> the model hyperparameters. This technique<a id="_idIndexMarker759"/> is commonly known as hyperparameter tuning. A common<a id="_idIndexMarker760"/> technique for hyperparameter tuning is called <strong class="bold">grid search</strong>, which is a method to find the best combination of hyper-parameters that yield the best-performing model. Grid search selects the best model out of all the trained models using <strong class="bold">cross-validation</strong>, where data is split into train and test sets, and<a id="_idIndexMarker761"/> the trained model's performance is evaluated using the test dataset. In grid search, since multiple models are trained on the same dataset, they can all be trained independently of each other, making it a good candidate for embarrassingly parallel computing.</p>
+			<p>A typical grid search<a id="_idIndexMarker762"/> implementation using standard scikit-learn is illustrated using the following code example:</p>
+			<p class="source-code">from sklearn.datasets import load_digits</p>
+			<p class="source-code">from sklearn.ensemble import RandomForestClassifier</p>
+			<p class="source-code">from sklearn.model_selection import GridSearchCV</p>
+			<p class="source-code">digits_pd = load_digits()</p>
+			<p class="source-code">X = digits_pd.data </p>
+			<p class="source-code">y = digits_pd.target</p>
+			<p class="source-code">parameter_grid = {"max_depth": [2, None],</p>
+			<p class="source-code">              "max_features": [1, 2, 5],</p>
+			<p class="source-code">              "min_samples_split": [2, 3, 5],</p>
+			<p class="source-code">              "min_samples_leaf": [1, 2, 5],</p>
+			<p class="source-code">              "bootstrap": [True, False],</p>
+			<p class="source-code">              "criterion": ["gini", "entropy"],</p>
+			<p class="source-code">              "n_estimators": [5, 10, 15, 20]}</p>
+			<p class="source-code">grid_search = GridSearchCV(RandomForestClassifier(), </p>
+			<p class="source-code">                           param_grid=parameter_grid)</p>
+			<p class="source-code">grid_search.fit(X, y) </p>
+			<p>In the previous code example, we perform the following steps:</p>
+			<ol>
+				<li value="1">First, we import the <strong class="source-inline">GridSearchCV</strong> module and <strong class="source-inline">load_digits</strong> sample dataset, and the <strong class="source-inline">RandomForestClassifier</strong> related modules from scikit-learn.</li>
+				<li>Then, we load the <strong class="source-inline">load_digits</strong> data from the scikit-learn sample datasets, and map<a id="_idIndexMarker763"/> the features to the <strong class="source-inline">X</strong> variable and the label column to the <strong class="source-inline">y</strong> variable.</li>
+				<li>Then, we define the parameter grid space to be searched by specifying various values for the hyperparameters used by the <strong class="source-inline">RandomForestClassifier</strong> algorithm, such as <strong class="source-inline">max_depth</strong>, <strong class="source-inline">max_features</strong>, and so on.</li>
+				<li>Then, we invoke the grid search cross validator by invoking the <strong class="source-inline">GridSearchCV()</strong> method, and perform the actual grid search using the <strong class="source-inline">fit()</strong> method.</li>
+			</ol>
+			<p>In this way, using the built-in grid search and cross validator methods of scikit-learn, you can perform model hyperparameter tuning and identify the best model among the many models trained. However, this process runs on a single machine, so the models are trained one after another instead of being trained in parallel. Using Apache Spark and a third-party Spark package named <strong class="source-inline">spark_sklearn</strong>, you can easily implement an embarrassingly parallel implementation of grid search, as shown in the following code example:</p>
+			<p class="source-code">from sklearn import grid_search</p>
+			<p class="source-code">from sklearn.datasets import load_digits</p>
+			<p class="source-code">from sklearn.ensemble import RandomForestClassifier</p>
+			<p class="source-code">from spark_sklearn import GridSearchCV</p>
+			<p class="source-code">digits_pd = load_digits()</p>
+			<p class="source-code">X = digits_pd.data </p>
+			<p class="source-code">y = digits_pd.target</p>
+			<p class="source-code">parameter_grid = {"max_depth": [2, None],</p>
+			<p class="source-code">              "max_features": [1, 2, 5],</p>
+			<p class="source-code">              "min_samples_split": [2, 3, 5],</p>
+			<p class="source-code">              "min_samples_leaf": [1, 2, 5],</p>
+			<p class="source-code">              "bootstrap": [True, False],</p>
+			<p class="source-code">              "criterion": ["gini", "entropy"],</p>
+			<p class="source-code">              "n_estimators": [5, 10, 15, 20]}</p>
+			<p class="source-code">grid_search = grid_search.GridSearchCV(RandomForestClassifier(), </p>
+			<p class="source-code">             param_grid=parameter_grid)</p>
+			<p class="source-code">grid_search.fit(X, y)</p>
+			<p>The previous code snippet for grid search using <strong class="source-inline">spark_sklearn</strong> is almost the same as the code for grid search using standard scikit-learn. However, instead of using scikit-learn's grid search and cross validators, we make use of the <strong class="source-inline">spark_sklearn</strong> package's grid<a id="_idIndexMarker764"/> search and cross validators. This helps run the grid search in a distributed manner, training a different model with a different combination of hyperparameters on the same dataset but on different machines. This helps speed up the model tuning process by orders of magnitude, helping you choose a model from a much larger pool of trained models than was possible using just a single machine. In this way, using the concept of embarrassingly parallel computing on Apache Spark, you can scale out your model tuning task while still using Python's standard single-node machine libraries.</p>
+			<p>In the following section, we will see how you can scale out the actual model training using Apache Spark's pandas UDFs, and not just the model tuning part.</p>
+			<h2 id="_idParaDest-184"><a id="_idTextAnchor184"/>Scaling out arbitrary Python code using pandas UDF</h2>
+			<p>A UDF, in general, lets you execute arbitrary code on Spark's executors. Thus, UDFs can be used to scale out any arbitrary Python<a id="_idIndexMarker765"/> code, including feature engineering<a id="_idIndexMarker766"/> and model training, within data science workflows. They can also be used for scaling out data engineering tasks using standard Python. However, UDFs<a id="_idIndexMarker767"/> execute code one row at a time, and incur <strong class="bold">serialization</strong> and <strong class="bold">deserialization</strong> costs between the JVM and<a id="_idIndexMarker768"/> the Python processes running on the Spark executors. This limitation makes UDFs less lucrative in scaling out arbitrary Python code onto Spark executors.</p>
+			<p>With <strong class="bold">Spark</strong> <strong class="bold">2.3</strong>, <strong class="bold">pandas</strong> <strong class="bold">UDF</strong>s were introduced. These are executed by Spark using <strong class="bold">Apache</strong> <strong class="bold">Arrow</strong> to transfer data, and pandas<a id="_idIndexMarker769"/> to perform data manipulation and allow for vectorized<a id="_idIndexMarker770"/> operations. This gives pandas UDFs the ability to<a id="_idIndexMarker771"/> define high-performance, low-overhead UDFs using standard Python. pandas UDFs are of two types: <strong class="bold">scalar</strong> and <strong class="bold">grouped</strong> UDFs. Scalar pandas<a id="_idIndexMarker772"/> UDFs are used for vectorizing scalar<a id="_idIndexMarker773"/> operations, and they take a pandas series as input and return another pandas<a id="_idIndexMarker774"/> series of the same size. While grouped pandas UDFs<a id="_idIndexMarker775"/> split a Spark DataFrame into groups based on the conditions specified in the <strong class="source-inline">groupby</strong> operator, apply the UDF to each group and finally combine the individual DataFrames produced by each group into a new Spark DataFrame and return it. Examples<a id="_idIndexMarker776"/> of scalar, as well as grouped pandas UDFs, can be found on Apache Spark's public<a id="_idIndexMarker777"/> documentation:</p>
+			<p><a href="https://spark.apache.org/docs/latest/api/python/reference/api/pyspark.sql.functions.pandas_udf.html">https://spark.apache.org/docs/latest/api/python/reference/api/pyspark.sql.functions.pandas_udf.html</a></p>
+			<p>So far, you have seen how to scale the EDA process, or the model tuning process, or to scale out arbitrary Python functions using different techniques supported by Apache Spark. In the following section, we will explore a library built on top of Apache Spark that lets us use pandas-like API for writing PySpark code.</p>
+			<h1 id="_idParaDest-185"><a id="_idTextAnchor185"/>Upgrading pandas to PySpark using Koalas</h1>
+			<p>pandas is the defacto standard for data processing in standard Python, the same as Spark has become the defacto<a id="_idIndexMarker778"/> standard for distributed data<a id="_idIndexMarker779"/> processing. The pandas API is Python-related and leverages a coding style that makes use of Python's unique features to write code that is readable and beautiful. However, Spark is based on the JVM, and even the PySpark draws heavily on the Java language, including in naming conventions and function names. Thus, it is not very easy or intuitive for a pandas user to switch to PySpark, and a considerable learning curve is involved. Moreover, PySpark executes code in a distributed manner and the user needs to understand the nuances of how distributed code works when intermixing PySpark code with standard single-node Python code. This is a deterrent to an average pandas user to pick up and use PySpark. To overcome this issue, the Apache Spark developer community came up with another open source library on top of PySpark, called Koalas.</p>
+			<p>The Koalas project<a id="_idIndexMarker780"/> is an implementation of the pandas<a id="_idIndexMarker781"/> API on top of Apache Spark. Koalas helps data scientists to be immediately productive with Spark, instead of needing to learn a new set of APIs altogether. Moreover, Koalas helps developers maintain a single code base for both pandas and Spark without having to switch between the two<a id="_idIndexMarker782"/> frameworks. Koalas comes bundled with the <strong class="bold">Databricks</strong> <strong class="bold">Runtime</strong> and is available in the <strong class="bold">PyPI</strong> repository. It can be installed<a id="_idIndexMarker783"/> using a package manager such as <strong class="source-inline">pip</strong>.</p>
+			<p>Let's look at a few code examples to see how Koalas presents a pandas-like API for working with Spark:</p>
+			<p class="source-code">import koalas as ks</p>
+			<p class="source-code">boston_data = load_boston()</p>
+			<p class="source-code">boston_pd = ks.DataFrame(boston_data.data, columns=boston_data.feature_names)</p>
+			<p class="source-code">features = boston_data.feature_names</p>
+			<p class="source-code">boston_pd['MEDV'] = boston_data.target</p>
+			<p class="source-code">boston_pd.info()</p>
+			<p class="source-code">boston_pd.head()</p>
+			<p class="source-code">boston_pd.isnull().sum()</p>
+			<p class="source-code">boston_pd.describe()</p>
+			<p>In the previous code snippet, we perform the same basic EDA steps that we have performed earlier in this chapter. The only difference here is that instead of creating a pandas DataFrame from the scikit-learn dataset, we create a Koalas DataFrame after importing the Koalas library. You can see that the code is exactly the same as the pandas code written earlier, however, behind the scenes, Koalas converts this code to PySpark code and executes it on the cluster in a distributed manner. Koalas also supports visualization using the <strong class="source-inline">DataFrame.plot()</strong> method, just like pandas. This way you can leverage Koalas to scale out any existing pandas-based ML code, such as feature engineering, or custom ML code, without first having to rewrite the code using PySpark.</p>
+			<p>Koalas is an active open source project with good community support. However, Koalas is still in a nascent state and comes with its own set of limitations. Currently, only about <em class="italic">70%</em> of pandas APIs are available in Koalas, which means that some pandas code might not be readily implementable<a id="_idIndexMarker784"/> using Koalas. There are a few implementation<a id="_idIndexMarker785"/> differences between Koalas and pandas, and it would not make sense to implement certain pandas APIs in Koalas. A common workaround for dealing with missing Koalas functionality is to convert Koalas DataFrames to pandas or PySpark DataFrames, and then apply either pandas or PySpark code to solve the problem. Koalas DataFrames can be easily converted to pandas and PySpark DataFrames using <strong class="source-inline">DataFrame.to_pandas()</strong> and <strong class="source-inline">DataFrame.to_spark()</strong> functions respectively. However, do keep in mind that Koalas does use Spark DataFrames behind the scenes, and a Koalas DataFrame might be too large to fit into a pandas DataFrame on a single machine, causing an out-of-memory error.</p>
+			<h1 id="_idParaDest-186"><a id="_idTextAnchor186"/>Summary</h1>
+			<p>In this chapter, you learned a few techniques to horizontally scale out standard Python-based ML libraries such as scikit-learn, XGBoost, and more. First, techniques for scaling out EDA using a PySpark DataFrame API were introduced and presented along with code examples. Then, techniques for distributing ML model inferencing and scoring were presented using a combination of MLflow pyfunc functionality and Spark DataFrames. Techniques for scaling out ML models using embarrassingly parallel computing techniques using Apache Spark were also presented. Distributed model tuning of models, trained using standard Python ML libraries using a third-party package called <strong class="source-inline">spark_sklearn</strong>, were presented. Then, pandas UDFs were introduced to scale out arbitrary Python code in a vectorized manner for creating high-performance, low-overhead Python user-defined functions right within PySpark. Finally, Koalas was introduced as a way for pandas developers to use a pandas-like API without having to learn the PySpark APIs first, while still leveraging Apache Spark's power and efficiency for data processing at scale.</p>
+		</div>
+	</div></body></html>
