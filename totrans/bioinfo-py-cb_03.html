@@ -1,0 +1,402 @@
+<html><head></head><body>
+<div id="sbo-rt-content"><div id="_idContainer015">
+<h1 class="chapter-number" id="_idParaDest-41"><a id="_idTextAnchor040"/>2</h1>
+<h1 id="_idParaDest-42"><a id="_idTextAnchor041"/>Getting to Know NumPy, pandas, Arrow, and Matplotlib</h1>
+<p>One of Python’s biggest strengths is its profusion of high-quality science and data processing libraries. At the core of all of them is <strong class="bold">NumPy</strong>, which provides efficient array and matrix support. On top of NumPy, we can find almost all of the scientific libraries. For example, in our field, there’s <strong class="bold">Biopython</strong>. But other generic data analysis libraries can also be used in our field. For example, <strong class="bold">pandas</strong> is the <em class="italic">de facto</em> standard for processing tabled data. More recently, <strong class="bold">Apache Arrow</strong> provides efficient implementations of some of pandas’ functionality, along with language interoperability. Finally, <strong class="bold">Matplotlib</strong> is the most common plotting library in the Python space and is appropriate for scientific computing. While these are general libraries with wide applicability, they are fundamental for bioinformatics processing, so we will study them in this chapter.</p>
+<p>We will start by looking at pandas as it provides a high-level library with very broad practical applicability. Then, we’ll introduce Arrow, which we will use only in the scope of supporting pandas. After that, we’ll discuss NumPy, the workhorse behind almost everything we do. Finally, we’ll introduce Matplotlib.</p>
+<p>Our recipes are very introductory – each of these libraries could easily occupy a full book, but the recipes should be enough to help you through this book. If you are using Docker, and because all these libraries are fundamental for data analysis, they can be found in the <strong class="source-inline">tiagoantao/bioinformatics_base</strong> Docker image from <a href="B17942_01.xhtml#_idTextAnchor020"><em class="italic">Chapter 1</em></a>.</p>
+<p>In this chapter, we will cover the following recipes:</p>
+<ul>
+<li>Using pandas to process vaccine-adverse events</li>
+<li>Dealing with the pitfalls of joining pandas DataFrames</li>
+<li>Reducing the memory usage of pandas DataFrames</li>
+<li>Accelerating pandas processing with Apache Arrow</li>
+<li>Understanding NumPy as the engine behind Python data science and bioinformatics</li>
+<li>Introducing Matplotlib for chart generation</li>
+</ul>
+<h1 id="_idParaDest-43"><a id="_idTextAnchor042"/>Using pandas to process vaccine-adverse events </h1>
+<p>We will be introducing<a id="_idIndexMarker071"/> pandas with a concrete bioinformatics data analysis example: we will be studying data from the <strong class="bold">Vaccine Adverse Event Reporting System</strong> (<strong class="bold">VAERS</strong>, <a href="https://vaers.hhs.gov/">https://vaers.hhs.gov/</a>). VAERS, which is maintained by the<a id="_idIndexMarker072"/> US Department of Health and Human Services, includes a database of vaccine-adverse events going back to 1990.</p>
+<p>VAERS makes data <a id="_idIndexMarker073"/>available in <strong class="bold">comma-separated values</strong> (<strong class="bold">CSV</strong>) format. The <a id="_idIndexMarker074"/>CSV format is quite simple and can even be opened with a simple text editor (be careful with very large file sizes as they may crash your editor) or a spreadsheet such as Excel. pandas can work very easily with this format.</p>
+<h2 id="_idParaDest-44"><a id="_idTextAnchor043"/>Getting ready</h2>
+<p>First, we need to download the data. It is available at <a href="https://vaers.hhs.gov/data/datasets.xhtml">https://vaers.hhs.gov/data/datasets.xhtml</a>. Please download the ZIP file: we will be using the 2021 file; do not download a single CSV file only. After downloading the file, unzip it, and then recompress all the files individually with <strong class="source-inline">gzip –9 *csv</strong> to save disk space.</p>
+<p>Feel free to have a look at the files with a text editor, or preferably with a tool such as <strong class="source-inline">less</strong> (<strong class="source-inline">zless</strong> for compressed files). You can find documentation for the content of the files at <a href="https://vaers.hhs.gov/docs/VAERSDataUseGuide_en_September2021.pdf">https://vaers.hhs.gov/docs/VAERSDataUseGuide_en_September2021.pdf</a>.</p>
+<p>If you are using the Notebooks, code is provided at the beginning of them so that you can take care of the necessary processing. If you are using Docker, the base image is enough.</p>
+<p>The code can be found in <strong class="source-inline">Chapter02/Pandas_Basic.py</strong>.</p>
+<h2 id="_idParaDest-45"><a id="_idTextAnchor044"/>How to do it...</h2>
+<p>Follow these steps:</p>
+<ol>
+<li>Let’s start by loading the main data file and gathering the basic statistics:<p class="source-code">vdata = pd.read_csv(</p><p class="source-code">    "2021VAERSDATA.csv.gz", encoding="iso-8859-1")</p><p class="source-code">vdata.columns</p><p class="source-code">vdata.dtypes</p><p class="source-code">vdata.shape</p></li>
+</ol>
+<p>We start by loading the data. In most cases, there is no need to worry about the text encoding as the default, UTF-8, will <a id="_idIndexMarker075"/>work, but in this case, the text encoding is <strong class="source-inline">legacy iso-8859-1</strong>. Then, we print the column <a id="_idIndexMarker076"/>names, which start with <strong class="source-inline">VAERS_ID</strong>, <strong class="source-inline">RECVDATE</strong>, <strong class="source-inline">STATE</strong>, <strong class="source-inline">AGE_YRS</strong>, and so on. They include 35 entries corresponding to each of the columns. Then, we print the types of each column. Here are the first few entries:</p>
+<p class="source-code"><strong class="bold">VAERS_ID          int64</strong></p>
+<p class="source-code"><strong class="bold">RECVDATE         object</strong></p>
+<p class="source-code"><strong class="bold">STATE            object</strong></p>
+<p class="source-code"><strong class="bold">AGE_YRS         float64</strong></p>
+<p class="source-code"><strong class="bold">CAGE_YR         float64</strong></p>
+<p class="source-code"><strong class="bold">CAGE_MO         float64</strong></p>
+<p class="source-code"><strong class="bold">SEX              object</strong></p>
+<p>By doing this, we get the shape of the data: <strong class="source-inline">(654986, 35)</strong>. This means 654,986 rows and 35 columns. You can use any of the preceding strategies to get the information you need regarding the metadata of the table.</p>
+<ol>
+<li value="2">Now, let’s explore the data:<p class="source-code">vdata.iloc[0]</p><p class="source-code">vdata = vdata.set_index("VAERS_ID")</p><p class="source-code">vdata.loc[916600]</p><p class="source-code">vdata.head(3)</p><p class="source-code">vdata.iloc[:3]</p><p class="source-code">vdata.iloc[:5, 2:4]</p></li>
+</ol>
+<p>There are many<a id="_idIndexMarker077"/> ways we can look at the<a id="_idIndexMarker078"/> data. We will start by inspecting the first row, based on location. Here is an abridged version:</p>
+<p class="source-code"><strong class="bold">VAERS_ID                                       916600</strong></p>
+<p class="source-code"><strong class="bold">RECVDATE                                       01/01/2021</strong></p>
+<p class="source-code"><strong class="bold">STATE                                          TX</strong></p>
+<p class="source-code"><strong class="bold">AGE_YRS                                        33.0</strong></p>
+<p class="source-code"><strong class="bold">CAGE_YR                                        33.0</strong></p>
+<p class="source-code"><strong class="bold">CAGE_MO                                        NaN</strong></p>
+<p class="source-code"><strong class="bold">SEX                                            F</strong></p>
+<p class="source-code"><strong class="bold">…</strong></p>
+<p class="source-code"><strong class="bold">TODAYS_DATE                                          01/01/2021</strong></p>
+<p class="source-code"><strong class="bold">BIRTH_DEFECT                                  NaN</strong></p>
+<p class="source-code"><strong class="bold">OFC_VISIT                                     Y</strong></p>
+<p class="source-code"><strong class="bold">ER_ED_VISIT                                       NaN</strong></p>
+<p class="source-code"><strong class="bold">ALLERGIES                                       Pcn and bee venom</strong></p>
+<p>After we index by <strong class="source-inline">VAERS_ID</strong>, we can use<a id="_idIndexMarker079"/> one ID to get a row. We can use 916600 (which is the ID from the preceding record) and get the same result.</p>
+<p>Then, we retrieve the first three<a id="_idIndexMarker080"/> rows. Notice the two different ways we can do so: </p>
+<ul>
+<li>Using the <strong class="source-inline">head</strong> method</li>
+<li>Using the more general array specification; that is, <strong class="source-inline">iloc[:3]</strong></li>
+</ul>
+<p>Finally, we retrieve the first five rows, but only the second and third columns –<strong class="source-inline">iloc[:5, 2:4]</strong>. Here is the output:</p>
+<p class="source-code"><strong class="bold">          AGE_YRS  CAGE_YR</strong></p>
+<p class="source-code"><strong class="bold">VAERS_ID                  </strong></p>
+<p class="source-code"><strong class="bold">916600       33.0     33.0</strong></p>
+<p class="source-code"><strong class="bold">916601       73.0     73.0</strong></p>
+<p class="source-code"><strong class="bold">916602       23.0     23.0</strong></p>
+<p class="source-code"><strong class="bold">916603       58.0     58.0</strong></p>
+<p class="source-code"><strong class="bold">916604       47.0     47.0</strong></p>
+<ol>
+<li value="3">Let’s do some basic computations now, namely computing the maximum age in the dataset:<p class="source-code">vdata["AGE_YRS"].max()</p><p class="source-code">vdata.AGE_YRS.max()</p></li>
+</ol>
+<p>The maximum value is 119 years. More importantly than the result, notice the two dialects for accessing <strong class="source-inline">AGE_YRS</strong> (as a dictionary key and as an object field) for the access columns.</p>
+<ol>
+<li value="4">Now, let’s plot the ages involved:<p class="source-code">vdata["AGE_YRS"].sort_values().plot(use_index=False)</p><p class="source-code">vdata["AGE_YRS"].plot.hist(bins=20) </p></li>
+</ol>
+<p>This generates two plots (a condensed version is shown in the following step). We use pandas <a id="_idIndexMarker081"/>plotting machinery here, which <a id="_idIndexMarker082"/>uses Matplotib underneath.</p>
+<ol>
+<li value="5">While we have a full recipe for charting with Matplotlib (<em class="italic">Introducing Matplotlib for chart generation</em>), let’s have a sneak peek here by using it directly:<p class="source-code">import matplotlib.pylot as plt</p><p class="source-code">fig, ax = plt.subplots(1, 2, sharey=True)</p><p class="source-code">fig.suptitle("Age of adverse events")</p><p class="source-code">vdata["AGE_YRS"].sort_values().plot(</p><p class="source-code">    use_index=False, ax=ax[0],</p><p class="source-code">    xlabel="Obervation", ylabel="Age")</p><p class="source-code">vdata["AGE_YRS"].plot.hist(bins=20, orientation="horizontal")</p></li>
+</ol>
+<p>This includes both figures from the previous steps. Here is the output:</p>
+<div>
+<div class="IMG---Figure" id="_idContainer009">
+<img alt="Figure 2.1 – Left – the age for each observation of adverse effect;  right – a histogram showing the distribution of ages  " height="797" src="image/B17942_02_001.jpg" width="971"/>
+</div>
+</div>
+<p class="IMG---Caption" lang="en-US" xml:lang="en-US">Figure 2.1 – Left – the age for each observation of adverse effect; right – a histogram showing the distribution of ages </p>
+<ol>
+<li value="6">We can also take a<a id="_idIndexMarker083"/> non-graphical, more <a id="_idIndexMarker084"/>analytical approach, such as counting the events per year:<p class="source-code">vdata["AGE_YRS"].dropna().apply(lambda x: int(x)).value_counts()</p></li>
+</ol>
+<p>The output will be as follows:</p>
+<p class="source-code"><strong class="bold">50     11006</strong></p>
+<p class="source-code"><strong class="bold">65     10948</strong></p>
+<p class="source-code"><strong class="bold">60     10616</strong></p>
+<p class="source-code"><strong class="bold">51     10513</strong></p>
+<p class="source-code"><strong class="bold">58     10362</strong></p>
+<p class="source-code"><strong class="bold">      ...</strong></p>
+<ol>
+<li value="7">Now, let’s see how many people died:<p class="source-code">vdata.DIED.value_counts(dropna=False)</p><p class="source-code">vdata["is_dead"] = (vdata.DIED == "Y")</p></li>
+</ol>
+<p>The output of the count is as follows:</p>
+<p class="source-code"><strong class="bold">NaN    646450</strong></p>
+<p class="source-code"><strong class="bold">Y        8536</strong></p>
+<p class="source-code"><strong class="bold">Name: DIED, dtype: int64</strong></p>
+<p>Note that the type of <strong class="source-inline">DIED</strong> is <em class="italic">not</em> a Boolean. It’s more declarative to have a Boolean<a id="_idIndexMarker085"/> representation of a Boolean characteristic, so<a id="_idIndexMarker086"/> we create <strong class="source-inline">is_dead</strong> for it.</p>
+<p class="callout-heading">Tip</p>
+<p class="callout">Here, we are assuming that NaN is to be interpreted as <strong class="source-inline">False</strong>. In general, we must be careful with the interpretation of NaN. It may mean <strong class="source-inline">False</strong> or it may simply mean – as in most cases – a lack of data. If that were the case, it should not be converted into <strong class="source-inline">False</strong>.</p>
+<ol>
+<li value="8">Now, let’s associate the individual data about deaths with the type of vaccine involved:<p class="source-code">dead = vdata[vdata.is_dead]</p><p class="source-code">vax = pd.read_csv("2021VAERSVAX.csv.gz", encoding="iso-8859-1").set_index("VAERS_ID")</p><p class="source-code">vax.groupby("VAX_TYPE").size().sort_values()</p><p class="source-code">vax19 = vax[vax.VAX_TYPE == "COVID19"]</p><p class="source-code">vax19_dead = dead.join(vax19)</p></li>
+</ol>
+<p>After we get a DataFrame containing just deaths, we must read the data that contains vaccine<a id="_idIndexMarker087"/> information. First, we must do some exploratory analysis of the types of vaccines and their <a id="_idIndexMarker088"/>adverse events. Here is the abridged output:</p>
+<p class="source-code"><strong class="bold">           …</strong></p>
+<p class="source-code"><strong class="bold">HPV9         1506</strong></p>
+<p class="source-code"><strong class="bold">FLU4         3342</strong></p>
+<p class="source-code"><strong class="bold">UNK          7941</strong></p>
+<p class="source-code"><strong class="bold">VARZOS      11034</strong></p>
+<p class="source-code"><strong class="bold">COVID19    648723</strong></p>
+<p>After that, we must choose just the COVID-related vaccines and join them with individual data.</p>
+<ol>
+<li value="9">Finally, let’s see the top 10 COVID vaccine lots that are overrepresented in terms of deaths and how many US states were affected by each lot:<p class="source-code">baddies = vax19_dead.groupby("VAX_LOT").size().sort_values(ascending=False)</p><p class="source-code">for I, (lot, cnt) in enumerate(baddies.items()):</p><p class="source-code">    print(lot, cnt, len(vax19_dead[vax19_dead.VAX_LOT == lot].groupby""STAT"")))</p><p class="source-code">    if i == 10:</p><p class="source-code">        break</p></li>
+</ol>
+<p>The output is as follows:</p>
+<p class="source-code"><strong class="bold">Unknown 254 34</strong></p>
+<p class="source-code"><strong class="bold">EN6201 120 30</strong></p>
+<p class="source-code"><strong class="bold">EN5318 102 26</strong></p>
+<p class="source-code"><strong class="bold">EN6200 101 22</strong></p>
+<p class="source-code"><strong class="bold">EN6198 90 23</strong></p>
+<p class="source-code"><strong class="bold">039K20A 89 13</strong></p>
+<p class="source-code"><strong class="bold">EL3248 87 17</strong></p>
+<p class="source-code"><strong class="bold">EL9261 86 21</strong></p>
+<p class="source-code"><strong class="bold">EM9810 84 21</strong></p>
+<p class="source-code"><strong class="bold">EL9269 76 18</strong></p>
+<p class="source-code"><strong class="bold">EN6202 75 18</strong></p>
+<p>That concludes this <a id="_idIndexMarker089"/>recipe!</p>
+<h2 id="_idParaDest-46"><a id="_idTextAnchor045"/>There’s more...</h2>
+<p>The preceding data about<a id="_idIndexMarker090"/> vaccines and lots is not completely correct; we will cover some data analysis pitfalls in the next recipe.</p>
+<p>In the <em class="italic">Introducing Matplotlib for chart generation</em> recipe, we will introduce Matplotlib, a chart library that provides the backend for pandas plotting. It is a fundamental component of Python’s data analysis ecosystem.</p>
+<h2 id="_idParaDest-47"><a id="_idTextAnchor046"/>See also</h2>
+<p>The following is some extra information that may be useful:</p>
+<ul>
+<li>While the first three recipes of this chapter are enough to support you throughout this book, there is plenty of content available on the web to help you understand pandas. You can start with the main user guide, which is available at <a href="https://pandas.pydata.org/docs/user_guide/index.xhtml">https://pandas.pydata.org/docs/user_guide/index.xhtml</a>. </li>
+<li>If you need to plot data, do not forget to check the visualization part of the guide since it is especially helpful: <a href="https://pandas.pydata.org/docs/user_guide/visualization.xhtml">https://pandas.pydata.org/docs/user_guide/visualization.xhtml</a>. </li>
+</ul>
+<h1 id="_idParaDest-48"><a id="_idTextAnchor047"/>Dealing with the pitfalls of joining pandas DataFrames</h1>
+<p>The previous recipe was a whirlwind tour that introduced pandas and exposed most of the features that we will use in this book. While an exhaustive discussion about pandas would require a complete book, in this recipe – and in the next one – we are going to discuss topics that impact data analysis and are seldom discussed in the literature but are very important.</p>
+<p>In this recipe, we are going to <a id="_idIndexMarker091"/>discuss some pitfalls that deal with relating DataFrames through joins: it turns out that many data analysis errors are introduced by carelessly joining data. We will introduce techniques to reduce such problems here.</p>
+<h2 id="_idParaDest-49"><a id="_idTextAnchor048"/>Getting ready</h2>
+<p>We will be using the same data as in the previous recipe, but we will jumble it a bit so that we can discuss typical data analysis pitfalls. Once again, we will be joining the main adverse events table with the vaccination table, but we will randomly sample 90% of the data from each. This mimics, for example, the scenario where you only have incomplete information. This is one of the many examples where joins between tables do not have intuitively obvious results.</p>
+<p>Use the following code to prepare our files by randomly sampling 90% of the data:</p>
+<pre class="source-code">
+vdata = pd.read_csv("2021VAERSDATA.csv.gz", encoding="iso-8859-1")
+vdata.sample(frac=0.9).to_csv("vdata_sample.csv.gz", index=False)
+vax = pd.read_csv("2021VAERSVAX.csv.gz", encoding="iso-8859-1")
+vax.sample(frac=0.9).to_csv("vax_sample.csv.gz", index=False)</pre>
+<p>Because this code involves random sampling, the results that you will get will be different from the ones reported here. If you want to get the same results, I have provided the files that I used in the <strong class="source-inline">Chapter02</strong> directory. The code for this recipe can be found in <strong class="source-inline">Chapter02/Pandas_Join.py</strong>.</p>
+<h2 id="_idParaDest-50"><a id="_idTextAnchor049"/>How to do it...</h2>
+<p>Follow these steps:</p>
+<ol>
+<li value="1">Let’s start by doing<a id="_idIndexMarker092"/> an inner join of the individual and vaccine tables:<p class="source-code">vdata = pd.read_csv("vdata_sample.csv.gz")</p><p class="source-code">vax = pd.read_csv("vax_sample.csv.gz")</p><p class="source-code">vdata_with_vax = vdata.join(</p><p class="source-code">    vax.set_index("VAERS_ID"),</p><p class="source-code">    on="VAERS_ID",</p><p class="source-code">    how="inner")</p><p class="source-code">len(vdata), len(vax), len(vdata_with_vax)</p></li>
+</ol>
+<p>The <strong class="source-inline">len</strong> output for this code is 589,487 for the individual data, 620,361 for the vaccination data, and 558,220 for the join. This suggests that some individual and vaccine data was not captured.</p>
+<ol>
+<li value="2">Let’s find the data that was not captured with the following join:<p class="source-code">lost_vdata = vdata.loc[~vdata.index.isin(vdata_with_vax.index)]</p><p class="source-code">lost_vdata</p><p class="source-code">lost_vax = vax[~vax["VAERS_ID"].isin(vdata.index)]</p><p class="source-code">lost_vax</p></li>
+</ol>
+<p>You will see that 56,524 rows of individual data aren’t joined and that there are 62,141 rows of vaccinated data.</p>
+<ol>
+<li value="3">There are other ways to join data. The default way is by performing a left outer join:<p class="source-code">vdata_with_vax_left = vdata.join(</p><p class="source-code">    vax.set_index("VAERS_ID"),</p><p class="source-code">    on="VAERS_ID")</p><p class="source-code">vdata_with_vax_left.groupby("VAERS_ID").size().sort_values()</p></li>
+</ol>
+<p>A left outer join assures that all the rows on the left table are always represented.  If there are<a id="_idIndexMarker093"/> no rows on the right, then all the right columns will be filled with  <strong class="source-inline">None</strong> values.</p>
+<p class="callout-heading">Warning</p>
+<p class="callout">There is a caveat that you should be careful with. Remember that the left table – <strong class="source-inline">vdata</strong> – had one entry per <strong class="source-inline">VAERS_ID</strong>. When you left join, you may end up with a case where the left-hand side is repeated several times. For example, the <strong class="source-inline">groupby</strong> operation that we did previously shows that <strong class="source-inline">VAERS_ID</strong> of 962303 has 11 entries. This is correct, but it’s not uncommon to have the incorrect expectation that you will still have a single row on the output per row on the left-hand side. This is because the left join returns 1 or more left entries, whereas the inner join above returns 0 or 1 entries, where sometimes, we would like to have precisely 1 entry. Be sure to always test the output for what you want in terms of the number of entries.</p>
+<ol>
+<li value="4">There is a right join as well. Let’s right join COVID vaccines – the left table – with death events – the right table:<p class="source-code">dead = vdata[vdata.DIED == "Y"]</p><p class="source-code">vax19 = vax[vax.VAX_TYPE == "COVID19"]</p><p class="source-code">vax19_dead = vax19.join(dead.set_index("VAERS_ID"), on="VAERS_ID", how="right")</p><p class="source-code">len(vax19), len(dead), len(vax19_dead)</p><p class="source-code">len(vax19_dead[vax19_dead.VAERS_ID.duplicated()])</p><p class="source-code">len(vax19_dead) - len(dead)</p></li>
+</ol>
+<p>As you may expect, a right join will ensure that all the rows on the right table are represented. So, we end up with 583,817 COVID entries, 7,670 dead entries, and a right join of 8,624 entries. </p>
+<p>We also check the number of duplicated entries on the joined table and we get 954. If we subtract<a id="_idIndexMarker094"/> the length of the dead table from the joined table, we also get, as expected, 954. Make sure you have checks like this when you’re making joins.</p>
+<ol>
+<li value="5">Finally, we are going to revisit the problematic COVID lot calculations since we now understand that we might be overcounting lots:<p class="source-code">vax19_dead["STATE"] = vax19_dead["STATE"].str.upper()</p><p class="source-code">dead_lot = vax19_dead[["VAERS_ID", "VAX_LOT", "STATE"]].set_index(["VAERS_ID", "VAX_LOT"])</p><p class="source-code">dead_lot_clean = dead_lot[~dead_lot.index.duplicated()]</p><p class="source-code">dead_lot_clean = dead_lot_clean.reset_index()</p><p class="source-code">dead_lot_clean[dead_lot_clean.VAERS_ID.isna()]</p><p class="source-code">baddies = dead_lot_clean.groupby("VAX_LOT").size().sort_values(ascending=False)</p><p class="source-code">for i, (lot, cnt) in enumerate(baddies.items()):</p><p class="source-code">    print(lot, cnt, len(dead_lot_clean[dead_lot_clean.VAX_LOT == lot].groupby("STATE")))</p><p class="source-code">    if i == 10:</p><p class="source-code">        break</p></li>
+</ol>
+<p>Note that the strategies that we’ve used here ensure that we don’t get repeats: first, we limit the number of columns to the ones we will be using, then we remove repeated indexes and empty <strong class="source-inline">VAERS_ID</strong>. This ensures no repetition of the <strong class="source-inline">VAERS_ID</strong>, <strong class="source-inline">VAX_LOT</strong> pair, and that no lots are associated with no IDs.</p>
+<h2 id="_idParaDest-51"><a id="_idTextAnchor050"/>There’s more...</h2>
+<p>There are other types of joins other than left, inner, and right. Most notably, there is the outer join, which assures all entries <a id="_idIndexMarker095"/>from both tables have representation.</p>
+<p>Make sure you have tests and assertions for your joins: a very common bug is having the wrong expectations for how joins behave. You should also make sure that there are no empty values on the columns where you are joining, as they can produce a lot of  excess tuples.</p>
+<h1 id="_idParaDest-52"><a id="_idTextAnchor051"/>Reducing the memory usage of pandas DataFrames</h1>
+<p>When you are dealing with<a id="_idIndexMarker096"/> lots of information – for example, when analyzing whole genome sequencing data – memory usage may become a limitation for your analysis. It turns out that naïve pandas is not very efficient from a memory perspective, and we can substantially reduce its consumption.</p>
+<p>In this recipe, we are going to revisit our VAERS data and look at several ways to reduce pandas memory usage. The impact of these changes can be massive: in many cases, reducing memory consumption may mean the difference between being able to use pandas or requiring a more alternative and complex approach, such as Dask or Spark.</p>
+<h2 id="_idParaDest-53"><a id="_idTextAnchor052"/>Getting ready</h2>
+<p>We will be using the data from the first recipe. If you have run it, you are all set; if not, please follow the steps discussed there. You can find this code in <strong class="source-inline">Chapter02/Pandas_Memory.py</strong>.</p>
+<h2 id="_idParaDest-54"><a id="_idTextAnchor053"/>How to do it…</h2>
+<p>Follow these steps:</p>
+<ol>
+<li value="1">First, let’s load the data and inspect the size of the DataFrame:<p class="source-code">import numpy as np</p><p class="source-code">import pandas as pd</p><p class="source-code">vdata = pd.read_csv("2021VAERSDATA.csv.gz", encoding="iso-8859-1")</p><p class="source-code">vdata.info(memory_usage="deep")</p></li>
+</ol>
+<p>Here is an abridged<a id="_idIndexMarker097"/> version of the output:</p>
+<p class="source-code"><strong class="bold">RangeIndex: 654986 entries, 0 to 654985</strong></p>
+<p class="source-code"><strong class="bold">Data columns (total 35 columns):</strong></p>
+<p class="source-code"><strong class="bold">#   Column        Non-Null Count   Dtype  </strong></p>
+<p class="source-code"><strong class="bold">---  ------        --------------   -----  </strong></p>
+<p class="source-code"><strong class="bold">0   VAERS_ID      654986 non-null  int64  </strong></p>
+<p class="source-code"><strong class="bold">2   STATE         572236 non-null  object </strong></p>
+<p class="source-code"><strong class="bold">3   AGE_YRS       583424 non-null  float64</strong></p>
+<p class="source-code"><strong class="bold">6   SEX           654986 non-null  object </strong></p>
+<p class="source-code"><strong class="bold">8   SYMPTOM_TEXT  654828 non-null  object </strong></p>
+<p class="source-code"><strong class="bold">9   DIED          8536 non-null    object </strong></p>
+<p class="source-code"><strong class="bold">31  BIRTH_DEFECT  383 non-null     object </strong></p>
+<p class="source-code"><strong class="bold">34  ALLERGIES     330630 non-null  object </strong></p>
+<p class="source-code"><strong class="bold">dtypes: float64(5), int64(2), object(28)</strong></p>
+<p class="source-code"><strong class="bold">memory usage: 1.3 GB</strong></p>
+<p>Here, we have information about the number of rows and the type and non-null values of each row. Finally, we can see that the DataFrame requires a whopping 1.3 GB.</p>
+<ol>
+<li value="2">We can also inspect the size of each column:<p class="source-code">for name in vdata.columns:</p><p class="source-code">    col_bytes = vdata[name].memory_usage(index=False, deep=True)</p><p class="source-code">    col_type = vdata[name].dtype</p><p class="source-code">    print(</p><p class="source-code">        name,</p><p class="source-code">        col_type, col_bytes // (1024 ** 2))</p></li>
+</ol>
+<p>Here is an abridged <a id="_idIndexMarker098"/>version of the output:</p>
+<p class="source-code">VAERS_ID int64 4</p>
+<p class="source-code"><strong class="bold">STATE object 34</strong></p>
+<p class="source-code"><strong class="bold">AGE_YRS float64 4</strong></p>
+<p class="source-code"><strong class="bold">SEX object 36</strong></p>
+<p class="source-code"><strong class="bold">RPT_DATE object 20</strong></p>
+<p class="source-code"><strong class="bold">SYMPTOM_TEXT object 442</strong></p>
+<p class="source-code"><strong class="bold">DIED object 20</strong></p>
+<p class="source-code"><strong class="bold">ALLERGIES object</strong> 34</p>
+<p><strong class="source-inline">SYMPTOM_TEXT</strong> occupies 442 MB, so 1/3 of our entire table.</p>
+<ol>
+<li value="3">Now, let’s look at the <strong class="source-inline">DIED</strong> column. Can we find a more efficient representation?<p class="source-code">vdata.DIED.memory_usage(index=False, deep=True)</p><p class="source-code">vdata.DIED.fillna(False).astype(bool).memory_usage(index=False, deep=True)</p></li>
+</ol>
+<p>The original column takes 21,181,488 bytes, whereas our compact representation takes 656,986 bytes. That’s 32 times less!</p>
+<ol>
+<li value="4">What about the <strong class="source-inline">STATE</strong> column? Can we do better?<p class="source-code">vdata["STATE"] = vdata.STATE.str.upper()</p><p class="source-code">states = list(vdata["STATE"].unique())</p><p class="source-code">vdata["encoded_state"] = vdata.STATE.apply(lambda state: states.index(state))</p><p class="source-code">vdata["encoded_state"] = vdata["encoded_state"].astype(np.uint8)</p><p class="source-code">vdata["STATE"].memory_usage(index=False, deep=True)</p><p class="source-code">vdata["encoded_state"].memory_usage(index=False, deep=True)</p></li>
+</ol>
+<p>Here, we convert the <strong class="source-inline">STATE</strong> column, which is text, into <strong class="source-inline">encoded_state</strong>, which is a number. This number is the position of the state’s name in the list state. We use this number to look up the list of states. The original column takes around 36 MB, whereas the encoded column takes 0.6 MB.</p>
+<p>As an alternative to<a id="_idIndexMarker099"/> this approach, you can look at categorical variables in pandas. I prefer to use them as they have wider applications.</p>
+<ol>
+<li value="5">We can apply most of these optimizations when we <em class="italic">load</em> the data, so let’s prepare for that. But now, we have a chicken-and-egg problem: to be able to know the content of the state table, we have to do a first pass to get the list of states, like so:<p class="source-code">states = list(pd.read_csv(</p><p class="source-code">    "vdata_sample.csv.gz",</p><p class="source-code">    converters={</p><p class="source-code">       "STATE": lambda state: state.upper()</p><p class="source-code">    },</p><p class="source-code">    usecols=["STATE"]</p><p class="source-code">)["STATE"].unique())</p></li>
+</ol>
+<p>We have a converter that simply returns the uppercase version of the state. We only return the <strong class="source-inline">STATE</strong> column to save memory and processing time. Finally, we get the <strong class="source-inline">STATE</strong> column from<a id="_idIndexMarker100"/> the DataFrame (which has only a single column).</p>
+<ol>
+<li value="6">The ultimate optimization is <em class="italic">not</em> to load the data. Imagine that we don’t need <strong class="source-inline">SYMPTOM_TEXT</strong> – that is around 1/3 of the data. In that case, we can just skip it. Here is the final version:<p class="source-code">vdata = pd.read_csv(</p><p class="source-code">    "vdata_sample.csv.gz",</p><p class="source-code">    index_col="VAERS_ID",</p><p class="source-code">    converters={</p><p class="source-code">       "DIED": lambda died: died == "Y",</p><p class="source-code">       "STATE": lambda state: states.index(state.upper())</p><p class="source-code">    },</p><p class="source-code">    usecols=lambda name: name != "SYMPTOM_TEXT"</p><p class="source-code">)</p><p class="source-code">vdata["STATE"] = vdata["STATE"].astype(np.uint8)</p><p class="source-code">vdata.info(memory_usage="deep") </p></li>
+</ol>
+<p>We are now at 714 MB, which is a bit over half of the original. This could be still substantially reduced by applying the methods we used for <strong class="source-inline">STATE</strong> and <strong class="source-inline">DIED</strong> to all other columns.</p>
+<h2 id="_idParaDest-55"><a id="_idTextAnchor054"/>See also</h2>
+<p>The following is some extra information that may be useful:</p>
+<ul>
+<li>If you are willing to use a support library to help with Python processing, check the next recipe on Apache Arrow, which will allow you to have extra memory savings for more memory efficiency.</li>
+<li>If you end up with DataFrames that take more memory than you have available on a single machine, then you must step up your game and use chunking - which we will not cover in the Pandas context - or something that can deal with large data automatically. Dask, which we’ll cover in <a href="B17942_11.xhtml#_idTextAnchor272"><em class="italic">Chapter 11</em></a>, <em class="italic">Parallel Processing with Dask and Zarr</em>, allows you to work with larger-than-memory datasets with, among others, a pandas-like interface.</li>
+</ul>
+<h1 id="_idParaDest-56"><a id="_idTextAnchor055"/>Accelerating pandas processing with  Apache Arrow</h1>
+<p>When dealing with<a id="_idIndexMarker101"/> large amounts of data, such as in whole genome sequencing, pandas is both slow and memory-consuming. Apache Arrow<a id="_idIndexMarker102"/> provides faster and more memory-efficient implementations of several pandas operations and can interoperate with it.</p>
+<p>Apache Arrow is a project co-founded by Wes McKinney, the founder of pandas, and it has several objectives, including working with tabular data in a language-agnostic way, which allows for language interoperability while providing a memory- and computation-efficient implementation. Here, we will only be concerned with the second part: getting more efficiency for large-data processing. We will do this in an integrated way with pandas.</p>
+<p>Here, we will once again use VAERS data and show how Apache Arrow can be used to accelerate pandas data loading and reduce memory consumption.</p>
+<h2 id="_idParaDest-57"><a id="_idTextAnchor056"/>Getting ready</h2>
+<p>Again, we will be using data from the first recipe. Be sure you download and prepare it, as explained in the <em class="italic">Getting ready</em> section of the <em class="italic">Using pandas to process vaccine-adverse events</em> recipe. The code is available in <strong class="source-inline">Chapter02/Arrow.py</strong>.</p>
+<h2 id="_idParaDest-58"><a id="_idTextAnchor057"/>How to do it...</h2>
+<p>Follow these steps:</p>
+<ol>
+<li value="1">Let’s start by loading the data using both pandas and Arrow:<p class="source-code">import gzip</p><p class="source-code">import pandas as pd</p><p class="source-code">from pyarrow import csv</p><p class="source-code">import pyarrow.compute as pc </p><p class="source-code">vdata_pd = pd.read_csv("2021VAERSDATA.csv.gz", encoding="iso-8859-1")</p><p class="source-code">columns = list(vdata_pd.columns)</p><p class="source-code">vdata_pd.info(memory_usage="deep") </p><p class="source-code">vdata_arrow = csv.read_csv("2021VAERSDATA.csv.gz")</p><p class="source-code">tot_bytes = sum([</p><p class="source-code">    vdata_arrow[name].nbytes</p><p class="source-code">    for name in vdata_arrow.column_names])</p><p class="source-code">print(f"Total {tot_bytes // (1024 ** 2)} MB")</p></li>
+</ol>
+<p>pandas requires 1.3 GB, whereas Arrow requires 614 MB: less than half the memory. For large files like this, this may mean the difference between being able to process data in memory <a id="_idIndexMarker103"/>or needing to find another solution, such as Dask. While some functions in Arrow have similar names to pandas (for example, <strong class="source-inline">read_csv</strong>), that is not the most<a id="_idIndexMarker104"/> common occurrence. For example, note the way we compute the total size of the DataFrame: by getting the size of each column and performing a sum, which is a different approach from pandas.</p>
+<ol>
+<li value="2">Let’s do a side-by-side comparison of the inferred types:<p class="source-code">for name in vdata_arrow.column_names:</p><p class="source-code">    arr_bytes = vdata_arrow[name].nbytes</p><p class="source-code">    arr_type = vdata_arrow[name].type</p><p class="source-code">    pd_bytes = vdata_pd[name].memory_usage(index=False, deep=True)</p><p class="source-code">    pd_type = vdata_pd[name].dtype</p><p class="source-code">    print(</p><p class="source-code">        name,</p><p class="source-code">        arr_type, arr_bytes // (1024 ** 2),</p><p class="source-code">        pd_type, pd_bytes // (1024 ** 2),)</p></li>
+</ol>
+<p>Here is an abridged <a id="_idIndexMarker105"/>version of the <a id="_idIndexMarker106"/>output:</p>
+<p class="source-code"><strong class="bold">VAERS_ID int64 4 int64 4</strong></p>
+<p class="source-code"><strong class="bold">RECVDATE string 8 object 41</strong></p>
+<p class="source-code"><strong class="bold">STATE string 3 object 34</strong></p>
+<p class="source-code"><strong class="bold">CAGE_YR int64 5 float64 4</strong></p>
+<p class="source-code"><strong class="bold">SEX string 3 object 36</strong></p>
+<p class="source-code"><strong class="bold">RPT_DATE string 2 object 20</strong></p>
+<p class="source-code"><strong class="bold">DIED string 2 object 20</strong></p>
+<p class="source-code"><strong class="bold">L_THREAT string 2 object 20</strong></p>
+<p class="source-code"><strong class="bold">ER_VISIT string 2 object 19</strong></p>
+<p class="source-code"><strong class="bold">HOSPITAL string 2 object 20</strong></p>
+<p class="source-code"><strong class="bold">HOSPDAYS int64 5 float64 4</strong></p>
+<p>As you can see, Arrow is generally more specific with type inference and is one of the main reasons why memory usage is substantially lower.</p>
+<ol>
+<li value="3">Now, let’s do a time performance comparison:<p class="source-code">%timeit pd.read_csv("2021VAERSDATA.csv.gz", encoding="iso-8859-1")</p><p class="source-code">%timeit csv.read_csv("2021VAERSDATA.csv.gz")</p></li>
+</ol>
+<p>On my computer, the results are as follows:</p>
+<p class="source-code"><strong class="bold">7.36 s ± 201 ms per loop (mean ± std. dev. of 7 runs, 1 loop each)</strong></p>
+<p class="source-code"><strong class="bold">2.28 s ± 70.7 ms per loop (mean ± std. dev. of 7 runs, 1 loop each)</strong></p>
+<p>Arrow’s implementation is three<a id="_idIndexMarker107"/> times faster. The results on your computer will vary as this is dependent on the hardware.</p>
+<ol>
+<li value="4">Let’s repeat the memory <a id="_idIndexMarker108"/>occupation comparison while not loading the <strong class="source-inline">SYMPTOM_TEXT</strong> column. This is a fairer comparison as most numerical datasets do not tend to have a very large text column:<p class="source-code">vdata_pd = pd.read_csv("2021VAERSDATA.csv.gz", encoding="iso-8859-1", usecols=lambda x: x != "SYMPTOM_TEXT")</p><p class="source-code">vdata_pd.info(memory_usage="deep")</p><p class="source-code">columns.remove("SYMPTOM_TEXT")</p><p class="source-code">vdata_arrow = csv.read_csv(</p><p class="source-code">    "2021VAERSDATA.csv.gz",</p><p class="source-code">     convert_options=csv.ConvertOptions(include_columns=columns))</p><p class="source-code">vdata_arrow.nbytes</p></li>
+</ol>
+<p>pandas requires 847 MB, whereas Arrow requires 205 MB: four times less.</p>
+<ol>
+<li value="5">Our objective is to use Arrow to load data into pandas. For that, we need to convert the data structure:<p class="source-code">vdata = vdata_arrow.to_pandas()</p><p class="source-code">vdata.info(memory_usage="deep")</p></li>
+</ol>
+<p>There are two very important points to be made here: the pandas representation created by Arrow uses only 1 GB, whereas the pandas representation, from its native <strong class="source-inline">read_csv</strong>, is 1.3 GB. This means that even if you use pandas to process data, Arrow can create a more compact representation to start with.</p>
+<p>The preceding code has<a id="_idIndexMarker109"/> one problem regarding<a id="_idIndexMarker110"/> memory consumption: when the converter is running, it will require memory to hold <em class="italic">both</em> the pandas and the Arrow representations, hence defeating the purpose of using less memory. Arrow can self-destruct its representation while creating the pandas version, hence resolving the problem. The line for this is <strong class="source-inline">vdata = vdata_arrow.to_pandas(self_destruct=True)</strong>.</p>
+<h2 id="_idParaDest-59"><a id="_idTextAnchor058"/>There’s more...</h2>
+<p>If you have a very large DataFrame that cannot be processed by pandas, even after it’s been loaded by Arrow, then maybe Arrow can do all the processing as it has a computing engine as well. That being said, Arrow’s engine is, at the time of writing, substantially less complete in terms of functionality than pandas. Remember that Arrow has many other features, such as language interoperability, but we will not be making use of those in this book.</p>
+<h1 id="_idParaDest-60"><a id="_idTextAnchor059"/>Understanding NumPy as the engine behind Python data science and bioinformatics</h1>
+<p>Most of your analysis will make use of NumPy, even if you don’t use it explicitly. NumPy is an array manipulation library that is <a id="_idIndexMarker111"/>behind libraries such as pandas, Matplotlib, Biopython, and scikit-learn, among many others. While much of your bioinformatics work may <a id="_idIndexMarker112"/>not require explicit direct use of NumPy, you should be aware of its existence as it underpins almost everything you do, even if only indirectly via the other libraries.</p>
+<p>In this recipe, we will use VAERS data to demonstrate how NumPy is behind many of the core libraries that we use. This is a <a id="_idIndexMarker113"/>very light introduction to the library so that you are aware that it exists and that it is behind almost everything. Our example will extract the number of cases from the five US states with more adverse <a id="_idIndexMarker114"/>effects, splitting them into age bins: 0 to 19 years, 20 to 39, up to 100 to 119.</p>
+<h2 id="_idParaDest-61"><a id="_idTextAnchor060"/>Getting ready</h2>
+<p>Once again, we will be using the data from the first recipe, so make sure it’s available. The code for it can be found in <strong class="source-inline">Chapter02/NumPy.py</strong>.</p>
+<h2 id="_idParaDest-62"><a id="_idTextAnchor061"/>How to do it…</h2>
+<p>Follow these steps:</p>
+<ol>
+<li value="1">Let’s start by loading the data with pandas and reducing the data so that it’s related to the top five US states only:<p class="source-code">import numpy as np</p><p class="source-code">import pandas as pd</p><p class="source-code">import matplotlib.pyplot as plt</p><p class="source-code">vdata = pd.read_csv(</p><p class="source-code">    "2021VAERSDATA.csv.gz", encoding="iso-8859-1")</p><p class="source-code">vdata["STATE"] = vdata["STATE"].str.upper()</p><p class="source-code">top_states = pd.DataFrame({</p><p class="source-code">    "size": vdata.groupby("STATE").size().sort_values(ascending=False).head(5)}).reset_index()</p><p class="source-code">top_states["rank"] = top_states.index</p><p class="source-code">top_states = top_states.set_index("STATE")</p><p class="source-code">top_vdata = vdata[vdata["STATE"].isin(top_states.index)]</p><p class="source-code">top_vdata["state_code"] = top_vdata["STATE"].apply(</p><p class="source-code">    lambda state: top_states["rank"].at[state]</p><p class="source-code">).astype(np.uint8)</p><p class="source-code">top_vdata = top_vdata[top_vdata["AGE_YRS"].notna()]</p><p class="source-code">top_vdata.loc[:,"AGE_YRS"] = top_vdata["AGE_YRS"].astype(int)</p><p class="source-code">top_states</p></li>
+</ol>
+<p>The top states are as follows. This rank will be used later to construct a NumPy matrix:</p>
+<div>
+<div class="IMG---Figure" id="_idContainer010">
+<img alt="Figure 2.2 – US states with largest numbers of adverse effects " height="174" src="image/B17942_02_002.jpg" width="188"/>
+</div>
+</div>
+<p class="IMG---Caption" lang="en-US" xml:lang="en-US">Figure 2.2 – US states with largest numbers of adverse effects</p>
+<ol>
+<li value="2">Now, let’s extract the<a id="_idIndexMarker115"/> two NumPy arrays that<a id="_idIndexMarker116"/> contain age and state data:<p class="source-code">age_state = top_vdata[["state_code", "AGE_YRS"]]</p><p class="source-code">age_state["state_code"]</p><p class="source-code">state_code_arr = age_state["state_code"].values</p><p class="source-code">type(state_code_arr), state_code_arr.shape, state_code_arr.dtype</p><p class="source-code">age_arr = age_state["AGE_YRS"].values</p><p class="source-code">type(age_arr), age_arr.shape, age_arr.dtype</p></li>
+</ol>
+<p>Note that the data that <a id="_idIndexMarker117"/>underlies pandas is NumPy<a id="_idIndexMarker118"/> data (the <strong class="source-inline">values</strong> call for both Series returns NumPy types). Also, you may recall that pandas has properties such as <strong class="source-inline">.shape</strong> or <strong class="source-inline">.dtype</strong>: these were inspired by NumPy and behave the same.</p>
+<ol>
+<li value="3">Now, let’s create a NumPy matrix from scratch (a 2D array), where each row is a state and each column represents an age group:<p class="source-code">age_state_mat = np.zeros((5,6), dtype=np.uint64)</p><p class="source-code">for row in age_state.itertuples():</p><p class="source-code">    age_state_mat[row.state_code, row.AGE_YRS//20] += 1</p><p class="source-code">age_state_mat</p></li>
+</ol>
+<p>The array has five rows – one for each state – and six columns – one for each age group. All the cells in the array must have the same type.</p>
+<p>We initialize the array with zeros. There are many ways to initialize arrays, but if you have a very large array, initializing it may take a lot of time. Sometimes, depending on your task, it might be OK that the array is empty at the beginning (meaning it was initialized with random trash). In that case, using <strong class="source-inline">np.empty</strong> will be much faster. We use pandas iteration here: this is not the best way to do things from a pandas perspective, but we want to make the NumPy part very explicit.</p>
+<ol>
+<li value="4">We can extract a single row – in our case, the data for a state – very easily. The same applies to a column. Let’s take California data and then the 0-19 age group:<p class="source-code">cal = age_state_mat[0,:]</p><p class="source-code">kids = age_state_mat[:,0]</p></li>
+</ol>
+<p>Note the syntax to extract a row or a column. It should be familiar to you, given that pandas copied the <a id="_idIndexMarker119"/>syntax from NumPy and we encountered it in previous recipes.</p>
+<ol>
+<li value="5">Now, let’s compute a new<a id="_idIndexMarker120"/> matrix where we have the fraction of cases per age group:<p class="source-code">def compute_frac(arr_1d):</p><p class="source-code">    return arr_1d / arr_1d.sum()</p><p class="source-code">frac_age_stat_mat = np.apply_along_axis(compute_frac, 1, age_state_mat)</p></li>
+</ol>
+<p>The last line applies the <strong class="source-inline">compute_frac</strong> function to all rows. <strong class="source-inline">compute_frac</strong> takes a single row and returns a new row where all the elements are divided by the total sum.</p>
+<ol>
+<li value="6">Now, let’s create a new matrix that acts as a percentage instead of a fraction – simply because it reads better:<p class="source-code">perc_age_stat_mat = frac_age_stat_mat * 100</p><p class="source-code">perc_age_stat_mat = perc_age_stat_mat.astype(np.uint8)</p><p class="source-code">perc_age_stat_mat</p></li>
+</ol>
+<p>The first line simply multiplies all the elements of the 2D array by 100. Matplotlib is smart enough to traverse different array structures. That line will work if it’s presented with an array with any dimensions and would do exactly what is expected.</p>
+<p>Here is the result:</p>
+<div>
+<div class="IMG---Figure" id="_idContainer011">
+<img alt="Figure 2.3 – A matrix representing the distribution of vaccine-adverse effects  in the five US states with the most cases " height="94" src="image/B17942_02_003.jpg" width="365"/>
+</div>
+</div>
+<p class="IMG---Caption" lang="en-US" xml:lang="en-US">Figure 2.3 – A matrix representing the distribution of vaccine-adverse effects in the five US states with the most cases</p>
+<ol>
+<li value="7">Finally, let’s create a <a id="_idIndexMarker121"/>graphical representation <a id="_idIndexMarker122"/>of the matrix using Matplotlib:<p class="source-code">fig = plt.figure()</p><p class="source-code">ax = fig.add_subplot()</p><p class="source-code">ax.matshow(perc_age_stat_mat, cmap=plt.get_cmap("Greys"))</p><p class="source-code">ax.set_yticks(range(5))</p><p class="source-code">ax.set_yticklabels(top_states.index)</p><p class="source-code">ax.set_xticks(range(6))</p><p class="source-code">ax.set_xticklabels(["0-19", "20-39", "40-59", "60-79", "80-99", "100-119"])</p><p class="source-code">fig.savefig("matrix.png")</p></li>
+</ol>
+<p>Do not dwell too much on the Matplotlib code – we are going to discuss it in the next recipe. The fundamental point here is that you can pass NumPy data structures to Matplotlib. Matplotlib, like pandas, is based on NumPy.</p>
+<h2 id="_idParaDest-63"><a id="_idTextAnchor062"/>See also</h2>
+<p>The following is some extra information that may be useful:</p>
+<ul>
+<li>NumPy has many more features than the ones we’ve discussed here. There are plenty of books and tutorials on them. The official documentation is a good place to start: <a href="https://numpy.org/doc/stable/">https://numpy.org/doc/stable/</a>.  </li>
+<li>There are many important issues to discover with NumPy, but probably one of the most important is broadcasting: NumPy’s ability to take arrays of different structures and get the operations right. For details, go to <a href="https://numpy.org/doc/stable/user/theory.broadcasting.xhtml">https://numpy.org/doc/stable/user/theory.broadcasting.xhtml</a>.</li>
+</ul>
+<h1 id="_idParaDest-64"><a id="_idTextAnchor063"/>Introducing Matplotlib for chart generation</h1>
+<p>Matplotlib is the<a id="_idIndexMarker123"/> most common Python library for generating charts. There are<a id="_idIndexMarker124"/> more modern alternatives, such as <strong class="bold">Bokeh</strong>, which is web-centered, but the advantage of Matplotlib is not only that it is the most widely <a id="_idIndexMarker125"/>available and widely documented chart library but also, in the computational biology world, we want a chart library that is both web- and paper-centric. This is because many of our charts will be submitted to scientific journals, which are equally concerned with both formats. Matplotlib can handle this for us.</p>
+<p>Many of the examples in this recipe could also be done directly with pandas (hence indirectly with Matplotlib), but the point here is to exercise Matplotlib.</p>
+<p>Once again, we are going to <a id="_idIndexMarker126"/>use VAERS data to plot some information about the DataFrame’s metadata and summarize the epidemiological data.</p>
+<h2 id="_idParaDest-65"><a id="_idTextAnchor064"/>Getting ready</h2>
+<p>Again, we will be using the <a id="_idIndexMarker127"/>data from the first recipe. The code can be found in <strong class="source-inline">Chapter02/Matplotlib.py</strong>.</p>
+<h2 id="_idParaDest-66"><a id="_idTextAnchor065"/>How to do it...</h2>
+<p>Follow these steps:</p>
+<ol>
+<li value="1">The first thing that we will do is plot the fraction of nulls per column:<p class="source-code">import numpy as np</p><p class="source-code">import pandas as pd</p><p class="source-code">import matplotlib as mpl</p><p class="source-code">import matplotlib.pyplot as plt</p><p class="source-code">vdata = pd.read_csv(</p><p class="source-code">    "2021VAERSDATA.csv.gz", encoding="iso-8859-1",</p><p class="source-code">    usecols=lambda name: name != "SYMPTOM_TEXT")</p><p class="source-code">num_rows = len(vdata)</p><p class="source-code">perc_nan = {}</p><p class="source-code">for col_name in vdata.columns:</p><p class="source-code">    num_nans = len(vdata[col_name][vdata[col_name].isna()])</p><p class="source-code">    perc_nan[col_name] = 100 * num_nans / num_rows</p><p class="source-code">labels = perc_nan.keys()</p><p class="source-code">bar_values = list(perc_nan.values())</p><p class="source-code">x_positions = np.arange(len(labels))</p></li>
+</ol>
+<p><strong class="source-inline">labels</strong> is the column <a id="_idIndexMarker128"/>names that we are analyzing, <strong class="source-inline">bar_values</strong> is the fraction of null values, and <strong class="source-inline">x_positions</strong> is the location of the bars on the bar chart that we are going to plot next.</p>
+<ol>
+<li value="2">Here is the code for the first<a id="_idIndexMarker129"/> version of the bar plot:<p class="source-code">fig = plt.figure()</p><p class="source-code">fig.suptitle("Fraction of empty values per column")</p><p class="source-code">ax = fig.add_subplot()</p><p class="source-code">ax.bar(x_positions, bar_values)</p><p class="source-code">ax.set_ylabel("Percent of empty values")</p><p class="source-code">ax.set_ylabel("Column")</p><p class="source-code">ax.set_xticks(x_positions)</p><p class="source-code">ax.set_xticklabels(labels)</p><p class="source-code">ax.legend()</p><p class="source-code">fig.savefig("naive_chart.png")</p></li>
+</ol>
+<p>We start by creating a figure object with a title. The figure will have a subplot that will contain the bar chart. We also set several labels and only used defaults. Here is the sad result:</p>
+<div>
+<div class="IMG---Figure" id="_idContainer012">
+<img alt="Figure 2.4 – Our first chart attempt, just using the defaults " height="1027" src="image/B17942_02_004.jpg" width="1005"/>
+</div>
+</div>
+<p class="IMG---Caption" lang="en-US" xml:lang="en-US">Figure 2.4 – Our first chart attempt, just using the defaults</p>
+<ol>
+<li value="3">Surely, we can do better. Let’s <a id="_idIndexMarker130"/>format the chart<a id="_idIndexMarker131"/> substantially more:<p class="source-code">fig = plt.figure(figsize=(16, 9), tight_layout=True, dpi=600)</p><p class="source-code">fig.suptitle("Fraction of empty values per column", fontsize="48")</p><p class="source-code">ax = fig.add_subplot()</p><p class="source-code">b1 = ax.bar(x_positions, bar_values)</p><p class="source-code">ax.set_ylabel("Percent of empty values", fontsize="xx-large")</p><p class="source-code">ax.set_xticks(x_positions)</p><p class="source-code">ax.set_xticklabels(labels, rotation=45, ha="right")</p><p class="source-code">ax.set_ylim(0, 100)</p><p class="source-code">ax.set_xlim(-0.5, len(labels))</p><p class="source-code">for i, x in enumerate(x_positions):</p><p class="source-code">    ax.text(</p><p class="source-code">        x, 2, "%.1f" % bar_values[i], rotation=90,</p><p class="source-code">        va="bottom", ha="center",</p><p class="source-code">        backgroundcolor="white")</p><p class="source-code">fig.text(0.2, 0.01, "Column", fontsize="xx-large")</p><p class="source-code">fig.savefig("cleaner_chart.png")</p></li>
+</ol>
+<p>The first thing that we do is set up a bigger figure for Matplotlib to provide a tighter layout. We rotate<a id="_idIndexMarker132"/> the <em class="italic">x</em>-axis tick labels 45 degrees so that they fit better. We also put the values on the bars. Finally, we do not have a<a id="_idIndexMarker133"/> standard <em class="italic">x</em>-axis label as it would be on top of the tick labels. Instead, we write the text explicitly. Note that the coordinate system of the figure can be completely different from the coordinate system of the subplot – for example, compare the coordinates of <strong class="source-inline">ax.text</strong> and <strong class="source-inline">fig.text</strong>. Here is the result:</p>
+<div>
+<div class="IMG---Figure" id="_idContainer013">
+<img alt="Figure 2.5 – Our second chart attempt, while taking care of the layout " height="1651" src="image/B17942_02_005.jpg" width="1654"/>
+</div>
+</div>
+<p class="IMG---Caption" lang="en-US" xml:lang="en-US">Figure 2.5 – Our second chart attempt, while taking care of the layout</p>
+<ol>
+<li value="4">Now, we are going to do some summary analysis of our data based on four plots on a single figure. We will chart the vaccines involved in deaths, the days between administration <a id="_idIndexMarker134"/>and death, the deaths over time, and <a id="_idIndexMarker135"/>the sex of people who have died for the top 10 states in terms of their quantity:<p class="source-code">dead = vdata[vdata.DIED == "Y"]</p><p class="source-code">vax = pd.read_csv("2021VAERSVAX.csv.gz", encoding="iso-8859-1").set_index("VAERS_ID")</p><p class="source-code">vax_dead = dead.join(vax, on="VAERS_ID", how="inner")</p><p class="source-code">dead_counts = vax_dead["VAX_TYPE"].value_counts()</p><p class="source-code">large_values = dead_counts[dead_counts &gt;= 10]</p><p class="source-code">other_sum = dead_counts[dead_counts &lt; 10].sum()</p><p class="source-code">large_values = large_values.append(pd.Series({"OTHER": other_sum}))</p><p class="source-code">distance_df = vax_dead[vax_dead.DATEDIED.notna() &amp; vax_dead.VAX_DATE.notna()]</p><p class="source-code">distance_df["DATEDIED"] = pd.to_datetime(distance_df["DATEDIED"])</p><p class="source-code">distance_df["VAX_DATE"] = pd.to_datetime(distance_df["VAX_DATE"])</p><p class="source-code">distance_df = distance_df[distance_df.DATEDIED &gt;= "2021"]</p><p class="source-code">distance_df = distance_df[distance_df.VAX_DATE &gt;= "2021"]</p><p class="source-code">distance_df = distance_df[distance_df.DATEDIED &gt;= distance_df.VAX_DATE]</p><p class="source-code">time_distances = distance_df["DATEDIED"] - distance_df["VAX_DATE"]</p><p class="source-code">time_distances_d = time_distances.astype(int) / (10**9 * 60 * 60 * 24)</p><p class="source-code">date_died = pd.to_datetime(vax_dead[vax_dead.DATEDIED.notna()]["DATEDIED"])</p><p class="source-code">date_died = date_died[date_died &gt;= "2021"]</p><p class="source-code">date_died_counts = date_died.value_counts().sort_index()</p><p class="source-code">cum_deaths = date_died_counts.cumsum()</p><p class="source-code">state_dead = vax_dead[vax_dead["STATE"].notna()][["STATE", "SEX"]]</p><p class="source-code">top_states = sorted(state_dead["STATE"].value_counts().head(10).index)</p><p class="source-code">top_state_dead = state_dead[state_dead["STATE"].isin(top_states)].groupby(["STATE", "SEX"]).size()#.reset_index()</p><p class="source-code">top_state_dead.loc["MN", "U"] = 0  # XXXX</p><p class="source-code">top_state_dead = top_state_dead.sort_index().reset_index()</p><p class="source-code">top_state_females = top_state_dead[top_state_dead.SEX == "F"][0]</p><p class="source-code">top_state_males = top_state_dead[top_state_dead.SEX == "M"][0]</p><p class="source-code">top_state_unk = top_state_dead[top_state_dead.SEX == "U"][0]</p></li>
+</ol>
+<p>The preceding code is strictly pandas-based and was made in preparation for the plotting activity.</p>
+<ol>
+<li value="5">The following code<a id="_idIndexMarker136"/> plots all the information simultaneously. We<a id="_idIndexMarker137"/> are going to have four subplots organized in 2 by 2 format:<p class="source-code">fig, ((vax_cnt, time_dist), (death_time, state_reps)) = plt.subplots(</p><p class="source-code">    2, 2,</p><p class="source-code">    figsize=(16, 9), tight_layout=True)</p><p class="source-code">vax_cnt.set_title("Vaccines involved in deaths")</p><p class="source-code">wedges, texts = vax_cnt.pie(large_values)</p><p class="source-code">vax_cnt.legend(wedges, large_values.index, loc="lower left")</p><p class="source-code">time_dist.hist(time_distances_d, bins=50)</p><p class="source-code">time_dist.set_title("Days between vaccine administration and death")</p><p class="source-code">time_dist.set_xlabel("Days")</p><p class="source-code">time_dist.set_ylabel("Observations")</p><p class="source-code">death_time.plot(date_died_counts.index, date_died_counts, ".")</p><p class="source-code">death_time.set_title("Deaths over time")</p><p class="source-code">death_time.set_ylabel("Daily deaths")</p><p class="source-code">death_time.set_xlabel("Date")</p><p class="source-code">tw = death_time.twinx()</p><p class="source-code">tw.plot(cum_deaths.index, cum_deaths)</p><p class="source-code">tw.set_ylabel("Cummulative deaths")</p><p class="source-code">state_reps.set_title("Deaths per state stratified by sex") state_reps.bar(top_states, top_state_females, label="Females")</p><p class="source-code">state_reps.bar(top_states, top_state_males, label="Males", bottom=top_state_females)</p><p class="source-code">state_reps.bar(top_states, top_state_unk, label="Unknown",</p><p class="source-code">               bottom=top_state_females.values + top_state_males.values)</p><p class="source-code">state_reps.legend()</p><p class="source-code">state_reps.set_xlabel("State")</p><p class="source-code">state_reps.set_ylabel("Deaths")</p><p class="source-code">fig.savefig("summary.png")</p></li>
+</ol>
+<p>We start by creating <a id="_idIndexMarker138"/>a figure with 2x2 subplots. The <strong class="source-inline">subplots</strong> function <a id="_idIndexMarker139"/>returns, along with the figure object, four axes objects that we can use to create our charts. Note that the legend is positioned in the pie chart, we have used a twin axis on the time distance plot, and we have a way to compute stacked bars on the death per state chart. Here is the result:</p>
+<div>
+<div class="IMG---Figure" id="_idContainer014">
+<img alt="Figure 2.6 – Four combined charts summarizing the vaccine data " height="1204" src="image/B17942_02_006.jpg" width="1642"/>
+</div>
+</div>
+<p class="IMG---Caption" lang="en-US" xml:lang="en-US">Figure 2.6 – Four combined charts summarizing the vaccine data</p>
+<h2 id="_idParaDest-67"><a id="_idTextAnchor066"/>There’s more...</h2>
+<p>Matplotlib has two interfaces you can use – an older interface, designed to be similar to MATLAB, and a more powerful <strong class="bold">object-oriented</strong> (<strong class="bold">OO</strong>) interface. Try as much as possible to avoid mixing the two. Using<a id="_idIndexMarker140"/> the OO interface is probably more future-proof. The MATLAB-like interface is below the <strong class="source-inline">matplotlib.pyplot</strong> module. To make things confusing, the entry points for the OO interface are in that module – that is, <strong class="source-inline">matplotlib.pyplot.figure</strong> and <strong class="source-inline">matplotlib.pyplot.subplots</strong>.</p>
+<h2 id="_idParaDest-68"><a id="_idTextAnchor067"/>See also</h2>
+<p>The following is some extra information that may be useful:</p>
+<ul>
+<li>The<a id="_idIndexMarker141"/> documentation for Matplolib is really, really good. For example, there’s a gallery of visual samples with links to the code for generating each sample. This can be found at <a href="https://matplotlib.org/stable/gallery/index.xhtml">https://matplotlib.org/stable/gallery/index.xhtml</a>. The API documentation is generally very complete.</li>
+<li>Another way to improve the looks of Matplotlib charts is to use the Seaborn library. Seaborn’s main purpose is to add statistical visualization artifacts, but as a side effect, when imported, it changes the defaults of Matplotlib to something more palatable. We will be using Seaborn throughout this book; check out the plots provided in the next chapter.</li>
+</ul>
+</div>
+</div></body></html>

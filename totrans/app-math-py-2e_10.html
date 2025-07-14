@@ -1,0 +1,703 @@
+<html><head></head><body>
+		<div id="_idContainer1049">
+			<h1 class="chapter-number" id="_idParaDest-396"><a id="_idTextAnchor395"/>10</h1>
+			<h1 id="_idParaDest-397"><a id="_idTextAnchor396"/>Improving Your Productivity</h1>
+			<p>In this chapter, we will look at several topics that don’t fit within the categories that we discussed in the previous chapters of this book. Most of these topics are concerned with different ways to facilitate computing and otherwise optimize the execution of our code. Others are concerned with working with specific kinds of data or <span class="No-Break">file formats.</span></p>
+			<p>The aim of this chapter is to provide you with some tools that, while not strictly mathematical in nature, often appear in mathematical problems. These include topics such as distributed computing and optimization – both help you to solve problems more quickly, validate data and calculations, load and store data from file formats commonly used in scientific computation, and incorporate other topics that will generally help you be more productive with <span class="No-Break">your code.</span></p>
+			<p>In the first two recipes, we will cover packages that help keep track of units and uncertainties in calculations. These are very important for calculations that concern data that have a direct physical application. In the next recipe, we will look at loading and storing data from <strong class="bold">Network Common Data Form</strong> (<strong class="bold">NetCDF</strong>) files. NetCDF is a file format usually used for storing <a id="_idIndexMarker1033"/>weather and climate data. In the fourth recipe, we’ll discuss working with geographical data, such as data that might be associated with weather or climate data. After that, we’ll discuss how we can run Jupyter notebooks from the terminal without having to start up an interactive session. Then, we will turn to validating data for the next recipe and then focus on performance with tools such as Cython and Dask. Finally, we will give a very short overview of some techniques for writing reproducible code for <span class="No-Break">data science.</span></p>
+			<p>In this chapter, we will cover the <span class="No-Break">following recipes:</span></p>
+			<ul>
+				<li>Keeping track of units <span class="No-Break">with Pint</span></li>
+				<li>Accounting for uncertainty <span class="No-Break">in calculations</span></li>
+				<li>Loading and storing data from <span class="No-Break">NetCDF files</span></li>
+				<li>Working with <span class="No-Break">geographical data</span></li>
+				<li>Executing a Jupyter notebook as <span class="No-Break">a script</span></li>
+				<li><span class="No-Break">Validating data</span></li>
+				<li>Accelerating code <span class="No-Break">with Cython</span></li>
+				<li>Distributing computation <span class="No-Break">with Dask</span></li>
+				<li>Writing reproducible code for <span class="No-Break">data science</span></li>
+			</ul>
+			<p>Let’s <span class="No-Break">get started!</span></p>
+			<h1 id="_idParaDest-398"><a id="_idTextAnchor397"/>Technical requirements</h1>
+			<p>This chapter requires many different packages due to the nature of the recipes it contains. The list of packages we need is <span class="No-Break">as follows:</span></p>
+			<ul>
+				<li><span class="No-Break">Pint</span></li>
+				<li><span class="No-Break">uncertainties</span></li>
+				<li><span class="No-Break">netCDF4</span></li>
+				<li><span class="No-Break">xarray</span></li>
+				<li><span class="No-Break">Pandas</span></li>
+				<li><span class="No-Break">Scikit-learn</span></li>
+				<li><span class="No-Break">GeoPandas</span></li>
+				<li><span class="No-Break">Geoplot</span></li>
+				<li><span class="No-Break">Jupyter</span></li>
+				<li><span class="No-Break">Papermill</span></li>
+				<li><span class="No-Break">Cerberus</span></li>
+				<li><span class="No-Break">Cython</span></li>
+				<li><span class="No-Break">Dask</span></li>
+			</ul>
+			<p>All of these packages can be installed using your favorite package manager, such <span class="No-Break">as </span><span class="No-Break"><strong class="source-inline">pip</strong></span><span class="No-Break">:</span></p>
+			<pre class="console">
+python3.10 -m pip install pint uncertainties netCDF4 xarray pandas scikit-learn geopandas geoplot jupyter papermill cerberus cython</pre>
+			<p>To install the Dask package, we need to install the various extras associated with the package. We can do this using the following <strong class="source-inline">pip</strong> command in <span class="No-Break">the terminal:</span></p>
+			<pre class="console">
+python3.10 -m pip install dask[complete]</pre>
+			<p>In addition to these Python packages, we will also need to install some supporting software. For the <em class="italic">Working with geographical data</em> recipe, the GeoPandas and Geoplot libraries have numerous lower-level dependencies that might need to be installed separately. Detailed instructions are given in the GeoPandas package documentation <span class="No-Break">at </span><a href="https://geopandas.org/install.html"><span class="No-Break">https://geopandas.org/install.html</span></a><span class="No-Break">.</span></p>
+			<p>For the <em class="italic">Accelerating code with Cython</em> recipe, we will need to have a C compiler installed. Instructions on how to obtain the <strong class="bold">GNU C compiler</strong> (<strong class="bold">GCC</strong>) are given in the Cython documentation <span class="No-Break">at </span><a href="https://cython.readthedocs.io/en/latest/src/quickstart/install.html"><span class="No-Break">https://cython.readthedocs.io/en/latest/src/quickstart/install.html</span></a><span class="No-Break">.</span></p>
+			<p>The code for this chapter can be found in the <span class="No-Break"><strong class="source-inline">Chapter 10</strong></span> folder of the GitHub repository <span class="No-Break">at </span><a href="https://github.com/PacktPublishing/Applying-Math-with-Python-2nd-Edition/tree/main/Chapter%2010"><span class="No-Break">https://github.com/PacktPublishing/Applying-Math-with-Python-2nd-Edition/tree/main/Chapter%2010</span></a><span class="No-Break">.</span></p>
+			<h1 id="_idParaDest-399"><a id="_idTextAnchor398"/>Keeping track of units with Pint</h1>
+			<p>Correctly keeping<a id="_idIndexMarker1034"/> track of units in calculations can be very difficult, particularly if there are places where different units can be used. For example, it is very easy to forget to convert between different units – feet/inches into meters – or metric prefixes – converting 1 km into 1,000 m, <span class="No-Break">for instance.</span></p>
+			<p>In this recipe, we’ll learn how to use the Pint package to keep track of units of measurement <span class="No-Break">in calculations.</span></p>
+			<h2 id="_idParaDest-400"><a id="_idTextAnchor399"/>Getting ready</h2>
+			<p>For this recipe, we<a id="_idIndexMarker1035"/> need the Pint package, which can be imported <span class="No-Break">as follows:</span></p>
+			<pre class="source-code">
+import pint</pre>
+			<h2 id="_idParaDest-401"><a id="_idTextAnchor400"/>How to do it...</h2>
+			<p>The following steps show you how to use the Pint package to keep track of units <span class="No-Break">in calculations:</span></p>
+			<ol>
+				<li>First, we need to create a <span class="No-Break"><strong class="source-inline">UnitRegistry</strong></span><span class="No-Break"> object:</span><pre class="console">
+ureg = pint.UnitRegistry(system="mks")</pre></li>
+				<li>To create a quantity with a unit, we multiply the number by the appropriate attribute of the <span class="No-Break">registry object:</span><pre class="console">
+distance = 5280 * ureg.feet</pre></li>
+				<li>We can change the units of the quantity using one of the available <span class="No-Break">conversion methods:</span><pre class="console">
+print(distance.to("miles"))</pre><pre class="console">
+print(distance.to_base_units())</pre><pre class="console">
+print(distance.to_base_units().to_compact())</pre></li>
+			</ol>
+			<p>The output of these <strong class="source-inline">print</strong> statements is <span class="No-Break">as follows:</span></p>
+			<pre class="console">
+0.9999999999999999 mile
+1609.3439999999998 meter
+1.6093439999999999 kilometer</pre>
+			<ol>
+				<li value="4">We wrap a routine to make it expect an argument in seconds and output a result <span class="No-Break">in meters:</span><pre class="console">
+@ureg.wraps(ureg.meter, ureg.second)</pre><pre class="console">
+def calc_depth(dropping_time):</pre><pre class="console">
+    # s = u*t + 0.5*a*t*t</pre><pre class="console">
+    # u = 0, a = 9.81</pre><pre class="console">
+    return 0.5*9.81*dropping_time*dropping_time</pre></li>
+				<li>Now, when we call the <strong class="source-inline">calc_depth</strong> routine with a <strong class="source-inline">minute</strong> unit, it is automatically converted into seconds for <span class="No-Break">the calculation:</span><pre class="console">
+depth = calc_depth(0.05 * ureg.minute)</pre><pre class="console">
+print("Depth", depth)</pre><pre class="console">
+# Depth 44.144999999999996 meter</pre></li>
+			</ol>
+			<h2 id="_idParaDest-402"><a id="_idTextAnchor401"/>How it works...</h2>
+			<p>The <a id="_idIndexMarker1036"/>Pint package provides a wrapper class for numerical types that adds unit metadata to the type. This wrapper type implements all the standard arithmetic operations and keeps track of the units throughout these calculations. For example, when we divide a length unit by a time unit, we will get a speed unit. This means that you can use Pint to make sure the units are correct after a <span class="No-Break">complex calculation.</span></p>
+			<p>The <strong class="source-inline">UnitRegistry</strong> object<a id="_idIndexMarker1037"/> keeps track of all the units that are present in the session and handles things such as conversion between different unit types. It also maintains a reference system of measurements, which, in this recipe, is the standard international system with meters, kilograms, and seconds as base units, denoted <span class="No-Break">by </span><span class="No-Break"><strong class="source-inline">mks</strong></span><span class="No-Break">.</span></p>
+			<p>The <strong class="source-inline">wraps</strong> functionality<a id="_idIndexMarker1038"/> allows us to declare the input and output units of a routine, which allows Pint to make automatic unit conversions for the input function – in this recipe, we converted from minutes into seconds. Trying to call a wrapped function with a quantity that does not have an associated unit, or an incompatible unit, will raise an exception. This allows runtime validation of parameters and automatic conversion into the correct units for <span class="No-Break">a routine.</span></p>
+			<h2 id="_idParaDest-403"><a id="_idTextAnchor402"/>There’s more...</h2>
+			<p>The <a id="_idIndexMarker1039"/>Pint package comes with a large list of preprogrammed units of measurement that cover most globally used systems. Units can be defined at runtime or loaded from a file. This means that you can define custom units or systems of units that are specific to the application that you are <span class="No-Break">working with.</span></p>
+			<p>Units<a id="_idIndexMarker1040"/> can also be used within different contexts, which allows for easy conversion between different unit types that would ordinarily be unrelated. This can save a lot of time in situations where you need to move between units fluidly at multiple points in <span class="No-Break">a calculation.</span></p>
+			<h1 id="_idParaDest-404"><a id="_idTextAnchor403"/>Accounting for uncertainty in calculations</h1>
+			<p>Most <a id="_idIndexMarker1041"/>measuring devices are not 100% accurate and instead are accurate up to a certain amount, usually somewhere between 0 and 10%. For instance, a thermometer might be accurate to 1%, while a pair of digital calipers might be accurate up to 0.1%. The true value in both of these cases is unlikely to be exactly the reported value, although it will be fairly close. Keeping track of the uncertainty in a value is difficult, especially when you have multiple different uncertainties combined in different ways. Rather than keeping track of this by hand, it is much better to use a consistent library to do this for you. This is what the <strong class="source-inline">uncertainties</strong> <span class="No-Break">package does.</span></p>
+			<p>In this recipe, we will learn how to quantify the uncertainty of variables and see how these uncertainties propagate through <span class="No-Break">a calculation.</span></p>
+			<h2 id="_idParaDest-405"><a id="_idTextAnchor404"/>Getting ready</h2>
+			<p>For this recipe, we will need the <strong class="source-inline">uncertainties</strong> package, from which we will import the <strong class="source-inline">ufloat</strong> class and the <span class="No-Break"><strong class="source-inline">umath</strong></span><span class="No-Break"> module:</span></p>
+			<pre class="source-code">
+from uncertainties import ufloat, umath</pre>
+			<h2 id="_idParaDest-406"><a id="_idTextAnchor405"/>How to do it...</h2>
+			<p>The following steps show you how to quantify uncertainty on numerical values <span class="No-Break">in calculations:</span></p>
+			<ol>
+				<li value="1">First, we create an uncertain float value of <strong class="source-inline">3.0</strong> plus or <span class="No-Break">minus </span><span class="No-Break"><strong class="source-inline">0.4</strong></span><span class="No-Break">:</span><pre class="console">
+seconds = ufloat(3.0, 0.4)</pre><pre class="console">
+print(seconds)      # 3.0+/-0.4</pre></li>
+				<li>Next, we perform a calculation involving this uncertain value to obtain a new <span class="No-Break">uncertain value:</span><pre class="console">
+depth = 0.5*9.81*seconds*seconds</pre><pre class="console">
+print(depth)      # 44+/-12</pre></li>
+				<li>Next, we create a new uncertain float value and apply the <strong class="source-inline">sqrt</strong> routine from the <strong class="source-inline">umath</strong> module and perform the reverse of the <span class="No-Break">previous calculation:</span><pre class="console">
+other_depth = ufloat(44, 12)</pre><pre class="console">
+time = umath.sqrt(2.0*other_depth/9.81)</pre><pre class="console">
+print("Estimated time", time)</pre><pre class="console">
+# Estimated time 3.0+/-0.4</pre></li>
+			</ol>
+			<p>As we can <a id="_idIndexMarker1042"/>see, the result of the first calculation (<em class="italic">step 2</em>) is an uncertain float with a value of <strong class="source-inline">44</strong>, and <img alt="" src="image/Formula_10_001.png"/> systematic error. This means that the true value could be anything between 32 and 56. We cannot be more accurate than this with the measurements that <span class="No-Break">we have.</span></p>
+			<h2 id="_idParaDest-407"><a id="_idTextAnchor406"/>How it works...</h2>
+			<p>The <strong class="source-inline">ufloat</strong> class wraps around <strong class="source-inline">float</strong> objects and keeps track of the uncertainty throughout calculations. The library makes use of linear error propagation theory, which uses derivatives of non-linear functions to estimate the propagated error during calculations. The library also correctly handles correlation so that subtracting a value from itself gives zero with <span class="No-Break">no error.</span></p>
+			<p>To keep track of uncertainties in standard mathematical functions, you need to use the versions that are provided in the <strong class="source-inline">umath</strong> module, rather than those defined in the Python <a id="_idIndexMarker1043"/>Standard Library or a third-party package such <span class="No-Break">as NumPy.</span></p>
+			<h2 id="_idParaDest-408"><a id="_idTextAnchor407"/>There’s more...</h2>
+			<p>The <strong class="source-inline">uncertainties</strong> package<a id="_idIndexMarker1044"/> provides support for NumPy, and the Pint package mentioned in the previous recipe can be combined with <strong class="source-inline">uncertainties</strong> to make sure that units and error margins are correctly attributed to the final value of a calculation. For example, we could compute the units in the calculation from <em class="italic">step 2</em> of this recipe, <span class="No-Break">as follows:</span></p>
+			<pre class="source-code">
+import pint
+from uncertainties import ufloat
+ureg = pint.UnitRegistry(system="mks")
+g = 9.81*ureg.meters / ureg.seconds ** 2
+seconds = ufloat(3.0, 0.4) * ureg.seconds
+depth = 0.5*g*seconds**2
+print(depth)</pre>
+			<p>As expected, the <strong class="source-inline">print</strong> statement on the last line gives us <span class="No-Break"><strong class="source-inline">44+/-12</strong></span><span class="No-Break"> meters.</span></p>
+			<h1 id="_idParaDest-409"><a id="_idTextAnchor408"/>Loading and storing data from NetCDF files</h1>
+			<p>Many scientific applications require that we start with large quantities of multi-dimensional data in a robust format. NetCDF <a id="_idIndexMarker1045"/>is one example of a format used for data that’s developed by the weather and climate industry. Unfortunately, the complexity of the data means that we can’t simply use the utilities from the Pandas package, for example, to load this data for analysis. We need the <strong class="source-inline">netcdf4</strong> package to be able to read and import the data into Python, but we also need to use <strong class="source-inline">xarray</strong>. Unlike the Pandas library, <strong class="source-inline">xarray</strong> can handle higher-dimensional data while still providing a <span class="No-Break">Pandas-like interface.</span></p>
+			<p>In this recipe, we <a id="_idIndexMarker1046"/>will learn how to load data from and store data<a id="_idIndexMarker1047"/> in <span class="No-Break">NetCDF files.</span></p>
+			<h2 id="_idParaDest-410"><a id="_idTextAnchor409"/>Getting ready</h2>
+			<p>For this recipe, we will need to import the NumPy package as <strong class="source-inline">np</strong>, the Pandas package as <strong class="source-inline">pd</strong>, the Matplotlib <strong class="source-inline">pyplot</strong> module as <strong class="source-inline">plt</strong>, and an instance of the default random number generator <span class="No-Break">from NumPy:</span></p>
+			<pre class="source-code">
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from numpy.random import default_rng
+rng = default_rng(12345)</pre>
+			<p>We also need to import the <strong class="source-inline">xarray</strong> package under the <strong class="source-inline">xr</strong> alias. You will also need to install the Dask package, as described in the <em class="italic">Technical requirements</em> section, and the <span class="No-Break"><strong class="source-inline">netCDF4</strong></span><span class="No-Break"> package:</span></p>
+			<pre class="source-code">
+import xarray as xr</pre>
+			<p>We don’t need to import either of these <span class="No-Break">packages directly.</span></p>
+			<h2 id="_idParaDest-411"><a id="_idTextAnchor410"/>How to do it...</h2>
+			<p>Follow these steps to <a id="_idIndexMarker1048"/>load and store sample data in a <span class="No-Break">NetCDF</span><span class="No-Break"><a id="_idIndexMarker1049"/></span><span class="No-Break"> file:</span></p>
+			<ol>
+				<li value="1">First, we need to create some random data. This data consists of a range of dates, a list of location codes, and randomly <span class="No-Break">generated numbers:</span><pre class="console">
+dates = pd.date_range("2020-01-01", periods=365, name="date")</pre><pre class="console">
+locations = list(range(25))</pre><pre class="console">
+steps = rng.normal(0, 1, size=(365,25))</pre><pre class="console">
+accumulated = np.add.accumulate(steps)</pre></li>
+				<li>Next, we create a xarray <strong class="source-inline">Dataset</strong> object containing the data. The dates and locations are indexes, while the <strong class="source-inline">steps</strong> and <strong class="source-inline">accumulated</strong> variables are <span class="No-Break">the data:</span><pre class="console">
+data_array = xr.Dataset({</pre><pre class="console">
+    "steps": (("date", "location"), steps),</pre><pre class="console">
+    "accumulated": (("date", "location"), accumulated)     },</pre><pre class="console">
+    {"location": locations, "date": dates}</pre><pre class="console">
+)</pre></li>
+			</ol>
+			<p>The output from the <strong class="source-inline">print</strong> statement is <span class="No-Break">shown here:</span></p>
+			<pre class="console">
+&lt;xarray.Dataset&gt;
+Dimensions: (date: 365, location: 25)
+Coordinates:
+* location (location) int64 0 1 2 3 4 5 6 7 8 ... 17 18 19 20 21 22 23 24
+* date (date) datetime64[ns] 2020-01-01 2020-01-02 ... 2020-12-30
+Data variables:
+steps (date, location) float64 geoplot.pointplot(cities, ax=ax, fc="r", marker="2")
+ax.axis((-180, 180, -90, 90))-1.424 1.264 ... -0.4547 -0.4873
+accumulated (date, location) float64 -1.424 1.264 -0.8707 ... 8.935 -3.525</pre>
+			<ol>
+				<li value="3">Next, we <a id="_idIndexMarker1050"/>compute the mean over all the locations at <a id="_idIndexMarker1051"/>each <span class="No-Break">time index:</span><pre class="console">
+means = data_array.mean(dim="location")</pre></li>
+				<li>Now, we plot the mean accumulated values on a new set <span class="No-Break">of axes:</span><pre class="console">
+fig, ax = plt.subplots()</pre><pre class="console">
+means["accumulated"].to_dataframe().plot(ax=ax)</pre><pre class="console">
+ax.set(title="Mean accumulated values", </pre><pre class="console">
+    xlabel="date", ylabel="value")</pre></li>
+			</ol>
+			<p>The resulting plot looks <span class="No-Break">as follows:</span></p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer1044">
+					<img alt="Figure 10.1 - Plot of accumulated means over time&#13;&#10;" src="image/B19085_10_01.jpg"/>
+				</div>
+			</div>
+			<p class="IMG---Caption" lang="en-US" xml:lang="en-US">Figure 10.1 - Plot of accumulated means over time</p>
+			<ol>
+				<li value="5">Save this <a id="_idIndexMarker1052"/>dataset into a new NetCDF file using<a id="_idIndexMarker1053"/> the <span class="No-Break"><strong class="source-inline">to_netcdf</strong></span><span class="No-Break"> method:</span><pre class="console">
+data_array.to_netcdf("data.nc")</pre></li>
+				<li>Now, we can load the newly created NetCDF file using the <strong class="source-inline">load_dataset</strong> routine <span class="No-Break">from </span><span class="No-Break"><strong class="source-inline">xarray</strong></span><span class="No-Break">:</span><pre class="console">
+new_data = xr.load_dataset("data.nc")</pre><pre class="console">
+print(new_data)</pre></li>
+			</ol>
+			<p>The output of the preceding code is <span class="No-Break">as follows:</span></p>
+			<pre class="console">
+&lt;xarray.Dataset&gt;
+Dimensions: (date: 365, location: 25)
+Coordinates:
+            * location (location) int64 0 1 2 3 4 5 6 7 8 ... 17 18 19 20 21 22 23 24
+            * date (date) datetime64[ns] 2020-01-01 2020-01-02 ... 2020-12-30
+Data variables:
+            steps (date, location) float64 -1.424 1.264 ... -0.4547 -0.4873
+            accumulated (date, location) float64 -1.424 1.264 -0.8707 ... 8.935 -3.525</pre>
+			<p>The output shows that the loaded array contains all of the data that we added in the earlier steps. The important steps are <em class="italic">5</em> and <em class="italic">6</em>, where we store and load this <strong class="source-inline">"</strong><span class="No-Break"><strong class="source-inline">data.nc"</strong></span><span class="No-Break"> data.</span></p>
+			<h2 id="_idParaDest-412"><a id="_idTextAnchor411"/>How it works...</h2>
+			<p>The <strong class="source-inline">xarray</strong> package <a id="_idIndexMarker1054"/>provides the <strong class="source-inline">DataArray</strong> and <strong class="source-inline">DataSet</strong> classes, which are (roughly speaking) multi-dimensional equivalents of the<a id="_idIndexMarker1055"/> Pandas <strong class="source-inline">Series</strong> and <strong class="source-inline">DataFrame</strong> objects. We’re using a dataset in this example because each index – a tuple of a date and location – has two pieces of data associated with it. Both of these objects expose a similar interface to their Pandas equivalents. For example, we can compute the mean along one of the axes using the <strong class="source-inline">mean</strong> method. The <strong class="source-inline">DataArray</strong> and <strong class="source-inline">DataSet</strong> objects also have a convenience method for converting into a Pandas <strong class="source-inline">DataFrame</strong> called <strong class="source-inline">to_dataframe</strong>. We used it in this recipe to convert the accumulated column from the <em class="italic">means</em> <em class="italic">Dataset</em> into a <strong class="source-inline">DataFrame</strong> for plotting, which isn’t really necessary because <strong class="source-inline">xarray</strong> has plotting features built <span class="No-Break">into it.</span></p>
+			<p>The real focus of this recipe is on the <strong class="source-inline">to_netcdf</strong> method and the <strong class="source-inline">load_dataset</strong> routine. The former stores a <strong class="source-inline">DataSet</strong> object in a NetCDF format file. This requires the <strong class="source-inline">netCDF4</strong> package to be installed, as it allows us to access the relevant C library for decoding NetCDF-formatted files. The <strong class="source-inline">load_dataset</strong> routine is a general-purpose routine for loading data into a <strong class="source-inline">DataSet</strong> object from various file formats, including NetCDF (again, this requires the <strong class="source-inline">netCDF4</strong> package to <span class="No-Break">be installed).</span></p>
+			<h2 id="_idParaDest-413"><a id="_idTextAnchor412"/>There’s more...</h2>
+			<p>The <strong class="source-inline">xarray</strong> package<a id="_idIndexMarker1056"/> has support for a number of data formats in addition to NetCDF, such as OPeNDAP, Pickle, GRIB, and other formats that are supported <span class="No-Break">by Pandas.</span></p>
+			<h1 id="_idParaDest-414"><a id="_idTextAnchor413"/>Working with geographical data</h1>
+			<p>Many applications involve<a id="_idIndexMarker1057"/> working with geographical data. For example, when tracking global weather, we might want to plot the temperature as measured by various sensors around the world at their position on a map. For this, we can use the GeoPandas package and the Geoplot package, both of which allow us to manipulate, analyze, and visualize <span class="No-Break">geographical data.</span></p>
+			<p>In this recipe, we will use the GeoPandas and Geoplot packages to load and visualize some sample <span class="No-Break">geographical data.</span></p>
+			<h2 id="_idParaDest-415"><a id="_idTextAnchor414"/>Getting ready</h2>
+			<p>For this recipe, we will need the GeoPandas package, the Geoplot package, and the Matplotlib <strong class="source-inline">pyplot</strong> package imported <span class="No-Break">as </span><span class="No-Break"><strong class="source-inline">plt</strong></span><span class="No-Break">:</span></p>
+			<pre class="source-code">
+import geopandas
+import geoplot
+import matplotlib.pyplot as plt</pre>
+			<h2 id="_idParaDest-416"><a id="_idTextAnchor415"/>How to do it...</h2>
+			<p>Follow these steps to create a simple plot of the capital cities plotted on a map of the world using <span class="No-Break">sample data:</span></p>
+			<ol>
+				<li value="1">First, we need to load the sample data from the GeoPandas package, which contains the world <span class="No-Break">geometry information:</span><pre class="console">
+world = geopandas.read_file(</pre><pre class="console">
+    geopandas.datasets.get_path("naturalearth_lowres")</pre><pre class="console">
+)</pre></li>
+				<li>Next, we need to load the data containing the name and position of each of the capital cities of <span class="No-Break">the world:</span><pre class="console">
+cities = geopandas.read_file(</pre><pre class="console">
+    geopandas.datasets.get_path("naturalearth_cities")</pre><pre class="console">
+)</pre></li>
+				<li>Now, we can create a new figure and plot the outline of the world geometry using the <span class="No-Break"><strong class="source-inline">polyplot</strong></span><span class="No-Break"> routine:</span><pre class="console">
+fig, ax = plt.subplots()</pre><pre class="console">
+geoplot.polyplot(world, ax=ax, alpha=0.7)</pre></li>
+				<li>Finally, we use the <strong class="source-inline">pointplot</strong> routine to add the positions of the capital cities on top of the world map. We also set the axes limits to make the whole <span class="No-Break">world visible:</span><pre class="console">
+geoplot.pointplot(cities, ax=ax, fc="k", marker="2")</pre><pre class="console">
+ax.axis((-180, 180, -90, 90))</pre></li>
+			</ol>
+			<p>The resulting plot of the<a id="_idIndexMarker1058"/> positions of the capital cities of the world looks <span class="No-Break">as follows:</span></p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer1045">
+					<img alt="Figure 10.2 - Plot of the world’s capital cities on a map&#13;&#10;" src="image/B19085_10_02.jpg"/>
+				</div>
+			</div>
+			<p class="IMG---Caption" lang="en-US" xml:lang="en-US">Figure 10.2 - Plot of the world’s capital cities on a map</p>
+			<p>The plot shows a rough outline of the different countries of the world. Each of the capital cities is indicated by a marker. From this view, it is quite difficult to distinguish individual cities in <span class="No-Break">central Europe.</span></p>
+			<h2 id="_idParaDest-417"><a id="_idTextAnchor416"/>How it works...</h2>
+			<p>The GeoPandas package<a id="_idIndexMarker1059"/> is an<a id="_idIndexMarker1060"/> extension of Pandas that works with geographical data, while the Geoplot package is <a id="_idIndexMarker1061"/>an extension of Matplotlib that’s used to plot geographical data. The GeoPandas package comes with a selection of sample datasets that we used in this recipe. <strong class="source-inline">naturalearth_lowres</strong> contains geometric figures that describe the boundaries of countries in the world. This data is not very high-resolution, as signified by its name, which means that some of the finer details of geographical features might not be present on the map (some small islands are not shown at all). <strong class="source-inline">naturalearth_cities</strong> contains the names and locations of the capital cities of the world. We’re using the <strong class="source-inline">datasets.get_path</strong> routine to retrieve the path for these datasets in the package data directory. The <strong class="source-inline">read_file</strong> routine imports the data into the <span class="No-Break">Python session.</span></p>
+			<p>The Geoplot package provides some additional plotting routines specifically for plotting geographical data. The <strong class="source-inline">polyplot</strong> routine<a id="_idIndexMarker1062"/> plots polygonal data from a GeoPandas DataFrame, which might describe the geographical boundaries of a country. The <strong class="source-inline">pointplot</strong> routine<a id="_idIndexMarker1063"/> plots discrete points on a set of axes from a GeoPandas DataFrame, which, in this case, describe the positions of <span class="No-Break">capital cities.</span></p>
+			<h1 id="_idParaDest-418"><a id="_idTextAnchor417"/>Executing a Jupyter notebook as a script</h1>
+			<p>Jupyter notebooks are a popular medium for writing Python code for scientific and data-based applications. A Jupyter notebook<a id="_idIndexMarker1064"/> is really a sequence of blocks that is stored in a file in <strong class="bold">JavaScript Object Notation</strong> (<strong class="bold">JSON</strong>) with the <strong class="source-inline">ipynb</strong> extension. Each<a id="_idIndexMarker1065"/> block can be one of several<a id="_idIndexMarker1066"/> different types, such as code or markdown. These notebooks are typically accessed through a web application that interprets the blocks and executes the code in a background kernel that then returns the results to the web application. This is great if you are working on a personal PC, but what if you want to run the code contained within a notebook remotely on a server? In this case, it might not even be possible to access the web interface provided by the Jupyter Notebook software. The <strong class="source-inline">papermill</strong> package<a id="_idIndexMarker1067"/> allows us to parameterize and execute notebooks from the <span class="No-Break">command line.</span></p>
+			<p>In this recipe, we’ll learn how to execute a Jupyter notebook from the command line <span class="No-Break">using </span><span class="No-Break"><strong class="source-inline">papermill</strong></span><span class="No-Break">.</span></p>
+			<h2 id="_idParaDest-419"><a id="_idTextAnchor418"/>Getting ready</h2>
+			<p>For this recipe, we <a id="_idIndexMarker1068"/>will need to have the <strong class="source-inline">papermill</strong> package installed, and also have a sample Jupyter notebook in the current directory. We will use the <strong class="source-inline">sample.ipynb</strong> notebook file stored in the code repository for <span class="No-Break">this chapter.</span></p>
+			<h2 id="_idParaDest-420"><a id="_idTextAnchor419"/>How to do it...</h2>
+			<p>Follow these steps to use the <strong class="source-inline">papermill</strong> command-line interface to execute a Jupyter <span class="No-Break">notebook remotely:</span></p>
+			<ol>
+				<li value="1">First, we open the sample notebook, <strong class="source-inline">sample.ipynb</strong>, from the code repository for this chapter. The notebook contains three code cells that hold the <span class="No-Break">following code:</span><pre class="console">
+import matplotlib.pyplot as plt</pre><pre class="console">
+from numpy.random import default_rng</pre><pre class="console">
+rng = default_rng(12345)</pre><pre class="console">
+uniform_data = rng.uniform(-5, 5, size=(2, 100))</pre><pre class="console">
+fig, ax = plt.subplots(tight_layout=True)</pre><pre class="console">
+ax.scatter(uniform_data[0, :], uniform_data[1, :])</pre><pre class="console">
+ax.set(title="Scatter plot", xlabel="x", ylabel="y")</pre></li>
+				<li>Next, we open the folder containing the Jupyter notebook in the terminal and use the <span class="No-Break">following command:</span><pre class="console">
+<strong class="bold">papermill --kernel python3 sample.ipynb output.ipynb</strong></pre></li>
+				<li>Now, we<a id="_idIndexMarker1069"/> open the output file, <strong class="source-inline">output.ipynb</strong>, which should now contain the notebook that’s been updated with the result of the executed code. The scatter plot that’s generated in the final block is <span class="No-Break">shown here:</span></li>
+			</ol>
+			<div>
+				<div class="IMG---Figure" id="_idContainer1046">
+					<img alt="Figure 10.3 - Scatter plot of the random data that was generated inside a Jupyter notebook&#13;&#10;" src="image/B19085_10_03.jpg"/>
+				</div>
+			</div>
+			<p class="IMG---Caption" lang="en-US" xml:lang="en-US">Figure 10.3 - Scatter plot of the random data that was generated inside a Jupyter notebook</p>
+			<p>Notice that the output of the <strong class="source-inline">papermill</strong> command is an entirely new notebook that copies the code and text content from the original and is populated with the output of running commands. This is useful for “freezing” the exact code that was used to generate <span class="No-Break">the results.</span></p>
+			<h2 id="_idParaDest-421"><a id="_idTextAnchor420"/>How it works...</h2>
+			<p>The <strong class="source-inline">papermill</strong> package<a id="_idIndexMarker1070"/> provides a simple command-line interface that interprets and then executes a Jupyter notebook and stores the results in a new notebook file. In this recipe, we gave the first argument – the input notebook file – <strong class="source-inline">sample.ipynb</strong>, and the second argument – the output notebook file – <strong class="source-inline">output.ipynb</strong>. The tool then executes the code contained in the notebook and produces the output. The notebook’s file format keeps track of the results of the last run, so these results are added to the output notebook and stored at the desired location. In this recipe, this is a simple local file, but <strong class="source-inline">papermill</strong> can also store them in a cloud location<a id="_idIndexMarker1071"/> such as <strong class="bold">Amazon Web Services</strong> (<strong class="bold">AWS</strong>) S3 storage or <a id="_idIndexMarker1072"/>Azure <span class="No-Break">data storage.</span></p>
+			<p>In <em class="italic">step 2</em>, we added the <strong class="source-inline">--kernel python3</strong> option when using the <strong class="source-inline">papermill</strong> command-line interface. This option allows us to specify the kernel that is used to execute the Jupyter notebook. This might be necessary to prevent errors if <strong class="source-inline">papermill </strong>tries to execute the notebook with a kernel other than the one used to write the notebook. A list of <a id="_idIndexMarker1073"/>available kernels can be found by using the following command in <span class="No-Break">the terminal:</span></p>
+			<pre class="console">
+jupyter kernelspec list</pre>
+			<p>If you get an error when executing a notebook, you could try changing to a <span class="No-Break">different kernel.</span></p>
+			<h2 id="_idParaDest-422"><a id="_idTextAnchor421"/>There’s more...</h2>
+			<p>Papermill<a id="_idIndexMarker1074"/> also has a Python interface so that you can execute notebooks from within a Python application. This might be useful for building web applications that need to be able to perform long-running calculations on external hardware and where the results need to be stored in the cloud. It also has the ability to provide parameters to a notebook. To do this, we need to create a block in the notebook marked with the parameters tag with the default values. Updated parameters can then be provided through the command-line interface using the <strong class="source-inline">-p</strong> flag, followed by the name of the argument and <span class="No-Break">the value.</span></p>
+			<h1 id="_idParaDest-423"><a id="_idTextAnchor422"/>Validating data</h1>
+			<p>Data is <a id="_idIndexMarker1075"/>often presented in a raw form and might contain anomalies or incorrect or malformed data, which will obviously present a problem for later processing and analysis. It is usually a good idea to build a validation step into a processing pipeline. Fortunately, the Cerberus package provides a lightweight and easy-to-use validation tool <span class="No-Break">for Python.</span></p>
+			<p>For validation, we have to define a <em class="italic">schema</em>, which is a <a id="_idIndexMarker1076"/>technical description of what the data should look like and the checks that should be performed on the data. For example, we can check the type and place bounds on the maximum and minimum values. Cerberus validators can also perform type conversions during the validation step, which allows us to plug data loaded directly from CSV files into <span class="No-Break">the validator.</span></p>
+			<p>In this recipe, we will learn <a id="_idIndexMarker1077"/>how to use Cerberus to validate data loaded <a id="_idIndexMarker1078"/>from a <span class="No-Break">CSV file.</span></p>
+			<h2 id="_idParaDest-424"><a id="_idTextAnchor423"/>Getting ready</h2>
+			<p>For this recipe, we need to import the <strong class="source-inline">csv</strong> module from the Python Standard Library (<a href="https://docs.python.org/3/library/csv.html">https://docs.python.org/3/library/csv.html</a>), as well as the <span class="No-Break">Cerberus package:</span></p>
+			<pre class="source-code">
+import csv
+import cerberus</pre>
+			<p>We will also need the <strong class="source-inline">sample.csv</strong> file from the code repository (<a href="https://github.com/PacktPublishing/Applying-Math-with-Python/tree/master/Chapter%2010">https://github.com/PacktPublishing/Applying-Math-with-Python/tree/master/Chapter%2010</a>) for <span class="No-Break">this chapter.</span></p>
+			<h2 id="_idParaDest-425"><a id="_idTextAnchor424"/>How to do it...</h2>
+			<p>In the following steps, we will validate a set of data that’s been loaded from CSV using the <span class="No-Break">Cerberus package:</span></p>
+			<ol>
+				<li value="1">First, we need to build a schema that describes the data we expect. To do this, we must define a simple schema for <span class="No-Break">floating-point numbers:</span><pre class="console">
+float_schema = {"type": "float", "coerce": float, </pre><pre class="console">
+    "min": -1.0, "max": 1.0}</pre></li>
+				<li>Next, we build the schema for individual items. These will be the rows of <span class="No-Break">our data:</span><pre class="console">
+item_schema = {</pre><pre class="console">
+    "type": "dict",</pre><pre class="console">
+    "schema": {</pre><pre class="console">
+        "id": {"type": "string"},</pre><pre class="console">
+        "number": {"type": "integer",</pre><pre class="console">
+        "coerce": int},</pre><pre class="console">
+    "lower": float_schema,</pre><pre class="console">
+    "upper": float_schema,</pre><pre class="console">
+    }</pre><pre class="console">
+}</pre></li>
+				<li>Now, we can <a id="_idIndexMarker1079"/>define the schema for the whole<a id="_idIndexMarker1080"/> document, which will contain a list <span class="No-Break">of items:</span><pre class="console">
+schema = {</pre><pre class="console">
+    "rows": {</pre><pre class="console">
+        "type": "list",</pre><pre class="console">
+        "schema": item_schema</pre><pre class="console">
+    }</pre><pre class="console">
+}</pre></li>
+				<li>Next, we create a <strong class="source-inline">Validator</strong> object with the schema we <span class="No-Break">just defined:</span><pre class="console">
+validator = cerberus.Validator(schema)</pre></li>
+				<li>Then, we load the data using a <strong class="source-inline">DictReader</strong> from the <span class="No-Break"><strong class="source-inline">csv</strong></span><span class="No-Break"> module:</span><pre class="console">
+with open("sample.csv") as f:</pre><pre class="console">
+    dr = csv.DictReader(f)</pre><pre class="console">
+    document = {"rows": list(dr)}</pre></li>
+				<li>Next, we use the <strong class="source-inline">validate</strong> method on <strong class="source-inline">validator</strong> to validate <span class="No-Break">the document:</span><pre class="console">
+validator.validate(document)</pre></li>
+				<li>Then, we retrieve the errors from the validation process from the <span class="No-Break"><strong class="source-inline">validator</strong></span><span class="No-Break"> object:</span><pre class="console">
+errors = validator.errors["rows"][0]</pre></li>
+				<li>Finally, we can print any error messages <span class="No-Break">that appeared:</span><pre class="console">
+for row_n, errs in errors.items():</pre><pre class="console">
+            print(f"row {row_n}: {errs}")</pre></li>
+			</ol>
+			<p>The output of the error messages is <span class="No-Break">as follows:</span></p>
+			<pre class="console">
+row 11: [{'lower': ['min value is -1.0']}]
+row 18: [{'number': ['must be of integer type',      "field 'number' cannot be coerced: invalid literal for int() with base 10: 'None'"]}]
+row 32: [{'upper': ['min value is -1.0']}]
+row 63: [{'lower': ['max value is 1.0']}]</pre>
+			<p>This has identified four rows that do not conform to the schema that we set out, which limits the float values in “lower” and “upper” to those between <strong class="source-inline">-1.0</strong> <span class="No-Break">and </span><span class="No-Break"><strong class="source-inline">1.0</strong></span><span class="No-Break">.</span></p>
+			<h2 id="_idParaDest-426"><a id="_idTextAnchor425"/>How it works...</h2>
+			<p>The schema <a id="_idIndexMarker1081"/>that we created is a technical description of all the<a id="_idIndexMarker1082"/> criteria that we need to check our data against. This will usually be defined as a dictionary with the name of the item as the key and a dictionary of properties, such as the type or bounds on the value in a dictionary, as the value. For example, in <em class="italic">step 1</em>, we defined a schema for floating-point numbers that limits the numbers so that they’re between the values of -1 and 1. Note that we include the <strong class="source-inline">coerce</strong> key, which specifies the type that the value should be converted into during the validation. This allows us to pass in data that’s been loaded from a CSV document, which only contains strings, without having to worry about <span class="No-Break">its type.</span></p>
+			<p>The <strong class="source-inline">validator</strong> object takes care of parsing documents so that they’re validated and checking the data they contain against all the criteria described by the schema. In this recipe, we provided the schema to the <strong class="source-inline">validator</strong> object when it was created. However, we could also pass the schema into the <strong class="source-inline">validate</strong> method as a second argument. The errors are stored in a nested dictionary that mirrors the structure of <span class="No-Break">the document.</span></p>
+			<h1 id="_idParaDest-427"><a id="_idTextAnchor426"/>Accelerating code with Cython</h1>
+			<p>Python is often criticized for being a slow programming language – an endlessly debatable statement. Many of these criticisms can be addressed by using a high-performance compiled library with a Python interface – such as the scientific Python stack – to greatly improve performance. However, there are some situations where it is difficult to avoid the fact that Python is not a compiled language. One way to improve performance in these (fairly rare) situations is to write a C extension (or even rewrite the code entirely in C) to speed up the critical parts. This will certainly make the code run more quickly, but it might make it more difficult to maintain the package. Instead, we can use Cython, which<a id="_idIndexMarker1083"/> is an extension of the Python language that is transpiled into C and compiled for great <span class="No-Break">performance improvements.</span></p>
+			<p>For example, we can consider some code that’s used to generate an image of the Mandelbrot set. For comparison, the pure Python code – which we assume is our starting point – is <span class="No-Break">as follows:</span></p>
+			<pre class="source-code">
+# mandelbrot/python_mandel.py
+import numpy as np
+def in_mandel(cx, cy, max_iter):
+    x = cx
+    y = cy
+    for i in range(max_iter):
+        x2 = x**2
+        y2 = y**2
+        if (x2 + y2) &gt;= 4:
+            return i
+        y = 2.0*x*y + cy
+        x = x2 - y2 + cx
+    return max_iter
+def compute_mandel(N_x, N_y, N_iter):
+    xlim_l = -2.5
+    xlim_u = 0.5
+    ylim_l = -1.2
+    ylim_u = 1.2
+    x_vals = np.linspace(xlim_l, xlim_u,
+        N_x, dtype=np.float64)
+y_vals = np.linspace(ylim_l, ylim_u,
+        N_y, dtype=np.float64)
+    height = np.empty((N_x, N_y), dtype=np.int64)
+    for i in range(N_x):
+        for j in range(N_y):
+        height[i, j] = in_mandel(
+		    x_vals[i], y_vals[j], N_iter)
+    return height</pre>
+			<p>The reason<a id="_idIndexMarker1084"/> why this code is relatively slow in pure Python is fairly <a id="_idIndexMarker1085"/>obvious: the nested loops. For demonstration purposes, let’s assume that we can’t vectorize this code using NumPy. A little preliminary testing shows that using these functions to generate the Mandelbrot set using 320 × 240 points and 255 steps takes approximately 6.3 seconds. Your times may vary, depending on <span class="No-Break">your system.</span></p>
+			<p>In this recipe, we will use Cython to greatly improve the performance of the preceding code in order to generate an image of the <span class="No-Break">Mandelbrot set.</span></p>
+			<h2 id="_idParaDest-428"><a id="_idTextAnchor427"/>Getting ready</h2>
+			<p>For this recipe, we will need the NumPy package and the Cython package to be installed. You will also need a C compiler such as the GCC installed on your system. For example, on Windows, you can obtain a version of the GCC by <span class="No-Break">installing MinGW.</span></p>
+			<h2 id="_idParaDest-429"><a id="_idTextAnchor428"/>How to do it...</h2>
+			<p>Follow these steps to use<a id="_idIndexMarker1086"/> Cython to greatly improve the performance of the <a id="_idIndexMarker1087"/>code for generating an image of the <span class="No-Break">Mandelbrot set:</span></p>
+			<ol>
+				<li value="1">Start a new file called <strong class="source-inline">cython_mandel.pyx</strong> in the <strong class="source-inline">mandelbrot</strong> folder. In this file, we will add some simple imports and <span class="No-Break">type definitions:</span><pre class="console">
+# mandelbrot/cython_mandel.pyx</pre><pre class="console">
+import numpy as np</pre><pre class="console">
+cimport numpy as np</pre><pre class="console">
+cimport cython</pre><pre class="console">
+ctypedef Py_ssize_t Int</pre><pre class="console">
+ctypedef np.float64_t Double</pre></li>
+				<li>Next, we define a new version of the <strong class="source-inline">in_mandel</strong> routine using the Cython syntax. We add some declarations to the first few lines of <span class="No-Break">this routine:</span><pre class="console">
+cdef int in_mandel(Double cx, Double cy, int max_iter):</pre><pre class="console">
+    cdef Double x = cx</pre><pre class="console">
+    cdef Double y = cy</pre><pre class="console">
+    cdef Double x2, y2</pre><pre class="console">
+    cdef Int i</pre></li>
+				<li>The rest of the function is identical to the Python version of <span class="No-Break">the function:</span><pre class="console">
+    for i in range(max_iter):</pre><pre class="console">
+        x2 = x**2</pre><pre class="console">
+        y2 = y**2</pre><pre class="console">
+        if (x2 + y2) &gt;= 4:</pre><pre class="console">
+            return i</pre><pre class="console">
+        y = 2.0*x*y + cy</pre><pre class="console">
+        x = x2 - y2 + cx</pre><pre class="console">
+    return max_iter</pre></li>
+				<li>Next, we<a id="_idIndexMarker1088"/> define a new version of the <strong class="source-inline">compute_mandel</strong> function. We add two decorators to this function from the <span class="No-Break">Cython</span><span class="No-Break"><a id="_idIndexMarker1089"/></span><span class="No-Break"> package:</span><pre class="console">
+@cython.boundscheck(False)</pre><pre class="console">
+@cython.wraparound(False)</pre><pre class="console">
+def compute_mandel(int N_x, int N_y, int N_iter):</pre></li>
+				<li>Then, we define the constants, just as we did in the <span class="No-Break">original routine:</span><pre class="console">
+    cdef double xlim_l = -2.5</pre><pre class="console">
+    cdef double xlim_u = 0.5</pre><pre class="console">
+    cdef double ylim_l = -1.2</pre><pre class="console">
+    cdef double ylim_u = 1.2</pre></li>
+				<li>We use the <strong class="source-inline">linspace</strong> and <strong class="source-inline">empty</strong> routines from the NumPy package in exactly the same<a id="_idIndexMarker1090"/> way as in the Python version. The only addition<a id="_idIndexMarker1091"/> here is that we declare the <strong class="source-inline">i</strong> and <strong class="source-inline">j</strong> variables, which are of the <span class="No-Break"><strong class="source-inline">Int</strong></span><span class="No-Break"> type:</span><pre class="console">
+    cdef np.ndarray x_vals = np.linspace(xlim_l,</pre><pre class="console">
+        xlim_u, N_x, dtype=np.float64)</pre><pre class="console">
+    cdef np.ndarray y_vals = np.linspace(ylim_l,</pre><pre class="console">
+        ylim_u, N_y, dtype=np.float64)</pre><pre class="console">
+    cdef np.ndarray height = np.empty(</pre><pre class="console">
+        (N_x, N_y),dtype=np.int64)</pre><pre class="console">
+    cdef Int i, j</pre></li>
+				<li>The remainder of the definition is exactly the same as in the <span class="No-Break">Python version:</span><pre class="console">
+    for i in range(N_x):</pre><pre class="console">
+        for j in range(N_y):</pre><pre class="console">
+            height[i, j] = in_mandel(</pre><pre class="console">
+                xx_vals[i], y_vals[j], N_iter)</pre><pre class="console">
+        return height</pre></li>
+				<li>Next, we create a new file called <strong class="source-inline">setup.py</strong> in the <strong class="source-inline">mandelbrot</strong> folder and add the following imports to the top of <span class="No-Break">this file:</span><pre class="console">
+# mandelbrot/setup.py</pre><pre class="console">
+import numpy as np</pre><pre class="console">
+from setuptools import setup, Extension</pre><pre class="console">
+from Cython.Build import cythonize</pre></li>
+				<li>After that, we<a id="_idIndexMarker1092"/> define an extension module with the source<a id="_idIndexMarker1093"/> pointing to the original <strong class="source-inline">python_mandel.py</strong> file. Set the name of this module <span class="No-Break">to </span><span class="No-Break"><strong class="source-inline">hybrid_mandel</strong></span><span class="No-Break">:</span><pre class="console">
+hybrid = Extension(</pre><pre class="console">
+    "hybrid_mandel",</pre><pre class="console">
+    sources=["python_mandel.py"],</pre><pre class="console">
+    include_dirs=[np.get_include()],</pre><pre class="console">
+    define_macros=[("NPY_NO_DEPRECATED_API",</pre><pre class="console">
+        "NPY_1_7_API_VERSION")]</pre><pre class="console">
+)</pre></li>
+				<li>Now, we define a second extension module with the source set as the <strong class="source-inline">cython_mandel.pyx</strong> file that we <span class="No-Break">just created:</span><pre class="console">
+cython = Extension(</pre><pre class="console">
+    "cython_mandel",</pre><pre class="console">
+    sources=["cython_mandel.pyx"],</pre><pre class="console">
+    include_dirs=[np.get_include()],</pre><pre class="console">
+    define_macros=[("NPY_NO_DEPRECATED_API",</pre><pre class="console">
+        "NPY_1_7_API_VERSION")]</pre><pre class="console">
+)</pre></li>
+				<li>Next, we<a id="_idIndexMarker1094"/> add both these extension modules to a list and <a id="_idIndexMarker1095"/>call the <strong class="source-inline">setup</strong> routine to register <span class="No-Break">these modules:</span><pre class="console">
+extensions = [hybrid, cython]</pre><pre class="console">
+setup(</pre><pre class="console">
+    ext_modules = cythonize(</pre><pre class="console">
+        extensions, compiler_directives={</pre><pre class="console">
+		    "language_level": "3"}),</pre><pre class="console">
+)</pre></li>
+				<li>Create a new empty file called <strong class="source-inline">__init__.py</strong> in the <strong class="source-inline">mandelbrot</strong> folder to make this into a package that can be imported <span class="No-Break">into Python.</span></li>
+				<li>Open the terminal inside the <strong class="source-inline">mandelbrot</strong> folder and use the following command to build the Cython <span class="No-Break">extension modules:</span><pre class="console">
+<strong class="bold">python3.8 setup.py build_ext --inplace</strong></pre></li>
+				<li>Now, start a new file called <strong class="source-inline">run.py</strong> and add the following <span class="No-Break"><strong class="source-inline">import</strong></span><span class="No-Break"> statements:</span><pre class="console">
+# run.py</pre><pre class="console">
+from time import time</pre><pre class="console">
+from functools import wraps</pre><pre class="console">
+import matplotlib.pyplot as plt</pre></li>
+				<li>Import the various <strong class="source-inline">compute_mandel</strong> routines from each of the modules we have defined: <strong class="source-inline">python_mandel</strong> for the original; <strong class="source-inline">hybrid_mandel</strong> for the Cythonized<a id="_idIndexMarker1096"/> Python code; and <strong class="source-inline">cython_mandel</strong> for the<a id="_idIndexMarker1097"/> compiled pure <span class="No-Break">Cython code:</span><pre class="console">
+from mandelbrot.python_mandel import compute_mandel</pre><pre class="console">
+            as compute_mandel_py</pre><pre class="console">
+from mandelbrot.hybrid_mandel import compute_mandel</pre><pre class="console">
+            as compute_mandel_hy</pre><pre class="console">
+from mandelbrot.cython_mandel import compute_mandel</pre><pre class="console">
+            as compute_mandel_cy</pre></li>
+				<li>Define a simple timer decorator that we will use to test the performance of <span class="No-Break">the routines:</span><pre class="console">
+def timer(func, name):</pre><pre class="console">
+	@wraps(func)</pre><pre class="console">
+	def wrapper(*args, **kwargs):</pre><pre class="console">
+		t_start = time()</pre><pre class="console">
+		val = func(*args, **kwargs)</pre><pre class="console">
+		t_end = time()</pre><pre class="console">
+		print(f"Time taken for {name}:</pre><pre class="console">
+			{t_end - t_start}")</pre><pre class="console">
+		return val</pre><pre class="console">
+	return wrapper</pre></li>
+				<li>Apply the <strong class="source-inline">timer</strong> decorator<a id="_idIndexMarker1098"/> to each of the imported routines, and <a id="_idIndexMarker1099"/>define some constants <span class="No-Break">for testing:</span><pre class="console">
+mandel_py = timer(compute_mandel_py, "Python")</pre><pre class="console">
+mandel_hy = timer(compute_mandel_hy, "Hybrid")</pre><pre class="console">
+mandel_cy = timer(compute_mandel_cy, "Cython")</pre><pre class="console">
+Nx = 320</pre><pre class="console">
+Ny = 240</pre><pre class="console">
+steps = 255</pre></li>
+				<li>Run each of the decorated routines with the constants we set previously. Record the output of the final call (the Cython version) in the <span class="No-Break"><strong class="source-inline">vals</strong></span><span class="No-Break"> variable:</span><pre class="console">
+mandel_py(Nx, Ny, steps)</pre><pre class="console">
+mandel_hy(Nx, Ny, steps)</pre><pre class="console">
+vals = mandel_cy(Nx, Ny, steps)</pre></li>
+				<li>Finally, plot the output of the Cython version to check that the routine computes the Mandelbrot <span class="No-Break">set correctly:</span><pre class="console">
+fig, ax = plt.subplots()</pre><pre class="console">
+ax.imshow(vals.T, extent=(-2.5, 0.5, -1.2, 1.2))</pre><pre class="console">
+plt.show()</pre></li>
+			</ol>
+			<p>Running the <strong class="source-inline">run.py</strong> file will print the execution time of each of the routines to the terminal, <span class="No-Break">as follows:</span></p>
+			<pre class="console">
+Time taken for Python: 11.399756908416748
+Time taken for Hybrid: 10.955225229263306
+Time taken for Cython: 0.24534869194030762</pre>
+			<p class="callout-heading">Note</p>
+			<p class="callout">These timings are not as good as in the first edition, which is likely due to the way Python is installed on the author’s PC. Your timings <span class="No-Break">may vary.</span></p>
+			<p>The plot of the <a id="_idIndexMarker1100"/>Mandelbrot set can be seen in the <span class="No-Break">following figure:</span></p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer1047">
+					<img alt="Figure 10.4 - Image of the Mandelbrot set computed using Cython code&#13;&#10;" src="image/B19085_10_04.jpg"/>
+				</div>
+			</div>
+			<p class="IMG---Caption" lang="en-US" xml:lang="en-US">Figure 10.4 - Image of the Mandelbrot set computed using Cython code</p>
+			<p>This is what we expect for the Mandelbrot set. Some of the finer detail is visible around <span class="No-Break">the boundary.</span></p>
+			<h2 id="_idParaDest-430"><a id="_idTextAnchor429"/>How it works...</h2>
+			<p>There is a lot<a id="_idIndexMarker1101"/> happening in this recipe, so let’s start by explaining the overall process. Cython takes code that is written in an extension of the Python language and compiles it into C code, which is then used to produce a C extension library that can be imported into a Python session. In fact, you can even use Cython to compile <a id="_idIndexMarker1102"/>ordinary Python code directly to an extension, although the results are not as good as when using the modified language. The first few steps in this recipe define the new version of the Python code in the modified language (saved as a <strong class="source-inline">.pyx</strong> file), which includes type information in addition to the regular Python code. In order to build the C extension using Cython, we need to define a setup file, and then we create a file that we run to produce <span class="No-Break">the results.</span></p>
+			<p>The final compiled version of the Cython code runs considerably faster than its Python equivalent. The Cython-compiled Python code (hybrid, as we called it in this recipe) performs slightly better than the pure Python code. This is because the produced Cython code still has to work with Python objects with all of their caveats. By adding the typing information to the Python code, in the <strong class="source-inline">.pyx</strong> file, we start to see major improvements in performance. This is because the <strong class="source-inline">in_mandel</strong> function is now effectively defined as a C-level function that has no interaction with Python objects, and instead operates on primitive <span class="No-Break">data types.</span></p>
+			<p>There are some small, but very important <a id="_idIndexMarker1103"/>differences, between the Cython code and the Python <a id="_idIndexMarker1104"/>equivalent. In <em class="italic">step 1</em>, you can see that we imported the NumPy package as usual but that we also used the <strong class="source-inline">cimport</strong> keyword to bring some C-level definitions into the scope. In <em class="italic">step 2</em>, we used the <strong class="source-inline">cdef</strong> keyword instead of the <strong class="source-inline">def</strong> keyword when we defined the <strong class="source-inline">in_mandel</strong> routine. This means that the <strong class="source-inline">in_mandel</strong> routine is defined as a C-level function that cannot be used from the Python level, which saves a significant amount of overhead when calling this function (which happens <span class="No-Break">a lot).</span></p>
+			<p>The only other real differences regarding the definition of this function are the inclusion of some type declarations in the signature and the first few lines of the function. The two decorators we applied here disable the checking of bounds when accessing elements from a list (array). The <strong class="source-inline">boundscheck</strong> decorator disables checking whether the index is valid (between 0 and the size of the array), while the <strong class="source-inline">wraparound</strong> decorator disables the negative indexing. Both of these give a modest improvement to speed during execution, although they disable some of the safety features built into Python. In this recipe, it is OK to disable these checks because we are using a loop over the valid indices of <span class="No-Break">the array.</span></p>
+			<p>The setup file is where we tell Python (and therefore Cython) how to build the C extension. The <strong class="source-inline">cythonize</strong> routine from Cython is the key here, as it triggers the Cython build process. In <em class="italic">steps 9</em> and <em class="italic">10</em>, we defined extension modules using the <strong class="source-inline">Extension</strong> class from <strong class="source-inline">setuptools</strong> so that we could define some extra details for the build; specifically, we set an environment variable for the NumPy compilation and added the <strong class="source-inline">include</strong> files for the NumPy C headers. This is done via the <strong class="source-inline">define_macros</strong> keyword argument for the <strong class="source-inline">Extension</strong> class. The terminal command we used in <em class="italic">step 13</em> uses <strong class="source-inline">setuptools</strong> to build the Cython extensions, and the addition of the <strong class="source-inline">--inplace</strong> flat means that the compiled libraries will be added to the current directory, rather than being placed in a centralized location. This is good <span class="No-Break">for development.</span></p>
+			<p>The run script <a id="_idIndexMarker1105"/>is fairly simple: import the routines from each of the <a id="_idIndexMarker1106"/>defined modules – two of these are actually C extension modules – and time their execution. We have to be a little creative with the import aliases and routine names to <span class="No-Break">avoid collisions.</span></p>
+			<h2 id="_idParaDest-431"><a id="_idTextAnchor430"/>There’s more...</h2>
+			<p>Cython is <a id="_idIndexMarker1107"/>a powerful tool for improving the performance of some aspects of your code. However, you must always be careful to spend your time wisely while optimizing code. Using a profile such as cProfile that is provided in the Python Standard Library can be used to find the places where performance bottlenecks occur in your code. In this recipe, it was fairly obvious where the performance bottleneck was occurring. Cython is a good remedy to the problem in this case because it involves repetitive calls to a function inside a (double) <strong class="source-inline">for</strong> loop. However, it is not a universal fix for performance issues and, more often than not, the performance of code can be greatly improved by refactoring it so that it makes use of <span class="No-Break">high-performance libraries.</span></p>
+			<p>Cython is well integrated with Jupyter Notebook and can be used seamlessly in the code blocks of a notebook. Cython is also included in the Anaconda distribution of Python, so no additional setup is required for using Cython with Jupyter notebooks when it’s been installed using the <span class="No-Break">Anaconda distribution.</span></p>
+			<p>There are alternatives to Cython when it comes to producing compiled code from Python. For example, the <a id="_idIndexMarker1108"/>Numba package (<a href="http://numba.pydata.org/">http://numba.pydata.org/</a>) provides a <strong class="bold">Just-in-Time</strong> (<strong class="bold">JIT</strong>) compiler that<a id="_idIndexMarker1109"/> optimizes Python code at runtime by simply placing a decorator on specific functions. Numba is designed to work with NumPy and other scientific Python libraries and can also be used to leverage GPUs to <span class="No-Break">accelerate code.</span></p>
+			<p>There is also a <a id="_idIndexMarker1110"/>general-purpose JIT compiler for Python available through the <strong class="source-inline">pyjion</strong> package (<a href="https://www.trypyjion.com/">https://www.trypyjion.com/</a>). This can be used in a variety of situations, unlike the Numba library, which is primarily for numerical code. The <strong class="source-inline">jax</strong> library<a id="_idIndexMarker1111"/> discussed in <a href="B19085_03.xhtml#_idTextAnchor078"><span class="No-Break"><em class="italic">Chapter 3</em></span></a> also has a JIT compiler built in, but this too is limited to <span class="No-Break">numerical code.</span></p>
+			<h1 id="_idParaDest-432"><a id="_idTextAnchor431"/>Distributing computing with Dask</h1>
+			<p>Dask<a id="_idIndexMarker1112"/> is a library that’s used for distributing computing across multiple threads, processes, or even computers in order to effectively perform computation on a huge scale. This can greatly improve performance and throughput, even if you are working on a single laptop computer. Dask provides replacements for most of the data structures from the Python scientific stack, such as NumPy arrays and Pandas DataFrames. These replacements have very similar interfaces, but under the hood, they are built for distributed computing so that they can be shared between multiple threads, processes, or computers. In many cases, switching to Dask is as simple as changing the <strong class="source-inline">import</strong> statement, and possibly adding a couple of extra method calls to start <span class="No-Break">concurrent computations.</span></p>
+			<p>In this recipe, we will learn how to use Dask to do some simple computations on <span class="No-Break">a DataFrame.</span></p>
+			<h2 id="_idParaDest-433"><a id="_idTextAnchor432"/>Getting ready</h2>
+			<p>For this recipe, we will<a id="_idIndexMarker1113"/> need to import the <strong class="source-inline">dataframe</strong> module from the Dask package. Following the convention set out in the Dask documentation, we will import this module under the <span class="No-Break"><strong class="source-inline">dd</strong></span><span class="No-Break"> alias:</span></p>
+			<pre class="source-code">
+import dask.dataframe as dd</pre>
+			<p>We will also need the <strong class="source-inline">sample.csv</strong> file from the code repository for <span class="No-Break">this chapter.</span></p>
+			<h2 id="_idParaDest-434"><a id="_idTextAnchor433"/>How to do it...</h2>
+			<p>Follow these steps to use Dask to perform some computations on a <span class="No-Break">DataFrame object:</span></p>
+			<ol>
+				<li value="1">First, we need to load the data from <strong class="source-inline">sample.csv</strong> into a Dask DataFrame. The type of the <strong class="source-inline">number</strong> column is set to <strong class="source-inline">"object"</strong> because otherwise, Dask’s type inference will fail (since this column contains <strong class="source-inline">None</strong> but is <span class="No-Break">otherwise integers):</span><pre class="console">
+data = dd.read_csv("sample.csv", dtype={</pre><pre class="console">
+    "number":"object"})</pre></li>
+				<li>Next, we perform a standard calculation on the columns of <span class="No-Break">the DataFrame:</span><pre class="console">
+sum_data = data.lower + data.upper</pre><pre class="console">
+print(sum_data)</pre></li>
+			</ol>
+			<p>Unlike Pandas <a id="_idIndexMarker1114"/>DataFrames, the result is not a new DataFrame. The <strong class="source-inline">print</strong> statement gives us the <span class="No-Break">following information:</span></p>
+			<pre class="console">
+Dask Series Structure:
+npartitions=1
+             float64
+                               ...
+dtype: float64
+Dask Name: add, 4 graph layers</pre>
+			<ol>
+				<li value="3">To actually get <a id="_idIndexMarker1115"/>the result, we need to use the <span class="No-Break"><strong class="source-inline">compute</strong></span><span class="No-Break"> method:</span><pre class="console">
+result = sum_data.compute()</pre><pre class="console">
+print(result.head())</pre></li>
+			</ol>
+			<p>The result is now shown <span class="No-Break">as expected:</span></p>
+			<pre class="console">
+0      -0.911811
+1       0.947240
+2      -0.552153
+3      -0.429914
+4       1.229118
+dtype:  float64</pre>
+			<ol>
+				<li value="4">We compute the means of the final two columns in exactly the same way we would with a Pandas DataFrame, but we need to add a call to the <strong class="source-inline">compute</strong> method to execute <span class="No-Break">the calculation:</span><pre class="console">
+means = data[["lower", "upper"]].mean().compute()</pre><pre class="console">
+print(means)</pre></li>
+			</ol>
+			<p>The result, as printed, is exactly as we expect it <span class="No-Break">to be:</span></p>
+			<pre class="console">
+lower -0.060393
+upper -0.035192
+dtype: float64</pre>
+			<h2 id="_idParaDest-435"><a id="_idTextAnchor434"/>How it works...</h2>
+			<p>Dask <a id="_idIndexMarker1116"/>builds a <em class="italic">task graph</em> for the computation, which describes the <a id="_idIndexMarker1117"/>relationships between the various operations and calculations that need to be performed on the collection of data. This breaks down the steps of the calculation so that calculations can be done in the right order across the different workers. This task graph is then passed into a scheduler that sends the actual tasks to the workers for execution. Dask comes with several different schedulers: synchronous, threaded, multiprocessing, and distributed. The type of scheduler can be chosen in the call to the <strong class="source-inline">compute</strong> method or set globally. Dask will choose a sensible default if one is <span class="No-Break">not given.</span></p>
+			<p>The synchronous, threaded, and multiprocessing schedulers work on a single machine, while the distributed scheduler is for working with a cluster. Dask allows you to change between schedulers in a relatively transparent way, although for small tasks, you might not get any performance benefits because of the overhead of setting up more <span class="No-Break">complicated schedulers.</span></p>
+			<p>The <strong class="source-inline">compute</strong> method is the key to this recipe. The methods that would ordinarily perform the computation on Pandas DataFrames now just set up a computation that is to be executed through the Dask scheduler. The computation isn’t started until the <strong class="source-inline">compute</strong> method is called. This is similar to the way that a <strong class="source-inline">Future</strong> (such as from the asyncio standard library package) is returned as a proxy for the result of an asynchronous <a id="_idIndexMarker1118"/>function call, which isn’t fulfilled until the computation <span class="No-Break">is complete.</span></p>
+			<h2 id="_idParaDest-436"><a id="_idTextAnchor435"/>There’s more...</h2>
+			<p>Dask<a id="_idIndexMarker1119"/> provides interfaces for NumPy arrays, as well as the DataFrames shown in this recipe. There is also a machine learning interface called <strong class="source-inline">dask_ml</strong> that <a id="_idIndexMarker1120"/>exposes similar capabilities to the <strong class="source-inline">scikit-learn</strong> package. Some external packages, such as <strong class="source-inline">xarray</strong>, also have a Dask interface. Dask can also work with GPUs to further accelerate computations and load data from remote sources, which is useful if the computation is distributed across <span class="No-Break">a cluster.</span></p>
+			<h1 id="_idParaDest-437"><a id="_idTextAnchor436"/>Writing reproducible code for data science</h1>
+			<p>One of the<a id="_idIndexMarker1121"/> fundamental principles of the scientific <a id="_idIndexMarker1122"/>method is the idea that results should be reproducible and independently verifiable. Sadly, this principle is often undervalued in favor of “novel” ideas and results. As practitioners of data science, we have an obligation to do our part to make our analyses and results as reproducible <span class="No-Break">as possible.</span></p>
+			<p>Since data science is typically done entirely on computers – that is, it doesn’t usually involve instrumental errors involved in measurements – some might expect that all data science is inherently reproducible. This is certainly not the case. It is easy to overlook simple things such as seeding randomness (see <a href="B19085_03.xhtml#_idTextAnchor078"><span class="No-Break"><em class="italic">Chapter 3</em></span></a>) when using randomized hyperparameter searches or stochastic gradient descent-based optimization. Moreover, more subtle non-deterministic factors (such as use of threading or multiprocessing) can dramatically change results if you are not aware <span class="No-Break">of them.</span></p>
+			<p>In this recipe, we’ll look at an example of a basic data analysis pipeline and implement some basic steps to make sure you can reproduce <span class="No-Break">the results.</span></p>
+			<h2 id="_idParaDest-438"><a id="_idTextAnchor437"/>Getting ready</h2>
+			<p>For this recipe, we will need the NumPy package, imported as <strong class="source-inline">np</strong>, as usual, the Pandas package, imported as <strong class="source-inline">pd</strong>, the Matplotlib <strong class="source-inline">pyplot</strong> interface imported as <strong class="source-inline">plt</strong>, and the following imports from the <span class="No-Break"><strong class="source-inline">scikit-learn</strong></span><span class="No-Break"> package:</span></p>
+			<pre class="source-code">
+from sklearn.metrics import ConfusionMatrixDisplay, accuracy_score
+from sklearn.model_selection import train_test_split
+from sklearn.tree import DecisionTreeClassifier</pre>
+			<p>We’re going<a id="_idIndexMarker1123"/> to simulate our data (rather than <a id="_idIndexMarker1124"/>having to acquire it from elsewhere), so we need to set up an instance of the default random number generator with a seed value (<span class="No-Break">for reproducibility):</span></p>
+			<pre class="source-code">
+rng = np.random.default_rng(12345)</pre>
+			<p>To generate the data, we define the <span class="No-Break">following routine:</span></p>
+			<pre class="source-code">
+def get_data():
+	permute = rng.permutation(200)
+	data = np.vstack([
+		rng.normal((1.0, 2.0, -3.0), 1.0,
+		size=(50, 3)),
+		rng.normal((-1.0, 1.0, 1.0), 1.0,
+		size=(50, 3)),
+		rng.normal((0.0, -1.0, -1.0), 1.0,
+		size=(50, 3)),
+		rng.normal((-1.0, -1.0, -2.0), 1.0,
+		size=(50, 3))
+		])
+	labels = np.hstack(
+		[[1]*50, [2]*50, [3]*50,[4]*50])
+	X = pd.DataFrame(
+		np.take(data, permute, axis=0),
+		columns=["A", "B", "C"])
+	y = pd.Series(np.take(labels, permute, axis=0))
+	return X, y</pre>
+			<p>We’re using this function in place of some other method of loading the data into Python, such as reading from a file or downloading from <span class="No-Break">the internet.</span></p>
+			<h2 id="_idParaDest-439"><a id="_idTextAnchor438"/>How to do it…</h2>
+			<p>Follow the steps<a id="_idIndexMarker1125"/> below to create a very simple and<a id="_idIndexMarker1126"/> reproducible data <span class="No-Break">science pipeline:</span></p>
+			<ol>
+				<li value="1">First, we need to “load” our data using the <strong class="source-inline">get_data</strong> routine we <span class="No-Break">defined previously:</span><pre class="console">
+data, labels = get_data()</pre></li>
+				<li>Since our data is acquired dynamically, it is a good idea to store the data alongside any results that <span class="No-Break">we generate.</span><pre class="console">
+data.to_csv("data.csv")</pre><pre class="console">
+labels.to_csv("labels.csv")</pre></li>
+				<li>Now, we need to split the data into a training cohort and a testing cohort using the <strong class="source-inline">train_test_split</strong> routine from <strong class="source-inline">scikit-learn</strong>. We split the data 80/20 (%) train/test, and make sure the random state is set so this can be repeated (although we will save the indices for reference in the <span class="No-Break">next step):</span><pre class="console">
+X_train, X_test, y_train, y_test = train_test_split(</pre><pre class="console">
+    data,labels, test_size=0.2, random_state=23456)</pre></li>
+				<li>Now, we make sure that we save the indices of the training and test cohorts so we know precisely which observations were taken in each sample. We can use the indices along with the data stored in <em class="italic">step 2</em> to completely reconstruct the <span class="No-Break">cohorts later:</span><pre class="console">
+X_train.index.to_series().to_csv("train_index.csv",</pre><pre class="console">
+    index=False, header=False)</pre><pre class="console">
+X_test.index.to_series().to_csv("test_index.csv",</pre><pre class="console">
+    index=False, header=False)</pre></li>
+				<li>Now, we can <a id="_idIndexMarker1127"/>set up and train the classifier. We’re<a id="_idIndexMarker1128"/> using a simple <strong class="source-inline">DecisionTreeClassifier</strong> for this example, but this choice is not important. Since the training process involves some randomness, make sure to set the <strong class="source-inline">random_state</strong> keyword argument to seed <span class="No-Break">this randomness:</span><pre class="console">
+classifier = DecisionTreeClassifier(random_state=34567)</pre><pre class="console">
+classifer.fit(X_train, y_train)</pre></li>
+				<li>Before we go any further, it is a good idea to gather some information about the trained model and store it along with the results. The interesting information will vary from model to model. For this model, the feature importance information might be useful, so we record this in a <span class="No-Break">CSV file:</span><pre class="console">
+feat_importance = pd.DataFrame(</pre><pre class="console">
+	classifier.feature_importances_,</pre><pre class="console">
+	index=classifier.feature_names_in_,</pre><pre class="console">
+	columns=["Importance"])</pre><pre class="console">
+feat_importance.to_csv("feature_importance.csv")</pre></li>
+				<li>Now, we can proceed to check the performance of our model. We’ll evaluate the model on both the training data and the test data, which we will later compare to the <span class="No-Break">true labels:</span><pre class="console">
+train_predictions = classifier.predict(X_train)</pre><pre class="console">
+test_predictions = classifier.predict(X_test)</pre></li>
+				<li>Always save the <a id="_idIndexMarker1129"/>results of this kind of <a id="_idIndexMarker1130"/>prediction task (or regression, or any other final results that will in some way be part of the report). We convert these into <strong class="source-inline">Series</strong> objects first to make sure the indices are <span class="No-Break">set correctly:</span><pre class="console">
+pd.Series(train_predictions,index=X_train.index,</pre><pre class="console">
+    name="Predicted label").to_csv(</pre><pre class="console">
+		"train_predictions.csv")</pre><pre class="console">
+pd.Series(test_predictions,index=X_test.index,</pre><pre class="console">
+    name="Predicted label").to_csv(</pre><pre class="console">
+		"test_predictions.csv")</pre></li>
+				<li>Finally, we can produce any graphics or metrics that will inform how we proceed with the analysis. Here, we’ll produce a confusion matrix plot for both training and testing <a id="_idIndexMarker1131"/>cohorts and print out some <a id="_idIndexMarker1132"/>accuracy <span class="No-Break">summary scores:</span><pre class="console">
+fig, (ax1, ax2) = plt.subplots(1, 2, tight_layout=True)</pre><pre class="console">
+ax1.set_title("Confusion matrix for training data")</pre><pre class="console">
+ax2.set_title("Confusion matrix for test data")</pre><pre class="console">
+ConfusionMatrixDisplay.from_predictions(</pre><pre class="console">
+	y_train, train_predictions,</pre><pre class="console">
+	ax=ax1 cmap="Greys", colorbar=False)</pre><pre class="console">
+ConfusionMatrixDisplay.from_predictions(</pre><pre class="console">
+	y_test, test_predictions,</pre><pre class="console">
+	ax=ax2 cmap="Greys", colorbar=False)</pre><pre class="console">
+print(f"Train accuracy {accuracy_score(y_train, train_predictions)}",</pre><pre class="console">
+	f"Test accuracy {accuracy_score(y_test, test_predictions)}",</pre><pre class="console">
+	sep="\n")</pre><pre class="console">
+# Train accuracy 1.0</pre><pre class="console">
+# Test accuracy 0.65</pre></li>
+			</ol>
+			<p>The resulting confusion matrices are shown in <span class="No-Break"><em class="italic">Figure 10</em></span><span class="No-Break"><em class="italic">.5</em></span><span class="No-Break">:</span></p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer1048">
+					<img alt="Figure 10.5 - Confusion matrices for a simple classification task&#13;&#10;" src="image/B19085_10_05.jpg"/>
+				</div>
+			</div>
+			<p class="IMG---Caption" lang="en-US" xml:lang="en-US">Figure 10.5 - Confusion matrices for a simple classification task</p>
+			<p>The test results for <a id="_idIndexMarker1133"/>this example are not spectacular, which<a id="_idIndexMarker1134"/> should not be a surprise because we spent no time choosing the most appropriate model or tuning, and our sample size was pretty small. Producing an accurate model for this data was not the aim. In the current directory (wherever the script was run), there should be a number of new CSV files containing all the intermediate data we wrote to the disk: <strong class="source-inline">data.csv</strong>, <strong class="source-inline">labels.csv</strong>, <strong class="source-inline">train_index.csv</strong>, <strong class="source-inline">test_index.csv</strong>, <strong class="source-inline">feature_importance.csv</strong>, <strong class="source-inline">train_predictions.csv</strong>, <span class="No-Break">and </span><span class="No-Break"><strong class="source-inline">test_predictions.csv</strong></span><span class="No-Break">.</span></p>
+			<h2 id="_idParaDest-440"><a id="_idTextAnchor439"/>How it works…</h2>
+			<p>The are no definitive <em class="italic">right</em> answers when it comes to reproducibility, but there are certainly wrong answers. We’ve only touched on a few ideas of how to make your code more reproducible here, but there are many more things one can do. (See <em class="italic">There’s more…</em>). In the recipe, we really focused on storing intermediate values and results more than anything else. This is often overlooked in favor of producing plots and graphs – since these are usually the way results will be presented. However, we should not have to rerun the whole pipeline in order to change the styling of a plot. Storing intermediate values allows you to audit various parts of the pipeline and check that what you did was sensible and appropriate and that you can reproduce the results from these <span class="No-Break">intermediate values.</span></p>
+			<p>Generally speaking, a data science pipeline will consist of <span class="No-Break">five steps:</span></p>
+			<ol>
+				<li value="1"><span class="No-Break">Data</span><span class="No-Break"><a id="_idIndexMarker1135"/></span><span class="No-Break"> acquisition</span></li>
+				<li>Data preprocessing and <span class="No-Break">feature selection</span></li>
+				<li>Model and <span class="No-Break">hyperparameter tuning</span></li>
+				<li><span class="No-Break">Model training</span></li>
+				<li>Evaluation and <a id="_idIndexMarker1136"/><span class="No-Break">results generation</span></li>
+			</ol>
+			<p>In the recipe, we replaced the data acquisition with a function that randomly generates data. As mentioned in the introduction, this step will usually involve loading data from disk (from CSV files or databases), downloading it from the internet, or gathering it directly from measurement devices. We cached the results of our data acquisition because we are assuming that this is an expensive operation. Of course, this is not always the case; if you load all of the data directly from disk (via a CSV file, for example) then there is obviously no need to store a second copy of this data. However, if you generate the data by querying a large database, then storing a flat copy of the data will dramatically improve the speed at which you can iterate on <span class="No-Break">your pipeline.</span></p>
+			<p>Our preprocessing <a id="_idIndexMarker1137"/>consists only of splitting the data into<a id="_idIndexMarker1138"/> training and testing cohorts. Again, we store enough data after this step to recreate these cohorts independently later – we stored just the IDs corresponding to each cohort. Since we’re storing these sets, it isn’t totally necessary to seed the randomness in the <strong class="source-inline">train_test_split</strong> routine, but it is usually a good idea. If your preprocessing involves more intensive operations, then you might consider caching the processed data or the generated features that you will use in the pipeline (we will cover caching in more detail shortly). If your preprocessing step involves selecting features from the columns of your data, then you should absolutely save those selected features to disk alongside <span class="No-Break">the results.</span></p>
+			<p>Our model is very simple and doesn’t have any (non-default) hyperparameters. If you have done some hyperparameter tuning, you should store these, along with any other metadata that you might need to reconstruct the model. Storing the model itself (via pickling or otherwise) can be useful but remember that a pickled model might not be readable by another party (for example, if they are using a different version <span class="No-Break">of Python).</span></p>
+			<p>You should <a id="_idIndexMarker1139"/>always store the numerical results<a id="_idIndexMarker1140"/> from your model. It is impossible to compare plots and other summary figures when you’re checking that your results are the same on subsequent runs. Moreover, this allows you to quickly regenerate figures or values later should this be required. For example, if your analysis involves a binary classification problem, then storing the values used to generate a <strong class="bold">Receiver Operating Characteristic</strong> (<strong class="bold">ROC</strong>) curve<a id="_idIndexMarker1141"/> is a good idea, even if one also produces a plot of the ROC curve and reports the area under <span class="No-Break">the curve.</span></p>
+			<h2 id="_idParaDest-441"><a id="_idTextAnchor440"/>There’s more…</h2>
+			<p>There is a lot we have not discussed here. First, let’s address an obvious point. Jupyter notebooks are a common<a id="_idIndexMarker1142"/> medium for producing data science pipelines. This is fine, but users should understand that this format has several shortcomings. First, and probably most importantly, is the fact that Jupyter notebooks can be run out of order and that later cells might have non-trivial dependencies on earlier cells. To address this, make sure that you always run a notebook on a clean kernel in its entirety, rather than simply rerunning each cell in a current kernel (using tools such as Papermill from the <em class="italic">Executing a Jupyter notebook as a script</em> recipe, for example.) Second, the results stored inside the notebook might not correspond to the code that is written in the code cells. This happens when the notebook is run and the code is modified after the fact without a rerun. It might be a good idea to keep a master copy of the notebook without any stored results and make copies of this that are populated with results and are never modified further. Finally, Jupyter notebooks are often executed in environments where it is challenging to properly cache the results of intermediate steps. This is partially addressed by the internal caching mechanism inside the notebook, but this is not always <span class="No-Break">totally transparent.</span></p>
+			<p>Let’s address two general concerns of reproducibility<a id="_idIndexMarker1143"/> now: configuration and caching. Configuration refers to the collection of values that are used to control the setup and execution of the pipeline. We don’t have any obvious configuration values in the recipe except for the random seeds used in the <strong class="source-inline">train_test_split</strong> routine<a id="_idIndexMarker1144"/> and the model (and the data generation, but let’s ignore this), and the percentage of values to take in the train/test split. These are hardcoded in the recipe, but this is probably not the best idea. At the very least, we want to be able to record the configuration used in any given run of the analysis. Ideally, the configuration should be loaded (exactly once) from a file and then finalized and cached before the pipeline runs. What this means is that the full configuration is loaded from one or more sources (config files, command-line arguments, or environmental variables), consolidated into a single source of truth, and then serialized into a machine- and human-readable format such as JSON alongside the results. This is so you know precisely what configuration was used to generate <span class="No-Break">the results.</span></p>
+			<p>Caching<a id="_idIndexMarker1145"/> is the process of storing intermediate results so they can be reused later to decrease the running time on subsequent runs. In the recipe, we did store the intermediate results, but we didn’t build the mechanism to reuse the stored data if it exists and is valid. This is because the actual mechanism for checking and loading the cached values is complicated and somewhat dependent on the exact setup. Since our project is very small, it doesn’t necessarily make any sense to cache values. However, for larger projects that have multiple components, this absolutely makes a difference. When implementing a caching mechanism, you should build a system to check whether the cache is valid by, for example, using the SHA-2 hash of the code file and any data sources on<a id="_idIndexMarker1146"/> which <span class="No-Break">it depends.</span></p>
+			<p>When it comes to storing results, it is generally a good idea to store all the results together in a timestamped folder or similar. We don’t do this in the recipe, but it is relatively easy to achieve. For example, using the <strong class="source-inline">datetime</strong> and <strong class="source-inline">pathlib</strong> modules from the standard library, we can easily create a base path in which results can <span class="No-Break">be stored:</span></p>
+			<pre class="source-code">
+from pathlib import Path
+from datetime import datetime
+RESULTS_OUT = Path(datetime.now().isoformat())
+...
+results.to_csv(RESULTS_OUT / "name.csv")</pre>
+			<p>You must be a little careful if you are using multiprocessing to run multiple analyses in parallel since each new process will generate a new <strong class="source-inline">RESULTS_OUT</strong> global variable. A better option is to incorporate this into the configuration process, which would also allow the user to customize the <span class="No-Break">output path.</span></p>
+			<p>Besides the actual code in the script that we have discussed so far, there is a great deal one can do at the project level to make the code more reproducible. The first, and probably most important step, is to make the code available as far as possible, which includes specifying the license under which the code can be shared (if at all). Moreover, good code will be robust enough that it can be used for analyzing multiple data (obviously, the data should be of the same kind as the data originally used). Also important is making use <a id="_idIndexMarker1147"/>of version control (Git, Subversion, and so on) to keep track of changes. This also helps distribute the code to other users. Finally, the code needs to be well documented and ideally have automated tests to check that the pipeline works as expected on an <span class="No-Break">example dataset.</span></p>
+			<h2 id="_idParaDest-442"><a id="_idTextAnchor441"/>See also...</h2>
+			<p>Here are some additional sources of information about reproducible <span class="No-Break">coding practices:</span></p>
+			<ul>
+				<li><em class="italic">The Turing Way</em>. Handbook on reproducible, ethical, and collaborative data science produced by the Alan Turing <span class="No-Break">Institute. </span><a href="https://the-turing-way.netlify.app/welcome "><span class="No-Break">https://the-turing-way.netlify.app/welcome</span></a></li>
+				<li>Review criteria for the Journal of Open Source Software: <em class="italic">Good practice guidelines to follow with your own code, even if it is not intended to be </em><span class="No-Break"><em class="italic">published</em></span><span class="No-Break">: </span><a href="https://joss.readthedocs.io/en/latest/review_criteria.html"><span class="No-Break">https://joss.readthedocs.io/en/latest/review_criteria.html</span></a></li>
+			</ul>
+			<p>This concludes the 10<span class="superscript">th</span> and final chapter of the book. Remember that we have barely scratched the surface of what is possible when doing mathematics with Python, and you should read the documentation and sources mentioned throughout this book for much more information about what these packages and techniques are <span class="No-Break">capable of.</span></p>
+		</div>
+	</body></html>

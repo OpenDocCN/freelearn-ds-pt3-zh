@@ -1,0 +1,298 @@
+<html><head></head><body>
+<div id="sbo-rt-content"><div id="_idContainer092">
+<h1 class="chapter-number" id="_idParaDest-272"><a id="_idTextAnchor272"/>11</h1>
+<h1 id="_idParaDest-273"><a id="_idTextAnchor273"/>Parallel Processing with Dask and Zarr</h1>
+<p>Bioinformatics datasets are growing at an exponential rate. Data analysis strategies based on standard tools such as Pandas assume that datasets are able to fit in memory (though with some provision for out-of-core analysis) or that a single machine is able to efficiently process all the data. This is, unfortunately, not realistic for many modern datasets.</p>
+<p>In this chapter, we will introduce two libraries that are able to deal with very large datasets and expensive computations:</p>
+<ul>
+<li>Dask is a library that allows parallel computing that can scale from a single computer to very large cloud and cluster environments. Dask provides interfaces that are similar to Pandas and NumPy while allowing you to deal with large datasets spread over many computers.</li>
+<li>Zarr is a library that stores compressed and chunked multidimensional arrays. As we will see, these arrays are tailored to deal with very large datasets processed in large computer clusters, while still being able to process data on a single computer if need be.</li>
+</ul>
+<p>Our recipes will introduce these advanced libraries using data from mosquito genomics. You should look at this code as a starting point to get you on the path to processing large datasets. Parallel processing of large datasets is a complex topic, and this is the beginning—not the end—of your journey.</p>
+<p>Because all these libraries are fundamental for data analysis, if you are using Docker, they all can be found on the <strong class="source-inline">tiagoantao/bioinformatics_dask</strong> Docker image.</p>
+<p>In this chapter, we will cover the following recipes:</p>
+<ul>
+<li>Reading genomics data with Zarr</li>
+<li>Parallel processing of data using Python multiprocessing</li>
+<li>Using Dask to process genomic data based on NumPy arrays</li>
+<li>Scheduling tasks with <strong class="source-inline">dask.distributed</strong></li>
+</ul>
+<h1 id="_idParaDest-274"><a id="_idTextAnchor274"/>Reading genomics data with Zarr </h1>
+<p>Zarr (<a href="https://zarr.readthedocs.io/en/stable/">https://zarr.readthedocs.io/en/stable/</a>) stores array-based data—such<a id="_idIndexMarker761"/> as NumPy —in a hierarchical structure<a id="_idIndexMarker762"/> on disk and cloud storage. The data structures used by Zarr to represent<a id="_idIndexMarker763"/> arrays are not only very compact but also allow for parallel reading and writing, something we will see in the next recipes. In this recipe, we will be reading and processing genomics<a id="_idIndexMarker764"/> data from the Anopheles gambiae 1000 Genomes project (<a href="https://malariagen.github.io/vector-data/ag3/download.xhtml">https://malariagen.github.io/vector-data/ag3/download.xhtml</a>). Here, we will simply do sequential processing to ease the introduction to Zarr; in the following recipe, we will do parallel processing. Our project will be computing the missingness for all genomic positions sequenced for a single chromosome. </p>
+<h2 id="_idParaDest-275"><a id="_idTextAnchor275"/>Getting ready</h2>
+<p>The Anopheles<a id="_idIndexMarker765"/> 1000 Genomes data is available from <strong class="bold">Google Cloud Platform</strong> (<strong class="bold">GCP</strong>). To download<a id="_idIndexMarker766"/> data from GCP, you will need <strong class="source-inline">gsutil</strong>, available from <a href="https://cloud.google.com/storage/docs/gsutil_install">https://cloud.google.com/storage/docs/gsutil_install</a>. After you have <strong class="source-inline">gsutil</strong> installed, download the data (~2 <strong class="bold">gigabytes</strong> (<strong class="bold">GB</strong>)) with the following lines of code: </p>
+<p class="source-code">mkdir -p data/AG1000G-AO/</p>
+<p class="source-code">gsutil -m rsync -r \</p>
+<p class="source-code">         -x '.*/calldata/(AD|GQ|MQ)/.*' \</p>
+<p class="source-code">         gs://vo_agam_release/v3/snp_genotypes/all/AG1000G-AO/ \</p>
+<p class="source-code">         data/AG1000G-AO/ &gt; /dev/null</p>
+<p>We download a subset of samples from the project. After downloading the data, the code to process it can be found in <strong class="source-inline">Chapter11/Zarr_Intro.py</strong>.</p>
+<h2 id="_idParaDest-276"><a id="_idTextAnchor276"/>How to do it...</h2>
+<p>Take a look<a id="_idIndexMarker767"/> at the following steps<a id="_idIndexMarker768"/> to get started:</p>
+<ol>
+<li>Let’s start by checking the structure made available inside the Zarr file: <p class="source-code">import numpy as np</p><p class="source-code">import zarr </p><p class="source-code">mosquito = zarr.open('data/AG1000G-AO')</p><p class="source-code">print(mosquito.tree())</p></li>
+</ol>
+<p>We start by opening the Zarr file (as we will soon see, this might not actually be a file). After that, we print the tree of data available inside it:</p>
+<p class="source-code"><strong class="bold">/</strong></p>
+<p class="source-code"><strong class="bold">├── 2L</strong></p>
+<p class="source-code"><strong class="bold">│   └── calldata</strong></p>
+<p class="source-code"><strong class="bold">│       └── GT (48525747, 81, 2) int8</strong></p>
+<p class="source-code"><strong class="bold">├── 2R</strong></p>
+<p class="source-code"><strong class="bold">│   └── calldata</strong></p>
+<p class="source-code"><strong class="bold">│       └── GT (60132453, 81, 2) int8</strong></p>
+<p class="source-code"><strong class="bold">├── 3L</strong></p>
+<p class="source-code"><strong class="bold">│   └── calldata</strong></p>
+<p class="source-code"><strong class="bold">│       └── GT (40758473, 81, 2) int8</strong></p>
+<p class="source-code"><strong class="bold">├── 3R</strong></p>
+<p class="source-code"><strong class="bold">│   └── calldata</strong></p>
+<p class="source-code"><strong class="bold">│       └── GT (52226568, 81, 2) int8</strong></p>
+<p class="source-code"><strong class="bold">├── X</strong></p>
+<p class="source-code"><strong class="bold">│   └── calldata</strong></p>
+<p class="source-code"><strong class="bold">│       └── GT (23385349, 81, 2) int8</strong></p>
+<p class="source-code"><strong class="bold">└── samples (81,) |S24</strong></p>
+<p>The Zarr file has five<a id="_idIndexMarker769"/> arrays: four correspond to chromosomes<a id="_idIndexMarker770"/> in the mosquito—<strong class="source-inline">2L</strong>, <strong class="source-inline">2R</strong>, <strong class="source-inline">3L</strong>, <strong class="source-inline">3R</strong>, and <strong class="source-inline">X</strong> (<strong class="source-inline">Y</strong> is not included)—and one has a list of 81 samples included in the file. The last array has the sample names included—we have 81 samples in this file. The chromosome data is made of 8-bit integers (<strong class="source-inline">int8</strong>), and the sample names are strings.</p>
+<ol>
+<li value="2">Now, let’s explore the data for chromosome <strong class="source-inline">2L</strong>. Let’s start with some basic information:<p class="source-code">gt_2l = mosquito['/2L/calldata/GT']</p><p class="source-code">gt_2l</p></li>
+</ol>
+<p>Here is the output:</p>
+<p class="source-code"><strong class="bold">&lt;zarr.core.Array '/2L/calldata/GT' (48525747, 81, 2) int8&gt;</strong></p>
+<p>We have an array of <strong class="source-inline">4852547</strong> <strong class="bold">single-nucleotide polymorphisms</strong> (<strong class="bold">SNPs</strong>), for <strong class="source-inline">81</strong> samples. For each SNP<a id="_idIndexMarker771"/> and sample, we have <strong class="source-inline">2</strong> alleles.</p>
+<ol>
+<li value="3">Let’s now inspect how the data is stored:<p class="source-code">gt_2l.info</p></li>
+</ol>
+<p>The output looks like this:</p>
+<p class="source-code"><strong class="bold">Name               : /2L/calldata/GT</strong></p>
+<p class="source-code"><strong class="bold">Type               : zarr.core.Array</strong></p>
+<p class="source-code"><strong class="bold">Data type          : int8</strong></p>
+<p class="source-code"><strong class="bold">Shape              : (48525747, 81, 2)</strong></p>
+<p class="source-code"><strong class="bold">Chunk shape        : (300000, 50, 2)</strong></p>
+<p class="source-code"><strong class="bold">Order              : C</strong></p>
+<p class="source-code"><strong class="bold">Read-only          : False</strong></p>
+<p class="source-code"><strong class="bold">Compressor         : Blosc(cname='lz4', clevel=5, shuffle=SHUFFLE, blocksize=0)</strong></p>
+<p class="source-code"><strong class="bold">Store type         : zarr.storage.DirectoryStore</strong></p>
+<p class="source-code"><strong class="bold">No. bytes          : 7861171014 (7.3G)</strong></p>
+<p class="source-code"><strong class="bold">No. bytes stored   : 446881559 (426.2M)</strong></p>
+<p class="source-code"><strong class="bold">Storage ratio      : 17.6</strong></p>
+<p class="source-code"><strong class="bold">Chunks initialized : 324/324</strong></p>
+<p>There is a lot to unpack<a id="_idIndexMarker772"/> here, but for now, we will concentrate<a id="_idIndexMarker773"/> on the store type, bytes stored, and storage ratio. The <strong class="source-inline">Store type</strong> value is <strong class="source-inline">zarr.storage.DirectoryStore</strong>, so the data is not in a single file but inside a directory. The raw size of the data is <strong class="source-inline">7.3</strong> GB! But Zarr uses a compressed format that reduces the size to <strong class="source-inline">426.2</strong> <strong class="bold">megabytes</strong> (<strong class="bold">MB</strong>). This means a compression ratio of <strong class="source-inline">17.6</strong>.</p>
+<ol>
+<li value="4">Let’s peek at how the data is stored inside the directory. If you list the contents of the <strong class="source-inline">AG1000G-AO</strong> directory, you will find the following structure:<p class="source-code"><strong class="bold">.</strong></p><p class="source-code"><strong class="bold">├── 2L</strong></p><p class="source-code"><strong class="bold">│   └── calldata</strong></p><p class="source-code"><strong class="bold">│       └── GT</strong></p><p class="source-code"><strong class="bold">├── 2R</strong></p><p class="source-code"><strong class="bold">│   └── calldata</strong></p><p class="source-code"><strong class="bold">│       └── GT</strong></p><p class="source-code"><strong class="bold">├── 3L</strong></p><p class="source-code"><strong class="bold">│   └── calldata</strong></p><p class="source-code"><strong class="bold">│       └── GT</strong></p><p class="source-code"><strong class="bold">├── 3R</strong></p><p class="source-code"><strong class="bold">│   └── calldata</strong></p><p class="source-code"><strong class="bold">│       └── GT</strong></p><p class="source-code"><strong class="bold">├── samples</strong></p><p class="source-code"><strong class="bold">└── X</strong></p><p class="source-code"><strong class="bold">    └── calldata</strong></p><p class="source-code"><strong class="bold">        └── GT</strong></p></li>
+<li>If you list the contents of <strong class="source-inline">2L/calldata/GT</strong>, you will find<a id="_idIndexMarker774"/> plenty of files encoding<a id="_idIndexMarker775"/> the array:<p class="source-code"><strong class="bold">0.0.0</strong></p><p class="source-code"><strong class="bold">0.1.0</strong></p><p class="source-code"><strong class="bold">1.0.0</strong></p><p class="source-code"><strong class="bold">...</strong></p><p class="source-code"><strong class="bold">160.0.0</strong></p><p class="source-code"><strong class="bold">160.1.0</strong></p></li>
+</ol>
+<p>There are 324 files inside the <strong class="source-inline">2L/calldata/GT</strong> directory. Remember from a previous step that we have a parameter called <strong class="source-inline">Chunk shape</strong> with a value of <strong class="source-inline">(300000, 50, 2)</strong>.</p>
+<p>Zarr splits the array into chunks—bits that are easier to process in memory than loading the whole array. Each chunk has 30000x50x2 elements. Given that we have 48525747 SNPs, we need 162 chunks to represent the number of SNPs (48525747/300000 = 161.75) and then multiply it by 2 for the number of samples (81 samples/50 per chunk = 1.62). Hence, we end up with 162*2 chunks/files.</p>
+<p class="callout-heading">Tip</p>
+<p class="callout">Chunking is a technique<a id="_idIndexMarker776"/> widely used to deal with data that cannot be fully loaded into memory in a single pass. This includes many other libraries such as Pandas or Zarr. We will see an example with Zarr later. The larger point is that you should be aware of the concept of chunking as it is applied in many cases requiring big data.</p>
+<ol>
+<li value="6">Before we load the Zarr data<a id="_idIndexMarker777"/> for processing, let’s create a function<a id="_idIndexMarker778"/> to compute some basic genomic statistics for a chunk. We will compute missingness, the number of ancestral homozygotes, and the number of heterozygotes:<p class="source-code">def calc_stats(my_chunk):</p><p class="source-code">    num_miss = np.sum(np.equal(my_chunk[:,:,0], -1), axis=1)</p><p class="source-code">    num_anc_hom = np.sum(</p><p class="source-code">        np.all([</p><p class="source-code">            np.equal(my_chunk[:,:,0], 0),</p><p class="source-code">            np.equal(my_chunk[:,:,0], my_chunk[:,:,1])], axis=0), axis=1)</p><p class="source-code">    num_het = np.sum(</p><p class="source-code">        np.not_equal(</p><p class="source-code">            my_chunk[:,:,0],</p><p class="source-code">            my_chunk[:,:,1]), axis=1)</p><p class="source-code">    return num_miss, num_anc_hom, num_het</p></li>
+</ol>
+<p>If you look at the previous function, you will notice that there is nothing Zarr-related: it’s just NumPy code. Zarr has a very light <strong class="bold">application programming interface</strong> (<strong class="bold">API</strong>) that exposes most of the data inside<a id="_idIndexMarker779"/> NumPy, making it quite easy to use if you know NumPy.</p>
+<ol>
+<li value="7">Finally, let’s traverse our data—that is, traverse our chunks to compute our statistics:<p class="source-code">complete_data = 0</p><p class="source-code">more_anc_hom = 0</p><p class="source-code">total_pos = 0</p><p class="source-code">for chunk_pos in range(ceil(max_pos / chunk_pos_size)):</p><p class="source-code">    start_pos = chunk_pos * chunk_pos_size</p><p class="source-code">    end_pos = min(max_pos + 1, (chunk_pos + 1) * chunk_pos_size)</p><p class="source-code">    my_chunk = gt_2l[start_pos:end_pos, :, :]</p><p class="source-code">    num_samples = my_chunk.shape[1]</p><p class="source-code">    num_miss, num_anc_hom, num_het = calc_stats(my_chunk)</p><p class="source-code">    chunk_complete_data = np.sum(np.equal(num_miss, 0))</p><p class="source-code">    chunk_more_anc_hom = np.sum(num_anc_hom &gt; num_het)</p><p class="source-code">    complete_data += chunk_complete_data</p><p class="source-code">    more_anc_hom += chunk_more_anc_hom</p><p class="source-code">    total_pos += (end_pos - start_pos)</p><p class="source-code">print(complete_data, more_anc_hom, total_pos)</p></li>
+</ol>
+<p>Most of the code takes<a id="_idIndexMarker780"/> care of the management of chunks and involves<a id="_idIndexMarker781"/> arithmetic to decide which part of the array to access. The important part in terms of ready Zarr data is the <strong class="source-inline">my_chunk = gt_2l[start_pos:end_pos, :, :]</strong> line. When you slice a Zarr array, it will automatically return a NumPy array.</p>
+<p class="callout-heading">Tip</p>
+<p class="callout">Be very careful with the amount of data<a id="_idIndexMarker782"/> that you bring into memory. Remember that most Zarr arrays will be substantially bigger than the memory that you have available, so if you try to load it, your application and maybe even your computer will crash. For example, if you do <strong class="source-inline">all_data = gt_2l[:, :, :]</strong>, you will need around 8 GB of free memory to load it—as we have seen earlier, the data is 7.3 GB in size.</p>
+<h2 id="_idParaDest-277"><a id="_idTextAnchor277"/>There’s more...</h2>
+<p>Zarr has many more features than those presented here, and while we will explore some more in the next recipes, there are some possibilities that you should be aware of. For example, Zarr is one of the only libraries that allow for concurrent writing of data. You can also change the internal format of a Zarr representation.</p>
+<p>As we have seen here, Zarr is able to compress data in very efficient<a id="_idIndexMarker783"/> ways—this is made possible by using the Blosc library (<a href="https://www.blosc.org/">https://www.blosc.org/</a>). You can change the internal compression algorithm of Zarr data owing to the flexibility of Blosc.</p>
+<h2 id="_idParaDest-278"><a id="_idTextAnchor278"/>See also</h2>
+<p>There are<a id="_idIndexMarker784"/> alternative formats to Zarr—for example, <strong class="bold">Hierarchical Data Format 5</strong> (<strong class="bold">HDF5</strong>) (<a href="https://en.wikipedia.org/wiki/Hierarchical_Data_Format">https://en.wikipedia.org/wiki/Hierarchical_Data_Format</a>) and <strong class="bold">Network Common Data Form</strong> (<strong class="bold">NetCDF</strong>) (<a href="https://en.wikipedia.org/wiki/NetCDF">https://en.wikipedia.org/wiki/NetCDF</a>). While these are more common outside the bioinformatics <a id="_idIndexMarker785"/>space, they have less functionality—for example, a lack of concurrent writes. </p>
+<h1 id="_idParaDest-279"><a id="_idTextAnchor279"/>Parallel processing of data using Python multiprocessing</h1>
+<p>When dealing<a id="_idIndexMarker786"/> with lots of data, one strategy is to process<a id="_idIndexMarker787"/> it in parallel so that<a id="_idIndexMarker788"/> we make use of all available <strong class="bold">central processing unit</strong> (<strong class="bold">CPU</strong>) power, given that modern machines have many cores. In a theoretical best-case scenario, if your machine has eight cores, you can get an eight-fold increase in performance if you do parallel processing.</p>
+<p>Unfortunately, typical Python code only makes use of a single core. That being said, Python has built-in functionality<a id="_idIndexMarker789"/> to use all available CPU<a id="_idIndexMarker790"/> power; in fact, Python provides<a id="_idIndexMarker791"/> several avenues for that. In this recipe, we will be using the built-in <strong class="source-inline">multiprocessing</strong> module. The solution presented here works well in a single computer and if the dataset fits into memory, but if you want to scale it in a cluster or the cloud, you should consider Dask, which we will introduce in the next two recipes.</p>
+<p>Our objective here will again be to compute some statistics around missingness and heterozygosity.</p>
+<h2 id="_idParaDest-280"><a id="_idTextAnchor280"/>Getting ready</h2>
+<p>We will be using the same data as in the previous recipe. The code for this recipe can be found in <strong class="source-inline">Chapter11/MP_Intro.py</strong>.</p>
+<h2 id="_idParaDest-281"><a id="_idTextAnchor281"/>How to do it...</h2>
+<p>Follow these steps to get started:</p>
+<ol>
+<li value="1">We will be using the exact same function as in the previous recipe to calculate statistics—this is heavily NumPy-based:<p class="source-code">import numpy as np</p><p class="source-code">import zarr</p><p class="source-code">def calc_stats(my_chunk):</p><p class="source-code">    num_miss = np.sum(np.equal(my_chunk[:,:,0], -1), axis=1)</p><p class="source-code">    num_anc_hom = np.sum(</p><p class="source-code">        np.all([</p><p class="source-code">            np.equal(my_chunk[:,:,0], 0),</p><p class="source-code">            np.equal(my_chunk[:,:,0], my_chunk[:,:,1])], axis=0), axis=1)</p><p class="source-code">    num_het = np.sum(</p><p class="source-code">        np.not_equal(</p><p class="source-code">            my_chunk[:,:,0],</p><p class="source-code">            my_chunk[:,:,1]), axis=1)</p><p class="source-code">    return num_miss, num_anc_hom, num_het</p></li>
+<li>Let’s access our mosquito data:<p class="source-code">mosquito = zarr.open('data/AG1000G-AO')</p><p class="source-code">gt_2l = mosquito['/2L/calldata/GT']</p></li>
+<li>While we are using the same<a id="_idIndexMarker792"/> function to calculate <a id="_idIndexMarker793"/>statistics, our approach<a id="_idIndexMarker794"/> will be different for the whole dataset. First, we compute all the intervals for which we will call <strong class="source-inline">calc_stats</strong>. The intervals will be devised to match perfectly with the chunk division for variants:<p class="source-code">chunk_pos_size = gt_2l.chunks[0]</p><p class="source-code">max_pos = gt_2l.shape[0]</p><p class="source-code">intervals = []</p><p class="source-code">for chunk_pos in range(ceil(max_pos / chunk_pos_size)):</p><p class="source-code">    start_pos = chunk_pos * chunk_pos_size</p><p class="source-code">    end_pos = min(max_pos + 1, (chunk_pos + 1) * chunk_pos_size)</p><p class="source-code">    intervals.append((start_pos, end_pos))</p></li>
+</ol>
+<p>It is important that our interval list is related to the chunking on disk. The computation will be efficient as long as this mapping is as close as possible.</p>
+<ol>
+<li value="4">We are now going to separate<a id="_idIndexMarker795"/> the code to compute each interval in a function. This is important as the <strong class="source-inline">multiprocessing</strong> module<a id="_idIndexMarker796"/> will execute this function<a id="_idIndexMarker797"/> many times on each process that it creates:<p class="source-code">def compute_interval(interval):</p><p class="source-code">    start_pos, end_pos = interval</p><p class="source-code">    my_chunk = gt_2l[start_pos:end_pos, :, :]</p><p class="source-code">    num_samples = my_chunk.shape[1]</p><p class="source-code">    num_miss, num_anc_hom, num_het = calc_stats(my_chunk)</p><p class="source-code">    chunk_complete_data = np.sum(np.equal(num_miss, 0))</p><p class="source-code">    chunk_more_anc_hom = np.sum(num_anc_hom &gt; num_het)</p><p class="source-code">    return chunk_complete_data, chunk_more_anc_hom</p></li>
+<li> We are now finally going to execute our code over several cores:<p class="source-code">with Pool() as p:</p><p class="source-code">    print(p)</p><p class="source-code">    chunk_returns = p.map(compute_interval, intervals)</p><p class="source-code">    complete_data = sum(map(lambda x: x[0], chunk_returns))</p><p class="source-code">    more_anc_hom = sum(map(lambda x: x[1], chunk_returns))</p><p class="source-code">    print(complete_data, more_anc_hom)</p></li>
+</ol>
+<p>The first line creates a context manager using the <strong class="source-inline">multiprocessing.Pool</strong> object. The <strong class="source-inline">Pool</strong> object, by default, creates several processes numbered <strong class="source-inline">os.cpu_count()</strong>. The pool provides a <strong class="source-inline">map</strong> function<a id="_idIndexMarker798"/> that will call our <strong class="source-inline">compute_interval</strong> function across all processes<a id="_idIndexMarker799"/> created. Each call will take<a id="_idIndexMarker800"/> one of the intervals.</p>
+<h2 id="_idParaDest-282"><a id="_idTextAnchor282"/>There’s more...</h2>
+<p>This recipe provides a small introduction to parallel processing with Python without the need to use external libraries. That being said, it presents the most important building block for concurrent parallel processing with Python.</p>
+<p>Due to the way thread management is implemented in Python, threading is not a viable alternative for real parallel processing. Pure Python code cannot be run in parallel using multithreading. </p>
+<p>Some libraries that you might use—and this is normally the case with NumPy—are able to make use of all underlying processors even when executing a sequential piece of code. Make sure that when making use of external libraries, you are not overcommitting processor resources: this happens when you have multiple processes, and underlying libraries also make use of many cores.</p>
+<h2 id="_idParaDest-283"><a id="_idTextAnchor283"/>See also</h2>
+<ul>
+<li>There is way more<a id="_idIndexMarker801"/> to be discussed about the <strong class="source-inline">multiprocessing</strong> module. You can start with the standard documentation at <a href="https://docs.python.org/3/library/multiprocessing.xhtml">https://docs.python.org/3/library/multiprocessing.xhtml</a>.</li>
+<li>To understand why Python-based multithreading<a id="_idIndexMarker802"/> doesn’t make use of all CPU resources, read about the <strong class="bold">Global Interpreter Lock</strong> (<strong class="bold">GIL</strong>) at <a href="https://realpython.com/python-gil/.%0D">https://realpython.com/python-gil/.</a></li>
+</ul>
+<h1 id="_idParaDest-284"><a id="_idTextAnchor284"/>Using Dask to process genomic data based on NumPy arrays</h1>
+<p>Dask is a library that provides<a id="_idIndexMarker803"/> advanced parallelism that can scale from a single computer to very<a id="_idIndexMarker804"/> large clusters or a cloud<a id="_idIndexMarker805"/> operation. It also provides the ability to process datasets that are larger than memory. It is able to provide interfaces that are similar to common Python libraries such as NumPy, Pandas, or scikit-learn.</p>
+<p>We are going to repeat a subset of the example from previous recipes—namely, compute missingness for the SNPs in our dataset. We will be using an interface similar to NumPy that is offered by Dask.</p>
+<p>Before we start, be aware that the semantics of Dask are quite different from libraries such as NumPy or Pandas: it is a lazy library. For example, when you specify a call equivalent to—say—<strong class="source-inline">np.sum</strong>, you are not actually calculating a sum, but adding a task that in the future will eventually calculate it. Let’s get into the recipe to make things clearer.</p>
+<h2 id="_idParaDest-285"><a id="_idTextAnchor285"/>Getting ready</h2>
+<p>We are going to rechunk the Zarr data in a completely different way. The reason we do that is so that we can visualize task graphs during the preparation of our algorithm. Task graphs with five operations are easier to visualize than task graphs with hundreds of nodes. For practical purposes, you should not rechunk in so little chunks as we do here. In fact, you will be perfectly fine if you don’t rechunk this dataset at all. We are only doing it for visualization purposes:</p>
+<pre class="source-code">
+import zarr
+mosquito = zarr.open('data/AG1000G-AO/2L/calldata/GT')
+zarr.array(
+    mosquito,
+    chunks=(1 + 48525747 // 4, 81, 2),
+    store='data/rechunk')</pre>
+<p>We will end up with very large chunks, and while that is good for our visualization purpose, they might be too big to fit in memory.</p>
+<p>The code for this recipe can be found in <strong class="source-inline">Chapter11/Dask_Intro.py</strong>.</p>
+<h2 id="_idParaDest-286"><a id="_idTextAnchor286"/>How to do it...</h2>
+<ol>
+<li value="1">Let’s first load<a id="_idIndexMarker806"/> the data and inspect<a id="_idIndexMarker807"/> the size of the DataFrame:<p class="source-code">import numpy as np</p><p class="source-code">import dask.array as da</p><p class="source-code"> </p><p class="source-code">mosquito = da.from_zarr('data/rechunk')</p><p class="source-code">mosquito</p></li>
+</ol>
+<p>Here is the output if you are executing inside Jupyter:</p>
+<div>
+<div class="IMG---Figure" id="_idContainer083">
+<img alt="Figure 11.1 - Jupyter output for a Dask array, summarizing our data " height="185" src="image/B17942_11_001.jpg" width="461"/>
+</div>
+</div>
+<p class="IMG---Caption" lang="en-US" xml:lang="en-US">Figure 11.1 - Jupyter output for a Dask array, summarizing our data</p>
+<p>The full array takes up <strong class="source-inline">7.32</strong> GB. The most important number is the chunk size: <strong class="source-inline">1.83</strong> GB. Each worker will need to have enough memory to process a chunk. Remember that we are only using such a smaller number of chunks to be able to plot the tasks here.</p>
+<p>Because of the large chunk sizes, we end up with just four chunks.</p>
+<p>We did not load anything<a id="_idIndexMarker808"/> in memory yet: we just specified<a id="_idIndexMarker809"/> that we want to eventually do it. We are creating a task graph to be executed, not executing—at least for now.</p>
+<ol>
+<li value="2">Let’s see which tasks we have to execute to load the data:<p class="source-code">mosquito.visualize()</p></li>
+</ol>
+<p>Here is the output:</p>
+<div>
+<div class="IMG---Figure" id="_idContainer084">
+<img alt="Figure 11.2 - Tasks that need to be executed to load our Zarr array " height="326" src="image/B17942_11_002.jpg" width="659"/>
+</div>
+</div>
+<p class="IMG---Caption" lang="en-US" xml:lang="en-US">Figure 11.2 - Tasks that need to be executed to load our Zarr array</p>
+<p>We thus have four tasks to execute, one for each chunk.</p>
+<ol>
+<li value="3">Now, let’s look at the function to compute missingness per chunk:<p class="source-code">def calc_stats(variant):</p><p class="source-code">    variant = variant.reshape(variant.shape[0] // 2, 2)</p><p class="source-code">    misses = np.equal(variant, -1)</p><p class="source-code">    return misses</p></li>
+</ol>
+<p>The function per chunk will operate on NumPy arrays. Note the difference: the code that we use to work on the main<a id="_idIndexMarker810"/> loop works with Dask arrays, but<a id="_idIndexMarker811"/> at the chunk level the data is presented as a NumPy array. Hence, the chunks have to fit in memory as NumPy requires that. </p>
+<ol>
+<li value="4">Later, when<a id="_idIndexMarker812"/> we actually use the function, we need to have a <strong class="bold">two-dimensional</strong> (<strong class="bold">2D</strong>) array. Given that the array is <strong class="bold">three-dimensional</strong> (<strong class="bold">3D</strong>), we will need to reshape<a id="_idIndexMarker813"/> the array:<p class="source-code">mosquito_2d = mosquito.reshape(</p><p class="source-code">    mosquito.shape[0],</p><p class="source-code">    mosquito.shape[1] * mosquito.shape[2])</p><p class="source-code">mosquito_2d.visualize()</p></li>
+</ol>
+<p>Here is the task graph as it currently stands:</p>
+<p class="IMG---Figure"><img alt="Figure 11.3 - The task graph to load genomic data and reshape it " height="547" src="image/B17942_11_003.png" width="649"/></p>
+<p class="IMG---Caption" lang="en-US" xml:lang="en-US">Figure 11.3 - The task graph to load genomic data and reshape it</p>
+<p>The <strong class="source-inline">reshape</strong> operation<a id="_idIndexMarker814"/> is happening at the <strong class="source-inline">dask.array</strong> level, not at the NumPy<a id="_idIndexMarker815"/> level, so it just added nodes to the task graph. There is still no execution.</p>
+<ol>
+<li value="5">Let’s now prepare to execute the function—meaning adding tasks to our task graph—over all our dataset. There are many ways to execute it; here, we are going to use the <strong class="source-inline">apply_along_axis</strong> function that <strong class="source-inline">dask.array</strong> provides and is based on the equally named function from NumPy:<p class="source-code">max_pos = 10000000</p><p class="source-code">stats = da.apply_along_axis(</p><p class="source-code">    calc_stats, 1, mosquito_2d[:max_pos,:],</p><p class="source-code">    shape=(max_pos,), dtype=np.int64)</p><p class="source-code">stats.visualize()</p></li>
+</ol>
+<p>For now, we are only going<a id="_idIndexMarker816"/> to study the first million<a id="_idIndexMarker817"/> positions. As you can see in the task graph, Dask is smart enough to only add an operation to the chunk involved in the computation:</p>
+<div>
+<div class="IMG---Figure" id="_idContainer086">
+<img alt="Figure 11.4 - The complete task graph including statistical computing " height="978" src="image/B17942_11_004.jpg" width="610"/>
+</div>
+</div>
+<p class="IMG---Caption" lang="en-US" xml:lang="en-US">Figure 11.4 - The complete task graph including statistical computing</p>
+<ol>
+<li value="6">Remember that we haven’t computed<a id="_idIndexMarker818"/> anything until now. It is now time<a id="_idIndexMarker819"/> to actually execute the task graph:<p class="source-code">stats = stats.compute() </p></li>
+</ol>
+<p>This will start the computation. Precisely how the computation is done is something we will discuss in the next recipe.</p>
+<p class="callout-heading">WARNING</p>
+<p class="callout">Because of the chunk<a id="_idIndexMarker820"/> size, this code might crash your computer. You will be safe with at least 16 GB of memory. Remember that you can use smaller chunk sizes—and you <em class="italic">should use</em> smaller chunk sizes. We just used chunk sizes like this in order to be able to generate the task graphs shown earlier (if not, they would have possibly hundreds of nodes and would be unprintable).</p>
+<h2 id="_idParaDest-287"><a id="_idTextAnchor287"/>There’s more...</h2>
+<p>We didn’t spend any time here discussing strategies to optimize the code for Dask—that would be a book of its own. For very complex algorithms, you will need to research further into the best practices.</p>
+<p>Dask provides interfaces similar to other known Python libraries such as Pandas or scikit-learn that can be used for parallel processing. You can also use it for general algorithms that are not based on existing libraries.</p>
+<h2 id="_idParaDest-288"><a id="_idTextAnchor288"/>See also</h2>
+<ul>
+<li>For best practices<a id="_idIndexMarker821"/> with Dask, your best starting point is the Dask documentation itself, especially <a href="https://docs.dask.org/en/latest/best-practices.xhtml">https://docs.dask.org/en/latest/best-practices.xhtml</a>.</li>
+</ul>
+<h1 id="_idParaDest-289"><a id="_idTextAnchor289"/>Scheduling tasks with dask.distributed</h1>
+<p>Dask is extremely flexible<a id="_idIndexMarker822"/> in terms of execution: we can execute locally, on a scientific<a id="_idIndexMarker823"/> cluster, or on the cloud. That flexibility comes at a cost: it needs to be parameterized. There are several alternatives to configure a Dask schedule and execution, but the most generic is <strong class="source-inline">dask.distributed</strong> as it is able to manage different kinds of infrastructure. Because I cannot<a id="_idIndexMarker824"/> assume you have access to a cluster or a cloud such as <strong class="bold">Amazon Web Services</strong> (<strong class="bold">AWS</strong>) or GCP, we will be setting up computation on your local machine, but remember that you can set up <strong class="source-inline">dask.distributed</strong> on very different kinds of platforms.</p>
+<p>Here, we will again compute simple statistics over variants of the Anopheles 1000 Genomes project.</p>
+<h2 id="_idParaDest-290"><a id="_idTextAnchor290"/>Getting ready</h2>
+<p>Before we start with <strong class="source-inline">dask.distributed</strong>, we should note<a id="_idIndexMarker825"/> that Dask has a default scheduler<a id="_idIndexMarker826"/> that actually can change depending on the library you are targeting. For example, here is the scheduler for our NumPy example:</p>
+<pre class="source-code">
+import dask
+from dask.base import get_scheduler
+import dask.array as da
+mosquito = da.from_zarr('data/AG1000G-AO/2L/calldata/GT')
+print(get_scheduler(collections=[mosquito]).__module__)</pre>
+<p>The output will be as follows:</p>
+<pre class="source-code">
+<strong class="bold">dask.threaded</strong></pre>
+<p>Dask uses a threaded scheduler here. This makes sense for a NumPy array: NumPy implementation is itself multithreaded (real multithreaded with parallelism). We don’t want lots of processes running when the underlying library is running in parallel to itself. If you had a Pandas DataFrame, Dask would probably choose a multiprocessor scheduler. As Pandas is not parallel, it makes sense for Dask to run in parallel itself.</p>
+<p>OK—now that we have that important detail out of the way, let’s get back to preparing our environment.</p>
+<p><strong class="source-inline">dask.distributed</strong> has a centralized scheduler and a set of workers, and we need to start those. Run this code in the command line to start the scheduler:</p>
+<p class="source-code">dask-scheduler --port 8786 --dashboard-address 8787</p>
+<p> We can start workers on the same machine as the scheduler, like this:</p>
+<p class="source-code">dask-worker --nprocs 2 –nthreads 1 127.0.0.1:8786</p>
+<p>I specified two processes with a single thread per process. This is reasonable for NumPy code, but the actual configuration will depend on your workload (and be completely different if you are on a cluster or a cloud).</p>
+<p class="callout-heading">Tip</p>
+<p class="callout">You actually do not need to start the whole process manually as I did here. <strong class="source-inline">dask.distributed</strong> will start something for you—not really optimized for your workload—if you don’t prepare the system yourself (see the following section for details). But I wanted to give you a flavor of the effort as in many cases, you will have to set up the infrastructure yourself. </p>
+<p>Again, we will be using data<a id="_idIndexMarker827"/> from the first recipe. Be sure you download<a id="_idIndexMarker828"/> and prepare it, as explained in its <em class="italic">Getting ready</em> section. We won’t be using the rechunked part—we will be doing it in our Dask code in the following section. Our code is available in <strong class="source-inline">Chapter11/Dask_distributed.py</strong>.</p>
+<h2 id="_idParaDest-291"><a id="_idTextAnchor291"/>How to do it...</h2>
+<p>Follow these steps to get started:</p>
+<ol>
+<li value="1">Let’s start by connecting to the scheduler that we created earlier:<p class="source-code">import numpy as np</p><p class="source-code">import zarr</p><p class="source-code">import dask.array as da</p><p class="source-code">from dask.distributed import Client</p><p class="source-code"> </p><p class="source-code">client = Client('127.0.0.1:8786')</p><p class="source-code">client</p></li>
+</ol>
+<p>If you are on Jupyter, you will get a nice output summarizing the configuration you created in the <em class="italic">Getting ready</em> part of this recipe:</p>
+<div>
+<div class="IMG---Figure" id="_idContainer087">
+<img alt="Figure 11.5 - Summary of your execution environment with dask.distributed " height="641" src="image/B17942_11_005.jpg" width="907"/>
+</div>
+</div>
+<p class="IMG---Caption" lang="en-US" xml:lang="en-US">Figure 11.5 - Summary of your execution environment with dask.distributed</p>
+<p>You will notice the reference<a id="_idIndexMarker829"/> to a dashboard here. <strong class="source-inline">dask.distributed</strong> provides<a id="_idIndexMarker830"/> a real-time dashboard over the web that allows you to track the state of the computation. Point your browser to http://127.0.0.1:8787/ to find it, or just follow the link provided in <em class="italic">Figure 11.5</em>.</p>
+<p>As we still haven’t done any computations, the dashboard is mostly empty. Be sure to explore the many tabs along the top:</p>
+<div>
+<div class="IMG---Figure" id="_idContainer088">
+<img alt="Figure 11.6 - The starting state of the dask.distributed dashboard " height="785" src="image/B17942_11_006.jpg" width="1089"/>
+</div>
+</div>
+<p class="IMG---Caption" lang="en-US" xml:lang="en-US">Figure 11.6 - The starting state of the dask.distributed dashboard</p>
+<ol>
+<li value="2">Let’s load the data. More<a id="_idIndexMarker831"/> rigorously, let’s prepare<a id="_idIndexMarker832"/> the task graph to load the data:<p class="source-code">mosquito = da.from_zarr('data/AG1000G-AO/2L/calldata/GT')</p><p class="source-code">mosquito</p></li>
+</ol>
+<p>Here is the output on Jupyter:</p>
+<div>
+<div class="IMG---Figure" id="_idContainer089">
+<img alt="Figure 11.7 - Summary of the original Zarr array for chromosome 2L " height="156" src="image/B17942_11_007.jpg" width="437"/>
+</div>
+</div>
+<p class="IMG---Caption" lang="en-US" xml:lang="en-US">Figure 11.7 - Summary of the original Zarr array for chromosome 2L</p>
+<ol>
+<li value="3">To facilitate visualization, let’s rechunk again. We are also going<a id="_idIndexMarker833"/> to have a single chunk for the second<a id="_idIndexMarker834"/> dimension, which is the samples. This is because our computation of missingness requires all the samples, and it makes little sense—in our specific case—to have two chunks per sample: <p class="source-code">mosquito = mosquito.rechunk((mosquito.shape[0]//8, 81, 2))</p></li>
+</ol>
+<p>As a reminder, we have very large chunks, and you might end up with memory problems. If that is the case, then you can run it with the original chunks. It’s just that the visualization will be unreadable.</p>
+<ol>
+<li value="4">Before we continue, let’s ask Dask to not only execute the rechunking but also to have the results of it at the ready in the workers:<p class="source-code">mosquito = mosquito.persist()</p></li>
+</ol>
+<p>The <strong class="source-inline">persist</strong> call makes sure the data is available in the workers. In the following screenshot, you can find the dashboard somewhere in the middle of the computation. You can find which tasks are executing on each node, a summary of tasks done and to be done, and the bytes stored per worker. Of note is the concept of <strong class="bold">spilled to disk</strong> (see the top left of the screen). If there is not enough memory for all chunks, they will temporarily be written to disk:</p>
+<div>
+<div class="IMG---Figure" id="_idContainer090">
+<img alt="Figure 11.8 - The dashboard state while executing the persist function for rechunking the array " height="635" src="image/B17942_11_008.jpg" width="1250"/>
+</div>
+</div>
+<p class="IMG---Caption" lang="en-US" xml:lang="en-US">Figure 11.8 - The dashboard state while executing the persist function for rechunking the array</p>
+<ol>
+<li value="5">Let’s now compute<a id="_idIndexMarker835"/> the statistics. We will use a different approach<a id="_idIndexMarker836"/> for the last recipe—we will ask Dask to apply a function to each chunk:<p class="source-code">def calc_stats(my_chunk):</p><p class="source-code">    num_miss = np.sum(</p><p class="source-code">        np.equal(my_chunk[0][0][:,:,0], -1),</p><p class="source-code">        axis=1)</p><p class="source-code">    return num_miss</p><p class="source-code">stats = da.blockwise(</p><p class="source-code">    calc_stats, 'i', mosquito, 'ijk',</p><p class="source-code">    dtype=np.uint8)</p><p class="source-code">stats.visualize()</p></li>
+</ol>
+<p>Remember that each chunk is not a <strong class="source-inline">dask.array</strong> instance but a NumPy array, so the code works on NumPy arrays. Here is the current task graph. There are no operations to load the data, as the function performed earlier executed all of those:</p>
+<div>
+<div class="IMG---Figure" id="_idContainer091">
+<img alt="Figure 11.9 - Calls to the calc_stats function over chunks starting with persisted data " height="224" src="image/B17942_11_009.jpg" width="1098"/>
+</div>
+</div>
+<p class="IMG---Caption" lang="en-US" xml:lang="en-US">Figure 11.9 - Calls to the calc_stats function over chunks starting with persisted data</p>
+<ol>
+<li value="6">Finally, we<a id="_idIndexMarker837"/> can get our <a id="_idIndexMarker838"/>results:<p class="source-code">stat_results = stats.compute()</p></li>
+</ol>
+<h2 id="_idParaDest-292"><a id="_idTextAnchor292"/>There’s more...</h2>
+<p>There is substantially more that can be said about the <strong class="source-inline">dask.distributed</strong> interface. Here, we introduced the basic concepts of its architecture and the dashboard.</p>
+<p><strong class="source-inline">dask.distributed</strong> provides an asynchronous interface based on the standard <strong class="source-inline">async</strong> module of Python. Due to the introductory nature of this chapter, we won’t address it, but you are recommended to look at it.</p>
+<h2 id="_idParaDest-293"><a id="_idTextAnchor293"/>See also</h2>
+<ul>
+<li>You can start with the<a id="_idIndexMarker839"/> documentation of <strong class="source-inline">dask.distributed</strong> at <a href="https://distributed.dask.org/en/stable/">https://distributed.dask.org/en/stable/</a>.</li>
+<li>In many cases, you will need to deploy<a id="_idIndexMarker840"/> your code in a cluster or the cloud. Check out the deployment documentation for resources on different platforms: <a href="https://docs.dask.org/en/latest/deploying.xhtml">https://docs.dask.org/en/latest/deploying.xhtml</a>.</li>
+<li>After you have mastered the content<a id="_idIndexMarker841"/> here, studying asynchronous computation<a id="_idIndexMarker842"/> in Python would be your next step. Check out <a href="https://docs.python.org/3/library/asyncio-task.xhtml">https://docs.python.org/3/library/asyncio-task.xhtml</a>.</li>
+</ul>
+</div>
+<div>
+<div id="_idContainer093">
+</div>
+</div>
+</div></body></html>

@@ -1,0 +1,939 @@
+<html><head></head><body>
+		<div id="_idContainer590">
+			<h1 class="chapter-number" id="_idParaDest-79"><a id="_idTextAnchor078"/>3</h1>
+			<h1 id="_idParaDest-80"><a id="_idTextAnchor079"/>Calculus and Differential Equations</h1>
+			<p>In this chapter, we will discuss various topics related to calculus. Calculus is the branch of mathematics that concerns the processes of differentiation and integration. Geometrically, the derivative of a function represents the gradient of the curve of the function, and the integral of a function represents the area below the curve of the function. Of course, these characterizations only hold in certain circumstances, but they provide a reasonable foundation for <span class="No-Break">this chapter.</span></p>
+			<p>We’ll start by looking at calculus for a simple class of functions: polynomials. In the first recipe, we’ll create a class that represents a polynomial and define methods that differentiate and integrate the polynomial. Polynomials are convenient because the derivative or integral of a polynomial is again a polynomial. Then, we’ll use the <strong class="source-inline">SymPy</strong> package to perform symbolic differentiation and integration on more general functions. After that, we’ll look at methods for solving equations using the SciPy package. Then, we’ll turn our attention to numerical integration (quadrature) and solving differential equations. We’ll use the SciPy package to solve <strong class="bold">ordinary differential equations</strong> (<strong class="bold">ODEs</strong>) and systems of ODEs, and then use a finite difference scheme to solve a simple partial differential equation. Finally, we’ll use the <strong class="bold">Fast Fourier transform</strong> (<strong class="bold">FFT</strong>) to process a noisy signal and filter out <span class="No-Break">the noise.</span></p>
+			<p>The content of this chapter will help you solve problems that involve calculus, such as computing the solution to differential equations, which frequently arise when describing the physical world. We’ll also dip into calculus later in <a href="B19085_09.xhtml#_idTextAnchor360"><span class="No-Break"><em class="italic">Chapter 9</em></span></a> when we discuss optimization. Several optimization algorithms require some kind of knowledge of derivatives, including the backpropagation commonly used in <strong class="bold">machine </strong><span class="No-Break"><strong class="bold">learning</strong></span><span class="No-Break"> (</span><span class="No-Break"><strong class="bold">ML</strong></span><span class="No-Break">).</span></p>
+			<p>In this chapter, we will cover the <span class="No-Break">following recipes:</span></p>
+			<ul>
+				<li>Working with polynomials <span class="No-Break">and calculus</span></li>
+				<li>Differentiating and integrating symbolically <span class="No-Break">using SymPy</span></li>
+				<li><span class="No-Break">Solving equations</span></li>
+				<li>Integrating functions numerically <span class="No-Break">using SciPy</span></li>
+				<li>Solving simple differential <span class="No-Break">equations numerically</span></li>
+				<li>Solving systems of <span class="No-Break">differential equations</span></li>
+				<li>Solving partial differential <span class="No-Break">equations numerically</span></li>
+				<li>Using discrete Fourier transforms for <span class="No-Break">signal processing</span></li>
+				<li>Automatic differentiation and calculus <span class="No-Break">using JAX</span></li>
+				<li>Solving differential equations <span class="No-Break">using JAX</span></li>
+			</ul>
+			<h1 id="_idParaDest-81"><a id="_idTextAnchor080"/>Technical requirements</h1>
+			<p>In addition to the scientific Python packages NumPy and SciPy, we also need the SymPy, JAX, and <strong class="source-inline">diffrax</strong> packages. These can be installed using your favorite package manager, such <span class="No-Break">as </span><span class="No-Break"><strong class="source-inline">pip</strong></span><span class="No-Break">:</span></p>
+			<pre class="console">
+python3.10 -m pip install sympy jaxlib jax sympy diffrax</pre>
+			<p>There are different options for the way you install JAX. Please see the official documentation for more <span class="No-Break">details: </span><a href="https://github.com/google/jax#installation"><span class="No-Break">https://github.com/google/jax#installation</span></a><span class="No-Break">.</span></p>
+			<p>The code for this chapter can be found in the <span class="No-Break"><strong class="source-inline">Chapter 03</strong></span> folder of the GitHub repository <span class="No-Break">at </span><a href="https://github.com/PacktPublishing/Applying-Math-with-Python-2nd-Edition/tree/main/Chapter%2003"><span class="No-Break">https://github.com/PacktPublishing/Applying-Math-with-Python-2nd-Edition/tree/main/Chapter%2003</span></a><span class="No-Break">.</span></p>
+			<h1 id="_idParaDest-82"><a id="_idTextAnchor081"/>Primer on calculus</h1>
+			<p>Calculus is<a id="_idIndexMarker210"/> the study of functions and the way that they change. There are two major processes in<a id="_idIndexMarker211"/> calculus: <strong class="bold">differentiation</strong> and <strong class="bold">integration</strong>. Differentiation<a id="_idIndexMarker212"/> takes a function and <a id="_idIndexMarker213"/>produces a new function—called<a id="_idIndexMarker214"/> the <strong class="bold">derivative</strong>—that is the <em class="italic">best linear approximation</em> at each point. (You may see this described as the <strong class="bold">gradient</strong> of <a id="_idIndexMarker215"/>the function. Integration is<a id="_idIndexMarker216"/> often described as <em class="italic">anti-differentiation</em>—indeed, differentiating the integral of a function does give back the original function—but is also an abstract description of the area between the graph of the function and the <img alt="" src="image/Formula_03_001.png"/> axis, taking into account where the curve is above or below <span class="No-Break">the axis.</span></p>
+			<p>Abstractly, the derivative of a function <img alt="" src="image/Formula_03_002.png"/> at a point <img alt="" src="image/Formula_03_003.png"/> is defined as a limit (which we won’t describe here) of <span class="No-Break">the quantity:</span></p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer306">
+					<img alt="" src="image/Formula_03_004.jpg"/>
+				</div>
+			</div>
+			<p class="Basic-Paragraph">This is because this small number <img alt="" src="image/Formula_03_005.png"/> becomes smaller and smaller. This is the <em class="italic">difference in </em><img alt="" src="image/Formula_03_006.png"/> divided by the <em class="italic">difference in </em><img alt="" src="image/Formula_03_007.png"/>, which is why the derivative is sometimes written as follows:</p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer310">
+					<img alt="" src="image/Formula_03_008.jpg"/>
+				</div>
+			</div>
+			<p>There are<a id="_idIndexMarker217"/> numerous rules for differentiating common function forms: for example, in the first recipe, we will see that the derivative of <img alt="" src="image/Formula_03_009.png"/> is <img alt="" src="image/Formula_03_010.png"/>. The derivative of the exponential function <img alt="" src="image/Formula_03_011.png"/> is, again, <img alt="" src="image/Formula_03_012.png"/>; the derivative of <img alt="" src="image/Formula_03_013.png"/> is <img alt="" src="image/Formula_03_014.png"/>; and the derivative of <img alt="" src="image/Formula_03_0141.png"/> is <img alt="" src="image/Formula_03_016.png"/>. These basic building blocks can be combined using the <em class="italic">product rule</em> and <em class="italic">chain rule</em>, and by the fact that derivatives of sums are sums of derivatives, to differentiate more <span class="No-Break">complex functions.</span></p>
+			<p>In its indefinite form, integration is the opposite process of differentiation. In its definite form, the integral of a function <img alt="" src="image/Formula_03_017.png"/> is the (signed) area that lies between the curve of <img alt="" src="image/Formula_03_018.png"/> and the <img alt="" src="image/Formula_03_019.png"/> axis—note that this is a simple number, not a function. The indefinite integral of <img alt="" src="image/Formula_03_020.png"/> is usually written <span class="No-Break">like this:</span></p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer323">
+					<img alt="" src="image/Formula_03_021.jpg"/>
+				</div>
+			</div>
+			<p>Here, the <a id="_idIndexMarker218"/>derivative of this function is <img alt="" src="image/Formula_03_022.png"/>. The definite integral of <img alt="" src="image/Formula_03_023.png"/> between <img alt="" src="image/Formula_03_024.png"/> and <img alt="" src="image/Formula_03_025.png"/> is given by the <span class="No-Break">following equation:</span></p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer328">
+					<img alt="" src="image/Formula_03_026.jpg"/>
+				</div>
+			</div>
+			<p>Here, <img alt="" src="image/Formula_03_027.png"/> is the indefinite integral of <img alt="" src="image/Formula_03_028.png"/>. We can, of course, define the indefinite integral abstractly, using limits of sums approximating the area below the curve, and then define the indefinite integral in terms of this abstract quantity. (We won’t go into detail here.) The most important thing to remember with indefinite<a id="_idIndexMarker219"/> integrals is the <strong class="bold">constant </strong><span class="No-Break"><strong class="bold">of integration</strong></span><span class="No-Break">.</span></p>
+			<p>There are several easily deduced indefinite integrals (<em class="italic">anti-derivatives</em>) that we can quickly deduce: the integral of <img alt="" src="image/Formula_03_029.png"/> is <img alt="" src="image/Formula_03_030.png"/> (this is what we would differentiate to get <img alt="" src="image/Formula_03_031.png"/>); the integral of <img alt="" src="image/Formula_03_032.png"/> is <img alt="" src="image/Formula_03_033.png"/>; the integral of <img alt="" src="image/Formula_03_034.png"/> is <img alt="" src="image/Formula_03_035.png"/>; and the integral of <img alt="" src="image/Formula_03_036.png"/> is <img alt="" src="image/Formula_03_037.png"/>. In all these examples, <img alt="" src="image/Formula_03_038.png"/> is the constant of integration. We can combine these simple rules to integrate more interesting functions by using the techniques of integration by parts or integration by substitution (and a host of much more involved techniques that we won’t <span class="No-Break">mention here).</span></p>
+			<h1 id="_idParaDest-83"><a id="_idTextAnchor082"/>Working with polynomials and calculus</h1>
+			<p>Polynomials <a id="_idIndexMarker220"/>are among <a id="_idIndexMarker221"/>the simplest functions in mathematics and are defined as <span class="No-Break">a sum:</span></p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer341">
+					<img alt="" src="image/Formula_03_039.jpg"/>
+				</div>
+			</div>
+			<p>Here, <img alt="" src="image/Formula_03_040.png"/> represents a placeholder to be substituted (an indeterminate), and <img alt="" src="image/Formula_03_041.png"/> is a number. Since polynomials are simple, they provide an excellent means for a brief introduction <span class="No-Break">to calculus.</span></p>
+			<p>In this recipe, we will define a simple class that represents a polynomial and write methods for this class to perform differentiation <span class="No-Break">and integration.</span></p>
+			<h2 id="_idParaDest-84"><a id="_idTextAnchor083"/>Getting ready</h2>
+			<p>There are no additional packages required for <span class="No-Break">this recipe.</span></p>
+			<h2 id="_idParaDest-85"><a id="_idTextAnchor084"/>How to do it...</h2>
+			<p>The following<a id="_idIndexMarker222"/> steps describe how to create a class representing a polynomial, and implement differentiation and integration methods for <span class="No-Break">this class:</span></p>
+			<ol>
+				<li>Let’s start by defining a simple class to represent <span class="No-Break">a polynomial:</span><pre class="console">
+class Polynomial:</pre><pre class="console">
+    """Basic polynomial class"""</pre><pre class="console">
+    def __init__(self, coeffs):</pre><pre class="console">
+       self.coeffs = coeffs</pre><pre class="console">
+    def __repr__(self):</pre><pre class="console">
+       return f"Polynomial({repr(self.coeffs)})"</pre><pre class="console">
+    def __call__(self, x):</pre><pre class="console">
+      return sum(coeff*x**i for i, coeff in enumerate(    	        self.coeffs))</pre></li>
+				<li>Now that we have defined a basic class for a polynomial, we can move on to implement the differentiation and integration operations for this <strong class="source-inline">Polynomial</strong> class to illustrate how these operations change polynomials. We start with differentiation. We generate new coefficients by multiplying each element in the current list of coefficients without the <a id="_idIndexMarker223"/>first element. We use this new list of coefficients to create a new <strong class="source-inline">Polynomial</strong> instance that <span class="No-Break">is returned:</span><pre class="console">
+    def differentiate(self):</pre><pre class="console">
+      """Differentiate the polynomial and return the derivative"""</pre><pre class="console">
+        coeffs = [i*c for i, c in enumerate(</pre><pre class="console">
+            self.coeffs[1:], start=1)]</pre><pre class="console">
+        return Polynomial(coeffs)</pre></li>
+				<li>To<a id="_idIndexMarker224"/> implement the integration method, we need to create a new list of coefficients containing the new constant (converted to a float for consistency) given by the argument. We then add to this list of coefficients the old coefficients divided by their new position in <span class="No-Break">the list:</span><pre class="console">
+    def integrate(self, constant=0):</pre><pre class="console">
+      """Integrate the polynomial and return the integral"""</pre><pre class="console">
+        coeffs = [float(constant)]</pre><pre class="console">
+        coeffs += [c/i for i, c in enumerate(</pre><pre class="console">
+            self.coeffs, start=1)]</pre><pre class="console">
+        return Polynomial(coeffs)</pre></li>
+				<li>Finally, to make sure these methods work as expected, we should test these two methods with a simple case. We can check this using a very simple polynomial, such <span class="No-Break">as <img alt="" src="image/Formula_03_042.png"/>:</span><pre class="console">
+p = Polynomial([1, -2, 1])</pre><pre class="console">
+p.differentiate()</pre><pre class="console">
+# Polynomial([-2, 2])</pre><pre class="console">
+p.integrate(constant=1)</pre><pre class="console">
+# Polynomial([1.0, 1.0, -1.0, 0.3333333333])</pre></li>
+			</ol>
+			<p>The derivative<a id="_idIndexMarker225"/> here is given the coefficients <img alt="" src="image/Formula_03_043.png"/> and <img alt="" src="image/Formula_03_044.png"/>, which corresponds to the polynomial <img alt="" src="image/Formula_03_045.png"/>, which is indeed the derivative of <img alt="" src="image/Formula_03_046.png"/>. Similarly, the coefficients<a id="_idIndexMarker226"/> of the integral correspond to the polynomial <img alt="" src="image/Formula_03_047.png"/>, which is also correct (with constant of <span class="No-Break">integration <img alt="" src="image/Formula_03_048.png"/>).</span></p>
+			<h2 id="_idParaDest-86"><a id="_idTextAnchor085"/>How it works...</h2>
+			<p>Polynomials offer an easy introduction to the basic operations of calculus, but it isn’t so easy to construct Python classes for other general classes of functions. That being said, polynomials are extremely useful because they are well understood and, perhaps more importantly, calculus for polynomials is very easy. For powers of a variable <img alt="" src="image/Formula_03_049.png"/>, the rule for differentiation is to multiply by the power and reduce the power by 1 so that <img alt="" src="image/Formula_03_050.png"/> becomes <img alt="" src="image/Formula_03_051.png"/>, so our rule for differentiating a polynomial is to simply multiply each coefficient by its position and remove the <span class="No-Break">first coefficient.</span></p>
+			<p>Integration is more complex since the integral of a function is not unique. We can add any constant to an integral and obtain a second integral. For powers of a variable <img alt="" src="image/Formula_03_052.png"/>, the rule for integration is to increase the power by 1 and divide by the new power so that <img alt="" src="image/Formula_03_053.png"/> becomes <img alt="" src="image/Formula_03_054.png"/>. Therefore, to integrate a polynomial, we increase each power of <img alt="" src="image/Formula_03_055.png"/> by 1 and divide the corresponding coefficient by the new power. Hence, our rule is to first insert the new constant of integration as the first element and divide each of the existing coefficients by its new position in <span class="No-Break">the list.</span></p>
+			<p>The <strong class="source-inline">Polynomial</strong> class that we defined in the recipe is rather simplistic but represents the core idea. A polynomial is uniquely determined by its coefficients, which we can store as a list of numerical values. Differentiation and integration are operations that we can perform on this list of coefficients. We include a simple <strong class="source-inline">__repr__</strong> method to help with the display of <strong class="source-inline">Polynomial</strong> objects, and a <strong class="source-inline">__call__</strong> method to facilitate evaluation at specific numerical values. This is mostly to demonstrate the way that a polynomial <span class="No-Break">is evaluated.</span></p>
+			<p>Polynomials are useful for solving certain problems that involve evaluating a computationally expensive function. For such problems, we can sometimes use some kind of polynomial interpolation, where we <em class="italic">fit</em> a polynomial to another function, and then use the properties of polynomials to help solve the original problem. Evaluating a polynomial is much <em class="italic">cheaper</em> than the original function, so this can lead to dramatic improvements in speed. This usually comes at the cost of some accuracy. For example, Simpson’s rule for approximating the area under a curve approximates the curve by quadratic polynomials over intervals defined by three consecutive mesh points. The area below each quadratic polynomial can be calculated easily <span class="No-Break">by integration.</span></p>
+			<h2 id="_idParaDest-87"><a id="_idTextAnchor086"/>There’s more...</h2>
+			<p>Polynomials <a id="_idIndexMarker227"/>have <a id="_idIndexMarker228"/>many more important roles in computational programming than simply demonstrating the effect of differentiation and integration. For this reason, a much richer <strong class="source-inline">Polynomial</strong> class is provided in the <strong class="source-inline">numpy.polynomial</strong> NumPy package. The NumPy <strong class="source-inline">Polynomial</strong> class, and the various derived subclasses, are useful in all kinds of numerical problems and support arithmetic operations as well as other methods. In particular, there are methods for fitting polynomials to collections <span class="No-Break">of data.</span></p>
+			<p>NumPy also provides classes, derived from <strong class="source-inline">Polynomial</strong>, that represent various special kinds of polynomials. For example, the <strong class="source-inline">Legendre</strong> class represents a specific system of polynomials called <em class="italic">Legendre polynomials</em>. Legendre polynomials are defined for <img alt="" src="image/Formula_03_056.png"/> satisfying <img alt="" src="image/Formula_03_057.png"/> and form an orthogonal system, which is important for applications such as numerical integration and the <strong class="bold">finite element method</strong> for <a id="_idIndexMarker229"/>solving partial differential equations. Legendre polynomials are defined using a recursive relation. We define them <span class="No-Break">as follows:</span></p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer360">
+					<img alt="" src="image/Formula_03_058.jpg"/>
+				</div>
+			</div>
+			<p>Furthermore, for each <img alt="" src="image/Formula_03_059.png"/>, we define the <img alt="" src="image/Formula_03_060.png"/>th Legendre polynomial to satisfy the <span class="No-Break">recurrence relation:</span></p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer363">
+					<img alt="" src="image/Formula_03_061.jpg"/>
+				</div>
+			</div>
+			<p>There are several other so-called <em class="italic">orthogonal (systems of) polynomials</em>, including <em class="italic">Laguerre polynomials</em>, <em class="italic">Chebyshev polynomials</em>, and <span class="No-Break"><em class="italic">Hermite polynomials</em></span><span class="No-Break">.</span></p>
+			<h2 id="_idParaDest-88"><a id="_idTextAnchor087"/>See also</h2>
+			<p>Calculus is<a id="_idIndexMarker230"/> certainly well documented in mathematical texts, and there are many textbooks that cover the basic methods all the way to the deep theory. Orthogonal systems of polynomials are also well documented among numerical <span class="No-Break">analysis texts.</span></p>
+			<h1 id="_idParaDest-89"><a id="_idTextAnchor088"/>Differentiating and integrating symbolically using SymPy</h1>
+			<p>At some point, you<a id="_idIndexMarker231"/> may have to differentiate a function that<a id="_idIndexMarker232"/> is not a simple polynomial, and you may need to do this in some kind of automated fashion—for example, if you are writing software for education. The Python scientific stack includes a package called SymPy, which allows us to create and manipulate symbolic <a id="_idIndexMarker233"/>mathematical expressions within Python. In particular, SymPy can perform <a id="_idIndexMarker234"/>differentiation and integration of symbolic functions, just like <span class="No-Break">a mathematician.</span></p>
+			<p>In this recipe, we<a id="_idIndexMarker235"/> will create a symbolic function and then differentiate and integrate this function using the <span class="No-Break">SymPy library.</span></p>
+			<h2 id="_idParaDest-90"><a id="_idTextAnchor089"/>Getting ready</h2>
+			<p>Unlike some of the other scientific Python packages, there does not seem to be a standard alias under which SymPy is imported in the literature. Instead, the documentation uses a star import at several points, which is not in line with the <em class="italic">PEP8</em> style guide. This is possibly to make the mathematical expressions more natural. We will simply import the module under its name <strong class="source-inline">sympy</strong>, to avoid any confusion with the <strong class="source-inline">scipy</strong> package’s standard abbreviation, <strong class="source-inline">sp</strong> (which is the natural choice for <span class="No-Break"><strong class="source-inline">sympy</strong></span><span class="No-Break"> too):</span></p>
+			<pre class="source-code">
+import sympy</pre>
+			<p>In this recipe, we will define a symbolic expression that represents the <span class="No-Break">following function:</span></p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer364">
+					<img alt="" src="image/Formula_03_062.jpg"/>
+				</div>
+			</div>
+			<p>Then, we will see how to symbolically differentiate and integrate <span class="No-Break">this function.</span></p>
+			<h2 id="_idParaDest-91"><a id="_idTextAnchor090"/>How to do it...</h2>
+			<p>Differentiating and integrating symbolically (as you would do by hand) is very easy using the SymPy package. Follow these steps to see how it <span class="No-Break">is done:</span></p>
+			<ol>
+				<li value="1">Once SymPy is imported, we define the symbols that will appear in our expressions. This is a Python object that has no particular value, just like a mathematical variable, but can be used in formulas and expressions to represent many different values simultaneously. For this recipe, we need only define a symbol for <img alt="" src="image/Formula_03_063.png"/>, since we will only require constant (literal) symbols and functions in addition to this. We use the <strong class="source-inline">symbols</strong> routine from <strong class="source-inline">sympy</strong> to define a new symbol. To keep the notation simple, we will name this new <span class="No-Break">symbol </span><span class="No-Break"><strong class="source-inline">x</strong></span><span class="No-Break">:</span><pre class="console">
+x = sympy.symbols('x')</pre></li>
+				<li>The symbols<a id="_idIndexMarker236"/> defined using the <strong class="source-inline">symbols</strong> function support all of the arithmetic operations, so we can construct the expression directly using the symbol <strong class="source-inline">x</strong> we <span class="No-Break">just defined:</span><pre class="console">
+f = (x**2 - 2*x)*sympy.exp(3 - x)</pre></li>
+				<li>Now, we<a id="_idIndexMarker237"/> can use the symbolic calculus capabilities of SymPy to compute the derivative of <strong class="source-inline">f</strong>—that is, differentiate <strong class="source-inline">f</strong>. We do this <a id="_idIndexMarker238"/>using the <strong class="source-inline">diff</strong> routine in <strong class="source-inline">sympy</strong>, which differentiates a symbolic expression with respect to a<a id="_idIndexMarker239"/> specified symbol and returns an expression for the derivative. This is often not expressed in its simplest form, so we use the <strong class="source-inline">sympy.simplify</strong> routine to simplify <span class="No-Break">the result:</span><pre class="console">
+fp = sympy.simplify(sympy.diff(f))</pre><pre class="console">
+print(fp)  # (-x**2 + 4*x - 2)*exp(3 - x)</pre></li>
+				<li>We can check whether the result of the symbolic differentiation using SymPy is correct, compared to the derivative computed by hand using the product rule, defined as a SymPy expression, <span class="No-Break">as follows:</span><pre class="console">
+fp2 = (2*x - 2)*sympy.exp(3 - x) - (</pre><pre class="console">
+    x**2 - 2*x)*sympy.exp(3 - x)</pre></li>
+				<li>SymPy equality tests whether two expressions are equal, but not whether they are symbolically equivalent. Therefore, we must first simplify the difference of the two statements we wish to test and test for equality <span class="No-Break">to </span><span class="No-Break"><strong class="source-inline">0</strong></span><span class="No-Break">:</span><pre class="console">
+print(sympy.simplify(fp2 - fp) == 0)  # True</pre></li>
+				<li>We can integrate the derivative <strong class="source-inline">fp</strong> using SymPy by using the <strong class="source-inline">integrate</strong> function and check that this is again equal to <strong class="source-inline">f</strong>. It is a good idea to also provide the symbol with which the integration is to be performed by providing it as the second <span class="No-Break">optional argument:</span><pre class="console">
+F = sympy.integrate(fp, x)</pre><pre class="console">
+print(F)  # (x**2 - 2*x)*exp(3 - x)</pre></li>
+			</ol>
+			<p>As we can see, the result of integrating the derivative <strong class="source-inline">fp</strong> gives back the original function <strong class="source-inline">f</strong> (although we are technically missing the constant of <span class="No-Break">integration <img alt="" src="image/Formula_03_064.png"/>).</span></p>
+			<h2 id="_idParaDest-92"><a id="_idTextAnchor091"/>How it works...</h2>
+			<p>SymPy defines <a id="_idIndexMarker240"/>various classes to represent certain kinds <a id="_idIndexMarker241"/>of expressions. For example, symbols, represented by the <strong class="source-inline">Symbol</strong> class, are examples of <em class="italic">atomic expressions</em>. Expressions are built up in a similar way to how Python builds an abstract syntax tree from source code. These expression objects can then be manipulated using methods and standard <span class="No-Break">arithmetic operations.</span></p>
+			<p>SymPy also <a id="_idIndexMarker242"/>defines standard mathematical functions that can operate on <strong class="source-inline">Symbol</strong> objects to create symbolic expressions. The most important feature is the ability to perform symbolic calculus—rather than the numerical calculus that we explore in<a id="_idIndexMarker243"/> the remainder of this chapter—and give exact (sometimes called <em class="italic">analytic</em>) solutions to <span class="No-Break">calculus problems.</span></p>
+			<p>The <strong class="source-inline">diff</strong> routine from the SymPy package performs differentiation on these symbolic expressions. The result of this routine is usually not in its simplest form, which is why we used the <strong class="source-inline">simplify</strong> routine to simplify the derivative in the recipe. The <strong class="source-inline">integrate</strong> routine symbolically integrates a <strong class="source-inline">scipy</strong> expression with respect to a given symbol. (The <strong class="source-inline">diff</strong> routine also accepts a symbol argument that specifies the symbol for differentiating against.) This returns an expression whose derivative is the original expression. This routine does not add a constant of integration, which is good practice when doing integrals <span class="No-Break">by hand.</span></p>
+			<h2 id="_idParaDest-93"><a id="_idTextAnchor092"/>There’s more...</h2>
+			<p>SymPy can do much more than simple algebra and calculus. There are submodules for various areas of mathematics, such as number theory, geometry, and other discrete mathematics (such <span class="No-Break">as combinatorics).</span></p>
+			<p>SymPy expressions (and functions) can be built into Python functions that can be applied to NumPy arrays. This is done using the <strong class="source-inline">lambdify</strong> routine from the <strong class="source-inline">sympy.utilities</strong> module. This converts a SymPy expression to a numerical expression that uses the NumPy equivalents of the SymPy standard functions to evaluate the expressions numerically. The result is similar to defining a Python Lambda, hence the name. For example, we could convert the function and derivative from this recipe into Python functions using <span class="No-Break">this routine:</span></p>
+			<pre class="source-code">
+from sympy.utilities import lambdify
+lam_f = lambdify(x, f)
+lam_fp = lambdify(x, fp)</pre>
+			<p>The <strong class="source-inline">lambdify</strong> routine takes two arguments. The first is the variables to be provided, <strong class="source-inline">x</strong> in the previous code block, and<a id="_idIndexMarker244"/> the second is the expression to be<a id="_idIndexMarker245"/> evaluated when this function is called. For<a id="_idIndexMarker246"/> example, we can evaluate the lambdified SymPy expressions defined previously as if they were ordinary <span class="No-Break">Python functions:</span></p>
+			<pre class="source-code">
+lam_f(4)  # 2.9430355293715387
+lam_fp(7)  # -0.4212596944408861</pre>
+			<p>We can even <a id="_idIndexMarker247"/>evaluate these lambdified expressions on NumPy arrays (as usual, with NumPy imported <span class="No-Break">as </span><span class="No-Break"><strong class="source-inline">np</strong></span><span class="No-Break">):</span></p>
+			<pre class="source-code">
+lam_f(np.array([0, 1, 2]))  # array([ 0. , -7.3890561, 0. ])</pre>
+			<p class="callout-heading">Note</p>
+			<p class="callout">The <strong class="source-inline">lambdify</strong> routine uses the Python <strong class="source-inline">exec</strong> routine to execute the code, so it should not be used with <span class="No-Break">unsanitized input.</span></p>
+			<h1 id="_idParaDest-94"><a id="_idTextAnchor093"/>Solving equations</h1>
+			<p>Many mathematical<a id="_idIndexMarker248"/> problems eventually reduce to solving an equation of the form <img alt="" src="image/Formula_03_065.png"/>, where <img alt="" src="image/Formula_03_066.png"/> is a function of a single variable. Here, we try to find a value of <img alt="" src="image/Formula_03_067.png"/> for which the equation holds. The values of <img alt="" src="image/Formula_03_068.png"/> for which the equation holds are sometimes called <em class="italic">roots</em> of the equation. There are numerous algorithms for finding solutions to equations of this form. In this recipe, we will use the Newton-Raphson and secant methods to solve an equation of the <span class="No-Break">form <img alt="" src="image/Formula_03_069.png"/>.</span></p>
+			<p>The<a id="_idIndexMarker249"/> Newton-Raphson method (Newton’s method) and the secant method <a id="_idIndexMarker250"/>are good, standard root-finding algorithms that can be applied in almost any situation. These are <em class="italic">iterative methods</em> that start with an approximation of the root and iteratively improve this approximation until it lies within a <span class="No-Break">given tolerance.</span></p>
+			<p>To demonstrate these techniques, we will use the function from the <em class="italic">Differentiating and integrating symbolically using SymPy</em> recipe, defined by the <span class="No-Break">following formula:</span></p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer372">
+					<img alt="" src="image/Formula_03_070.jpg"/>
+				</div>
+			</div>
+			<p>This is defined for all real values of <img alt="" src="image/Formula_03_071.png"/> and has exactly two roots, one at <img alt="" src="image/Formula_03_072.png"/> and one <span class="No-Break">at <img alt="" src="image/Formula_03_073.png"/>.</span></p>
+			<h2 id="_idParaDest-95"><a id="_idTextAnchor094"/>Getting ready</h2>
+			<p>The SciPy package contains routines for solving equations (among many other things). The root-finding routines can be found in the <strong class="source-inline">optimize</strong> module from the <strong class="source-inline">scipy</strong> package. As usual, we import NumPy <span class="No-Break">as </span><span class="No-Break"><strong class="source-inline">np</strong></span><span class="No-Break">.</span></p>
+			<h2 id="_idParaDest-96"><a id="_idTextAnchor095"/>How to do it...</h2>
+			<p>The <strong class="source-inline">optimize</strong> package provides routines for numerical root finding. The following instructions describe how to use<a id="_idIndexMarker251"/> the <strong class="source-inline">newton</strong> routine from <span class="No-Break">this module:</span></p>
+			<ol>
+				<li value="1">The <strong class="source-inline">optimize</strong> module is not listed in the <strong class="source-inline">scipy</strong> namespace, so you must import <span class="No-Break">it separately:</span><pre class="console">
+from scipy import optimize</pre></li>
+				<li>Then, we must define this function and its derivative <span class="No-Break">in Python:</span><pre class="console">
+from math import exp</pre><pre class="console">
+def f(x):</pre><pre class="console">
+  return x*(x - 2)*exp(3 - x)</pre></li>
+				<li>The derivative of this function was computed in the <span class="No-Break">previous recipe:</span><pre class="console">
+def fp(x):</pre><pre class="console">
+  return -(x**2 - 4*x + 2)*exp(3 - x)</pre></li>
+				<li>For both the Newton-Raphson and secant methods, we use the <strong class="source-inline">newton</strong> routine from <strong class="source-inline">optimize</strong>. Both the secant method and the Newton-Raphson method require the function as the first argument and the first approximation, <strong class="source-inline">x0</strong>, as the second argument. To use the Newton-Raphson method, we must provide the derivative of <img alt="" src="image/Formula_03_074.png"/>, using the <strong class="source-inline">fprime</strong> <span class="No-Break">keyword argument:</span><pre class="console">
+optimize.newton(f, 1, fprime=fp) # Using the Newton-Raphson method</pre><pre class="console">
+# 2.0</pre></li>
+				<li>To use the<a id="_idIndexMarker252"/> secant method, only the function is needed, but we must provide the first two approximations for the root; the second is provided as the <strong class="source-inline">x1</strong> <span class="No-Break">keyword argument:</span><pre class="console">
+optimize.newton(f, 1., x1=1.5) # Using x1 = 1.5 and the secant method</pre><pre class="console">
+# 1.9999999999999862</pre></li>
+			</ol>
+			<p class="callout-heading">Note</p>
+			<p class="callout">Neither the Newton-Raphson nor the secant method is guaranteed to converge to a root. It is perfectly possible that the iterates of the method will simply cycle through a number of points (periodicity) or fluctuate <span class="No-Break">wildly (chaos).</span></p>
+			<h2 id="_idParaDest-97"><a id="_idTextAnchor096"/>How it works...</h2>
+			<p>The <a id="_idIndexMarker253"/>Newton-Raphson method for a function <img alt="" src="image/Formula_03_075.png"/> with derivative <img alt="" src="image/Formula_03_076.png"/> and initial approximation <img alt="" src="image/Formula_03_077.png"/> is defined iteratively using <span class="No-Break">this formula:</span></p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer380">
+					<img alt="" src="image/Formula_03_078.jpg"/>
+				</div>
+			</div>
+			<p>For each integer, <img alt="" src="image/Formula_03_079.png"/>. Geometrically, this formula arises by considering the direction in which the gradient is negative (so, the function is decreasing) if <img alt="" src="image/Formula_03_080.png"/> or positive (so, the function is increasing) <span class="No-Break">if <img alt="" src="image/Formula_03_081.png"/></span><span class="No-Break">.</span></p>
+			<p>The secant method is based on the Newton-Raphson method, but replaces the first derivative with the <span class="No-Break">following approximation:</span></p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer384">
+					<img alt="" src="image/Formula_03_082.jpg"/>
+				</div>
+			</div>
+			<p>When <img alt="" src="image/Formula_03_083.png"/> is sufficiently small, which occurs if the method is converging, then this is a good approximation. The price paid for not requiring the derivative of the function <img alt="" src="image/Formula_03_084.png"/> is that we require an additional initial guess to start the method. The formula for the method is given <span class="No-Break">as follows:</span></p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer387">
+					<img alt="" src="image/Formula_03_085.jpg"/>
+				</div>
+			</div>
+			<p>Generally speaking, if<a id="_idIndexMarker254"/> either method is given an initial guess (guesses for the secant method) that is sufficiently close to a root, then the method will converge to that root. The Newton-Raphson method can also fail if the derivative is zero at one of the iterations, in which case the formula is not <span class="No-Break">well defined.</span></p>
+			<h2 id="_idParaDest-98"><a id="_idTextAnchor097"/>There’s more...</h2>
+			<p>The methods mentioned in this recipe are general-purpose methods, but there are others that may be faster or more accurate in some circumstances. Broadly speaking, root-finding algorithms fall into two categories: algorithms that use information about the function’s gradient at each iterate (Newton-Raphson, secant, Halley) and algorithms that require bounds on the location of a root (bisection method, Regula-Falsi, Brent). The algorithms discussed so far are of the first kind, and while generally quite fast, they may fail <span class="No-Break">to converge.</span></p>
+			<p>The second kind of algorithm is those for which a root is known to exist within a specified interval <img alt="" src="image/Formula_03_086.png"/>. We can check whether a root lies within such an interval by checking that <img alt="" src="image/Formula_03_087.png"/> and <img alt="" src="image/Formula_03_088.png"/> have different signs—that is, one of <img alt="" src="image/Formula_03_089.png"/> or <img alt="" src="image/Formula_03_090.png"/> is true (provided, of course, that the function is <em class="italic">continuous</em>, which tends to be the case in practice). The most basic algorithm of this kind is the bisection algorithm, which repeatedly bisects the interval until a sufficiently good approximation to the root is found. The basic premise is to split the interval between <img alt="" src="image/Formula_03_091.png"/> and <img alt="" src="image/Formula_03_092.png"/> at the mid-point and select the interval in which the function changes sign. The algorithm repeats until the interval is very small. The following is a rudimentary implementation of this algorithm <span class="No-Break">in Python:</span></p>
+			<pre class="source-code">
+from math import copysign
+def bisect(f, a, b, tol=1e-5):
+    """Bisection method for root finding"""
+    fa, fb = f(a), f(b)
+    assert not copysign(fa, fb) == fa, "Function must change signs"
+    while (b - a) &gt; tol:
+        m = (a + b)/2 # mid point of the interval
+        fm = f(m)
+        if fm == 0:
+            return m
+        if copysign(fm, fa) == fm: # fa and fm have the same sign
+            a = m
+            fa = fm
+        else: # fb and fm have the same sign
+            b = m
+    return a</pre>
+			<p>This <a id="_idIndexMarker255"/>method is guaranteed to converge since, at each step, the distance <img alt="" src="image/Formula_03_093.png"/> is halved. However, it is possible that the method will require more iterations than Newton-Raphson or the secant method. A version of the bisection method can also be found in <strong class="source-inline">optimize</strong>. This version is implemented in C and is considerably more efficient than the version presented here, but the bisection method is not the fastest method in <span class="No-Break">most cases.</span></p>
+			<p>Brent’s method is an improvement on the bisection method and is available in the <strong class="source-inline">optimize</strong> module as <strong class="source-inline">brentq</strong>. It uses a combination of bisection and interpolation to quickly find the root of <span class="No-Break">an equation:</span></p>
+			<pre class="source-code">
+optimize.brentq(f, 1.0, 3.0)  # 1.9999999999998792</pre>
+			<p>It is important to note that the techniques that involve bracketing (bisection, regula-falsi, Brent) cannot be used to find the root functions of a complex variable, whereas those techniques that do not use bracketing (Newton, secant, <span class="No-Break">Halley) can.</span></p>
+			<p>Finally, some equations are not quite of the form <img alt="" src="image/Formula_03_094.png"/> but can still be solved using these techniques. This is done by rearranging the equation so that it is of the required form (renaming functions if necessary). This is usually not too difficult and simply requires moving any terms on the right-hand side over to the left-hand side. For example, if you wish to find the fixed points of a function—that is, when <img alt="" src="image/Formula_03_095.png"/>—then we would apply the method to the related function given <span class="No-Break">by <img alt="" src="image/Formula_03_096.png"/></span><span class="No-Break">.</span></p>
+			<h1 id="_idParaDest-99"><a id="_idTextAnchor098"/>Integrating functions numerically using SciPy</h1>
+			<p>Integration <a id="_idIndexMarker256"/>can be interpreted as the area that lies between a curve and the <img alt="" src="image/Formula_03_097.png"/> axis, signed according to whether this area is above or below the axis. Some integrals cannot be computed directly using symbolic means, and instead, have to be approximated numerically. One classic example of this is the Gaussian error function, which was mentioned in the <em class="italic">Understanding basic mathematical functions</em> section in <a href="B19085_01.xhtml#_idTextAnchor014"><span class="No-Break"><em class="italic">Chapter 1</em></span></a>, <em class="italic">An Introduction to Basic Packages, Functions, and Concepts</em>. This is defined by the <span class="No-Break">following formula:</span></p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer400">
+					<img alt="" src="image/Formula_03_098.jpg"/>
+				</div>
+			</div>
+			<p>Furthermore, the integral that appears here cannot be <span class="No-Break">evaluated symbolically.</span></p>
+			<p>In this recipe, we will see how <a id="_idIndexMarker257"/>to use numerical integration routines in the SciPy package to compute the integral of <span class="No-Break">a function.</span></p>
+			<h2 id="_idParaDest-100"><a id="_idTextAnchor099"/>Getting ready</h2>
+			<p>We use the <strong class="source-inline">scipy.integrate</strong> module, which contains several routines for computing numerical integrals. We also import the NumPy library as <strong class="source-inline">np</strong>. We import this module <span class="No-Break">as follows:</span></p>
+			<pre class="source-code">
+from scipy import integrate</pre>
+			<h2 id="_idParaDest-101"><a id="_idTextAnchor100"/>How to do it...</h2>
+			<p>The following steps describe how to numerically integrate a function <span class="No-Break">using SciPy:</span></p>
+			<ol>
+				<li value="1">We evaluate the integral that appears in the definition of the error function at the value <img alt="" src="image/Formula_03_099.png"/>. For this, we need to define the integrand (the function that appears inside the integral) <span class="No-Break">in Python:</span><pre class="console">
+def erf_integrand(t):</pre><pre class="console">
+    return np.exp(-t**2)</pre></li>
+			</ol>
+			<p>There are two main routines in <strong class="source-inline">scipy.integrate</strong> for performing numerical integration (quadrature) that can be used. The first is the <strong class="source-inline">quad</strong> function, which uses QUADPACK to perform the integration, and the second <span class="No-Break">is </span><span class="No-Break"><strong class="source-inline">quadrature</strong></span><span class="No-Break">.</span></p>
+			<ol>
+				<li value="2">The <strong class="source-inline">quad</strong> routine<a id="_idIndexMarker258"/> is a general-purpose integration tool. It <a id="_idIndexMarker259"/>expects three arguments, which are the function to be integrated (<strong class="source-inline">erf_integrand</strong>), the lower limit (<strong class="source-inline">-1.0</strong>), and the upper <span class="No-Break">limit (</span><span class="No-Break"><strong class="source-inline">1.0</strong></span><span class="No-Break">):</span><pre class="console">
+val_quad, err_quad = integrate.quad(erf_integrand, -1.0, 1.0)</pre><pre class="console">
+# (1.493648265624854, 1.6582826951881447e-14)</pre></li>
+			</ol>
+			<p>The first returned value is the value of the integral, and the second is an estimate of <span class="No-Break">the error.</span></p>
+			<ol>
+				<li value="3">Repeating the computation with the <strong class="source-inline">quadrature</strong> routine, we get the following. The arguments are the same as for the <span class="No-Break"><strong class="source-inline">quad</strong></span><span class="No-Break"> routine:</span><pre class="console">
+val_quadr, err_quadr =</pre><pre class="console">
+    integrate.quadrature(</pre><pre class="console">
+        erf_integrand, -1.0, 1.0)</pre><pre class="console">
+# (1.4936482656450039, 7.459897144457273e-10)</pre></li>
+			</ol>
+			<p>The output is the same format as the code, with the value of the integral and then an estimate of the error. Notice that the error is larger for the <strong class="source-inline">quadrature</strong> routine. This is a result of the method terminating once the estimated error falls below a given tolerance, which can be modified when the routine <span class="No-Break">is called.</span></p>
+			<h2 id="_idParaDest-102"><a id="_idTextAnchor101"/>How it works...</h2>
+			<p>Most numerical integration techniques follow the same basic procedure. First, we choose points <img alt="" src="image/Formula_03_100.png"/> for <img alt="" src="image/Formula_03_101.png"/> in the region of integration, and then use these values and the values <img alt="" src="image/Formula_03_102.png"/> to approximate the integral. For example, with the trapezium rule, we approximate the integral with the <span class="No-Break">following formula:</span></p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer405">
+					<img alt="" src="image/Formula_03_103.jpg"/>
+				</div>
+			</div>
+			<p>Here, <img alt="" src="image/Formula_03_104.png"/> and <img alt="" src="image/Formula_03_105.png"/> is the (common) difference between adjacent <img alt="" src="image/Formula_03_106.png"/> values, including the endpoints <img alt="" src="image/Formula_03_107.png"/> and <img alt="" src="image/Formula_03_108.png"/>. This can be implemented in Python <span class="No-Break">as follows:</span></p>
+			<pre class="source-code">
+def trapezium(func, a, b, n_steps):
+    """Estimate an integral using the trapezium rule"""
+    h = (b - a) / n_steps
+    x_vals = np.arange(a + h, b, h) 
+    y_vals = func(x_vals)
+    return 0.5*h*(func(a) + func(b) + 2.*np.sum(y_vals))</pre>
+			<p>The <a id="_idIndexMarker260"/>algorithms used by <strong class="source-inline">quad</strong> and <strong class="source-inline">quadrature</strong> are far<a id="_idIndexMarker261"/> more sophisticated than this. Using this function to approximate the integral of <strong class="source-inline">erf_integrand</strong> using <strong class="source-inline">trapezium</strong> with 500 steps yields a result of 1.4936463036001209, which agrees with the approximations from the <strong class="source-inline">quad</strong> and <strong class="source-inline">quadrature</strong> routines to five <span class="No-Break">decimal places.</span></p>
+			<p>The <strong class="source-inline">quadrature</strong> routine uses a fixed tolerance Gaussian quadrature, whereas the <strong class="source-inline">quad</strong> routine uses an adaptive algorithm implemented in the Fortran library QUADPACK routines. Timing both routines, we find that the <strong class="source-inline">quad</strong> routine is approximately five times faster than the <strong class="source-inline">quadrature</strong> routine for the problem described in the recipe. The <strong class="source-inline">quad</strong> routine executes in approximately 27 µs, averaging over 1 million executions, while the <strong class="source-inline">quadrature</strong> routine executes in approximately 134 µs. (Your results may differ depending on your system.) Generally speaking, you should use the quad method since it is both faster and more accurate unless you need the Gaussian quadrature implemented <span class="No-Break">by </span><span class="No-Break"><strong class="source-inline">quadrature</strong></span><span class="No-Break">.</span></p>
+			<h2 id="_idParaDest-103"><a id="_idTextAnchor102"/>There’s more...</h2>
+			<p>The routines mentioned in this section require the integrand function to be known, which is not always the case. Instead, it might be the case that we know a number of pairs <img alt="" src="image/Formula_03_109.png"/> with <img alt="" src="image/Formula_03_110.png"/>, but we don’t know the function <img alt="" src="image/Formula_03_111.png"/> to evaluate at additional points. In this case, we can use one of the sampling quadrature techniques from <strong class="source-inline">scipy.integrate</strong>. If the number of known points is very large and all points are equally spaced, we can use Romberg integration for a good approximation of the integral. For this, we use the <strong class="source-inline">romb</strong> routine. Otherwise, we can use a variant of the trapezium rule (as shown previously) using the <strong class="source-inline">trapz</strong> routine, or Simpson’s rule using the <span class="No-Break"><strong class="source-inline">simps</strong></span><span class="No-Break"> routine.</span></p>
+			<h1 id="_idParaDest-104"><a id="_idTextAnchor103"/>Solving simple differential equations numerically</h1>
+			<p>Differential equations arise in<a id="_idIndexMarker262"/> situations where a quantity evolves, usually over<a id="_idIndexMarker263"/> time, according to a given relationship. They are extremely common in engineering and physics, and appear quite naturally. One of the classic examples of a (very simple) differential equation is the law of cooling devised by Newton. The temperature of a body cools at a rate proportional to the current temperature. Mathematically, this means that we can write the derivative of the temperature <img alt="" src="image/Formula_03_112.png"/> of the body at time <img alt="" src="image/Formula_03_113.png"/> using the following <span class="No-Break">differential equation:</span></p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer416">
+					<img alt="" src="image/Formula_03_114.jpg"/>
+				</div>
+			</div>
+			<p>Here, <img alt="" src="image/Formula_03_115.png"/> is a positive constant that determines the rate of cooling. This differential equation can be solved <em class="italic">analytically</em> by first <em class="italic">separating the variables</em> and then integrating and rearranging them. After performing this procedure, we obtain the <span class="No-Break">general solution:</span></p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer418">
+					<img alt="" src="image/Formula_03_116.jpg"/>
+				</div>
+			</div>
+			<p>Here, <img alt="" src="image/Formula_03_117.png"/> is the <span class="No-Break">initial temperature.</span></p>
+			<p>In this recipe, we will solve a simple ODE numerically using the <strong class="source-inline">solve_ivp</strong> routine <span class="No-Break">from SciPy.</span></p>
+			<h2 id="_idParaDest-105"><a id="_idTextAnchor104"/>Getting ready</h2>
+			<p>We will demonstrate the technique for solving a differential equation numerically in Python using the cooling equation described previously since we can compute the true solution in this case. We take the initial temperature to be <img alt="" src="image/Formula_03_118.png"/> and <img alt="" src="image/Formula_03_119.png"/>. Let’s also find the solution for <img alt="" src="image/Formula_03_120.png"/> values between <img alt="" src="image/Formula_03_121.png"/> <span class="No-Break">and <img alt="" src="image/Formula_03_122.png"/>.</span></p>
+			<p>For this recipe, we will need the NumPy library imported as <strong class="source-inline">np</strong>, the Matplotlib <strong class="source-inline">pyplot</strong> interface imported as <strong class="source-inline">plt</strong>, and the <strong class="source-inline">integrate</strong> module imported <span class="No-Break">from SciPy:</span></p>
+			<pre class="source-code">
+from scipy import integrate</pre>
+			<p>A general (first-order) differential equation has the <span class="No-Break">following form:</span></p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer425">
+					<img alt="" src="image/Formula_03_123.jpg"/>
+				</div>
+			</div>
+			<p>Here, <img alt="" src="image/Formula_03_124.png"/> is some function of <img alt="" src="image/Formula_03_125.png"/> (the independent variable) and <img alt="" src="image/Formula_03_126.png"/> (the dependent variable). In this formula, <img alt="" src="image/Formula_03_127.png"/> is the dependent variable and <img alt="" src="image/Formula_03_128.png"/>. The routines for solving differential equations in the SciPy package require the function <img alt="" src="image/Formula_03_129.png"/> and an initial value <img alt="" src="image/Formula_03_130.png"/>and the range of <img alt="" src="image/Formula_03_131.png"/> values where we need to compute the solution. To get started, we need to define our function <img alt="" src="image/Formula_03_132.png"/> in Python and create a variables <img alt="" src="image/Formula_03_133.png"/><span class="subscript"> </span>and <img alt="" src="image/Formula_03_134.png"/> range ready to be supplied to the <span class="No-Break">SciPy routine:</span></p>
+			<pre class="source-code">
+def f(t, y):
+    return -0.2*y
+t_range = (0, 5)</pre>
+			<p>Next, we need to define the initial condition from which the solution should be found. For technical reasons, the initial <img alt="" src="image/Formula_03_136.png"/> values must be specified as a one-dimensional <span class="No-Break">NumPy array:</span></p>
+			<pre class="source-code">
+T0 = np.array([50.])</pre>
+			<p>Since, in<a id="_idIndexMarker264"/> this case, we already know the true solution, we can also define this in Python ready to compare to the numerical solution that we <span class="No-Break">will compute:</span></p>
+			<pre class="source-code">
+def true_solution(t):
+    return 50.*np.exp(-0.2*t)</pre>
+			<p>Let’s see how to solve this initial value problem <span class="No-Break">using SciPy.</span></p>
+			<h2 id="_idParaDest-106"><a id="_idTextAnchor105"/>How to do it...</h2>
+			<p>Follow these steps to solve a differential equation numerically and plot the solution along with <span class="No-Break">the error:</span></p>
+			<ol>
+				<li value="1">We use the <strong class="source-inline">solve_ivp</strong> routine from the <strong class="source-inline">integrate</strong> module in SciPy to solve the differential equation numerically. We add a parameter for the maximum step size, with a value of <strong class="source-inline">0.1</strong>, so that the solution is computed at a reasonable number <span class="No-Break">of points:</span><pre class="console">
+sol = integrate.solve_ivp(f, t_range, T0, max_step=0.1)</pre></li>
+				<li>Next, we extract the solution values from the <strong class="source-inline">sol</strong> object returned from the <span class="No-Break"><strong class="source-inline">solve_ivp</strong></span><span class="No-Break"> method:</span><pre class="console">
+t_vals = sol.t</pre><pre class="console">
+T_vals = sol.y[0, :]</pre></li>
+				<li>Next, we plot the solution on a set of axes, as follows. Since we are also going to plot the approximation error on the same figure, we create two subplots using the <span class="No-Break"><strong class="source-inline">subplots</strong></span><span class="No-Break"> routine:</span><pre class="console">
+fig, (ax1, ax2) = plt.subplots(1, 2, tight_layout=True)</pre><pre class="console">
+ax1.plot(t_vals, T_valsm "k")</pre><pre class="console">
+ax1.set_xlabel("$t$")</pre><pre class="console">
+ax1.set_ylabel("$T$")</pre><pre class="console">
+ax1.set_title("Solution of the cooling equation")</pre></li>
+			</ol>
+			<p>This plots the solution on a set of axes displayed on the left-hand side of <span class="No-Break"><em class="italic">Figure 3</em></span><span class="No-Break"><em class="italic">.1</em></span><span class="No-Break">.</span></p>
+			<ol>
+				<li value="4">To do this, we need to compute the true solution at the points that we obtained from the <strong class="source-inline">solve_ivp</strong> routine, and then calculate the absolute value of the difference between the true and <span class="No-Break">approximated solutions:</span><pre class="console">
+err = np.abs(T_vals - true_solution(t_vals))</pre></li>
+				<li>Finally, on <a id="_idIndexMarker265"/>the right-hand side of <span class="No-Break"><em class="italic">Figure 3</em></span><em class="italic">.1</em>, we plot the error in the approximation with a logarithmic scale on the <img alt="" src="image/Formula_03_137.png"/> axis. We can then plot this on the right-hand side with a logarithmic scale <img alt="" src="image/Formula_03_1371.png"/> axis using the <strong class="source-inline">semilogy</strong> plot command, as we saw in <a href="B19085_02.xhtml#_idTextAnchor036"><span class="No-Break"><em class="italic">Chapter 2</em></span></a>, <em class="italic">Mathematical Plotting </em><span class="No-Break"><em class="italic">with Matplotlib</em></span><span class="No-Break">:</span><pre class="console">
+ax2.semilogy(t_vals, err, "k")</pre><pre class="console">
+ax2.set_xlabel("$t$")</pre><pre class="console">
+ax2.set_ylabel("Error")</pre><pre class="console">
+ax2.set_title("Error in approximation")</pre></li>
+			</ol>
+			<p>The left-hand plot in <span class="No-Break"><em class="italic">Figure 3</em></span><em class="italic">.1</em> shows decreasing temperature over time, while the right-hand plot shows that the error increases as we move away from the known value given by the <span class="No-Break">initial condition:</span></p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer440">
+					<img alt="Figure 3.1 – Plot of the numerical solution to the cooling equation&#13;&#10;" src="image/3.1.jpg"/>
+				</div>
+			</div>
+			<p class="IMG---Caption" lang="en-US" xml:lang="en-US">Figure 3.1 – Plot of the numerical solution to the cooling equation</p>
+			<p>Notice that <a id="_idIndexMarker266"/>the right-hand side plot is on a logarithmic scale and, while the rate of increase looks fairly dramatic, the values involved are very small (of <span class="No-Break">order <img alt="" src="image/Formula_03_138.png"/>).</span></p>
+			<h2 id="_idParaDest-107"><a id="_idTextAnchor106"/>How it works...</h2>
+			<p>Most methods for solving differential equations are <em class="italic">time-stepping</em> methods. The pairs <img alt="" src="image/Formula_03_139.png"/> are generated by taking small <img alt="" src="image/Formula_03_140.png"/> steps and approximating the value of the function <img alt="" src="image/Formula_03_141.png"/>. This is perhaps best illustrated by Euler’s method, which is the most basic time-stepping method. Fixing a small step size <img alt="" src="image/Formula_03_142.png"/>, we form the approximation at the <img alt="" src="image/Formula_03_143.png"/>th step using the <span class="No-Break">following formula:</span></p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer447">
+					<img alt="" src="image/Formula_03_144.jpg"/>
+				</div>
+			</div>
+			<p>We start from the known initial value <img alt="" src="image/Formula_03_145.png"/>. We can easily write a Python routine that performs Euler’s method as follows (there are, of course, many different ways to implement Euler’s method; this is a very <span class="No-Break">simple example).</span></p>
+			<p>First, we set up the method by creating lists that will store the <img alt="" src="image/Formula_03_146.png"/> values and <img alt="" src="image/Formula_03_150.png"/> values that we <span class="No-Break">will return:</span></p>
+			<pre class="source-code">
+def euler(func, t_range, y0, step_size):
+    """Solve a differential equation using Euler's method"""
+    t = [t_range[0]]
+    y = [y0]
+    i = 0</pre>
+			<p>Euler’s <a id="_idIndexMarker267"/>method continues until we hit the end of the <img alt="" src="image/Formula_03_146.png"/> range. Here, we use a <strong class="source-inline">while</strong> loop to accomplish this. The body of the loop is very simple; we first increment a counter <strong class="source-inline">i</strong>, and then append the new <img alt="" src="image/Formula_03_146.png"/> and <img alt="" src="image/Formula_03_150.png"/> values to their <span class="No-Break">respective lists:</span></p>
+			<pre class="source-code">
+    while t[i] &lt; t_range[1]:
+        i += 1
+        t.append(t[i-1] + step_size)  # step t
+        y.append(y[i-1] + step_size*func(
+           t[i-1], y[i-1]))   # step y
+    return t, y</pre>
+			<p>The method used by the <strong class="source-inline">solve_ivp</strong> routine, by default, is the <strong class="bold">Runge-Kutta-Fehlberg</strong> (<strong class="bold">RKF45</strong>) method, which <a id="_idIndexMarker268"/>has the ability to adapt the step size to ensure that the error in the approximation stays within a given tolerance. This routine expects three positional arguments: the function <img alt="" src="image/Formula_03_151.png"/>, the <img alt="" src="image/Formula_03_152.png"/> range on which the solution should be found, and the initial <img alt="" src="image/Formula_03_153.png"/> value (<img alt="" src="image/Formula_03_154.png"/> in our example). Optional arguments can be provided to change the solver, the number of points to compute, and several <span class="No-Break">other settings.</span></p>
+			<p>The function passed to the <strong class="source-inline">solve_ivp</strong> routine must have two arguments, as in the general differential equation described in the <em class="italic">Getting ready</em> section. The function can have additional arguments, which can be provided using the <strong class="source-inline">args</strong> keyword for the <strong class="source-inline">solve_ivp</strong> routine, but these must be positioned after the two necessary arguments. Comparing the <strong class="source-inline">euler</strong> routine we defined earlier to the <strong class="source-inline">solve_ivp</strong> routine, both with a (maximum) step size of 0.1, we find that the maximum true error between the <strong class="source-inline">solve_ivp</strong> solution is in the order of 10<span class="superscript">-11</span>, whereas the <strong class="source-inline">euler</strong> solution only manages an error of 0.19. The <strong class="source-inline">euler</strong> routine is working, but the step size is much too large to overcome the accumulating error. For comparison, <span class="No-Break"><em class="italic">Figure 3</em></span><em class="italic">.2</em> is a plot of the solution and error as produced by Euler’s method. Compare <span class="No-Break"><em class="italic">Figure 3</em></span><em class="italic">.2</em> to <span class="No-Break"><em class="italic">Figure 3</em></span><em class="italic">.1</em>. Note the scale on the error plot is <span class="No-Break">dramatically different:</span></p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer458">
+					<img alt="Figure 3.2 – Plot of solution and error using Euler’s method with step size 0.1&#13;&#10;" src="image/3.2.jpg"/>
+				</div>
+			</div>
+			<p class="IMG---Caption" lang="en-US" xml:lang="en-US">Figure 3.2 – Plot of solution and error using Euler’s method with step size 0.1</p>
+			<p>The <strong class="source-inline">solve_ivp</strong> routine <a id="_idIndexMarker269"/>returns a solution object that stores information about the solution that has been computed. Most important here are the <strong class="source-inline">t</strong> and <strong class="source-inline">y</strong> attributes, which contain the <img alt="" src="image/Formula_03_155.png"/> values on which the solution <img alt="" src="image/Formula_03_156.png"/> is computed and the solution <img alt="" src="image/Formula_03_157.png"/> itself. We used these values to plot the solution we computed. The <img alt="" src="image/Formula_03_157.png"/> values are stored in a NumPy array of shape <strong class="source-inline">(n, N)</strong>, where <strong class="source-inline">n</strong> is the number of components of the equation (here, 1), and <strong class="source-inline">N</strong> is the number of points computed. The <img alt="" src="image/Formula_03_157.png"/> values held in <strong class="source-inline">sol</strong> are stored in a two-dimensional array, which in this case has one row and many columns. We use the slice <strong class="source-inline">y[0, :]</strong> to extract this first row as a one-dimensional array that can be used to plot the solution in <span class="No-Break">step 4.</span></p>
+			<p>We use a logarithmically scaled <img alt="" src="image/Formula_03_157.png"/> axis to plot the error because what is interesting there is the order of magnitude. Plotting it on a non-scaled <img alt="" src="image/Formula_03_157.png"/> axis would give a line that is very close to the <img alt="" src="image/Formula_03_162.png"/> axis, which doesn’t show the increase in the error as we move through the <img alt="" src="image/Formula_03_163.png"/> values. The logarithmically scaled <img alt="" src="image/Formula_03_157.png"/> axis shows this <span class="No-Break">increase clearly.</span></p>
+			<h2 id="_idParaDest-108"><a id="_idTextAnchor107"/>There’s more...</h2>
+			<p>The <strong class="source-inline">solve_ivp</strong> routine<a id="_idIndexMarker270"/> is a convenient interface for a number of solvers for differential equations, the default being the RKF45 method. The different solvers have different strengths, but the RKF45 method is a good <span class="No-Break">general-purpose solver.</span></p>
+			<h2 id="_idParaDest-109"><a id="_idTextAnchor108"/>See also</h2>
+			<p>For more detailed instructions on how to add subplots to a figure in Matplotlib, see the <em class="italic">Adding subplots</em> recipe from <a href="B19085_02.xhtml#_idTextAnchor036"><span class="No-Break"><em class="italic">Chapter 2</em></span></a>, <em class="italic">Mathematical Plotting </em><span class="No-Break"><em class="italic">with Matplotlib</em></span><span class="No-Break">.</span></p>
+			<h1 id="_idParaDest-110"><a id="_idTextAnchor109"/>Solving systems of differential equations</h1>
+			<p>Differential equations<a id="_idIndexMarker271"/> sometimes occur in systems consisting <a id="_idIndexMarker272"/>of two or more interlinked differential equations. A classic example is a simple model of the populations of competing species. This is a simple model of competing species labeled <img alt="" src="image/Formula_03_165.png"/> (the prey) and <img alt="" src="image/Formula_03_166.png"/> (the predators) given by the <span class="No-Break">following equations:</span></p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer471">
+					<img alt="" src="image/Formula_03_167.jpg"/>
+				</div>
+			</div>
+			<p>The first equation dictates the growth of the prey species <img alt="" src="image/Formula_03_169.png"/>, which, without any predators, would be exponential growth. The second equation dictates the growth of the predator species <img alt="" src="image/Formula_03_170.png"/>, which, without any prey, would be exponential decay. Of course, these two equations are <em class="italic">coupled</em>; each population change depends on both populations. The predators consume the prey at a rate proportional to the product of their two populations, and the predators grow at a rate proportional to the relative abundance of prey (again the product of the <span class="No-Break">two populations).</span></p>
+			<p>In this recipe, we will analyze a simple system of differential equations and use the SciPy <strong class="source-inline">integrate</strong> module to obtain <span class="No-Break">approximate solutions.</span></p>
+			<h2 id="_idParaDest-111"><a id="_idTextAnchor110"/>Getting ready</h2>
+			<p>The tools for solving a system of differential equations using Python are the same as those for solving a single equation. We again use the <strong class="source-inline">solve_ivp</strong> routine from the <strong class="source-inline">integrate</strong> module in SciPy. However, this will only give us a predicted evolution over time with given starting populations. For this reason, we will also employ some plotting tools from Matplotlib to better understand the evolution. As usual, the NumPy library is imported as <strong class="source-inline">np</strong> and the Matplotlib <strong class="source-inline">pyplot</strong> interface is imported <span class="No-Break">as </span><span class="No-Break"><strong class="source-inline">plt</strong></span><span class="No-Break">.</span></p>
+			<h2 id="_idParaDest-112"><a id="_idTextAnchor111"/>How to do it...</h2>
+			<p>The following<a id="_idIndexMarker273"/> steps walk us through how to analyze a simple<a id="_idIndexMarker274"/> system of <span class="No-Break">differential equations:</span></p>
+			<ol>
+				<li value="1">Our first task is to define a function that holds the system of equations. This function needs to take two arguments as for a single equation, except the dependent variable <img alt="" src="image/Formula_03_171.png"/> (in the notation from the <em class="italic">Solving simple differential equations numerically</em> recipe) will now be an array with as many elements as there are equations. Here, there will be two elements. The function we need for the example system in this recipe is defined <span class="No-Break">as follows:</span><pre class="console">
+def predator_prey_system(t, y):</pre><pre class="console">
+    return np.array([5*y[0] - 0.1*y[0]*y[1],</pre><pre class="console">
+        0.1*y[1]*y[0] - 6*y[1]])</pre></li>
+				<li>Now we have defined the system in Python, we can use the <strong class="source-inline">quiver</strong> routine from Matplotlib to produce a plot that will describe how the populations will evolve—given by the equations—at numerous starting populations. We first set up a grid of points on which we will plot this evolution. It is a good idea to choose a relatively small number of points for the <strong class="source-inline">quiver</strong> routine; otherwise, it becomes difficult to see details in the plot. For this example, we plot the population values between 0 <span class="No-Break">and 100:</span><pre class="console">
+p = np.linspace(0, 100, 25)</pre><pre class="console">
+w = np.linspace(0, 100, 25)</pre><pre class="console">
+P, W = np.meshgrid(p, w)</pre></li>
+				<li>Now, we compute the values of the system at each of these pairs. Notice that neither equation in the system is time-dependent (they are autonomous); the time variable <img alt="" src="image/Formula_03_172.png"/> is unimportant in the calculation. We supply the value <strong class="source-inline">0</strong> for the <img alt="" src="image/Formula_03_172.png"/> <span class="No-Break">argument:</span><pre class="console">
+dp, dw = predator_prey_system(0, np.array([P, W]))</pre></li>
+				<li>The <strong class="source-inline">dp</strong> and <strong class="source-inline">dw</strong> variables now hold the <em class="italic">direction</em> in which the population of <img alt="" src="image/Formula_03_174.png"/> and <img alt="" src="image/Formula_03_175.png"/> will evolve, respectively, if we started at each point in our grid. We can plot these directions together <a id="_idIndexMarker275"/>using the <strong class="source-inline">quiver</strong> routine <span class="No-Break">from </span><span class="No-Break"><strong class="source-inline">matplotlib.pyplot</strong></span><span class="No-Break">:</span><pre class="console">
+fig, ax = plt.subplots()</pre><pre class="console">
+ax.quiver(P, W, dp, dw)</pre><pre class="console">
+ax.set_title("Population dynamics for two competing species")</pre><pre class="console">
+ax.set_xlabel("P")</pre><pre class="console">
+ax.set_ylabel("W")</pre></li>
+			</ol>
+			<p>Plotting <a id="_idIndexMarker276"/>the result of these commands now gives us <span class="No-Break"><em class="italic">Figure 3</em></span><em class="italic">.3</em>, which gives a <em class="italic">global</em> picture of how <span class="No-Break">solutions evolve:</span></p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer479">
+					<img alt="Figure 3.3 – A quiver plot showing the population dynamics of two competing species&#13;&#10;" src="image/3.3.jpg"/>
+				</div>
+			</div>
+			<p class="IMG---Caption" lang="en-US" xml:lang="en-US">Figure 3.3 – A quiver plot showing the population dynamics of two competing species</p>
+			<p>To understand a solution more specifically, we need some initial conditions so that we can use the <strong class="source-inline">solve_ivp</strong> routine described in the <span class="No-Break">previous recipe.</span></p>
+			<ol>
+				<li value="5">Since we have two equations, our initial conditions will have two values. (Recall in the <em class="italic">Solving simple differential equations numerically</em> recipe, we saw that the initial condition provided to <strong class="source-inline">solve_ivp</strong> needs to be a NumPy array.) Let’s consider the initial values <img alt="" src="image/Formula_03_176.png"/> and <img alt="" src="image/Formula_03_177.png"/>. We define these in a NumPy array, being careful to place them in the <span class="No-Break">correct order:</span><pre class="console">
+initial_conditions = np.array([85, 40])</pre></li>
+				<li>Now, we<a id="_idIndexMarker277"/> can use <strong class="source-inline">solve_ivp</strong> from the <strong class="source-inline">scipy.integrate</strong> module. We need to provide the <strong class="source-inline">max_step</strong> keyword argument to<a id="_idIndexMarker278"/> make sure that we have enough points in the solution to give a smooth <span class="No-Break">solution curve:</span><pre class="console">
+from scipy import integrate</pre><pre class="console">
+t_range = (0.0, 5.0)</pre><pre class="console">
+sol = integrate.solve_ivp(predator_prey_system,</pre><pre class="console">
+                          t_range,</pre><pre class="console">
+                          initial_conditions,</pre><pre class="console">
+                          max_step=0.01)</pre></li>
+				<li>Let’s plot this solution on our existing figure to show how this specific solution relates to the direction plot we have already produced. We also plot the initial condition at the <span class="No-Break">same time:</span><pre class="console">
+ax.plot(initial_conditions[0],</pre><pre class="console">
+    initial_conditions[1], "ko")</pre><pre class="console">
+ax.plot(sol.y[0, :], sol.y[1, :], "k", linewidth=0.5)</pre></li>
+			</ol>
+			<p>The result of this is shown in <span class="No-Break"><em class="italic">Figure 3</em></span><span class="No-Break"><em class="italic">.4</em></span><span class="No-Break">:</span></p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer482">
+					<img alt="Figure 3.4 – Solution trajectory plotted over a quiver plot showing the general behavior&#13;&#10;" src="image/3.4.jpg"/>
+				</div>
+			</div>
+			<p class="IMG---Caption" lang="en-US" xml:lang="en-US">Figure 3.4 – Solution trajectory plotted over a quiver plot showing the general behavior</p>
+			<p>We can see that <a id="_idIndexMarker279"/>the trajectory plotted is a closed loop. This means that the populations have a stable and periodic relationship. This is a common pattern <a id="_idIndexMarker280"/>when solving <span class="No-Break">these equations.</span></p>
+			<h2 id="_idParaDest-113"><a id="_idTextAnchor112"/>How it works...</h2>
+			<p>The method used for a system of ODEs is exactly the same as for a single ODE. We start by writing the system of equations as a single vector <span class="No-Break">differential equation:</span></p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer483">
+					<img alt="" src="image/Formula_03_178.jpg"/>
+				</div>
+			</div>
+			<p>This can then be solved using a time-stepping method as though <img alt="" src="image/Formula_03_179.png"/> were a simple <span class="No-Break">scalar value.</span></p>
+			<p>The technique of plotting the directional arrows on a plane using the <strong class="source-inline">quiver</strong> routine is a quick and easy way of learning how a system might evolve from a given state. The derivative of a function represents the gradient of the curve <img alt="" src="image/Formula_03_180.png"/>, and so a differential equation describes the gradient of the solution function at position <img alt="" src="image/Formula_03_179.png"/> and time <img alt="" src="image/Formula_03_182.png"/>. A system of equations describes the gradient of separate solution functions at a given position <img alt="" src="image/Formula_03_179.png"/> and time  <img alt="" src="image/Formula_03_182.png"/>. Of course, the position is now a two-dimensional point, so when we plot the gradient at a point, we represent this as an arrow that starts at the point, in the direction of the gradient. The length of the arrow represents the size of the gradient; the longer the arrow, the <em class="italic">faster</em> the solution curve will move in <span class="No-Break">that direction.</span></p>
+			<p>When we plot the solution trajectory on top of this direction field, we can see that the curve (starting at the point) follows the direction indicated by the arrows. The behavior shown by the solution trajectory is a <em class="italic">limit cycle</em>, where the solution for each variable is periodic as the two species’ populations grow or decline. This description of the behavior is perhaps clearer if we plot each population<a id="_idIndexMarker281"/> against time, as seen in <span class="No-Break"><em class="italic">Figure 3</em></span><em class="italic">.5</em>. What<a id="_idIndexMarker282"/> is not immediately obvious from <span class="No-Break"><em class="italic">Figure 3</em></span><em class="italic">.4</em> is that the solution trajectory loops around several times, but this is clearly shown in <span class="No-Break"><em class="italic">Figure 3</em></span><span class="No-Break"><em class="italic">.5</em></span><span class="No-Break">:</span></p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer490">
+					<img alt="Figure 3.5 – Plots of populations P and W against time&#13;&#10;" src="image/3.5.jpg"/>
+				</div>
+			</div>
+			<p class="IMG---Caption" lang="en-US" xml:lang="en-US">Figure 3.5 – Plots of populations P and W against time</p>
+			<p>The periodic relationship described previously is clear in <span class="No-Break"><em class="italic">Figure 3</em></span><em class="italic">.5</em>. Moreover, we can see the lag between the peak populations of the two species. Species <img alt="" src="image/Formula_03_185.png"/> experiences peak population approximately 0.3 time periods after <span class="No-Break">species <img alt="" src="image/Formula_03_186.png"/>.</span></p>
+			<h2 id="_idParaDest-114"><a id="_idTextAnchor113"/>There’s more...</h2>
+			<p>The technique of analyzing a system of ODEs by plotting variables against one another, starting at various initial conditions, is called <em class="italic">phase space (plane) analysis</em>. In this recipe, we used the <strong class="source-inline">quiver</strong> plotting routine to quickly generate an approximation of the phase plane for a system of differential equations. By analyzing the phase plane of a system of differential equations, we can identify different local and global characteristics of the solution, such as <span class="No-Break">limit cycles.</span></p>
+			<h1 id="_idParaDest-115"><a id="_idTextAnchor114"/>Solving partial differential equations numerically</h1>
+			<p>Partial differential equations <a id="_idIndexMarker283"/>are differential equations that involve <em class="italic">partial derivatives</em> of functions in <a id="_idIndexMarker284"/>two or more variables, as opposed to <em class="italic">ordinary derivatives</em> in only a single variable. Partial differential equations are a vast topic, and could easily fill a series of books. A typical example of a partial differential equation is the (one-dimensional) <span class="No-Break"><em class="italic">heat equation</em></span><span class="No-Break">:</span></p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer493">
+					<img alt="" src="image/Formula_03_187.jpg"/>
+				</div>
+			</div>
+			<p>Here, <img alt="" src="image/Formula_03_188.png"/> is a <a id="_idIndexMarker285"/>positive constant and <img alt="" src="image/Formula_03_189.png"/> is a function. The solution to this partial differential equation is a function <img alt="" src="image/Formula_03_190.png"/>, which represents the temperature of a rod, occupying the <img alt="" src="image/Formula_03_191.png"/> range <img alt="" src="image/Formula_03_192.png"/>, at a given time <img alt="" src="image/Formula_03_193.png"/>. To keep things simple, we will take <img alt="" src="image/Formula_03_194.png"/>, which amounts to saying that no heating/cooling is applied to the system, <img alt="" src="image/Formula_03_195.png"/>, and <img alt="" src="image/Formula_03_196.png"/>. In practice, we can rescale the problem to fix the constant <img alt="" src="image/Formula_03_197.png"/>, so this is not a restrictive problem. In this example, we will use <span class="No-Break">boundary conditions:</span></p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer504">
+					<img alt="" src="image/Formula_03_198.jpg"/>
+				</div>
+			</div>
+			<p>These are equivalent to saying that the ends of the rod are held at the constant temperature 0. We will also use the initial <span class="No-Break">temperature profile:</span></p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer505">
+					<img alt="" src="image/Formula_03_199.jpg"/>
+				</div>
+			</div>
+			<p>This initial temperature profile describes a smooth curve between the values of 0 and 2 that peaks at a value of 3, which might be the result of heating the rod at the center to a temperature <span class="No-Break">of 3.</span></p>
+			<p>We’re going to use a method called <em class="italic">finite differences</em>, where we divide the rod into a number of equal segments and the time range into a number of discrete steps. We then compute approximations for the solution at each of the segments and each <span class="No-Break">time step.</span></p>
+			<p>In this recipe, we will use finite differences to solve a simple partial <span class="No-Break">differential equation.</span></p>
+			<h2 id="_idParaDest-116"><a id="_idTextAnchor115"/>Getting ready</h2>
+			<p>For this recipe, we will need the NumPy and Matplotlib packages, imported as <strong class="source-inline">np</strong> and <strong class="source-inline">plt</strong>, as usual. We also need to import the <strong class="source-inline">mplot3d</strong> module from <strong class="source-inline">mpl_toolkits</strong> since we will be producing a <span class="No-Break">3D plot:</span></p>
+			<pre class="source-code">
+from mpl_toolkits import mplot3d</pre>
+			<p>We will also need some modules from the <span class="No-Break">SciPy package.</span></p>
+			<h2 id="_idParaDest-117"><a id="_idTextAnchor116"/>How to do it...</h2>
+			<p>In the <a id="_idIndexMarker286"/>following steps, we work<a id="_idIndexMarker287"/> through solving the heat equation using <span class="No-Break">finite differences:</span></p>
+			<ol>
+				<li value="1">Let’s first create variables that represent the physical constraints of the system—the extent of the bar and the value <span class="No-Break">of <img alt="" src="image/Formula_03_200.png"/>:</span><pre class="console">
+alpha = 1</pre><pre class="console">
+x0 = 0 # Left hand x limit</pre><pre class="console">
+xL = 2 # Right hand x limit</pre></li>
+				<li>We first divide the <img alt="" src="image/Formula_03_201.png"/> range into <img alt="" src="image/Formula_03_202.png"/> equal intervals—we take <img alt="" src="image/Formula_03_203.png"/> for this example—using <img alt="" src="image/Formula_03_204.png"/> points. We can use the <strong class="source-inline">linspace</strong> routine from NumPy to generate these points. We also need the common length of each <span class="No-Break">interval <img alt="" src="image/Formula_03_205.png"/>:</span><pre class="console">
+N = 10</pre><pre class="console">
+x = np.linspace(x0, xL, N+1)</pre><pre class="console">
+h = (xL - x0) / N</pre></li>
+				<li>Next, we need to set up the steps in the time direction. We take a slightly different approach here; we set the time step size <img alt="" src="image/Formula_03_206.png"/> and the number of steps (implicitly making the assumption that we start at <span class="No-Break">time 0):</span><pre class="console">
+k = 0.01</pre><pre class="console">
+steps = 100</pre><pre class="console">
+t = np.array([i*k for i in range(steps+1)])</pre></li>
+				<li>In order for the method to behave properly, we must have the <span class="No-Break">following formula:</span><div class="IMG---Figure" id="_idContainer513"><img alt="" src="image/Formula_03_207.jpg"/></div></li>
+			</ol>
+			<p>Otherwise, the system can become unstable. We store the left-hand side of this in a variable for use in step 5, and use an assertion to check that this <span class="No-Break">inequality holds:</span></p>
+			<pre class="console">
+r = alpha*k / h**2
+assert r &lt; 0.5, f"Must have r &lt; 0.5, currently r={r}"</pre>
+			<ol>
+				<li value="5">Now, we can construct a matrix that holds the coefficients from the finite difference scheme. To do this, we use the <strong class="source-inline">diags</strong> routine from the <strong class="source-inline">scipy.sparse</strong> module to create a sparse, <span class="No-Break">tridiagonal matrix:</span><pre class="console">
+from scipy import sparse</pre><pre class="console">
+diag = [1, *(1-2*r for _ in range(N-1)), 1]</pre><pre class="console">
+abv_diag = [0, *(r for _ in range(N-1))]</pre><pre class="console">
+blw_diag = [*(r for _ in range(N-1)), 0]</pre><pre class="console">
+A = sparse.diags([blw_diag, diag, abv_diag], (-1, 0, 1),</pre><pre class="console">
+                 shape=(N+1, N+1), dtype=np.float64,</pre><pre class="console">
+                 format="csr")</pre></li>
+				<li>Next, we <a id="_idIndexMarker288"/>create a blank matrix that will hold <span class="No-Break">the solution:</span><pre class="console">
+u = np.zeros((steps+1, N+1), dtype=np.float64)</pre></li>
+				<li>We <a id="_idIndexMarker289"/>need to add the initial profile to the first row. The best way to do this is to create a function that holds the initial profile and store the result of evaluating this function on the <strong class="source-inline">x</strong> array in the matrix <strong class="source-inline">u</strong> that we <span class="No-Break">just created:</span><pre class="console">
+def initial_profile(x):</pre><pre class="console">
+    return 3*np.sin(np.pi*x/2)</pre><pre class="console">
+u[0, :] = initial_profile(x)</pre></li>
+				<li>Now, we can simply loop through each step, computing the next row of the matrix <strong class="source-inline">u</strong> by multiplying <strong class="source-inline">A</strong> and the <span class="No-Break">previous row:</span><pre class="console">
+for i in range(steps):</pre><pre class="console">
+    u[i+1, :] = A @ u[i, :]</pre></li>
+			</ol>
+			<p>Finally, to visualize the solution we have just computed, we can plot the solution as a surface <span class="No-Break">using Matplotlib:</span></p>
+			<pre class="console">
+X, T = np.meshgrid(x, t)
+fig = plt.figure()
+ax = fig.add_subplot(projection="3d")
+ax.plot_surface(T, X, u, cmap="gray")
+ax.set_title("Solution of the heat equation")
+ax.set_xlabel("t")
+ax.set_ylabel("x")
+ax.set_zlabel("u")</pre>
+			<p>The result <a id="_idIndexMarker290"/>of this is the <a id="_idIndexMarker291"/>surface plot shown in <span class="No-Break"><em class="italic">Figure 3</em></span><span class="No-Break"><em class="italic">.6</em></span><span class="No-Break">:</span></p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer514">
+					<img alt="Figure 3.6  -Numerical solution of the heat equation over the range &#13;&#10;" src="image/3.6.jpg"/>
+				</div>
+			</div>
+			<p class="IMG---Caption" lang="en-US" xml:lang="en-US">Figure 3.6  -Numerical solution of the heat equation over the range <img alt="" src="image/Formula_03_208.png"/></p>
+			<p>Along the <img alt="" src="image/Formula_03_209.png"/> axis, we can see that the overall shape is similar to the shape of the initial profile but becomes flatter as time progresses. Along the <img alt="" src="image/Formula_03_210.png"/> axis, the surface exhibits the exponential decay that is characteristic of <span class="No-Break">cooling systems.</span></p>
+			<h2 id="_idParaDest-118"><a id="_idTextAnchor117"/>How it works...</h2>
+			<p>The<a id="_idIndexMarker292"/> finite difference method <a id="_idIndexMarker293"/>works by replacing each of the derivatives with a simple fraction that involves only the value of the function, which we can estimate. To implement this method, we first break down the spatial range and time range into a number of discrete intervals, separated by mesh points. This process is called <em class="italic">discretization</em>. Then, we use the differential equation and the initial conditions and boundary conditions to form successive approximations, in a manner very similar to the time-stepping methods used by the <strong class="source-inline">solve_ivp</strong> routine in the <em class="italic">Solving simple differential equations </em><span class="No-Break"><em class="italic">numerically</em></span><span class="No-Break"> recipe.</span></p>
+			<p>In order to solve a partial differential equation such as the heat equation, we need at least three pieces of information. Usually, for the heat equation, this will come in the form of <em class="italic">boundary conditions</em> for the spatial dimension, which tell us what the behavior is at either end of the rod, and <em class="italic">initial conditions</em> for the time dimension, which is the initial temperature profile over <span class="No-Break">the rod.</span></p>
+			<p>The finite difference <a id="_idIndexMarker294"/>scheme described previously is usually referred to as the <strong class="bold">forward time cen</strong> (<strong class="bold">FTCS</strong>) scheme, since we use the <em class="italic">forward finite difference</em> to estimate the time derivative and the <em class="italic">central finite difference</em> to estimate the (second-order) spatial derivative. The formula for the first-order finite difference approximation is <span class="No-Break">shown here:</span></p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer518">
+					<img alt="" src="image/Formula_03_211.jpg"/>
+				</div>
+			</div>
+			<p>Similarly, the second-order approximation is given by the <span class="No-Break">following formula:</span></p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer519">
+					<img alt="" src="image/Formula_03_212.jpg"/>
+				</div>
+			</div>
+			<p>Substituting these approximations into the heat equation, and using the approximation <img alt="" src="image/Formula_03_213.png"/> for the value of <img alt="" src="image/Formula_03_214.png"/> after <img alt="" src="image/Formula_03_215.png"/> time steps at the <img alt="" src="image/Formula_03_216.png"/> spatial point, we <span class="No-Break">get this:</span></p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer524">
+					<img alt="" src="image/Formula_03_217.jpg"/>
+				</div>
+			</div>
+			<p>This can be rearranged to obtain the <span class="No-Break">following formula:</span></p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer525">
+					<img alt="" src="image/Formula_03_218.jpg"/>
+				</div>
+			</div>
+			<p>Roughly speaking, this equation says that the next temperature at a given point depends on the surrounding temperatures at the previous time. This also shows why the condition on the <strong class="source-inline">r</strong> value is necessary; if the condition does not hold, the middle term on the right-hand side will <span class="No-Break">be negative.</span></p>
+			<p>We can write this system of equations in <span class="No-Break">matrix form:</span></p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer526">
+					<img alt="" src="image/Formula_03_219.jpg"/>
+				</div>
+			</div>
+			<p>Here, <img alt="" src="image/Formula_03_220.png"/> is a<a id="_idIndexMarker295"/> vector containing the approximation <img alt="" src="image/Formula_03_221.png"/> and matrix <img alt="" src="image/Formula_03_222.png"/>, which was defined in step 4. This matrix is tridiagonal, which means the nonzero entries appear on, or adjacent to, the leading diagonal. We use the <strong class="source-inline">diag</strong> routine from the SciPy <strong class="source-inline">sparse</strong> module, which is a utility for defining these kinds of matrices. This is very similar to the process described in the <em class="italic">Solving equations</em> recipe of this chapter. The first and last rows of this matrix have zeros, except in the top left and bottom right, respectively, that represent the (non-changing) boundary conditions. The other rows have coefficients that are given by the finite difference approximations for the derivatives on either side of the differential equation. We first create diagonal entries and entries above and below the diagonal, and then we use the <strong class="source-inline">diags</strong> routine to create a sparse matrix. The matrix should have <img alt="" src="image/Formula_03_223.png"/> rows and columns, to<a id="_idIndexMarker296"/> match the number of mesh points, and we set the data type as double-precision floats and <strong class="bold">compressed sparse row</strong> (<span class="No-Break"><strong class="bold">CSR</strong></span><span class="No-Break">) format.</span></p>
+			<p>The initial profile gives us the vector <img alt="" src="image/Formula_03_224.png"/>, and from this first point, we can compute each subsequent time step by simply performing a matrix multiplication, as we saw in <span class="No-Break">step 7.</span></p>
+			<h2 id="_idParaDest-119"><a id="_idTextAnchor118"/>There’s more...</h2>
+			<p>The<a id="_idIndexMarker297"/> method we describe here is rather crude since the approximation can become unstable, as we mentioned, if the relative sizes of time steps and spatial steps are not carefully controlled. This method is <em class="italic">explicit</em> since each time step is computed explicitly using only information from the previous time step. There are also <em class="italic">implicit</em> methods, which give a system of equations that can be solved to obtain the next time step. Different schemes have different characteristics in terms of the stability of <span class="No-Break">the solution.</span></p>
+			<p>When the function <img alt="" src="image/Formula_03_225.png"/> is not 0, we can easily accommodate this change by using the <span class="No-Break">following assignment:</span></p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer533">
+					<img alt="" src="image/Formula_03_226.jpg"/>
+				</div>
+			</div>
+			<p>Here, the function is suitably vectorized to make this formula valid. In terms of the code used to solve the problem, we need only include the definition of the function and then change the loop of the solution, <span class="No-Break">as follows:</span></p>
+			<pre class="source-code">
+for i in range(steps):
+       u[i+1, :] = A @ u[i, :] + f(t[i], x)</pre>
+			<p>Physically, this <a id="_idIndexMarker298"/>function represents an external heat source (or sink) at each point along the rod. This may change over time, which is why, in general, the function should have both <img alt="" src="image/Formula_03_227.png"/> and <img alt="" src="image/Formula_03_228.png"/> as arguments (though they need not both <span class="No-Break">be used).</span></p>
+			<p>The boundary conditions we gave in this example represent the ends of the rod being kept at a constant temperature of 0. These kinds of boundary conditions are sometimes called <em class="italic">Dirichlet</em> boundary conditions. There are also <em class="italic">Neumann</em> boundary conditions, where the derivative of the function <img alt="" src="image/Formula_03_229.png"/> is given at the boundary. For example, we might have been given the following <span class="No-Break">boundary conditions:</span></p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer537">
+					<img alt="" src="image/Formula_03_230.jpg"/>
+				</div>
+			</div>
+			<p>This <a id="_idIndexMarker299"/>could be interpreted physically as the ends of the rod being insulated so that heat cannot escape through the endpoints. For such boundary conditions, we need to modify the matrix <img alt="" src="image/Formula_03_231.png"/> slightly, but otherwise, the method remains the same. Indeed, inserting an imaginary <img alt="" src="image/Formula_03_232.png"/> value to the left of the boundary and using the backward finite difference at the left-hand boundary (<img alt="" src="image/Formula_03_233.png"/>), we obtain <span class="No-Break">the following:</span></p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer541">
+					<img alt="" src="image/Formula_03_234.jpg"/>
+				</div>
+			</div>
+			<p>Using this in the second-order finite difference approximation, we <span class="No-Break">get this:</span></p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer542">
+					<img alt="" src="image/Formula_03_235.jpg"/>
+				</div>
+			</div>
+			<p>This means that the first row of our matrix should contain <img alt="" src="image/Formula_03_236.png"/>, then <img alt="" src="image/Formula_03_237.png"/>, followed by <img alt="" src="image/Formula_03_238.png"/>. Using a similar computation for the right-hand limit gives a similar final row of <span class="No-Break">the matrix:</span></p>
+			<pre class="source-code">
+diag = [1-r, *(1-2*r for _ in range(N-1)), 1-r]
+abv_diag = [*(r for _ in range(N))]
+blw_diag = [*(r for _ in range(N))]
+A = sparse.diags([blw_diag, diag, abv_diag], (-1, 0, 1),
+                 shape=(N+1, N+1), dtype=np.float64,
+                 format="csr")</pre>
+			<p>For more complex problems involving partial differential equations, it is probably more appropriate to use a <em class="italic">finite elements</em> solver. Finite element methods use a more sophisticated approach for computing solutions than partial differential equations, which are generally more flexible than the finite <a id="_idIndexMarker300"/>difference method we saw in this recipe. However, this comes at the cost of requiring more setup that relies on more advanced mathematical theory. On the other hand, there is a Python package<a id="_idIndexMarker301"/> for solving partial differential equations using finite element<a id="_idIndexMarker302"/> methods such as <strong class="bold">FEniCS</strong> (<a href="https://fenicsproject.org">fenicsproject.org</a>). The advantage of using packages such as FEniCS is that they are usually tuned for performance, which is important when solving complex problems with <span class="No-Break">high accuracy.</span></p>
+			<h2 id="_idParaDest-120"><a id="_idTextAnchor119"/>See also</h2>
+			<p>The FEniCS documentation gives a good introduction to the finite element method and a number of examples of using the package to solve various classic partial differential equations. A more comprehensive introduction to the method and the theory is given in the following book: <em class="italic">Johnson, C.</em> (<em class="italic">2009</em>). <em class="italic">Numerical solution of partial differential equations by the finite element method</em>. <em class="italic">Mineola, N.Y.: </em><span class="No-Break"><em class="italic">Dover Publications</em></span><span class="No-Break">.</span></p>
+			<p>For more details on how to produce three-dimensional surface plots using Matplotlib, see the <em class="italic">Surface and contour plots</em> recipe from <a href="B19085_02.xhtml#_idTextAnchor036"><span class="No-Break"><em class="italic">Chapter 2</em></span></a>, <em class="italic">Mathematical Plotting </em><span class="No-Break"><em class="italic">with Matplotlib</em></span><span class="No-Break">.</span></p>
+			<h1 id="_idParaDest-121"><a id="_idTextAnchor120"/>Using discrete Fourier transforms for signal processing</h1>
+			<p>One of the<a id="_idIndexMarker303"/> most useful tools coming from calculus is the <strong class="bold">Fourier transform</strong> (<strong class="bold">FT</strong>). Roughly speaking, the FT changes the representation, in a reversible way, of certain functions. This change of representation is particularly useful in dealing with signals represented as a function of time. In this instance, the FT takes the signal and represents it as a function of frequency; we might describe this as transforming from signal space to frequency space. This can be used to identify the frequencies present in a signal for identification and other processing. In practice, we will usually have a discrete sample of a signal, so we have to use the <strong class="bold">discrete Fourier transform</strong> (<strong class="bold">DFT</strong>) to <a id="_idIndexMarker304"/>perform this kind of analysis. Fortunately, there is a computationally efficient algorithm, called the FFT, for applying the DFT to <span class="No-Break">a sample.</span></p>
+			<p>We will follow a common process for filtering a noisy signal using the FFT. The first step is to apply the FFT and use the data to<a id="_idIndexMarker305"/> compute the <strong class="bold">power spectral density</strong> (<strong class="bold">PSD</strong>) of the signal. Then, we identify peaks and filter out the frequencies that do not contribute a sufficiently large amount to the signal. Then, we apply the inverse FFT to obtain the <span class="No-Break">filtered signal.</span></p>
+			<p>In this recipe, we use the FFT to analyze a sample of a signal and identify the frequencies present and clean the noise from <span class="No-Break">the signal.</span></p>
+			<h2 id="_idParaDest-122"><a id="_idTextAnchor121"/>Getting ready</h2>
+			<p>For this recipe, we <a id="_idIndexMarker306"/>will only need the<a id="_idIndexMarker307"/> NumPy and Matplotlib packages imported as <strong class="source-inline">np</strong> and <strong class="source-inline">plt</strong>, as usual. We will need an instance of the default random number generator, created <span class="No-Break">as follows:</span></p>
+			<pre class="source-code">
+rng = np.random.default_rng(12345)</pre>
+			<p>Now, let’s see how to use <span class="No-Break">the DFT.</span></p>
+			<h2 id="_idParaDest-123"><a id="_idTextAnchor122"/>How to do it...</h2>
+			<p>Follow these instructions to use the FFT to process a <span class="No-Break">noisy signal:</span></p>
+			<ol>
+				<li value="1">We define a function that will generate our <span class="No-Break">underlying signal:</span><pre class="console">
+def signal(t, freq_1=4.0, freq_2=7.0):</pre><pre class="console">
+    return np.sin(freq_1 * 2 * np.pi * t) + np.sin(</pre><pre class="console">
+        freq_2 * 2 * np.pi * t)</pre></li>
+				<li>Next, we create our sample signal by adding some Gaussian noise to the underlying signal. We also create an array that holds the true signal at the sample <img alt="" src="image/Formula_03_239.png"/> values for <span class="No-Break">convenience later:</span><pre class="console">
+sample_size = 2**7 # 128</pre><pre class="console">
+sample_t = np.linspace(0, 4, sample_size)</pre><pre class="console">
+sample_y = signal(sample_t) + rng.standard_normal(</pre><pre class="console">
+    sample_size)</pre><pre class="console">
+sample_d = 4./(sample_size - 1) # Spacing for linspace array</pre><pre class="console">
+true_signal = signal(sample_t)</pre></li>
+				<li>We <a id="_idIndexMarker308"/>use the <strong class="source-inline">fft</strong> module from NumPy to compute DFTs. We import this from NumPy before we start <span class="No-Break">our analysis:</span><pre class="console">
+from numpy import fft</pre></li>
+				<li>To see<a id="_idIndexMarker309"/> what the noisy signal looks like, we can plot the sample signal points with the true <span class="No-Break">signal superimposed:</span><pre class="console">
+fig1, ax1 = plt.subplots()</pre><pre class="console">
+fig1, ax1 = plt.subplots()</pre><pre class="console">
+ax1.plot(sample_t, sample_y, "k.",</pre><pre class="console">
+         label="Noisy signal")</pre><pre class="console">
+ax1.plot(sample_t, true_signal, "k--",</pre><pre class="console">
+         label="True signal")</pre><pre class="console">
+ax1.set_title("Sample signal with noise")</pre><pre class="console">
+ax1.set_xlabel("Time")</pre><pre class="console">
+ax1.set_ylabel("Amplitude")</pre><pre class="console">
+ax1.legend()</pre></li>
+			</ol>
+			<p>The plot created here is shown in <span class="No-Break"><em class="italic">Figure 3</em></span><em class="italic">.7</em>. As we can see, the noisy signal does not bear much resemblance to the true signal (shown with the <span class="No-Break">dashed line):</span></p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer547">
+					<img alt="Figure 3.7 – Noisy signal sample with true signal superimposed&#13;&#10;" src="image/3.7.jpg"/>
+				</div>
+			</div>
+			<p class="IMG---Caption" lang="en-US" xml:lang="en-US">Figure 3.7 – Noisy signal sample with true signal superimposed</p>
+			<ol>
+				<li value="5">Now, we<a id="_idIndexMarker310"/> will use the DFT to extract the frequencies that are present in the sample signal. The <strong class="source-inline">fft</strong> routine in the <strong class="source-inline">fft</strong> module performs <span class="No-Break">the DFT:</span><pre class="console">
+spectrum = fft.fft(sample_y)</pre></li>
+				<li>The <strong class="source-inline">fft</strong> module <a id="_idIndexMarker311"/>provides a routine for constructing the appropriate frequency values called <strong class="source-inline">fftfreq</strong>. For convenience, we also generate an array containing the integers at which the positive <span class="No-Break">frequencies occur:</span><pre class="console">
+freq = fft.fftfreq(sample_size, sample_d)</pre><pre class="console">
+pos_freq_i = np.arange(1, sample_size//2, dtype=int)</pre></li>
+				<li>Next, compute the PSD of the signal, <span class="No-Break">as follows:</span><pre class="console">
+psd = np.abs(spectrum[pos_freq_i])**2 + np.abs(</pre><pre class="console">
+    spectrum[-pos_freq_i])**2</pre></li>
+				<li>Now, we can plot the PSD of the signal for the positive frequencies and use this plot to <span class="No-Break">identify frequencies:</span><pre class="console">
+fig2, ax2 = plt.subplots()</pre><pre class="console">
+ax2.plot(freq[pos_freq_i], psd, "k")</pre><pre class="console">
+ax2.set_title("PSD of the noisy signal")</pre><pre class="console">
+ax2.set_xlabel("Frequency")</pre><pre class="console">
+ax2.set_ylabel("Density")</pre></li>
+			</ol>
+			<p>The result can<a id="_idIndexMarker312"/> be seen in <span class="No-Break"><em class="italic">Figure 3</em></span><em class="italic">.8</em>. We <a id="_idIndexMarker313"/>can see in this diagram that there are spikes at roughly <strong class="bold">4</strong> and <strong class="bold">7</strong>, which are the frequencies of the signal that we <span class="No-Break">defined earlier:</span></p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer548">
+					<img alt="Figure 3.8 – PSD of a signal generated using the FFT&#13;&#10;" src="image/3.8.jpg"/>
+				</div>
+			</div>
+			<p class="IMG---Caption" lang="en-US" xml:lang="en-US">Figure 3.8 – PSD of a signal generated using the FFT</p>
+			<ol>
+				<li value="9">We can identify these two frequencies to try to reconstruct the true signal from the noisy sample. All of the minor peaks that appear are not larger than 2,000, so we can use this as a cut-off value for the filter. Let’s now extract from the list of all positive frequency indices the (hopefully 2) indices that correspond to the peaks above 2,000 in <span class="No-Break">the PSD:</span><pre class="console">
+filtered = pos_freq_i[psd &gt; 2e3]</pre></li>
+				<li>Next, we create a new, clean spectrum that contains only the frequencies that we have extracted from the noisy signal. We do this by creating an array that contains only 0, and then copying the value of <strong class="source-inline">spectrum</strong> from those indices that correspond to the filtered frequencies and the <span class="No-Break">negatives thereof:</span><pre class="console">
+new_spec = np.zeros_like(spectrum)</pre><pre class="console">
+new_spec[filtered] = spectrum[filtered]</pre><pre class="console">
+new_spec[-filtered] = spectrum[-filtered]</pre></li>
+				<li>Now, we <a id="_idIndexMarker314"/>use the inverse<a id="_idIndexMarker315"/> FFT (using the <strong class="source-inline">ifft</strong> routine) to transform this clean spectrum back to the time domain of the original sample. We take the real part using the <strong class="source-inline">real</strong> routine from NumPy to eliminate the erroneous <span class="No-Break">imaginary parts:</span><pre class="console">
+new_sample = np.real(fft.ifft(new_spec))</pre></li>
+				<li>Finally, we plot this filtered signal over the true signal and compare <span class="No-Break">the results:</span><pre class="console">
+fig3, ax3 = plt.subplots()</pre><pre class="console">
+ax3.plot(sample_t, true_signal, color="#8c8c8c",</pre><pre class="console">
+         linewidth=1.5, label="True signal")</pre><pre class="console">
+ax3.plot(sample_t, new_sample, "k--",</pre><pre class="console">
+         label="Filtered signal")</pre><pre class="console">
+ax3.legend()</pre><pre class="console">
+ax3.set_title("Plot comparing filtered signal and true signal")</pre><pre class="console">
+ax3.set_xlabel("Time")</pre><pre class="console">
+ax3.set_ylabel("Amplitude")</pre></li>
+			</ol>
+			<p>The result of step 11 is shown in <span class="No-Break"><em class="italic">Figure 3</em></span><em class="italic">.9</em>. We can see that the filtered signal closely matches the true signal, except for some <span class="No-Break">small discrepancies:</span></p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer549">
+					<img alt="Figure 3.9 – Filtered signal generated using FFTs superimposed over the true signal&#13;&#10;" src="image/3.9.jpg"/>
+				</div>
+			</div>
+			<p class="IMG---Caption" lang="en-US" xml:lang="en-US">Figure 3.9 – Filtered signal generated using FFTs superimposed over the true signal</p>
+			<p>We <a id="_idIndexMarker316"/>can see in <span class="No-Break"><em class="italic">Figure 3</em></span><em class="italic">.9</em> that the <a id="_idIndexMarker317"/>filtered signal (dashed line) fits fairly closely over the true signal (lighter solid line). It captures most (but not all) of the oscillations of the <span class="No-Break">true signal.</span></p>
+			<h2 id="_idParaDest-124"><a id="_idTextAnchor123"/>How it works...</h2>
+			<p>The FT of a function <img alt="" src="image/Formula_03_240.png"/> is given by the <span class="No-Break">following integral:</span></p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer551">
+					<img alt="" src="image/Formula_03_241.jpg"/>
+				</div>
+			</div>
+			<p>The DFT is given by the <span class="No-Break">following integral:</span></p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer552">
+					<img alt="" src="image/Formula_03_242.jpg"/>
+				</div>
+			</div>
+			<p>Here, the <img alt="" src="image/Formula_03_243.png"/> values are the sample values as complex numbers. The DFT can be computed using the preceding formula, but in practice, this is not efficient. Computing using this formula is <img alt="" src="image/Formula_03_244.png"/>. The FFT algorithm improves the complexity to <img alt="" src="image/Formula_03_245.png"/>, which is significantly better. The book <em class="italic">Numerical Recipes</em> (full bibliographic details given in the <em class="italic">Further reading</em> section) gives a very good description of the FFT algorithm and <span class="No-Break">the DFT.</span></p>
+			<p>We will apply the DFT to a sample generated from a known signal (with known frequency modes) so that we can see the connection between the results we obtain and the original signal. To keep this signal simple, we created a signal that has only two frequency components with values 4 and 7. From this signal, we generated a sample that we analyzed. Because of the way the FFT works, it is best if the sample has a size that is a power of 2; if this isn’t the case, we can pad the sample with zero elements to make this the case. We add some Gaussian noise to the sample signal, which takes the form of a normally distributed <span class="No-Break">random number.</span></p>
+			<p>The array <a id="_idIndexMarker318"/>returned by the <strong class="source-inline">fft</strong> routine contains <img alt="" src="image/Formula_03_246.png"/> elements, where <img alt="" src="image/Formula_03_247.png"/> is the sample size. The element that index 0 corresponds to is the 0 frequency or DC shift. The next <img alt="" src="image/Formula_03_248.png"/>elements are the values corresponding to the positive frequencies, and the final <img alt="" src="image/Formula_03_249.png"/> elements are the values corresponding to the negative frequencies. The actual values of the frequencies are determined by the number of sampled points <img alt="" src="image/Formula_03_250.png"/> and the sample spacing, which, in this example, is stored <span class="No-Break">in </span><span class="No-Break"><strong class="source-inline">sample_d</strong></span><span class="No-Break">.</span></p>
+			<p>The PSD at the frequency <img alt="" src="image/Formula_03_251.png"/> is given by the <span class="No-Break">following formula:</span></p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer562">
+					<img alt="" src="image/Formula_03_252.jpg"/>
+				</div>
+			</div>
+			<p>Here, <img alt="" src="image/Formula_03_253.png"/> represents the FT of the signal at frequency <img alt="" src="image/Formula_03_254.png"/>. The PSD measures the contribution of each frequency to the overall signal, which is why we see peaks at approximately 4 and 7. Since Python indexing <a id="_idIndexMarker319"/>allows us to use negative indices for elements starting from the end of the sequence, we can use the positive index array to get both the positive and negative frequency elements <span class="No-Break">from </span><span class="No-Break"><strong class="source-inline">spectrum</strong></span><span class="No-Break">.</span></p>
+			<p>In step 9, we identified the indices of the two frequencies that peak above 2,000 on the plot. The frequencies that correspond to these indices are 3.984375 and 6.97265625, which are not exactly equal to 4 and 7 but are very close. The reason for this discrepancy is the fact that we have sampled a continuous signal using a finite number of points. (Using more points will, of course, yield <span class="No-Break">better approximations.)</span></p>
+			<p>In step 11, we took the real part of the data returned from the inverse FFT. This is because, technically speaking, the FFT works with complex data. Since our data contained only real data, we expect that this new signal should also contain only real data. However, there will be some small errors made, meaning that the results are not totally real. We can remedy this by taking the real part of the inverse FFT. This is appropriate because we can see that the imaginary parts are <span class="No-Break">very small.</span></p>
+			<p>We can see in <span class="No-Break"><em class="italic">Figure 3</em></span><em class="italic">.9</em> that the filtered signal very closely matches the true signal, but not exactly. This is because, as mentioned previously, we are approximating a continuous signal with a relatively <span class="No-Break">small sample.</span></p>
+			<h2 id="_idParaDest-125"><a id="_idTextAnchor124"/>There’s more...</h2>
+			<p>Signal processing in a production setting would probably make use of a specialized package, such as the <strong class="source-inline">signal</strong> module from <strong class="source-inline">scipy</strong>, or some lower-level code or hardware to perform filtering or cleaning of a signal. This recipe should be taken as more of a demonstration of the use of FFT as a tool for working with data sampled from some kind of underlying periodic structure (the signal). FFTs are useful for solving partial differential equations, such as the heat equation seen in the <em class="italic">Solving partial differential equations </em><span class="No-Break"><em class="italic">numerically</em></span><span class="No-Break"> recipe.</span></p>
+			<h2 id="_idParaDest-126"><a id="_idTextAnchor125"/>See also</h2>
+			<p>More information about random numbers and the normal distribution (Gaussian) can be found in <a href="B19085_04.xhtml#_idTextAnchor138"><span class="No-Break"><em class="italic">Chapter 4</em></span></a>, <em class="italic">Working with Randomness </em><span class="No-Break"><em class="italic">and Probability</em></span><span class="No-Break">.</span></p>
+			<h1 id="_idParaDest-127"><a id="_idTextAnchor126"/>Automatic differentiation and calculus using JAX</h1>
+			<p>JAX is a linear algebra <a id="_idIndexMarker320"/>and automatic differentiation framework developed by Google for ML. It combines the <a id="_idIndexMarker321"/>capabilities of <strong class="bold">Autograd</strong> and its <strong class="bold">Accelerated Linear Algebra</strong> (<strong class="bold">XLA</strong>) optimizing<a id="_idIndexMarker322"/> compiler for linear algebra and ML. In particular, it allows us<a id="_idIndexMarker323"/> to easily construct complex functions, with automatic gradient computation, that can be run <a id="_idIndexMarker324"/>on <strong class="bold">Graphics Processing Units</strong> (<strong class="bold">GPUs</strong>) or <strong class="bold">Tensor Processing Units</strong> (<strong class="bold">TPUs</strong>). On <a id="_idIndexMarker325"/>top of all of this, it is relatively simple to use. In this recipe, we see how to make use of the JAX <strong class="bold">just-in-time</strong> (<strong class="bold">JIT</strong>) compiler, get <a id="_idIndexMarker326"/>the gradient of a function, and make use of different <span class="No-Break">computation devices.</span></p>
+			<h2 id="_idParaDest-128"><a id="_idTextAnchor127"/>Getting ready</h2>
+			<p>For this <a id="_idIndexMarker327"/>recipe, we <a id="_idIndexMarker328"/>need the JAX package installed. We will make use of the Matplotlib package, with the <strong class="source-inline">pyplot</strong> interface imported as <strong class="source-inline">plt</strong> as usual. Since we’re going to plot a function of two variables, we also need to import the <strong class="source-inline">mplot3d</strong> module from the <span class="No-Break"><strong class="source-inline">mpl_toolkits</strong></span><span class="No-Break"> package.</span></p>
+			<h2 id="_idParaDest-129"><a id="_idTextAnchor128"/>How to do it…</h2>
+			<p>The following steps show how to define a JIT-compiled function using JAX, compute the gradient of this function, and use a GPU or TPU to <span class="No-Break">perform calculations:</span></p>
+			<p>First, we need to import the parts of the JAX library that we <span class="No-Break">will use:</span></p>
+			<pre class="source-code">
+import jax.numpy as jnp
+from jax import grad, jit, vmap</pre>
+			<p>Now, we <a id="_idIndexMarker329"/>can define our function, with the <strong class="source-inline">@jit</strong> decorator <a id="_idIndexMarker330"/>applied to tell JAX to JIT compile this function <span class="No-Break">where necessary:</span></p>
+			<pre class="source-code">
+@jit
+def f(x, y):
+    return jnp.exp(-(x**2 +y**2))</pre>
+			<p>Next, we <a id="_idIndexMarker331"/>define <a id="_idIndexMarker332"/>a grid and plot <span class="No-Break">our function:</span></p>
+			<pre class="source-code">
+t = jnp.linspace(-1.0, 1.0)
+x, y = jnp.meshgrid(t, t)
+fig = plt.figure()
+ax = fig.add_subplot(projection="3d")
+ax.plot_surface(x, y, f(x, y), cmap="gray")
+ax.set_title("Plot of the function f(x, y)")
+ax.set_xlabel("x")
+ax.set_ylabel("y")
+ax.set_zlabel("z")</pre>
+			<p>The resulting plot is shown in <span class="No-Break"><em class="italic">Figure 3</em></span><span class="No-Break"><em class="italic">.10</em></span><span class="No-Break">:</span></p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer565">
+					<img alt="Figure 3.10 – Plot of a function of two variables computed using JAX&#13;&#10;" src="image/3.10.jpg"/>
+				</div>
+			</div>
+			<p class="IMG---Caption" lang="en-US" xml:lang="en-US">Figure 3.10 – Plot of a function of two variables computed using JAX</p>
+			<p>Now, we<a id="_idIndexMarker333"/> use the <strong class="source-inline">grad</strong> function (and the <strong class="source-inline">jit</strong> decorator) to <a id="_idIndexMarker334"/>define two new functions that are the partial derivatives <a id="_idIndexMarker335"/>with respect to the first and <span class="No-Break">second arguments:</span></p>
+			<pre class="source-code">
+fx = jit(grad(f, 0))  # x partial derivative
+fy = jit(grad(f, 1))  # y partial derivative</pre>
+			<p>To quickly check <a id="_idIndexMarker336"/>that these functions are working, we print the values of these functions <span class="No-Break">at <img alt="" src="image/Formula_03_255.png"/>:</span></p>
+			<pre class="source-code">
+print(fx(1., -1.), fy(1., -1.))
+# -0.27067056 0.27067056</pre>
+			<p>To finish off, let’s plot the partial derivative with respect <span class="No-Break">to <img alt="" src="image/Formula_03_256.png"/>:</span></p>
+			<pre class="source-code">
+zx = vmap(fx)(x.ravel(), y.ravel()).reshape(x.shape)
+figpd = plt.figure()
+axpd = figpd.add_subplot(projection="3d")
+axpd.plot_surface(x, y, zx, cmap="gray")
+axpd.set_title("Partial derivative with respect to x")
+axpd.set_xlabel("x")
+axpd.set_ylabel("y")
+axpd.set_zlabel("z")</pre>
+			<p>The <a id="_idIndexMarker337"/>partial <a id="_idIndexMarker338"/>derivative plot<a id="_idIndexMarker339"/> is <a id="_idIndexMarker340"/>shown in <span class="No-Break"><em class="italic">Figure 3</em></span><span class="No-Break"><em class="italic">.11</em></span><span class="No-Break">:</span></p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer568">
+					<img alt="Figure 3.11 – Plot of the partial derivative of the function computed using autodiff in JAX&#13;&#10;" src="image/3.11.jpg"/>
+				</div>
+			</div>
+			<p class="IMG---Caption" lang="en-US" xml:lang="en-US">Figure 3.11 – Plot of the partial derivative of the function computed using autodiff in JAX</p>
+			<p>A quick check confirms that this is indeed a plot of the partial derivative with respect to <img alt="" src="image/Formula_03_256.png"/> of the <span class="No-Break">function <img alt="" src="image/Formula_03_258.png"/>.</span></p>
+			<h2 id="_idParaDest-130"><a id="_idTextAnchor129"/>How it works…</h2>
+			<p>JAX is an <a id="_idIndexMarker341"/>interesting <a id="_idIndexMarker342"/>mix of a JIT compiler, with an emphasis on fast linear algebra operations, combined with the power of Autograd, with support for acceleration devices (and several other features that we don’t use here). The JIT <a id="_idIndexMarker343"/>compilation works by tracing <a id="_idIndexMarker344"/>the linear algebra operations performed on the JAX version of the NumPy library and constructing an intermediate representation of the function in a form that can be understood by the XLA compiler. For any of this to work, you need to make sure that you only use the NumPy module from JAX (<strong class="source-inline">jax.numpy</strong>) rather than the <em class="italic">real</em> NumPy. JAX also provides a version of the <span class="No-Break">SciPy package.</span></p>
+			<p>One caveat of this approach is that the functions must be <em class="italic">pure</em>: they should not have side effects beyond the return value, and should not depend on any data not passed by arguments. It might still work if this is not the case, but you might get unexpected results—remember that the Python version of the function might only be executed once. Something else to consider is that, unlike NumPy arrays, JAX NumPy arrays cannot be updated in place using index notation and assignment. This, and several other current important caveats, are listed in the JAX documentation (refer to the following section, <span class="No-Break"><em class="italic">See also…</em></span><span class="No-Break">).</span></p>
+			<p>The <strong class="source-inline">jit</strong> decorator instructs JAX to construct compiled versions of the function where appropriate. It might actually produce several compiled versions depending on the types of arguments provided (for example, a different compiled function for scalar values versus <span class="No-Break">array values).</span></p>
+			<p>The <strong class="source-inline">grad</strong> function takes a function and produces a new function that computes the derivative with respect to the input variable. If the function has more than one input variable, then this is the partial derivative with respect to the first argument. The second optional argument, <strong class="source-inline">argnums</strong>, is used to specify which derivatives to compute. In the recipe, we have a function of two variables and used the <strong class="source-inline">grad(f, 0)</strong> and <strong class="source-inline">grad(f, 1)</strong> commands to get the functions representing the two partial derivatives of the <span class="No-Break"><strong class="source-inline">f</strong></span><span class="No-Break"> function.</span></p>
+			<p>Most of the functions from <strong class="source-inline">jax.numpy</strong> have the same interface as from <strong class="source-inline">numpy</strong>—we see a few of these functions in the recipe. The difference is that JAX versions produce arrays that are stored correctly for the accelerator device if one is used. We can use these arrays in contexts that expect NumPy arrays, such as plotting functions, without <span class="No-Break">any issues.</span></p>
+			<p>In step 5 of the recipe, we printed the value of the two partial derivatives. Notice that we used the values <strong class="source-inline">1.</strong> and <strong class="source-inline">-1.</strong>. It is important to note that using the integer equivalent <strong class="source-inline">1</strong> and <strong class="source-inline">-1</strong> would have failed because of the way JAX handles floating-point numbers. (Since most GPU devices do not handle double-precision floating-point numbers well, the default float type in JAX <span class="No-Break">is </span><span class="No-Break"><strong class="source-inline">float32</strong></span><span class="No-Break">.)</span></p>
+			<p>In step 6, we computed the derivative over the same region as the function. To do this, we had to flatten the <img alt="" src="image/Formula_03_259.png"/> and <img alt="" src="image/Formula_03_260.png"/> arrays and then use the <strong class="source-inline">vmap</strong> function to vectorize the <strong class="source-inline">fx</strong> derivative before reshaping the result. There is a complication in the way that <strong class="source-inline">grad</strong> works, which means that <strong class="source-inline">fx</strong> does not vectorize in the way <span class="No-Break">we expect.</span></p>
+			<h2 id="_idParaDest-131"><a id="_idTextAnchor130"/>There’s more…</h2>
+			<p>JAX is <a id="_idIndexMarker345"/>designed to <a id="_idIndexMarker346"/>scale <a id="_idIndexMarker347"/>well as needs change, so lots of the components are designed with concurrency in mind. For instance, the random numbers module provides a random <a id="_idIndexMarker348"/>number generator that is capable of splitting effectively so that computations can run concurrently without changing the outcome. This wouldn’t be possible, for example, with a Mersenne Twister random generator, which would potentially produce different answers depending on the number of threads used because it doesn’t <em class="italic">split</em> in a statistically <span class="No-Break">sound way.</span></p>
+			<h2 id="_idParaDest-132"><a id="_idTextAnchor131"/>See also</h2>
+			<p>Lots more information <a id="_idIndexMarker349"/>can be found in the <span class="No-Break">JAX documentation:</span></p>
+			<p><a href="https://jax.readthedocs.io/en/latest/"><span class="No-Break">https://jax.readthedocs.io/en/latest/</span></a></p>
+			<h1 id="_idParaDest-133"><a id="_idTextAnchor132"/>Solving differential equations using JAX</h1>
+			<p>JAX provides a<a id="_idIndexMarker350"/> set of tools for solving a wide array of problems. Solving differential equations—such as initial value problems described in the <em class="italic">Solving simple differential equations numerically</em> recipe—should be well within the capabilities of this library. The <strong class="source-inline">diffrax</strong> package provides various solvers for differential equations leveraging the power and convenience <span class="No-Break">of JAX.</span></p>
+			<p>In the earlier <a id="_idIndexMarker351"/>recipe, we solved a relatively simple first-order ODE. In this recipe, we’re going to solve a second-order ODE to illustrate the technique. A <strong class="bold">second-order ODE</strong> is <a id="_idIndexMarker352"/>a differential equation that involves both the first and second derivatives of a function. To keep things simple, we’re going to solve a <em class="italic">linear</em> second-order ODE of the <span class="No-Break">following form:</span></p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer573">
+					<img alt="" src="image/Formula_03_261.jpg"/>
+				</div>
+			</div>
+			<p>Here, <img alt="" src="image/Formula_03_262.png"/> is a function of <img alt="" src="image/Formula_03_263.png"/> to be found. In particular, we’re going to solve the <span class="No-Break">following equation:</span></p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer576">
+					<img alt="" src="image/Formula_03_264.jpg"/>
+				</div>
+			</div>
+			<p>The initial conditions are <img alt="" src="image/Formula_03_265.png"/> and <img alt="" src="image/Formula_03_266.png"/>. (Note that this is a second-order differential equation, so we need two <span class="No-Break">initial conditions.)</span></p>
+			<h2 id="_idParaDest-134"><a id="_idTextAnchor133"/>Getting ready</h2>
+			<p>Before <a id="_idIndexMarker353"/>we can start to solve this equation, we need to do some pen-and-paper work to reduce the second-order equation to a system of first-order differential equations that can be solved numerically. To do this, we make a substitution <img alt="" src="image/Formula_03_267.png"/> and <img alt="" src="image/Formula_03_268.png"/>. When we do this, we get a system <span class="No-Break">like this:</span></p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer581">
+					<img alt="" src="image/Formula_03_269.jpg"/>
+				</div>
+			</div>
+			<p>We also get the initial conditions <img alt="" src="image/Formula_03_270.png"/> <span class="No-Break">and <img alt="" src="image/Formula_03_271.png"/></span><span class="No-Break">.</span></p>
+			<p>For <a id="_idIndexMarker354"/>this recipe, we will need the <strong class="source-inline">diffrax</strong> package installed, along with JAX. As usual, we import the Matplotlib <strong class="source-inline">pyplot</strong> interface under the alias <strong class="source-inline">plt</strong>. We import <strong class="source-inline">jax.numpy</strong> under the alias <strong class="source-inline">jnp</strong> and the <span class="No-Break"><strong class="source-inline">diffrax</strong></span><span class="No-Break"> package.</span></p>
+			<h2 id="_idParaDest-135"><a id="_idTextAnchor134"/>How to do it…</h2>
+			<p>The following steps show how to use JAX and the <strong class="source-inline">diffrax</strong> library to solve a second-order linear <span class="No-Break">differential equation:</span></p>
+			<p>First, we need to set up our function that represents the system of first-order ODEs we constructed in the <em class="italic">Getting </em><span class="No-Break"><em class="italic">ready</em></span><span class="No-Break"> section:</span></p>
+			<pre class="source-code">
+def f(x, y, args):
+    u = y[...,0]
+    v = y[...,1]
+    return jnp.array([v, 3*x**2*v+(1.-x)*u])</pre>
+			<p>Next, we set up the <strong class="source-inline">diffrax</strong> environment that we will use to solve the equation. We’ll use the solver recommended in the <strong class="source-inline">diffrax</strong> <em class="italic">quickstart guide</em> – see the <em class="italic">See also</em> section below for more details. The setup is <span class="No-Break">as follows:</span></p>
+			<pre class="source-code">
+term = diffrax.ODETerm(f)
+solver = diffrax.Dopri5()
+save_at = diffrax.SaveAt(ts=jnp.linspace(0., 1.))
+y0 = jnp.array([0., 1.]) # initial condition</pre>
+			<p>Now, we <a id="_idIndexMarker355"/>use the <strong class="source-inline">diffeqsolve</strong> routine from <strong class="source-inline">diffrax</strong> to solve the differential equation on the <span class="No-Break">range <img alt="" src="image/Formula_03_272.png"/>:</span></p>
+			<pre class="source-code">
+solution = diffrax.diffeqsolve(term, solver, t0=0., t1=2.,
+                               dt0=0.1, y0=y0, saveat=save_at)</pre>
+			<p>Now we<a id="_idIndexMarker356"/> have solved the equation, we need to extract the values for <img alt="" src="image/Formula_03_273.png"/> from the <span class="No-Break"><strong class="source-inline">solution</strong></span><span class="No-Break"> object:</span></p>
+			<pre class="source-code">
+x = solution.ts
+y = solution.ys[:, 0]  # first column is y = u</pre>
+			<p>Finally, we plot the results on a <span class="No-Break">new figure:</span></p>
+			<pre class="source-code">
+fig, ax = plt.subplots()
+ax.plot(x, y, "k")
+ax.set_title("Plot of the solution to the second order ODE")
+ax.set_xlabel("x")
+ax.set_ylabel("y")</pre>
+			<p>The resulting plot is shown in <span class="No-Break"><em class="italic">Figure 3</em></span><span class="No-Break"><em class="italic">.12</em></span><span class="No-Break">:</span></p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer586">
+					<img alt="Figure 3.12 – Numerical solution to a second-order linear ODE&#13;&#10;" src="image/3.12.jpg"/>
+				</div>
+			</div>
+			<p class="IMG---Caption" lang="en-US" xml:lang="en-US">Figure 3.12 – Numerical solution to a second-order linear ODE</p>
+			<p>We can <a id="_idIndexMarker357"/>see <a id="_idIndexMarker358"/>that when <img alt="" src="image/Formula_03_274.png"/> is close to <img alt="" src="image/Formula_03_275.png"/>, the solution is approximately linear, but later on, the solution becomes non-linear. (The <img alt="" src="image/Formula_03_274.png"/> range might be too small to see the interesting behavior of <span class="No-Break">this system.)</span></p>
+			<h2 id="_idParaDest-136"><a id="_idTextAnchor135"/>How it works…</h2>
+			<p><strong class="source-inline">diffrax</strong> is<a id="_idIndexMarker359"/> built on top of JAX and provides various solvers for differential equations. In the recipe, we used the Dormand-Prince 5(4) <strong class="source-inline">Dopri5</strong> solver class, which is another example of a Runge-Kutta method for solving ODEs similar to the Runge-Kutta-Fehlberg method we saw in an <span class="No-Break">earlier recipe.</span></p>
+			<p>Behind the scenes, <strong class="source-inline">diffrax</strong> translates<a id="_idIndexMarker360"/> the ODE initial value problem into a <strong class="bold">controlled differential equation</strong> (<strong class="bold">CDE</strong>), which it then solves. This makes <strong class="source-inline">diffrax</strong> able to solve other kinds of differential equations besides these simple ODEs shown here; one of the goals of the library is to provide tools for numerically solving <strong class="bold">stochastic differential equations</strong> (<strong class="bold">SDEs</strong>). Since <a id="_idIndexMarker361"/>it is based on JAX, it should be easy to integrate this into other JAX workflows. It also has support for backpropagation through various <span class="No-Break">adjoint methods.</span></p>
+			<h2 id="_idParaDest-137"><a id="_idTextAnchor136"/>See also</h2>
+			<p>More information about <a id="_idIndexMarker362"/>the <strong class="source-inline">diffrax</strong> library and the methods it contains can be found in <span class="No-Break">the documentation:</span></p>
+			<p><a href="https://docs.kidger.site/diffrax&#13;"><span class="No-Break">https://docs.kidger.site/diffrax</span></a></p>
+			<h1 id="_idParaDest-138"><a id="_idTextAnchor137"/>Further reading</h1>
+			<p>Calculus is a very important part of every undergraduate mathematics course. There are a number of excellent textbooks on calculus, including the classic textbook by Spivak and the more comprehensive course by Adams <span class="No-Break">and Essex:</span></p>
+			<ul>
+				<li><em class="italic">Spivak, M.</em> (<em class="italic">2006</em>). <em class="italic">Calculus</em>. <em class="italic">3rd ed</em>. <em class="italic">Cambridge: Cambridge </em><span class="No-Break"><em class="italic">University Press</em></span><span class="No-Break">.</span></li>
+				<li><em class="italic">Adams, R.</em> and <em class="italic">Essex, C.</em> (<em class="italic">2018</em>). <em class="italic">Calculus: A Complete Course</em>. <em class="italic">9th ed</em>. <em class="italic">Don Mills, </em><span class="No-Break"><em class="italic">Ont: Pearson</em></span><span class="No-Break">.</span></li>
+			</ul>
+			<p>A good source for numerical differentiation and integration is the classic <em class="italic">Numerical Recipes</em> book, which gives a comprehensive description of how to solve many computational problems in C++, including a summary of <span class="No-Break">the theory:</span></p>
+			<ul>
+				<li><em class="italic">Press, W.</em>, <em class="italic">Teukolsky, S.</em>, <em class="italic">Vetterling, W</em>. and <em class="italic">Flannery, B.</em> (<em class="italic">2007</em>). <em class="italic">Numerical Recipes: The Art of Scientific Computing</em>. <em class="italic">3rd ed</em>. <em class="italic">Cambridge: Cambridge </em><span class="No-Break"><em class="italic">University Press</em></span><span class="No-Break">.</span></li>
+			</ul>
+		</div>
+	</body></html>
