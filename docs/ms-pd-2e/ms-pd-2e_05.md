@@ -1,4 +1,4 @@
-# 使用 NumPy 和 pandas 中的数据结构
+# 第三章：使用 NumPy 和 pandas 中的数据结构
 
 本章是本书中最重要的章节之一。现在我们将开始深入探讨 pandas 的细节。我们从了解 NumPy 的`ndarrays`开始，这是一个不在 pandas 中的数据结构，而是 NumPy 的一部分。了解 NumPy `ndarrays`是非常有用的，因为它们是构建 pandas DataFrame 的基础。NumPy 数组的一个关键优势是，它们可以执行所谓的*矢量化*操作，这些操作是需要遍历/循环 Python 数组的操作，而且速度要快得多。
 

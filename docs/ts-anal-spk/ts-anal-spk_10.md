@@ -1,6 +1,6 @@
-# 10
 
-# 进一步了解 Apache Spark
+
+# 第十章：进一步了解 Apache Spark
 
 在上一章中，我们利用开源组件将时间序列分析投入生产。这需要大量的努力来设置和管理平台。在本章中，我们将通过使用 Databricks 作为基于云的托管**平台即服务**（**PaaS**）解决方案，进一步利用 Apache Spark。我们将使用一个基于 Databricks 构建的端到端时间序列分析示例，采用先进的功能，如 Delta Live Tables 结合流处理管道、AutoML、Unity Catalog 和 AI/BI 仪表盘。
 

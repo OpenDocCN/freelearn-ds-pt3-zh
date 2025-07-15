@@ -1,4 +1,4 @@
-# 6\. 梯度提升、XGBoost 与 SHAP 值
+# 第六章：6\. 梯度提升、XGBoost 与 SHAP 值
 
 概述
 

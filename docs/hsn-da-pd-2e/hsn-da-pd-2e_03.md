@@ -1,4 +1,4 @@
-# *第二章*：使用 Pandas DataFrame
+# 第二章：*第二章*：使用 Pandas DataFrame
 
 是时候开始我们的 `pandas` 之旅了。本章将让我们熟悉在进行数据分析时使用 `pandas` 执行一些基本但强大的操作。
 

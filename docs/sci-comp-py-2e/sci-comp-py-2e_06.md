@@ -8,7 +8,7 @@ from matplotlib.pyplot import *
 
 如果你希望在 IPython 中使用绘图命令，建议在启动 IPython shell 后立即运行 *magic command* ` %matplotlib`。这将为 IPython 准备好交互式绘图功能。
 
-# 6.1 使用基本绘图命令绘制图形
+# 第七章：6.1 使用基本绘图命令绘制图形
 
 本节中，我们将通过基本命令创建图形。这是学习如何使用 Python 绘制数学对象和数据图形的入门点。
 

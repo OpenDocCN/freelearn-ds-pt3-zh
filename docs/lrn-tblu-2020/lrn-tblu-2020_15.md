@@ -1,6 +1,6 @@
-# 15
 
-# 使用 Tableau Prep 整理数据
+
+# 第十五章：使用 Tableau Prep 整理数据
 
 在前一章中，我们考虑了在 Tableau Desktop 中构建数据结构的几种选项。有关结构良好的数据的许多概念将在此处应用，因为我们现在将注意力转向 Tableau 的另一款产品：**Tableau Prep**。Tableau Prep 扩展了 Tableau 平台，提供了强大的数据清理和结构化选项，便于在 Tableau 中进行分析。正如 Tableau Desktop 为数据可视化和分析提供了一个直观、交互的体验，Tableau Prep 则为数据清理和整形提供了一个直观、交互的体验。
 

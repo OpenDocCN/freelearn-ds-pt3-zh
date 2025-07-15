@@ -14,7 +14,7 @@
 
 +   如何从 Python 执行 Linux 命令
 
-# 17.1 在 Linux shell 中运行 Python 程序
+# 第十八章：17.1 在 Linux shell 中运行 Python 程序
 
 打开终端应用程序时，会获得一个带有命令提示符的窗口；参见 *图 17.1*：
 

@@ -1,4 +1,4 @@
-# 使用 pandas 在 Jupyter 中制作强大的报告
+# 第十章：使用 pandas 在 Jupyter 中制作强大的报告
 
 pandas 和 Jupyter Notebook 可用于创建格式化良好的输出、报告和/或教程，且这些内容易于与广泛的受众共享。在本章中，我们将研究多种样式的应用以及 pandas 提供的格式化选项。我们还将了解如何在 Jupyter Notebook 中创建仪表板和报告。
 

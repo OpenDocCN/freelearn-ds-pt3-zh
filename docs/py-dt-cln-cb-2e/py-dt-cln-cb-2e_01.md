@@ -1,6 +1,6 @@
-# 1
 
-# 预见导入表格数据时的清洗问题，使用 pandas
+
+# 第一章：预见导入表格数据时的清洗问题，使用 pandas
 
 科学版的**Python**（如 Anaconda、WinPython、Canopy 等）为分析师提供了广泛的数据处理、探索和可视化工具。其中一个重要的工具是 pandas。pandas 由 Wes McKinney 于 2008 年开发，但真正获得广泛关注是在 2012 年之后，它如今已成为 Python 数据分析中的必备库。本书中的实例展示了许多常见的数据准备任务如何通过 pandas 比其他工具更加轻松地完成。虽然我们在本书中广泛使用 pandas，但也使用了其他流行的软件包，如 Numpy、matplotlib 和 scipy。
 

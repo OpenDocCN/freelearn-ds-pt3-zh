@@ -1,4 +1,4 @@
-# pandas 和支持软件的安装
+# 第二章：pandas 和支持软件的安装
 
 在我们开始使用 pandas 进行数据分析之前，我们需要确保软件已安装且环境正常工作。本章涉及 Python（如有必要）、pandas 库及 Windows、macOS/X 和 Linux 平台所需的所有依赖项的安装。我们将讨论的主题包括选择 Python 版本、安装 Python 和安装 pandas 等内容。
 

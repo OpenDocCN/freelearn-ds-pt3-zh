@@ -1,4 +1,4 @@
-# 合并 Pandas 对象
+# 第十五章：合并 Pandas 对象
 
 有多种选项可以将两个或多个 DataFrame 或 Series 组合在一起。`append`方法是最不灵活的，它只允许向 DataFrame 添加新行。`concat`方法非常灵活，可以在任意轴上合并任意数量的 DataFrame 或 Series。`join`方法通过将一个 DataFrame 的列与其他 DataFrame 的索引对齐来提供快速查找。`merge`方法提供类似 SQL 的功能，用于将两个 DataFrame 合并。
 

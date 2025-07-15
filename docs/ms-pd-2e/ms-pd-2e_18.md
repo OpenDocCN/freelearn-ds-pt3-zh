@@ -1,4 +1,4 @@
-# pandas 与其他工具的比较
+# 第十五章：pandas 与其他工具的比较
 
 本章重点比较 pandas 与 R（许多 pandas 功能的模型工具）、SQL 和 SAS 等工具的异同，后者与 pandas 有着显著的重叠。本章旨在为希望使用 pandas 的 R、SQL 和 SAS 用户提供指南，也为希望在 pandas 中重现其代码功能的用户提供帮助。本章重点介绍 R、SQL 和 SAS 用户可用的一些关键功能，并通过一些示例演示如何在 pandas 中实现类似功能。本章假设您已安装 R 统计软件包。如果没有，您可以从此处下载并安装：[`www.r-project.org/`](http://www.r-project.org/)。
 
