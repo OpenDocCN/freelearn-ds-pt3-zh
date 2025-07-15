@@ -1,6 +1,6 @@
-# Github DevOps 加速指南
+#  Plotly 和 Dash 智能仪表盘和数据应用
 
-> 原文：[`annas-archive.org/md5/677f27c30764b3701bc2b6cf6de3a30e`](https://annas-archive.org/md5/677f27c30764b3701bc2b6cf6de3a30e)
+> 原文：[`annas-archive.org/md5/e5313a0f17775ffeed6651154fcfc198`](https://annas-archive.org/md5/e5313a0f17775ffeed6651154fcfc198)
 > 
 > 译者：[飞龙](https://github.com/wizardforcel)
 > 

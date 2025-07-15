@@ -1,6 +1,6 @@
-# Github DevOps 加速指南
+# Python 数据清理秘籍第二版
 
-> 原文：[`annas-archive.org/md5/677f27c30764b3701bc2b6cf6de3a30e`](https://annas-archive.org/md5/677f27c30764b3701bc2b6cf6de3a30e)
+> 原文：[`annas-archive.org/md5/2774e54b23314a6bebe51d6caf9cd592`](https://annas-archive.org/md5/2774e54b23314a6bebe51d6caf9cd592)
 > 
 > 译者：[飞龙](https://github.com/wizardforcel)
 > 

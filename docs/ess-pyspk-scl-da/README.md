@@ -1,6 +1,6 @@
-# Github DevOps 加速指南
+# PySpark 大规模数据分析精要
 
-> 原文：[`annas-archive.org/md5/677f27c30764b3701bc2b6cf6de3a30e`](https://annas-archive.org/md5/677f27c30764b3701bc2b6cf6de3a30e)
+> 原文：[`annas-archive.org/md5/b3bdd515fb6b21fd6dc5f2c481c3d18f`](https://annas-archive.org/md5/b3bdd515fb6b21fd6dc5f2c481c3d18f)
 > 
 > 译者：[飞龙](https://github.com/wizardforcel)
 > 

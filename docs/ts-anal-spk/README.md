@@ -1,6 +1,6 @@
-# Github DevOps 加速指南
+# Spark 时间序列分析
 
-> 原文：[`annas-archive.org/md5/677f27c30764b3701bc2b6cf6de3a30e`](https://annas-archive.org/md5/677f27c30764b3701bc2b6cf6de3a30e)
+> 原文：[`annas-archive.org/md5/92b806e0bfe2149821d7ca72450c0f00`](https://annas-archive.org/md5/92b806e0bfe2149821d7ca72450c0f00)
 > 
 > 译者：[飞龙](https://github.com/wizardforcel)
 > 

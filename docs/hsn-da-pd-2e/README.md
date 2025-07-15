@@ -1,6 +1,6 @@
-# Github DevOps 加速指南
+# Pandas 数据分析实用指南第二版
 
-> 原文：[`annas-archive.org/md5/677f27c30764b3701bc2b6cf6de3a30e`](https://annas-archive.org/md5/677f27c30764b3701bc2b6cf6de3a30e)
+> 原文：[`annas-archive.org/md5/ef72ddf5930d597094f1662f9e78e83e`](https://annas-archive.org/md5/ef72ddf5930d597094f1662f9e78e83e)
 > 
 > 译者：[飞龙](https://github.com/wizardforcel)
 > 
