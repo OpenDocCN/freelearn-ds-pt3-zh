@@ -1,4 +1,4 @@
-# *第八章*：使用 Heroku 和 AWS 部署 Streamlit 应用
+# 第八章：*第八章*：使用 Heroku 和 AWS 部署 Streamlit 应用
 
 在 *第五章*中，*使用 Streamlit Sharing 部署 Streamlit*，我们学习了如何使用 Streamlit Sharing 部署我们的 Streamlit 应用。Streamlit Sharing 快速、简便，对于大多数应用都非常有效，但也有一些缺点，主要是我们只能同时托管三个免费的应用，并且计算能力也有限。以下摘自 Streamlit Sharing 页面：
 

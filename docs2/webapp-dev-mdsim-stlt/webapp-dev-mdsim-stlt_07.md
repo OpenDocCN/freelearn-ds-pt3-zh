@@ -1,6 +1,6 @@
 
 
-# 使用 Streamlit Share 在云端分享和部署你的应用
+# 第七章：使用 Streamlit Share 在云端分享和部署你的应用
 
 Streamlit Share 是 Streamlit 框架提供的一项服务，允许用户通过几次点击将其使用 Streamlit 构建的 Web 应用程序部署到云端。Streamlit Share 提供了一种免费且简便的方式，可以与他人共享我们的 Web 应用程序，并让它们在任何有互联网连接的地方都能访问。
 

@@ -1,6 +1,6 @@
 
 
-# 在 Streamlit Share 上部署和管理复杂库
+# 第十一章：在 Streamlit Share 上部署和管理复杂库
 
 让我们继续探索在 Streamlit Share 上的部署，Streamlit 框架提供的一个服务，允许用户通过简单的几次点击将他们使用 Streamlit 实现的网页应用程序部署到云端。这一次，我们需要打包*Covid-19 检测工具*应用并尝试部署它。这里将涉及许多大型库，因此任务稍微复杂一些。
 

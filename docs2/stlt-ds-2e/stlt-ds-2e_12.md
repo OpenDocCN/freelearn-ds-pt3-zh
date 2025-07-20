@@ -1,6 +1,6 @@
 
 
-# Streamlit 资深用户
+# 第十二章：Streamlit 资深用户
 
 欢迎来到本书的最后一章！在这一章中，我们将向最顶尖的人士学习——Streamlit 的创作者，他们有着创建了数十个应用和组件的经验，Streamlit 的资深用户转变为 Streamlit 的员工，甚至还有 Streamlit 库的创始人，他如今在 Snowflake 内部领导公司。我采访了六位不同的用户，了解了他们的背景、使用 Streamlit 的经验，以及他们对不同经验层次的用户的建议。从这些访谈中，我们将了解到他们是如何在日常工作中使用 Streamlit 的，如何在教学中使用 Streamlit，并且我们还会探讨 Streamlit 的未来发展方向。
 

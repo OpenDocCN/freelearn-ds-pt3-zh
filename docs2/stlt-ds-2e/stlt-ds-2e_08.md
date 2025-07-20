@@ -1,6 +1,6 @@
 
 
-# 使用 Hugging Face 和 Heroku 部署 Streamlit 应用
+# 第八章：使用 Hugging Face 和 Heroku 部署 Streamlit 应用
 
 在*第五章*，*通过 Streamlit Community Cloud 部署 Streamlit*中，我们学习了如何通过 Streamlit Community Cloud 部署我们的 Streamlit 应用。Streamlit Community Cloud 对大多数应用来说快速、简单且非常有效。然而，它并没有无限制的免费计算资源，每个部署的应用程序限制为 1GB 内存。如果我们想要一个使用更多资源的应用程序，那就没有这个选项了。
 
