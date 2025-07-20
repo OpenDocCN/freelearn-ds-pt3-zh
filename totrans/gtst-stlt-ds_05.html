@@ -1,0 +1,357 @@
+<html><head></head><body>
+		<div id="_idContainer045">
+			<h1 id="_idParaDest-48"><em class="italic"><a id="_idTextAnchor049"/>Chapter 4</em>: Using Machine Learning with Streamlit </h1>
+			<p>A very common situation data scientists find themselves in is at the end of the model creation process, not knowing exactly how to convince non-data scientists that their model is worthwhile. They might have performance metrics from their model or some static visualizations but have no easy way to allow others to interact with their model. </p>
+			<p>Before Streamlit, there were a couple of other options, the most popular being creating a full-fledged app in Flask or Django or turning their model into an <strong class="bold">Application Programming Interface</strong> (<strong class="bold">API</strong>) and pointing developers toward it. These are great options but tend to be time-consuming and suboptimal for valuable use cases such as prototyping an app. </p>
+			<p>The incentives on teams are a little misaligned here. A data scientist wants to create the best models for their teams, but if they need to take a day or two (or, if they have experience, a few hours) of work to turn their model into a Flask or Django app, it doesn't make much sense to build this out until they think they are nearly complete with the modeling process. The benefit of Streamlit is that it helps us turn this arduous process into a frictionless app creation experience. In this chapter, we'll go over how to create <strong class="bold">Machine Learning</strong> (<strong class="bold">ML</strong>) prototypes in Streamlit, how to add user interaction to your ML apps, and also how to understand the ML results. </p>
+			<p>Specifically, the following topics are covered in this chapter:</p>
+			<ul>
+				<li>The standard ML workflow</li>
+				<li>Predicting penguin species</li>
+				<li>Utilizing a pre-trained ML model in Streamlit</li>
+				<li>Training models inside Streamlit apps</li>
+				<li>Understanding ML results</li>
+			</ul>
+			<h1 id="_idParaDest-49"><a id="_idTextAnchor050"/>The standard ML workflow</h1>
+			<p>The first step to <a id="_idIndexMarker147"/>creating an app that uses ML is the ML model itself. There are dozens of popular workflows for creating your own ML models. It's likely you might have your own already! There are two parts of this process to consider:</p>
+			<ul>
+				<li>The generation of the ML model</li>
+				<li>The use of the ML model in production </li>
+			</ul>
+			<p>If the plan is to train a model once and then use this model in our Streamlit app, the best method is to create this model outside of Streamlit (for example, in a Jupyter notebook or in a standard Python file) first, and then use this model within the app. </p>
+			<p>If the plan is to use the user input to train the model inside our app, then we can no longer create the model outside of Streamlit and instead will need to run the model training within the Streamlit app. </p>
+			<p>We will start by building our ML models outside of Streamlit and move on to training our models inside of Streamlit apps after. </p>
+			<h1 id="_idParaDest-50"><a id="_idTextAnchor051"/>Predicting penguin species</h1>
+			<p>The <a id="_idIndexMarker148"/>dataset that we will primarily use in this chapter is the same Palmer's Penguins dataset that we used in <a href="B16864_01_Final_VK_ePub.xhtml#_idTextAnchor014"><em class="italic">Chapter 1</em></a>, <em class="italic">An Introduction to Streamlit</em>. As is typical, we will create a new folder that will house our new Streamlit app and accompanying code. The following code creates this new folder within our <strong class="source-inline">streamlit_apps</strong> folder and copies the data from our <strong class="source-inline">penguin_app</strong> folder. If you haven't downloaded the Palmer's Penguins data yet, please follow the instructions in the <em class="italic">The Setup: Palmer's Penguins</em> section in <a href="B16864_02_Final_VK_ePub.xhtml#_idTextAnchor024"><em class="italic">Chapter 2</em></a>, <em class="italic">Uploading, Downloading, and Manipulating Data</em>:</p>
+			<p class="source-code">mkdir penguin_ml</p>
+			<p class="source-code">cp penguin_app/penguins.csv penguin_ml </p>
+			<p class="source-code">cd penguin_ml </p>
+			<p class="source-code">touch penguins_ml.py</p>
+			<p class="source-code">touch penguins_streamlit.py</p>
+			<p>As you may have noticed in the preceding code, there are two Python files here, one to create the ML model (<strong class="source-inline">penguins_ml.py</strong>) and the second to create the Streamlit app (<strong class="source-inline">penguins_streamlit.py</strong>). We will start with the <strong class="source-inline">penguins_ml.py</strong> file, and once we have a model we are happy with, we will move on to the <strong class="source-inline">penguins_streamlit.py</strong> file. </p>
+			<p class="callout-heading">Note</p>
+			<p class="callout">You can also opt to create the model in a Jupyter notebook, which is less reproducible by design (as cells can be run out of order) but is still incredibly popular. </p>
+			<p>Let's get <a id="_idIndexMarker149"/>re-familiarized with the <strong class="source-inline">penguins.csv</strong> dataset. The following code will read the dataset and print out the first five rows: </p>
+			<p class="source-code">import pandas as pd </p>
+			<p class="source-code">penguin_df = pd.read_csv('penguins.csv')</p>
+			<p class="source-code">print(penguin_df.head())</p>
+			<p>The output of the preceding code, when we run our Python file <strong class="source-inline">penguins_ml.py</strong> in the terminal, will look something like the following screenshot:  </p>
+			<div>
+				<div id="_idContainer038" class="IMG---Figure">
+					<img src="image/B16864_04_01.jpg" alt="Figure 4.1 – First five penguins&#13;&#10;"/>
+				</div>
+			</div>
+			<p class="figure-caption"> </p>
+			<p class="figure-caption">Figure 4.1 – First five penguins</p>
+			<p>For this app, we are going to attempt to create an app that will help researchers in the wild know what species of penguin they are looking at. It will predict the species of the penguin given some measurements of the bill, flippers, and body mass, and knowledge about the sex and location of the penguin. </p>
+			<p>This next section is not an attempt to make the best ML model possible, but just to create something as a quick prototype for our Streamlit app that we can iterate off of. So in that light, we are going to drop our few rows with null values, and not use the <strong class="source-inline">year</strong> variable in our features as it does not fit with our use case. We will need to define our features and output variables, and do one-hot-encoding (or as pandas calls it, creating dummy variables for our text columns) on our features, and factorize our output variable (turn it from a string into a number). The following code should get our dataset in a better spot to run through a classification algorithm:</p>
+			<p class="source-code">import pandas as pd </p>
+			<p class="source-code">penguin_df = pd.read_csv('penguins.csv')</p>
+			<p class="source-code"> penguin_df.dropna(inplace=True)</p>
+			<p class="source-code"> output = penguin_df['species']</p>
+			<p class="source-code"> features = penguin_df[['island', 'bill_length_mm', 'bill_depth_mm',</p>
+			<p class="source-code">       'flipper_length_mm', 'body_mass_g', 'sex']]</p>
+			<p class="source-code"> features = pd.get_dummies(features)</p>
+			<p class="source-code"> print('Here are our output variables')</p>
+			<p class="source-code"> print(output.head())</p>
+			<p class="source-code">print('Here are our feature variables')</p>
+			<p class="source-code">print(features.head())</p>
+			<p>Now when we <a id="_idIndexMarker150"/>run our Python file <strong class="source-inline">penguins_ml.py</strong> again, we see the output and feature variables separated, as shown in the following screenshot: </p>
+			<div>
+				<div id="_idContainer039" class="IMG---Figure">
+					<img src="image/B16864_04_02.jpg" alt="Figure 4.2 – Output variables&#13;&#10;"/>
+				</div>
+			</div>
+			<p class="figure-caption">Figure 4.2 – Output variables</p>
+			<p>Now, we want to create a classification model using a subset (in this case, 80%) of our data, and get the accuracy of said model. The following code runs through those steps using a random forest model, but you can use other classification algorithms if you would like. Again, the <a id="_idIndexMarker151"/>point here is to get a quick prototype to show to the penguin researchers for feedback! </p>
+			<p class="source-code">import pandas as pd</p>
+			<p class="source-code">from sklearn.metrics import accuracy_score</p>
+			<p class="source-code">from sklearn.ensemble import RandomForestClassifier</p>
+			<p class="source-code">from sklearn.model_selection import train_test_split</p>
+			<p class="source-code">penguin_df = pd.read_csv('penguins.csv')</p>
+			<p class="source-code">penguin_df.dropna(inplace=True)</p>
+			<p class="source-code">output = penguin_df['species']</p>
+			<p class="source-code">features = penguin_df[['island', 'bill_length_mm', 'bill_depth_mm',</p>
+			<p class="source-code">                       'flipper_length_mm', 'body_mass_g', 'sex']]</p>
+			<p class="source-code">features = pd.get_dummies(features)</p>
+			<p class="source-code">output, uniques = pd.factorize(output)</p>
+			<p class="source-code">x_train, x_test, y_train, y_test = train_test_split(</p>
+			<p class="source-code">    features, output, test_size=.8)</p>
+			<p class="source-code">rfc = RandomForestClassifier(random_state=15)</p>
+			<p class="source-code">rfc.fit(x_train, y_train)</p>
+			<p class="source-code">y_pred = rfc.predict(x_test)</p>
+			<p class="source-code">score = accuracy_score(y_pred, y_test)</p>
+			<p class="source-code">print('Our accuracy score for this model is {}'.format(score))</p>
+			<p>We now have a pretty good model for predicting the species of penguins! Our last step in the model generating process is to save the two parts of this model that we need the most – the model itself and the <strong class="source-inline">uniques</strong> variable, which maps the factorized output variable to the species name that we recognize. To the previous code, we will add a few lines that will save these objects as pickle files (files that turn a Python object into something we can save directly and import easily from another Python file such as our Streamlit app). More specifically, the <strong class="source-inline">open()</strong> function creates two pickle files, the <strong class="source-inline">pickle.dump()</strong> function writes our Python files to said files, and the <strong class="source-inline">close()</strong> function <a id="_idIndexMarker152"/>closes the files. The <strong class="source-inline">wb</strong> in the <strong class="source-inline">open()</strong> function stands for <em class="italic">write bytes</em>, which tells Python that we want to write, not read, to this file:</p>
+			<p class="source-code">import pandas as pd</p>
+			<p class="source-code">from sklearn.metrics import accuracy_score</p>
+			<p class="source-code">from sklearn.ensemble import RandomForestClassifier</p>
+			<p class="source-code">from sklearn.model_selection import train_test_split</p>
+			<p class="source-code">import pickle</p>
+			<p class="source-code">penguin_df = pd.read_csv('penguins.csv')</p>
+			<p class="source-code">penguin_df.dropna(inplace=True)</p>
+			<p class="source-code">output = penguin_df['species']</p>
+			<p class="source-code">features = penguin_df[['island', 'bill_length_mm', 'bill_depth_mm',</p>
+			<p class="source-code">                       'flipper_length_mm', 'body_mass_g', 'sex']]</p>
+			<p class="source-code">features = pd.get_dummies(features)</p>
+			<p class="source-code">output, uniques = pd.factorize(output)</p>
+			<p class="source-code">x_train, x_test, y_train, y_test = train_test_split(</p>
+			<p class="source-code">    features, output, test_size=.8)</p>
+			<p class="source-code">rfc = RandomForestClassifier(random_state=15)</p>
+			<p class="source-code">rfc.fit(x_train, y_train)</p>
+			<p class="source-code">y_pred = rfc.predict(x_test)</p>
+			<p class="source-code">score = accuracy_score(y_pred, y_test)</p>
+			<p class="source-code">print('Our accuracy score for this model is {}'.format(score))</p>
+			<p class="source-code">rf_pickle = open('random_forest_penguin.pickle', 'wb')</p>
+			<p class="source-code">pickle.dump(rfc, rf_pickle)</p>
+			<p class="source-code">rf_pickle.close()</p>
+			<p class="source-code">output_pickle = open('output_penguin.pickle', 'wb')</p>
+			<p class="source-code">pickle.dump(uniques, output_pickle)</p>
+			<p class="source-code">output_pickle.close() </p>
+			<p>We now have two <a id="_idIndexMarker153"/>more files in our <strong class="source-inline">penguin_ml</strong> folder, a file called <strong class="source-inline">random_forest_penguin.pickle</strong>, which contains our model, and <strong class="source-inline">output_penguin_.pickle</strong>, which has the mapping between penguin species and the output of our model. This is it for the <strong class="source-inline">penguins_ml.py</strong> function! We can move on to our Streamlit app. </p>
+			<h1 id="_idParaDest-51"><a id="_idTextAnchor052"/>Utilizing a pre-trained ML model in Streamlit</h1>
+			<p>Now that we <a id="_idIndexMarker154"/>have our model, we want <a id="_idIndexMarker155"/>to load it (along with our mapping function as well) into Streamlit. In our file, <strong class="source-inline">penguins_streamlit.py</strong>, that we created before, we will again use the <strong class="source-inline">pickle</strong> library to load our files using the following code. We use the same functions as before, but instead of <strong class="source-inline">wb</strong>, we use the <strong class="source-inline">rb</strong> parameter, which stands for <em class="italic">read bytes</em>. To make sure these are the same Python objects that we used before, we will use the <strong class="source-inline">st.write()</strong> function that we are so familiar with already to check: </p>
+			<p class="source-code">import streamlit as st</p>
+			<p class="source-code">import pickle</p>
+			<p class="source-code">rf_pickle = open('random_forest_penguin.pickle', 'rb')</p>
+			<p class="source-code">map_pickle = open('output_penguin.pickle', 'rb')</p>
+			<p class="source-code">rfc = pickle.load(rf_pickle)</p>
+			<p class="source-code">unique_penguin_mapping = pickle.load(map_pickle)</p>
+			<p class="source-code">st.write(rfc)</p>
+			<p class="source-code">st.write(unique_penguin_mapping)</p>
+			<p>As with our <a id="_idIndexMarker156"/>previous Streamlit apps, we run the <a id="_idIndexMarker157"/>following code in the terminal to run our app: </p>
+			<p class="source-code">streamlit run penguins_streamlit.py</p>
+			<p>We now have our random forest classifier, along with the penguin mapping! Our next step is to add Streamlit functions to get the user input. In our app, we used island, bill length, bill depth, flipper length, body mass, and sex to predict the penguin species, so we will need to get each of these from our user. For island and sex, we know which options were in our dataset already and want to avoid having to parse through user text, so we will use <strong class="source-inline">selectbox</strong>. For the other data, we just need to make sure that the user has input a positive number, so we will use the <strong class="source-inline">st.number_input()</strong> function and make the minimum value <strong class="source-inline">0</strong>. The following code takes these inputs in and prints them out on our Streamlit app: </p>
+			<p class="source-code">import streamlit as st</p>
+			<p class="source-code">import pickle</p>
+			<p class="source-code">rf_pickle = open('random_forest_penguin.pickle', 'rb')</p>
+			<p class="source-code">map_pickle = open('output_penguin.pickle', 'rb')</p>
+			<p class="source-code">rfc = pickle.load(rf_pickle)</p>
+			<p class="source-code">unique_penguin_mapping = pickle.load(map_pickle)</p>
+			<p class="source-code">rf_pickle.close()</p>
+			<p class="source-code">map_pickle.close()</p>
+			<p class="source-code">island = st.selectbox('Penguin Island', options=[</p>
+			<p class="source-code">                      'Biscoe', 'Dream', 'Torgerson'])</p>
+			<p class="source-code">sex = st.selectbox('Sex', options=['Female', 'Male'])</p>
+			<p class="source-code">bill_length = st.number_input('Bill Length (mm)', min_value=0)</p>
+			<p class="source-code">bill_depth = st.number_input('Bill Depth (mm)', min_value=0)</p>
+			<p class="source-code">flipper_length = st.number_input('Flipper Length (mm)', min_value=0)</p>
+			<p class="source-code">body_mass = st.number_input('Body Mass (g)', min_value=0)</p>
+			<p class="source-code">st.write('the user inputs are {}'.format(</p>
+			<p class="source-code">    [island, sex, bill_length,</p>
+			<p class="source-code">         bill_depth, flipper_length, body_mass]))</p>
+			<p>The preceding <a id="_idIndexMarker158"/>code should make the following app. Try it out and see if it <a id="_idIndexMarker159"/>works by changing the values and seeing if the output changes as well. Streamlit is designed so that, by default, each time a value is changed, the entire app reruns. The following screenshot shows the app live, with some values that I've changed. We can either change numeric values with the (<strong class="bold">+</strong> and <strong class="bold">-</strong>) buttons on the right-hand side, or we can just enter the values manually:</p>
+			<div>
+				<div id="_idContainer040" class="IMG---Figure">
+					<img src="image/B16864_04_03.jpg" alt="Figure 4.3 – Model inputs&#13;&#10;"/>
+				</div>
+			</div>
+			<p class="figure-caption">Figure 4.3 – Model inputs</p>
+			<p>Now we have all <a id="_idIndexMarker160"/>our inputs, and we also have our model. The <a id="_idIndexMarker161"/>next step is to format the data into the same format as our preprocessed data, for example, our model does not have one variable called <strong class="source-inline">sex</strong> but instead has two variables called <strong class="source-inline">sex_female</strong> and <strong class="source-inline">sex_male</strong>. Once our data is in the right shape, we can call the <strong class="source-inline">predict</strong> function and map the prediction to our original species list to see how our model functions. The following code does exactly this, and also adds some basic titles and instructions to the app to make it more usable. This app is rather long, so I will break it up into multiple sections for readability, starting with adding instructions and a title to our app: </p>
+			<p class="source-code">import streamlit as st</p>
+			<p class="source-code">import pickle</p>
+			<p class="source-code">st.title('Penguin Classifier')</p>
+			<p class="source-code">st.write("This app uses 6 inputs to predict the species of penguin using"</p>
+			<p class="source-code">         "a model built on the Palmer's Penguin's dataset. Use the form below"</p>
+			<p class="source-code">         " to get started!")</p>
+			<p class="source-code">rf_pickle = open('random_forest_penguin.pickle', 'rb')</p>
+			<p class="source-code">map_pickle = open('output_penguin.pickle', 'rb')</p>
+			<p class="source-code">rfc = pickle.load(rf_pickle)</p>
+			<p class="source-code">unique_penguin_mapping = pickle.load(map_pickle)</p>
+			<p class="source-code">rf_pickle.close()</p>
+			<p class="source-code">map_pickle.close()</p>
+			<p>We now have an <a id="_idIndexMarker162"/>app with our title and instructions <a id="_idIndexMarker163"/>for the user. The next step is to get the user inputs as we did before. We also need to put our <strong class="source-inline">sex</strong> and <strong class="source-inline">island</strong> variables into the correct format, as discussed before: </p>
+			<p class="source-code">island = st.selectbox('Penguin Island', options=[</p>
+			<p class="source-code">                      'Biscoe', 'Dream', 'Torgerson'])</p>
+			<p class="source-code">sex = st.selectbox('Sex', options=['Female', 'Male'])</p>
+			<p class="source-code">bill_length = st.number_input('Bill Length (mm)', min_value=0)</p>
+			<p class="source-code">bill_depth = st.number_input('Bill Depth (mm)', min_value=0)</p>
+			<p class="source-code">flipper_length = st.number_input('Flipper Length (mm)', min_value=0)</p>
+			<p class="source-code">body_mass = st.number_input('Body Mass (g)', min_value=0)</p>
+			<p class="source-code">island_biscoe, island_dream, island_torgerson = 0, 0, 0</p>
+			<p class="source-code">if island == 'Biscoe':</p>
+			<p class="source-code">    island_biscoe = 1</p>
+			<p class="source-code">elif island == 'Dream':</p>
+			<p class="source-code">    island_dream = 1</p>
+			<p class="source-code">elif island == 'Torgerson':</p>
+			<p class="source-code">    island_torgerson = 1</p>
+			<p class="source-code">sex_female, sex_male = 0, 0</p>
+			<p class="source-code">if sex == 'Female':</p>
+			<p class="source-code">    sex_female = 1</p>
+			<p class="source-code">elif sex == 'Male':</p>
+			<p class="source-code">    sex_male = 1</p>
+			<p>All of our <a id="_idIndexMarker164"/>data is in the correct format! The last step <a id="_idIndexMarker165"/>here is using the <strong class="source-inline">predict()</strong> function on our model with our new data, which this final section takes care of: </p>
+			<p class="source-code">new_prediction = rfc.predict([[bill_length, bill_depth, flipper_length,</p>
+			<p class="source-code">                               body_mass, island_biscoe, island_dream,</p>
+			<p class="source-code">                               island_torgerson, sex_female, sex_male]])</p>
+			<p class="source-code">prediction_species = unique_penguin_mapping[new_prediction][0]</p>
+			<p class="source-code">st.write('We predict your penguin is of the {} species'.format(prediction_species))</p>
+			<p>Now our app <a id="_idIndexMarker166"/>should look like the following screenshot. I have <a id="_idIndexMarker167"/>added some example values to the inputs, but you should play around with changing the data to see if you can make the species change!</p>
+			<div>
+				<div id="_idContainer041" class="IMG---Figure">
+					<img src="image/B16864_04_04.jpg" alt="Figure 4.4 – Full Streamlit prediction&#13;&#10;"/>
+				</div>
+			</div>
+			<p class="figure-caption">Figure 4.4 – Full Streamlit prediction</p>
+			<p>We now have a full Streamlit app that utilizes our pre-trained ML model, takes user input, and outputs the prediction. Next, we will discuss how to train models directly within Streamlit apps!</p>
+			<h1 id="_idParaDest-52"><a id="_idTextAnchor053"/>Training models inside Streamlit apps</h1>
+			<p>Often, we may <a id="_idIndexMarker168"/>want to have the <a id="_idIndexMarker169"/>user input change how our model is trained. We may want to accept data from the user or ask the user what features they would like to use, or even allow the user to pick the type of machine learning algorithm they would like to use. All of these options are feasible in Streamlit, and in this section, we will cover the basics around using user input to affect the training process. As we discussed in the section above, if a model is going to be trained only once, it is probably best to train the model outside of Streamlit and import the model into Streamlit. But what if, in our example, the penguin researchers have the data stored locally, or do not know how to retrain the model but have the data in the correct format already? In cases like these, we can add the <strong class="source-inline">st.file_uploader()</strong> option and include a method for these users to input their own data, and get a custom model deployed for them without having to write any code. The following code will add a user option to accept data and will use the preprocessing/training code that we originally had in <strong class="source-inline">penguins_ml.py</strong> to make a unique model for this user. It is important to note here that this will only work if the user has data in the exact same format and style that we used, which may be unlikely. One other potential add-on here is to show the user what format the data needs to be in for this app to correctly train a model as expected! </p>
+			<p class="source-code">import streamlit as st</p>
+			<p class="source-code">import seaborn as sns</p>
+			<p class="source-code">import matplotlib.pyplot as plt</p>
+			<p class="source-code">import pandas as pd</p>
+			<p class="source-code">import pickle</p>
+			<p class="source-code">from sklearn.metrics import accuracy_score</p>
+			<p class="source-code">from sklearn.ensemble import RandomForestClassifier</p>
+			<p class="source-code">from sklearn.model_selection import train_test_split</p>
+			<p class="source-code">st.title('Penguin Classifier')</p>
+			<p class="source-code">st.write("This app uses 6 inputs to predict the species of penguin using "</p>
+			<p class="source-code">         "a model built on the Palmer's Penguin's dataset. Use the form below"</p>
+			<p class="source-code">         " to get started!")</p>
+			<p class="source-code">penguin_file = st.file_uploader('Upload your own penguin data')</p>
+			<p>This first <a id="_idIndexMarker170"/>section imports the libraries that <a id="_idIndexMarker171"/>we need, adds the title – as we have used before, and adds the <strong class="source-inline">file_uploader()</strong> function. What happens, however, when the user has yet to upload a file? We can set the default to load our random forest model if there is no penguin file, as shown in the next section of code: </p>
+			<p class="source-code">if penguin_file is None:</p>
+			<p class="source-code">    rf_pickle = open('random_forest_penguin.pickle', 'rb')</p>
+			<p class="source-code">    map_pickle = open('output_penguin.pickle', 'rb')</p>
+			<p class="source-code">    rfc = pickle.load(rf_pickle)</p>
+			<p class="source-code">    unique_penguin_mapping = pickle.load(map_pickle)</p>
+			<p class="source-code">    rf_pickle.close()</p>
+			<p class="source-code">    map_pickle.close()</p>
+			<p>The next problem we need to solve is how to take in the user's data, clean it, and train a model based on it. Luckily, we can reuse the model training code that we have already created and put it within our <strong class="source-inline">else</strong> statement in the next code block:</p>
+			<p class="source-code">else:</p>
+			<p class="source-code">    penguin_df = pd.read_csv(penguin_file)</p>
+			<p class="source-code">    penguin_df = penguin_df.dropna()</p>
+			<p class="source-code">    output = penguin_df['species']</p>
+			<p class="source-code">    features = penguin_df[['island', 'bill_length_mm', 'bill_depth_mm',</p>
+			<p class="source-code">                           'flipper_length_mm', 'body_mass_g', 'sex']]</p>
+			<p class="source-code">    features = pd.get_dummies(features)</p>
+			<p class="source-code">    output, unique_penguin_mapping = pd.factorize(output)</p>
+			<p class="source-code">    x_train, x_test, y_train, y_test = train_test_split(</p>
+			<p class="source-code">        features, output, test_size=.8)</p>
+			<p class="source-code">    rfc = RandomForestClassifier(random_state=15)</p>
+			<p class="source-code">    rfc.fit(x_train, y_train)</p>
+			<p class="source-code">    y_pred = rfc.predict(x_test)</p>
+			<p class="source-code">    score = round(accuracy_score(y_pred, y_test), 2)</p>
+			<p class="source-code">    st.write('We trained a Random Forest model on these data,'</p>
+			<p class="source-code">             ' it has a score of {}! Use the '</p>
+			<p class="source-code">             'inputs below to try out the model.'.format(score))</p>
+			<p>We have now <a id="_idIndexMarker172"/>created our model <a id="_idIndexMarker173"/>within the app and need to get the inputs from the user for our prediction. This time, however, we can make an improvement on what we have done before. As of now, each time a user changes an input in our app, the entire Streamlit app will rerun. We can use the <strong class="source-inline">st.form()</strong> and <strong class="source-inline">st.submit_form_button()</strong> functions to wrap the rest of our user inputs in and allow the user to change all of the inputs and submit the entire form at once instead of multiple times: </p>
+			<p class="source-code">with st.form('user_inputs'):</p>
+			<p class="source-code">island = st.selectbox('Penguin Island', options=[</p>
+			<p class="source-code">                      'Biscoe', 'Dream', 'Torgerson'])</p>
+			<p class="source-code">sex = st.selectbox('Sex', options=['Female', 'Male'])</p>
+			<p class="source-code">bill_length = st.number_input('Bill Length (mm)', min_value=0)</p>
+			<p class="source-code">bill_depth = st.number_input('Bill Depth (mm)', min_value=0)</p>
+			<p class="source-code">flipper_length = st.number_input('Flipper Length (mm)', min_value=0)</p>
+			<p class="source-code">body_mass = st.number_input('Body Mass (g)', min_value=0)</p>
+			<p class="source-code">st.form_submit_button()</p>
+			<p class="source-code">island_biscoe, island_dream, island_torgerson = 0, 0, 0</p>
+			<p class="source-code">if island == 'Biscoe':</p>
+			<p class="source-code">    island_biscoe = 1</p>
+			<p class="source-code">elif island == 'Dream':</p>
+			<p class="source-code">    island_dream = 1</p>
+			<p class="source-code">elif island == 'Torgerson':</p>
+			<p class="source-code">    island_torgerson = 1</p>
+			<p class="source-code">sex_female, sex_male = 0, 0</p>
+			<p class="source-code">if sex == 'Female':</p>
+			<p class="source-code">    sex_female = 1</p>
+			<p class="source-code">elif sex == 'Male':</p>
+			<p class="source-code">    sex_male = 1</p>
+			<p>Now that we have the inputs with our new form, we need to create our prediction and write the <a id="_idIndexMarker174"/>prediction to the user, as shown <a id="_idIndexMarker175"/>in the next block: </p>
+			<p class="source-code">new_prediction = rfc.predict([[bill_length, bill_depth, flipper_length,</p>
+			<p class="source-code">                               body_mass, island_biscoe, island_dream,</p>
+			<p class="source-code">                               island_torgerson, sex_female, sex_male]])</p>
+			<p class="source-code">prediction_species = unique_penguin_mapping[new_prediction][0]</p>
+			<p class="source-code">st.write('We predict your penguin is of the {} species'.format(prediction_species))</p>
+			<p>And there we go! We now have a Streamlit app that allows the user to input their own data and trains a model based on their data and outputs the results, as shown in the next screenshot:</p>
+			<div>
+				<div id="_idContainer042" class="IMG---Figure">
+					<img src="image/B16864_04_05.jpg" alt="Figure 4.5 – Penguin classifier predictions&#13;&#10;"/>
+				</div>
+			</div>
+			<p class="figure-caption">Figure 4.5 – Penguin classifier predictions</p>
+			<p>There are potential improvements here, such as through using caching functions (explored in <a href="B16864_02_Final_VK_ePub.xhtml#_idTextAnchor024"><em class="italic">Chapter 2</em></a>, <em class="italic">Uploading, Downloading, and Manipulating Data</em>), as one example. Apps like <a id="_idIndexMarker176"/>these where users bring <a id="_idIndexMarker177"/>their own data are significantly harder to build, especially without a universal data format. It is more common as of this writing to see Streamlit apps that show off impressive ML models and use cases rather than apps that build them directly in-app (especially with more computationally expensive model training). As we mentioned before, Streamlit developers often will provide references to the required data format before asking for user input in the form of a dataset. However, this option of allowing users to bring their own data is available and practical, especially to allow for quick iterations on model building.  </p>
+			<h1 id="_idParaDest-53"><a id="_idTextAnchor054"/>Understanding ML results</h1>
+			<p>So far, our app <a id="_idIndexMarker178"/>might be useful, but often just showing a result is not good enough for a data app. We also should show some explanation as to why they got the result that they did! In order to do this, we can include in the output of the app that we have already made a section that helps users understand the model better. </p>
+			<p>To start, random forest models already have a built-in feature importance method derived from the set of individual decision trees that make up the random forest. We can edit our <strong class="source-inline">penguins_ml.py</strong> file to graph this importance, and then call that image from within our Streamlit app. We could also graph this directly from within our Streamlit app, but it is more efficient to make this graph once in <strong class="source-inline">penguins_ml.py</strong> instead of every time our Streamlit app reloads (which is every time a user changes a user input!). The following code edits our <strong class="source-inline">penguins_ml.py</strong> file and adds the feature importance graph, saving it to our folder. We also call the <strong class="source-inline">tight_layout()</strong> feature, which helps format our graph better and makes sure we avoid any labels getting cut off. This set of code is long, and the top half of the file remains unchanged, so only the section on library importing and data cleaning has been omitted: </p>
+			<p class="source-code">x_train, x_test, y_train, y_test = train_test_split(</p>
+			<p class="source-code">    features, output, test_size=.8)</p>
+			<p class="source-code">rfc = RandomForestClassifier(random_state=15)</p>
+			<p class="source-code">rfc.fit(x_train, y_train)</p>
+			<p class="source-code">y_pred = rfc.predict(x_test)</p>
+			<p class="source-code">score = accuracy_score(y_pred, y_test)</p>
+			<p class="source-code">print('Our accuracy score for this model is {}'.format(score))</p>
+			<p class="source-code">rf_pickle = open('random_forest_penguin.pickle', 'wb')</p>
+			<p class="source-code">pickle.dump(rfc, rf_pickle)</p>
+			<p class="source-code">rf_pickle.close()</p>
+			<p class="source-code">output_pickle = open('output_penguin.pickle', 'wb')</p>
+			<p class="source-code">pickle.dump(uniques, output_pickle)</p>
+			<p class="source-code">output_pickle.close()</p>
+			<p class="source-code">fig, ax = plt.subplots()</p>
+			<p class="source-code">ax = sns.barplot(rfc.feature_importances_, features.columns)</p>
+			<p class="source-code">plt.title('Which features are the most important for species prediction?')</p>
+			<p class="source-code">plt.xlabel('Importance')</p>
+			<p class="source-code">plt.ylabel('Feature')</p>
+			<p class="source-code">plt.tight_layout()</p>
+			<p class="source-code">fig.savefig('feature_importance.png')</p>
+			<p>Now when we rerun <strong class="source-inline">pengiuns_ml.py</strong>, we should see a file called <strong class="source-inline">feature_importance.png</strong>, which we can call from our Streamlit app. Let's do that now! We can use the <strong class="source-inline">st.image()</strong> function to <a id="_idIndexMarker179"/>load an image from our <strong class="source-inline">png</strong> and print it to our penguin app. The following code adds our image to the Streamlit app and also improves our explanations around the prediction we made. Because of the length of this code block, we will just show the new code from the point where we start to predict using the user's data: </p>
+			<p class="source-code">new_prediction = rfc.predict([[bill_length, bill_depth, flipper_length,</p>
+			<p class="source-code">                               body_mass, island_biscoe, island_dream,</p>
+			<p class="source-code">                               island_torgerson, sex_female, sex_male]])</p>
+			<p class="source-code">prediction_species = unique_penguin_mapping[new_prediction][0]</p>
+			<p class="source-code">st.subheader("Predicting Your Penguin's Species:")</p>
+			<p class="source-code">st.write('We predict your penguin is of the {} species'</p>
+			<p class="source-code">         .format(prediction_species))</p>
+			<p class="source-code">st.write('We used a machine learning (Random Forest) model to '</p>
+			<p class="source-code">         'predict the species, the features used in this prediction '</p>
+			<p class="source-code">         ' are ranked by relative importance below.')</p>
+			<p class="source-code">st.image('feature_importance.png')</p>
+			<p>Now, the <a id="_idIndexMarker180"/>bottom of your Streamlit app should look like the following screenshot (note: your string might be slightly different based on your inputs). </p>
+			<div>
+				<div id="_idContainer043" class="IMG---Figure">
+					<img src="image/B16864_04_06.jpg" alt="Figure 4.6 – Feature importance screenshot&#13;&#10;"/>
+				</div>
+			</div>
+			<p class="figure-caption">Figure 4.6 – Feature importance screenshot</p>
+			<p>As we can see, bill length, bill depth, and flipper length are the most important variables according to our <a id="_idIndexMarker181"/>random forest model. A final option for explaining how our model works is to plot the distributions of each of these variables by species, and also plot some vertical lines representing the user input. Ideally, the user can begin to understand the underlying data holistically, and therefore will understand the predictions that come from the model as well. To do this, we will need to actually import the data into our Streamlit app, which we have not done previously. The following code imports the penguin data we used to build the model, and plots three histograms (for <em class="italic">bill length</em>, <em class="italic">bill depth</em>, and <em class="italic">flipper length</em>) along with the user input as a vertical line, starting from the model explanation section:</p>
+			<p class="source-code">st.subheader("Predicting Your Penguin's Species:")</p>
+			<p class="source-code">st.write('We predict your penguin is of the {} species'</p>
+			<p class="source-code">         .format(prediction_species))</p>
+			<p class="source-code">st.write('We used a machine learning (Random Forest) model to '</p>
+			<p class="source-code">         'predict the species, the features used in this prediction '</p>
+			<p class="source-code">         ' are ranked by relative importance below.')</p>
+			<p class="source-code">st.image('feature_importance.png')</p>
+			<p class="source-code">st.write('Below are the histograms for each continuous variable '</p>
+			<p class="source-code">         'separated by penguin species. The vertical line '</p>
+			<p class="source-code">         'represents your the inputted value.')</p>
+			<p>Now that we <a id="_idIndexMarker182"/>have set up our app for the histograms, we can use the <strong class="source-inline">displot()</strong> function in the Seaborn visualization library to create our three histograms for our most important variables: </p>
+			<p class="source-code">fig, ax = plt.subplots()</p>
+			<p class="source-code">ax = sns.displot(x=penguin_df['bill_length_mm'],</p>
+			<p class="source-code">                 hue=penguin_df['species'])</p>
+			<p class="source-code">plt.axvline(bill_length)</p>
+			<p class="source-code">plt.title('Bill Length by Species')</p>
+			<p class="source-code">st.pyplot(ax)</p>
+			<p class="source-code">fig, ax = plt.subplots()</p>
+			<p class="source-code">ax = sns.displot(x=penguin_df['bill_depth_mm'],</p>
+			<p class="source-code">                 hue=penguin_df['species'])</p>
+			<p class="source-code">plt.axvline(bill_depth)</p>
+			<p class="source-code">plt.title('Bill Depth by Species')</p>
+			<p class="source-code">st.pyplot(ax)</p>
+			<p class="source-code">fig, ax = plt.subplots()</p>
+			<p class="source-code">ax = sns.displot(x=penguin_df['flipper_length_mm'],</p>
+			<p class="source-code">                 hue=penguin_df['species'])</p>
+			<p class="source-code">plt.axvline(flipper_length)</p>
+			<p class="source-code">plt.title('Flipper Length by Species')</p>
+			<p class="source-code">st.pyplot(ax)</p>
+			<p>The preceding <a id="_idIndexMarker183"/>code should create the app shown in the following figure, which is our app in its final form. For viewing ease, we will just show the first histogram:</p>
+			<div>
+				<div id="_idContainer044" class="IMG---Figure">
+					<img src="image/B16864_04_07.jpg" alt="Figure 4.6 – Bill Length by Species&#13;&#10;"/>
+				</div>
+			</div>
+			<p class="figure-caption">Figure 4.6 – Bill Length by Species</p>
+			<p>As always, the completed and final code can be found at <a href="https://github.com/tylerjrichards/Getting-Started-with-Streamlit-for-Data-Science">https://github.com/tylerjrichards/Getting-Started-with-Streamlit-for-Data-Science</a>. That completes this section. We <a id="_idIndexMarker184"/>have now created a fully formed Streamlit app that takes a pre-built model and user input and outputs both the result of the prediction and an explanation of the output as well.</p>
+			<h1 id="_idParaDest-54"><a id="_idTextAnchor055"/>Summary</h1>
+			<p>In this chapter, we learned some ML basics: how to take a pre-built ML model and use it within Streamlit, how to create our own models from within Streamlit, and also how to use user input to understand and iterate on ML models. Hopefully, at the end of this chapter, you feel comfortable with each of these. We will dive into the world of deploying Streamlit using Streamlit sharing next! </p>
+		</div>
+	</body></html>

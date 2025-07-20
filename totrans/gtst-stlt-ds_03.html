@@ -1,0 +1,405 @@
+<html><head></head><body>
+		<div id="_idContainer025">
+			<h1 id="_idParaDest-25"><em class="italic"><a id="_idTextAnchor024"/>Chapter 2</em>: Uploading, Down<a id="_idTextAnchor025"/>loading, and Manipulating Data</h1>
+			<p>So far in this book, we have exclusively used simulated data in our Streamlit apps. This was useful for getting a good background in some of the basics of Streamlit, but most data science is not done on simulated data, but on real-world datasets that data scientists already have, or on datasets provided by users. </p>
+			<p>This chapter will focus on the world of data in Streamlit apps, covering everything you will need to know to bring datasets to life using Streamlit. We will cover data manipulation, using user imported data, flow control, debugging Streamlit apps, and speeding up our data applications using caching through an example dataset called Palmer's Penguins.</p>
+			<p>In particular, we will cover the following topics:</p>
+			<ul>
+				<li>The setup – Palmer's Penguins</li>
+				<li>Debugging Streamlit apps</li>
+				<li>Data manipulation in Streamlit</li>
+			</ul>
+			<h1 id="_idParaDest-26"><a id="_idTextAnchor026"/>Technical requirements</h1>
+			<p>For this chapter, we will need to download the Palmer's Penguins dataset, which can be found at <a href="https://github.com/tylerjrichards/streamlit_apps/blob/main/penguin_app/penguins.csv">https://github.com/tylerjrichards/streamlit_apps/blob/main/penguin_app/penguins.csv</a>. The setup for this chapter, along with an explanation of the dataset, can be found in the following section. </p>
+			<h1 id="_idParaDest-27"><a id="_idTextAnchor027"/>The setup – Palmer's Penguins</h1>
+			<p>For this chapter, we'll be using a delightful<a id="_idIndexMarker030"/> dataset about Arctic penguins<a id="_idIndexMarker031"/> that comes from the work of Dr. Kristen Gorman (<a href="https://www.uaf.edu/cfos/people/faculty/detail/kristen-gorman.php">https://www.uaf.edu/cfos/people/faculty/detail/kristen-gorman.php</a>) and the Palmer<a id="_idIndexMarker032"/> Station, Antarctica LTER (<a href="https://pal.lternet.edu/">https://pal.lternet.edu/</a>). </p>
+			<p class="callout-heading">Dataset acknowledgment</p>
+			<p class="callout">Data from the Palmer LTER data repository was supported by the Office of Polar Programs, NSF Grants OPP-9011927, OPP-9632763, and OPP-0217282.</p>
+			<p>This data is a common alternative to the famous Iris datasets and includes data on 344 individual penguins with 3 species represented. The data can be found in the GitHub repository for this book (<a href="https://github.com/tylerjrichards/streamlit_apps">https://github.com/tylerjrichards/streamlit_apps</a>), in the <strong class="source-inline">penguin_app</strong> folder entitled <strong class="source-inline">penguins.csv</strong>. </p>
+			<p>As we've discussed<a id="_idIndexMarker033"/> before, Streamlit apps run from inside our Python script. This sets the base directory to the location of the Python file with our Streamlit app, which means we can access any other files that we put in our app directory.</p>
+			<p>First, let's create a folder for our new app in our existing <strong class="source-inline">streamlit_apps</strong> folder using the following code block:</p>
+			<p class="source-code">mkdir penguin_app</p>
+			<p class="source-code">cd penguin_app</p>
+			<p class="source-code">touch penguins.py</p>
+			<p>After this, download the data and put the resulting CSV file (named <strong class="source-inline">penguins.csv</strong> in the example) in the <strong class="source-inline">penguin_app</strong> folder. Now, our folder should have the <strong class="source-inline">penguins.py</strong> file and our <strong class="source-inline">penguins.csv</strong> file. For our first go around, we're just going to print out the first five rows of our DataFrame using the <strong class="source-inline">st.write()</strong> function we learned earlier using the following code:</p>
+			<p class="source-code">import streamlit as st</p>
+			<p class="source-code">import pandas as pd</p>
+			<p class="source-code">st.title("Palmer's Penguins")</p>
+			<p class="source-code">#import our data</p>
+			<p class="source-code">penguins_df = pd.read_csv('penguins.csv')</p>
+			<p class="source-code"> st.write(penguins_df.head())</p>
+			<p>The preceding<a id="_idIndexMarker034"/> code will produce the following Streamlit app when we run <strong class="source-inline">streamlit run penguins.py</strong> in the terminal:</p>
+			<div>
+				<div id="_idContainer016" class="IMG---Figure">
+					<img src="image/B16864_02_01.jpg" alt="Figure 2.1 – The first five penguins&#13;&#10;"/>
+				</div>
+			</div>
+			<p class="figure-caption">Figure 2.1 – The first five penguins</p>
+			<p>Now that we have a good idea of what the data looks like, we will explore the dataset a bit more and then begin adding to our app. </p>
+			<h2 id="_idParaDest-28"><a id="_idTextAnchor028"/>Exploring Palmer's Penguins</h2>
+			<p>Before we begin working with this dataset, we should make some visualizations to better understand<a id="_idIndexMarker035"/> the data. As we saw before, we have many columns in this data, from the bill length to the flipper length, to the island the penguin lives on, to even the species of penguin. For our first visualization, we can see the flipper length by body mass for the three species:</p>
+			<div>
+				<div id="_idContainer017" class="IMG---Figure">
+					<img src="image/B16864_02_02.jpg" alt="Figure 2.2 – Flippers and weight&#13;&#10;"/>
+				</div>
+			</div>
+			<p class="figure-caption">Figure 2.2 – Flippers and weight</p>
+			<p>As we can see, the Gentoo species has a high flipper length and body mass, and it appears that flipper<a id="_idIndexMarker036"/> length is correlated with body mass for all species. Next, let's look at the relationship between bill length and flipper length: </p>
+			<div>
+				<div id="_idContainer018" class="IMG---Figure">
+					<img src="image/B16864_02_03.jpg" alt="Figure 2.3 – Flippers and bills&#13;&#10;"/>
+				</div>
+			</div>
+			<p class="figure-caption">Figure 2.3 – Flippers and bills</p>
+			<p>From this graph, we can see that the Chinstrap species seem to have a longer bill than the Adelie species. There are many more combinations of variables that we could plot on a scatterplot, but could we instead make a data explorer Streamlit app do this for us?</p>
+			<p>The final goal of this mini-app is going to be to ask the user to specify one of the species of penguins<a id="_idIndexMarker037"/> and to then also choose two other variables to use for a scatterplot. We'll start by learning how to take those inputs, and then create a dynamic visualization.</p>
+			<p>The last user input that we learned about was the number input function, which won't help us here. Streamlit has a select box function (<strong class="source-inline">st.selectbox()</strong>) that allows us to ask the user to select one option from multiple options (in our case, three options), and the function returns whatever the user selects. We will use this to get the three inputs for our scatterplot:</p>
+			<p class="source-code">import streamlit as st</p>
+			<p class="source-code">import pandas as pd</p>
+			<p class="source-code">import matplotlib.pyplot as plt</p>
+			<p class="source-code">import seaborn as sns</p>
+			<p class="source-code">st.title("Palmer's Penguins")</p>
+			<p class="source-code">st.markdown('Use this Streamlit app to make your own scatterplot about penguins!')</p>
+			<p class="source-code"> selected_species = st.selectbox('What species would you like to visualize?',</p>
+			<p class="source-code">     ['Adelie', 'Gentoo', 'Chinstrap'])</p>
+			<p class="source-code"> selected_x_var = st.selectbox('What do want the x variable to be?',</p>
+			<p class="source-code">     ['bill_length_mm', 'bill_depth_mm', 'flipper_length_mm', 'body_mass_g'])</p>
+			<p class="source-code"> selected_y_var = st.selectbox('What about the y?',</p>
+			<p class="source-code">     ['bill_length_mm', 'bill_depth_mm', 'flipper_length_mm', 'body_mass_g'])</p>
+			<p>This code creates three new variables<a id="_idIndexMarker038"/> from three new select boxes that the user can input in our Streamlit app. The following screenshot shows the Streamlit app from the preceding code: </p>
+			<div>
+				<div id="_idContainer019" class="IMG---Figure">
+					<img src="image/B16864_02_04.jpg" alt="Figure 2.4 – User input on penguins&#13;&#10;"/>
+				</div>
+			</div>
+			<p class="figure-caption">Figure 2.4 – User input on penguins</p>
+			<p>Now that we have the <strong class="source-inline">selected_species</strong> variable, we can filter our DataFrame and make a quick scatterplot<a id="_idIndexMarker039"/> using the selected <strong class="source-inline">x</strong> and <strong class="source-inline">y</strong> variables, as in this next block of code:</p>
+			<p class="source-code">Import streamlit as st</p>
+			<p class="source-code">import pandas as pd</p>
+			<p class="source-code">import matplotlib.pyplot as plt</p>
+			<p class="source-code">import seaborn as sns</p>
+			<p class="source-code">st.title("Palmer's Penguins")</p>
+			<p class="source-code">st.markdown('Use this Streamlit app to make your own scatterplot about penguins!')</p>
+			<p class="source-code"> selected_species = st.selectbox('What species would you like to visualize?',</p>
+			<p class="source-code">     ['Adelie', 'Gentoo', 'Chinstrap'])</p>
+			<p class="source-code"> selected_x_var = st.selectbox('What do want the x variable to be?',</p>
+			<p class="source-code">     ['bill_length_mm', 'bill_depth_mm', 'flipper_length_mm', 'body_mass_g'])</p>
+			<p class="source-code"> selected_y_var = st.selectbox('What about the y?',</p>
+			<p class="source-code">     ['bill_depth_mm', 'bill_length_mm', 'flipper_length_mm', 'body_mass_g'])</p>
+			<p class="source-code"> </p>
+			<p class="source-code">penguins_df = pd.read_csv('penguins.csv')</p>
+			<p class="source-code"> penguins_df = penguins_df[penguins_df['species'] == selected_species]</p>
+			<p class="source-code"> </p>
+			<p class="source-code">fig, ax = plt.subplots()</p>
+			<p class="source-code">ax = sns.scatterplot(x = penguins_df[selected_x_var],</p>
+			<p class="source-code">     y = penguins_df[selected_y_var])</p>
+			<p class="source-code"> plt.xlabel(selected_x_var)</p>
+			<p class="source-code"> plt.ylabel(selected_y_var)</p>
+			<p class="source-code"> st.pyplot(fig)</p>
+			<p>This bit of preceding code<a id="_idIndexMarker040"/> adds to the previous example by loading our DataFrame, filtering by species, and then plotting in the same method from the previous chapter, which will result in the same app as before but with a scatterplot attached as well, as shown in the following screenshot:</p>
+			<div>
+				<div id="_idContainer020" class="IMG---Figure">
+					<img src="image/B16864_02_05.jpg" alt="Figure 2.5 – First penguins scatterplot&#13;&#10;"/>
+				</div>
+			</div>
+			<p class="figure-caption">Figure 2.5 – First penguins scatterplot</p>
+			<p>Try to play around with this app and make sure that all the inputs and outputs are working correctly. Also notice<a id="_idIndexMarker041"/> that we've used the input variables to set out <em class="italic">x</em> axis and <em class="italic">y</em> axis labels, which means that those will update automatically when we make any new selections. Our graph doesn't explicitly show what species is being graphed, so let's practice making dynamic text. The following adds dynamic text to our Streamlit app's graph title with the <strong class="source-inline">format()</strong> function native to Python:</p>
+			<p class="source-code">import streamlit as st</p>
+			<p class="source-code">import pandas as pd</p>
+			<p class="source-code">import matplotlib.pyplot as plt</p>
+			<p class="source-code">import seaborn as sns</p>
+			<p class="source-code">st.title("Palmer's Penguins")</p>
+			<p class="source-code">st.markdown('Use this Streamlit app to make your own scatterplot about penguins!')</p>
+			<p class="source-code"> selected_species = st.selectbox('What species would you like to visualize?',</p>
+			<p class="source-code">     ['Adelie', 'Gentoo', 'Chinstrap'])</p>
+			<p class="source-code"> selected_x_var = st.selectbox('What do want the x variable to be?',</p>
+			<p class="source-code">     ['bill_length_mm', 'bill_depth_mm', 'flipper_length_mm', 'body_mass_g'])</p>
+			<p class="source-code"> selected_y_var = st.selectbox('What about the y?',</p>
+			<p class="source-code">     ['bill_depth_mm', 'bill_length_mm', 'flipper_length_mm', 'body_mass_g'])</p>
+			<p class="source-code"> </p>
+			<p class="source-code">penguins_df = pd.read_csv('penguins.csv')</p>
+			<p class="source-code"> penguins_df = penguins_df[penguins_df['species'] == selected_species]</p>
+			<p class="source-code"> </p>
+			<p class="source-code">fig, ax = plt.subplots()</p>
+			<p class="source-code">ax = sns.scatterplot(x = penguins_df[selected_x_var],</p>
+			<p class="source-code">     y = penguins_df[selected_y_var])</p>
+			<p class="source-code"> plt.xlabel(selected_x_var)</p>
+			<p class="source-code"> plt.ylabel(selected_y_var)</p>
+			<p class="source-code"> plt.title('Scatterplot of {} Penguins'.format(selected_species))</p>
+			<p class="source-code"> st.pyplot(fig)</p>
+			<p>The preceding<a id="_idIndexMarker042"/> code adds the species to our scatterplot and results in the following Streamlit app:</p>
+			<div>
+				<div id="_idContainer021" class="IMG---Figure">
+					<img src="image/B16864_02_06.jpg" alt="Figure 2.6 – Dynamic graph titles&#13;&#10;"/>
+				</div>
+			</div>
+			<p class="figure-caption">Figure 2.6 – Dynamic graph titles</p>
+			<p>This looks great! We can also graph each species by hue and shape, as we did in the introductory graphs<a id="_idIndexMarker043"/> earlier in this book. The following code does this, and also uses the Seaborn dark grid theme to stand out against Streamlit's white background a bit better:</p>
+			<p class="source-code">import streamlit as st </p>
+			<p class="source-code">import pandas as pd </p>
+			<p class="source-code">import matplotlib.pyplot as plt </p>
+			<p class="source-code">import seaborn as sns </p>
+			<p class="source-code"> </p>
+			<p class="source-code">st.title("Palmer's Penguins") </p>
+			<p class="source-code">st.markdown('Use this Streamlit app to make your own scatterplot about penguins!')  </p>
+			<p class="source-code">selected_x_var = st.selectbox('What do want the x variable to be?', </p>
+			<p class="source-code">  ['bill_length_mm', 'bill_depth_mm', 'flipper_length_mm', 'body_mass_g']) </p>
+			<p class="source-code">selected_y_var = st.selectbox('What about the y?', </p>
+			<p class="source-code">  ['bill_depth_mm', 'bill_length_mm', 'flipper_length_mm', 'body_mass_g']) </p>
+			<p class="source-code"> </p>
+			<p class="source-code">penguins_df = pd.read_csv('penguins.csv') </p>
+			<p class="source-code"> </p>
+			<p class="source-code">sns.set_style('darkgrid')</p>
+			<p class="source-code">markers = {"Adelie": "X", "Gentoo": "s", "Chinstrap":'o'}</p>
+			<p class="source-code">fig, ax = plt.subplots() </p>
+			<p class="source-code">ax = sns.scatterplot(data = penguins_df, x = selected_x_var, </p>
+			<p class="source-code">  y = selected_y_var, hue = 'species', markers = markers,</p>
+			<p class="source-code">  style = 'species') </p>
+			<p class="source-code">plt.xlabel(selected_x_var) </p>
+			<p class="source-code">plt.ylabel(selected_y_var) </p>
+			<p class="source-code">plt.title("Scatterplot of Palmer's Penguins") </p>
+			<p class="source-code">st.pyplot(fig)</p>
+			<p class="source-code">*** Note: The code above is not in the correct format, please fix **</p>
+			<p>The following screenshot<a id="_idIndexMarker044"/> shows our new and improved Palmer's Penguins app, which allows us to select <em class="italic">x</em> and <em class="italic">y</em> axes and plots a scatterplot for us with the species in a different hue and shape:</p>
+			<div>
+				<div id="_idContainer022" class="IMG---Figure">
+					<img src="image/B16864_02_07.jpg" alt="Figure 2.7 – Screenshot with shapes&#13;&#10;"/>
+				</div>
+			</div>
+			<p class="figure-caption">Figure 2.7 – Screenshot with shapes</p>
+			<p class="callout-heading">Note</p>
+			<p class="callout">You are likely looking at this application through a black and white screenshot, which will only show the shape difference.</p>
+			<p>The last step for this app is to allow the user to upload their own data. What if we wanted the research team at any point to be able to upload their data to this app and see the graphed results? Or what if there were three research groups, all with their own unique data with<a id="_idIndexMarker045"/> different column names, that wanted to use a method that we created? We'll approach this problem one aspect at a time. First, how do we accept data from users?</p>
+			<p>Streamlit has a function called <strong class="source-inline">file_uploader()</strong> that allows users of the app to upload data up to 200 MB in size (as a default). It works just like the other interactive widgets we've used before, with one exception. Our default in an interactive widget-like select box is just the first value in our list, but it does not make sense to have a default uploaded file before the user actually interacts with the app! The default user uploaded file has a value of <strong class="source-inline">None</strong>.</p>
+			<p>This begins to cover a very important concept in Streamlit development, which is flow control. Flow control<a id="_idIndexMarker046"/> can be understood as thinking carefully through all the steps of your application because Streamlit will try to run the entire app at once if we're not explicit about things, such as wanting to wait until the user has uploaded a file to attempt to create a graphic or manipulate a DataFrame.</p>
+			<h2 id="_idParaDest-29"><a id="_idTextAnchor029"/>Flow control in Streamlit</h2>
+			<p>As we talked about before, there are two<a id="_idIndexMarker047"/> solutions to this data upload default problem. We can provide a default file to use until the user interacts<a id="_idIndexMarker048"/> with the application, or we can stop the app until a file is uploaded. Let's start with the first option. The following code uses the <strong class="source-inline">st.file_uploader()</strong> function from within an <strong class="source-inline">if</strong> statement. If the user uploads a file, then the app uses that; if they do not, then we default to the file we have used before: </p>
+			<p class="source-code">import streamlit as st</p>
+			<p class="source-code">import pandas as pd</p>
+			<p class="source-code">import matplotlib.pyplot as plt</p>
+			<p class="source-code">import seaborn as sns</p>
+			<p class="source-code">st.title("Palmer's Penguins")</p>
+			<p class="source-code">st.markdown('Use this Streamlit app to make your own scatterplot about penguins!')</p>
+			<p class="source-code"> </p>
+			<p class="source-code">penguin_file = st.file_uploader('Select Your Local Penguins CSV (default provided)')</p>
+			<p class="source-code"> if penguin_file is not None:</p>
+			<p class="source-code">     penguins_df = pd.read_csv(penguin_file)</p>
+			<p class="source-code"> else:</p>
+			<p class="source-code">     penguins_df= pd.read_csv('penguins.csv')</p>
+			<p class="source-code"> </p>
+			<p class="source-code">selected_x_var = st.selectbox('What do want the x variable to be?',</p>
+			<p class="source-code">     ['bill_length_mm', 'bill_depth_mm', 'flipper_length_mm', 'body_mass_g'])</p>
+			<p class="source-code"> selected_y_var = st.selectbox('What about the y?',</p>
+			<p class="source-code">     ['bill_depth_mm', 'bill_length_mm', 'flipper_length_mm', 'body_mass_g'])</p>
+			<p class="source-code"> </p>
+			<p class="source-code">fig, ax = plt.subplots()</p>
+			<p class="source-code">ax = sns.scatterplot(x = penguins_df[selected_x_var],</p>
+			<p class="source-code">     y = penguins_df[selected_y_var], hue = penguins_df['species'])</p>
+			<p class="source-code"> plt.xlabel(selected_x_var) plt.ylabel(selected_y_var)</p>
+			<p class="source-code"> plt.title("Scatterplot of Palmer's Penguins")</p>
+			<p class="source-code">st.pyplot(fig)</p>
+			<p>When we run the preceding<a id="_idIndexMarker049"/> code in our terminal, we see our three user<a id="_idIndexMarker050"/> inputs (the <em class="italic">x</em> axis, the <em class="italic">y</em> axis, and the dataset), and also the graph even if we have yet to upload a file. The following screenshot shows this app:</p>
+			<div>
+				<div id="_idContainer023" class="IMG---Figure">
+					<img src="image/B16864_02_08.jpg" alt="Figure 2.8 – File input&#13;&#10;"/>
+				</div>
+			</div>
+			<p class="figure-caption">Figure 2.8 – File input</p>
+			<p>The clear advantage<a id="_idIndexMarker051"/> of this approach is that there are always results shown in this application, but the results may not be useful to the user! For larger<a id="_idIndexMarker052"/> applications, this is a subpar solution as well because any data stored inside the app, regardless of use, is going to slow the application down. Later, in <a href="B16864_07_Final_VK_ePub.xhtml#_idTextAnchor074"><em class="italic">Chapter 7</em></a>, <em class="italic">Exploring Streamlit Components</em>, we'll discuss all of our options for deployment, including a built-in deployment option<a id="_idIndexMarker053"/> called Streamlit Sharing.</p>
+			<p>Our second option is to stop the application entirely unless the user has uploaded a file. For that option, we're going to use a new Streamlit function called <strong class="source-inline">stop()</strong>, which (predictably) stops the flow whenever it is called. It is best practice to use this to find errors in the app<a id="_idIndexMarker054"/> and to encourage the user to make some change or describe<a id="_idIndexMarker055"/> the error that is happening. This is not necessary for us but is a good thing to know for future applications. The following code uses an <strong class="source-inline">if-else</strong> statement with <strong class="source-inline">st.stop()</strong> in the <strong class="source-inline">else</strong> statement to prevent the entire app from running when <strong class="source-inline">st.file_uploader()</strong> is unused:</p>
+			<p class="source-code">import streamlit as st</p>
+			<p class="source-code">import pandas as pd</p>
+			<p class="source-code">import matplotlib.pyplot as plt</p>
+			<p class="source-code">import seaborn as sns</p>
+			<p class="source-code">st.title("Palmer's Penguins")</p>
+			<p class="source-code">st.markdown('Use this Streamlit app to make your own scatterplot about penguins!')</p>
+			<p class="source-code"> </p>
+			<p class="source-code">selected_x_var = st.selectbox('What do want the x variable to be?',</p>
+			<p class="source-code">     ['bill_length_mm', 'bill_depth_mm', 'flipper_length_mm', 'body_mass_g'])</p>
+			<p class="source-code"> selected_y_var = st.selectbox('What about the y?',</p>
+			<p class="source-code">     ['bill_depth_mm', 'bill_length_mm', 'flipper_length_mm', 'body_mass_g'])</p>
+			<p class="source-code">penguin_file = st.file_uploader('Select Your Local Penguins CSV')</p>
+			<p class="source-code"> if penguin_file is not None:</p>
+			<p class="source-code">     penguins_df = pd.read_csv(penguin_file)</p>
+			<p class="source-code"> else:</p>
+			<p class="source-code">     st.stop()</p>
+			<p class="source-code">sns.set_style('darkgrid')</p>
+			<p class="source-code">markers = {"Adelie": "X", "Gentoo": "s", "Chinstrap":'o'}</p>
+			<p class="source-code">fig, ax = plt.subplots() </p>
+			<p class="source-code">ax = sns.scatterplot(data = penguins_df, x = selected_x_var, </p>
+			<p class="source-code">  y = selected_y_var, hue = 'species', markers = markers,</p>
+			<p class="source-code">  style = 'species') </p>
+			<p class="source-code">plt.xlabel(selected_x_var) </p>
+			<p class="source-code">plt.ylabel(selected_y_var) </p>
+			<p class="source-code">plt.title("Scatterplot of Palmer's Penguins") </p>
+			<p class="source-code">st.pyplot(fig)</p>
+			<p>As we can see with the following screenshot, until we upload our own data, we will not see a scatterplot, and the application<a id="_idIndexMarker056"/> stops. The Streamlit app simply waits to run fully until the user has uploaded their file instead of throwing an error:</p>
+			<div>
+				<div id="_idContainer024" class="IMG---Figure">
+					<img src="image/B16864_02_09.jpg" alt="Figure 2.9 – Streamlit stop&#13;&#10;"/>
+				</div>
+			</div>
+			<p class="figure-caption">Figure 2.9 – Streamlit stop</p>
+			<p>Before we<a id="_idIndexMarker057"/> move on to data manipulation and create more complicated Streamlit apps, we should touch on some best practices<a id="_idIndexMarker058"/> for debugging Streamlit apps. </p>
+			<h1 id="_idParaDest-30"><a id="_idTextAnchor030"/>Debugging Streamlit apps</h1>
+			<p>We broadly<a id="_idIndexMarker059"/> have two options for Streamlit development.</p>
+			<ul>
+				<li>Develop in Streamlit and <strong class="source-inline">st.write()</strong> as a debugger.</li>
+				<li>Explore in Jupyter and then copy to Streamlit.</li>
+			</ul>
+			<h2 id="_idParaDest-31"><a id="_idTextAnchor031"/>Developing in Streamlit</h2>
+			<p>In the first option, we write our code directly in Streamlit<a id="_idIndexMarker060"/> as we're experimenting and exploring exactly what our application will do. We've basically been taking this option already, which works very well if we have less exploration work and more implementation work to do. </p>
+			<p>Pros:</p>
+			<ul>
+				<li>What you see is what you get</li>
+				<li>No need to maintain both IPython and Python versions of the same app</li>
+				<li>Better experience<a id="_idIndexMarker061"/> for learning how to write production code</li>
+			</ul>
+			<p>Cons:</p>
+			<ul>
+				<li>A slower feedback loop (the entire app must run before feedback)</li>
+				<li>A potentially unfamiliar development environment</li>
+			</ul>
+			<h2 id="_idParaDest-32"><a id="_idTextAnchor032"/>Exploring in Jupyter and then copying to Streamlit</h2>
+			<p>Another option is to utilize the extremely popular Jupyter data science product to write and test out the Streamlit<a id="_idIndexMarker062"/> app's code before placing it in the necessary script and formatting it correctly. This can be useful for exploring<a id="_idIndexMarker063"/> new methods that will live in the Streamlit app, but it has serious downsides.</p>
+			<p>Pros:</p>
+			<ul>
+				<li>The lightning-fast feedback loop makes it easier to experiment.</li>
+				<li>Users may be more familiar with Jupyter.</li>
+				<li>The full app does not have to be run to get results.</li>
+			</ul>
+			<p>Cons:</p>
+			<ul>
+				<li>Jupyter may provide deceptive results if run out of order.</li>
+				<li>'Copying' code over from Jupyter is time-consuming.</li>
+				<li>Python versioning may be different between Jupyter and Streamlit.</li>
+			</ul>
+			<p>My recommendation here is to develop Streamlit apps inside the environment where they are going to be run (that is, a Python file). For debugging, heavily utilize the <strong class="source-inline">st.write()</strong> function, which can print out nearly any Python object (dictionary, DataFrame, list, string, number, graph, and so on) that you may need. Try to only use another development environment such as Jupyter as a last resort!</p>
+			<h1 id="_idParaDest-33"><a id="_idTextAnchor033"/>Data manipulation in Streamlit</h1>
+			<p>Streamlit runs our Python file from the top down as a script, and so we can perform data manipulation<a id="_idIndexMarker064"/> with powerful libraries such as pandas in the same way that we might in a Jupyter notebook or a regular Python script. As we've discussed before, we can do all our regular data manipulation as normal. For our Palmer's Penguins app, what if we wanted the user to be able to filter out penguins based on their gender? The following code filters our DataFrame using pandas: </p>
+			<p class="source-code">import streamlit as st</p>
+			<p class="source-code">import pandas as pd</p>
+			<p class="source-code">import matplotlib.pyplot as plt</p>
+			<p class="source-code">import seaborn as sns</p>
+			<p class="source-code">st.title("Palmer's Penguins")</p>
+			<p class="source-code">st.markdown('Use this Streamlit app to make your own scatterplot about penguins!')</p>
+			<p class="source-code"> </p>
+			<p class="source-code">penguin_file = st.file_uploader(</p>
+			<p class="source-code">    'Select Your Local Penguins CSV (default provided)')</p>
+			<p class="source-code"> if penguin_file is not None:</p>
+			<p class="source-code">    penguins_df = pd.read_csv(penguin_file)</p>
+			<p class="source-code"> else:</p>
+			<p class="source-code">    penguins_df = pd.read_csv('penguins.csv')</p>
+			<p class="source-code"> </p>
+			<p class="source-code">selected_x_var = st.selectbox('What do want the x variable to be?',</p>
+			<p class="source-code">                              ['bill_length_mm', 'bill_depth_mm', 'flipper_length_mm', 'body_mass_g'])</p>
+			<p class="source-code"> selected_y_var = st.selectbox('What about the y?',</p>
+			<p class="source-code">                              ['bill_depth_mm', 'bill_length_mm', 'flipper_length_mm', 'body_mass_g'])</p>
+			<p class="source-code"> selected_gender = st.selectbox('What gender do you want to filter for?',</p>
+			<p class="source-code">                               ['all penguins', 'male penguins', 'female penguins'])</p>
+			<p class="source-code"> if selected_gender == 'male penguins':</p>
+			<p class="source-code">    penguins_df = penguins_df[penguins_df['sex'] == 'male']</p>
+			<p class="source-code"> elif selected_gender == 'female penguins':</p>
+			<p class="source-code">    penguins_df = penguins_df[penguins_df['sex'] == 'female']</p>
+			<p class="source-code"> else:</p>
+			<p class="source-code">    pass</p>
+			<p class="source-code">fig, ax = plt.subplots()</p>
+			<p class="source-code">ax = sns.scatterplot(x=penguins_df[selected_x_var],</p>
+			<p class="source-code">                     y=penguins_df[selected_y_var], hue=penguins_df['species'])</p>
+			<p class="source-code"> plt.xlabel(selected_x_var)</p>
+			<p class="source-code"> plt.ylabel(selected_y_var)</p>
+			<p class="source-code"> plt.title("Scatterplot of Palmer's Penguins: {}".format(selected_gender))</p>
+			<p class="source-code"> st.pyplot(fig)</p>
+			<p>A couple of things to note here. First, we've added another <strong class="source-inline">selectbox</strong> plugin, with male, female, and<a id="_idIndexMarker065"/> all options. We could have done this by asking for a text input, but for data manipulation, we want to restrict user action as much as possible. We also made sure to dynamically change the title, which is recommended for clarity as we want to show the user that the data has been filtered by their input directly in the graph.</p>
+			<h2 id="_idParaDest-34"><a id="_idTextAnchor034"/>An introduction to caching</h2>
+			<p>As we create<a id="_idIndexMarker066"/> more computationally intensive Streamlit apps and begin to use and upload larger datasets, we should start worrying about the runtime of these apps and work to increase our efficiency whenever possible. The easiest way to make a Streamlit app more efficient is through caching, which is storing some results in memory so that the app does not repeat the same work whenever possible.</p>
+			<p>A good analogy to an app's cache is a human's short-term memory, where we keep bits of information close at hand that we think might be useful. When something is in our short-term memory, we don't have to think very hard to get access to that piece of information. In the same way, when we cache a piece of information in Streamlit, we are making a bet that we'll use that information often.</p>
+			<p>The way Streamlit caching<a id="_idIndexMarker067"/> works more specifically is by storing the results of a function in our app, and if that function is called with the same parameters by another user (or by us if we rerun the app), Streamlit does not run the same function but instead loads the result of the function from memory.</p>
+			<p>Let's prove to ourselves that this works! First, we'll create a function for our data upload part of the Penguins app, and then use the time library to artificially make the function take much longer than it would normally and see whether we can make our app faster using <strong class="source-inline">st.cache()</strong>.</p>
+			<p>As you can see in the following code, we first made a new function called <strong class="source-inline">load_file()</strong>, which waits 3 seconds, and then loads the file that we need. Normally we would not intentionally slow down our app, but we want to know whether caching works:</p>
+			<p class="source-code">import streamlit as st</p>
+			<p class="source-code">import pandas as pd</p>
+			<p class="source-code">import matplotlib.pyplot as plt</p>
+			<p class="source-code">import seaborn as sns</p>
+			<p class="source-code">import time</p>
+			<p class="source-code">st.title("Palmer's Penguins")</p>
+			<p class="source-code">st.markdown('Use this Streamlit app to make your own scatterplot about penguins!')</p>
+			<p class="source-code"> </p>
+			<p class="source-code">penguin_file = st.file_uploader(</p>
+			<p class="source-code">    'Select Your Local Penguins CSV (default provided)')</p>
+			<p class="source-code"> </p>
+			<p class="source-code">def load_file(penguin_file):</p>
+			<p class="source-code">    time.sleep(3)</p>
+			<p class="source-code">    if penguin_file is not None:</p>
+			<p class="source-code">        df = pd.read_csv(penguin_file)</p>
+			<p class="source-code">    else:</p>
+			<p class="source-code">        df = pd.read_csv('penguins.csv')</p>
+			<p class="source-code">    return(df)</p>
+			<p class="source-code"> penguins_df = load_file(penguin_file)</p>
+			<p class="source-code"> </p>
+			<p class="source-code">selected_x_var = st.selectbox('What do want the x variable to be?',</p>
+			<p class="source-code">                              ['bill_length_mm', 'bill_depth_mm', 'flipper_length_mm', 'body_mass_g'])</p>
+			<p class="source-code"> selected_y_var = st.selectbox('What about the y?',</p>
+			<p class="source-code">                              ['bill_depth_mm', 'bill_length_mm', 'flipper_length_mm', 'body_mass_g'])</p>
+			<p class="source-code"> selected_gender = st.selectbox('What gender do you want to filter for?',</p>
+			<p class="source-code">                               ['all penguins', 'male penguins', 'female penguins'])</p>
+			<p class="source-code"> if selected_gender == 'male penguins':</p>
+			<p class="source-code">    penguins_df = penguins_df[penguins_df['sex'] == 'male']</p>
+			<p class="source-code"> elif selected_gender == 'female penguins':</p>
+			<p class="source-code">    penguins_df = penguins_df[penguins_df['sex'] == 'female']</p>
+			<p class="source-code"> else:</p>
+			<p class="source-code">    pass</p>
+			<p class="source-code">fig, ax = plt.subplots()</p>
+			<p class="source-code">ax = sns.scatterplot(x=penguins_df[selected_x_var],</p>
+			<p class="source-code">                     y=penguins_df[selected_y_var], hue=penguins_df['species'])</p>
+			<p class="source-code"> plt.xlabel(selected_x_var)</p>
+			<p class="source-code"> plt.ylabel(selected_y_var)</p>
+			<p class="source-code"> plt.title("Scatterplot of Palmer's Penguins: {}".format(selected_gender))</p>
+			<p class="source-code"> st.pyplot(fig)</p>
+			<p>Now, let's run this app<a id="_idIndexMarker068"/> and then select the hamburger icon in the top right<a id="_idIndexMarker069"/> and press the rerun button (we can also just press the <em class="italic">R</em> key to rerun).</p>
+			<p>We notice that<a id="_idIndexMarker070"/> each time we rerun the app, it takes at least 3 seconds. Now, let's add our cache decorator<a id="_idIndexMarker071"/> on top of the <strong class="source-inline">load_file</strong> function and run our app again:</p>
+			<p class="source-code">import streamlit as st</p>
+			<p class="source-code">import pandas as pd</p>
+			<p class="source-code">import matplotlib.pyplot as plt</p>
+			<p class="source-code">mport seaborn as sns</p>
+			<p class="source-code">import time</p>
+			<p class="source-code">st.title("Palmer's Penguins")</p>
+			<p class="source-code">st.markdown('Use this Streamlit app to make your own scatterplot about penguins!')</p>
+			<p class="source-code"> </p>
+			<p class="source-code">penguin_file = st.file_uploader(</p>
+			<p class="source-code">    'Select Your Local Penguins CSV (default provided)')</p>
+			<p class="source-code"> @st.cache()</p>
+			<p class="source-code">def load_file(penguin_file):</p>
+			<p class="source-code">    time.sleep(3)</p>
+			<p class="source-code">    if penguin_file is not None:</p>
+			<p class="source-code">        df = pd.read_csv(penguin_file)</p>
+			<p class="source-code">    else:</p>
+			<p class="source-code">        df = pd.read_csv('penguins.csv')</p>
+			<p class="source-code">    return(df)</p>
+			<p class="source-code"> penguins_df = load_file(penguin_file)</p>
+			<p class="source-code"> </p>
+			<p class="source-code">selected_x_var = st.selectbox('What do want the x variable to be?',</p>
+			<p class="source-code">                              ['bill_length_mm', 'bill_depth_mm', 'flipper_length_mm', 'body_mass_g'])</p>
+			<p class="source-code"> selected_y_var = st.selectbox('What about the y?',</p>
+			<p class="source-code">                              ['bill_depth_mm', 'bill_length_mm', 'flipper_length_mm', 'body_mass_g'])</p>
+			<p class="source-code"> selected_gender = st.selectbox('What gender do you want to filter for?',</p>
+			<p class="source-code">                               ['all penguins', 'male penguins', 'female penguins'])</p>
+			<p class="source-code"> if selected_gender == 'male penguins':</p>
+			<p class="source-code">    penguins_df = penguins_df[penguins_df['sex'] == 'male']</p>
+			<p class="source-code"> elif selected_gender == 'female penguins':</p>
+			<p class="source-code">    penguins_df = penguins_df[penguins_df['sex'] == 'female']</p>
+			<p class="source-code"> else:</p>
+			<p class="source-code">    pass</p>
+			<p class="source-code">fig, ax = plt.subplots()</p>
+			<p class="source-code">ax = sns.scatterplot(x=penguins_df[selected_x_var],</p>
+			<p class="source-code">                     y=penguins_df[selected_y_var], hue=penguins_df['species'])</p>
+			<p class="source-code"> plt.xlabel(selected_x_var)</p>
+			<p class="source-code"> plt.ylabel(selected_y_var)</p>
+			<p class="source-code"> plt.title("Scatterplot of Palmer's Penguins: {}".format(selected_gender))</p>
+			<p class="source-code"> st.pyplot(fig)</p>
+			<p>As we run the app a few times, we can notice that it is much faster! When we rerun the app, two things happen. First, Streamlit checks the cache to ascertain whether that same function<a id="_idIndexMarker072"/> with the same inputs has been run before and returns the Penguins<a id="_idIndexMarker073"/> data from memory, and second, it does not run the <strong class="source-inline">load_file</strong> function at all, meaning we never run the <strong class="source-inline">time.sleep(3)</strong> command and also never spend the time required to load the data into Streamlit. We'll explore this caching function in more detail, but this method will get us the majority of the efficiency gains. </p>
+			<h1 id="_idParaDest-35"><a id="_idTextAnchor035"/>Summary</h1>
+			<p>This chapter was full of fundamental building blocks that we will use vigorously throughout the remainder of this book, and that you will use to develop your own Streamlit applications. </p>
+			<p>On data, we covered how to bring our own DataFrames into Streamlit and how to accept user input in the form of a data file that brings us past only being able to simulate data. On other skillsets, we learned how to use our cache to make our data apps faster, how to control the flow of our Streamlit apps, and how to debug our Streamlit apps using <strong class="source-inline">st.write()</strong>. That's it for this chapter. Next, we'll move on to data visualization!</p>
+		</div>
+	</body></html>

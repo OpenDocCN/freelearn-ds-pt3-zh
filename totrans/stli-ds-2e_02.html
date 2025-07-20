@@ -1,0 +1,490 @@
+<html><head></head><body>
+  <div class="Basic-Text-Frame" id="_idContainer035">
+    <h1 class="chapterNumber">2</h1>
+    <h1 class="chapterTitle" id="_idParaDest-26">Uploading, Downloading, and Manipulating Data</h1>
+    <p class="normal">So far in this book, we have exclusively used simulated data in our Streamlit apps. This was useful for getting a good background on some of the basics of Streamlit, but most data science is not done on simulated data but on real-world datasets that data scientists already have, or on datasets provided by users.</p>
+    <p class="normal">This chapter will focus on the world of data in Streamlit apps, covering everything you will need to know to bring datasets to life using Streamlit. We will cover data manipulation, using user-imported data, flow control, debugging Streamlit apps, and speeding up our data applications using caching through an example dataset called Palmer’s Penguins.</p>
+    <p class="normal">In particular, we will cover the following topics:</p>
+    <ul>
+      <li class="bulletList">The setup – Palmer’s Penguins</li>
+      <li class="bulletList">Debugging Streamlit apps</li>
+      <li class="bulletList">Data manipulation in Streamlit</li>
+      <li class="bulletList">Persistence with Session State</li>
+    </ul>
+    <h1 class="heading-1" id="_idParaDest-27">Technical requirements</h1>
+    <p class="normal">For this chapter, we will need to download the Palmer’s Penguins dataset, which can be found at <a href="https://github.com/tylerjrichards/streamlit_apps/blob/main/penguin_app/penguins.csv"><span class="url">https://github.com/tylerjrichards/streamlit_apps/blob/main/penguin_app/penguins.csv</span></a>. The setup for this chapter, along with an explanation of the dataset, can be found in the following section.</p>
+    <h1 class="heading-1" id="_idParaDest-28">The setup – Palmer’s Penguins</h1>
+    <p class="normal">For <a id="_idIndexMarker027"/>this chapter, we’ll be using a delightful dataset about Arctic penguins that comes from the work of Dr. Kristen Gorman (<a href="https://www.uaf.edu/cfos/people/faculty/detail/kristen-gorman.php"><span class="url">https://www.uaf.edu/cfos/people/faculty/detail/kristen-gorman.php</span></a>) and the Palmer Station, Antarctica LTER (<a href="https://pallter.marine.rutgers.edu/"><span class="url">https://pallter.marine.rutgers.edu/</span></a>).</p>
+    <div class="note">
+      <p class="normal">Dataset Acknowledgment</p>
+      <p class="normal">Data from the Palmer LTER data repository was supported by the Office of Polar Programs, NSF Grants OPP-9011927, OPP-9632763, and OPP-0217282.</p>
+    </div>
+    <p class="normal">This data is a common alternative to the famous Iris datasets and includes data on 344 individual penguins with 3 species represented. The data can be found in the GitHub repository for this book (<a href="https://github.com/tylerjrichards/Streamlit-for-Data-Science"><span class="url">https://github.com/tylerjrichards/Streamlit-for-Data-Science</span></a>), in the <code class="inlineCode">penguin_app</code> folder entitled <code class="inlineCode">penguins.csv</code>.</p>
+    <p class="normal">As we’ve discussed before, Streamlit apps run from inside our Python script. This sets the base directory to the location of the Python file with our Streamlit app, which means we can access any other files that we put in our app directory.</p>
+    <p class="normal">First, let’s create a folder for our new app in our existing <code class="inlineCode">streamlit_apps</code> folder using the following code block:</p>
+    <pre class="programlisting con"><code class="hljs-con">mkdir penguin_app
+cd penguin_app
+touch penguins.py
+</code></pre>
+    <p class="normal">After this, download the data and put the resulting CSV file (named <code class="inlineCode">penguins.csv</code> in the example) in the <code class="inlineCode">penguin_app</code> folder. Now, our folder should have the <code class="inlineCode">penguins.py</code> file and our <code class="inlineCode">penguins.csv</code> file. For our first go around, we’re just going to print out the first five rows of our DataFrame using the <code class="inlineCode">st.write()</code> function we learned about earlier by putting the following code in our <code class="inlineCode">penguins.py</code> file:</p>
+    <pre class="programlisting code"><code class="hljs-code"><span class="hljs-keyword">import</span> streamlit <span class="hljs-keyword">as</span> st
+<span class="hljs-keyword">import</span> pandas <span class="hljs-keyword">as</span> pd
+st.title(<span class="hljs-string">"Palmer's Penguins"</span>)
+<span class="hljs-comment">#import our data</span>
+penguins_df = pd.read_csv(<span class="hljs-string">'penguins.csv'</span>)
+st.write(penguins_df.head())
+</code></pre>
+    <p class="normal">The <a id="_idIndexMarker028"/>preceding code will produce the following Streamlit app when we run <code class="inlineCode">streamlit run penguins.py</code> in the terminal:</p>
+    <figure class="mediaobject"><img alt="Figure 2.1 – The first five penguins " src="../Images/B18444_02_01.png"/></figure>
+    <p class="packt_figref">Figure 2.1: The first five penguins</p>
+    <p class="normal">Now that we have a good idea of what the data looks like, we will explore the dataset a bit more and then begin adding to our app.</p>
+    <h1 class="heading-1" id="_idParaDest-29">Exploring Palmer’s Penguins</h1>
+    <p class="normal">Before <a id="_idIndexMarker029"/>we begin working with this dataset, we should make some visualizations to better understand the data. As we saw before, we have many columns in this data, whether the bill length, the flipper length, the island the penguin lives on, or even the species of penguin. I’ve done the first visualization for us already in Altair, a popular visualization library that we will use extensively throughout this book because it is interactive by default and generally pretty:</p>
+    <figure class="mediaobject"><img alt="" role="presentation" src="../Images/B18444_02_02.png"/></figure>
+    <p class="packt_figref">Figure 2.2: Bill length and bill depth</p>
+    <p class="normal">From this, we<a id="_idIndexMarker030"/> can see that the Adelie penguins have a shorter bill length but generally have fairly deep bills. Now, what does it look like if we plot weight by flipper length?</p>
+    <figure class="mediaobject"><img alt="" role="presentation" src="../Images/B18444_02_03.png"/></figure>
+    <p class="packt_figref">Figure 2.3: Bill length and weight</p>
+    <p class="normal">Now we see that Gentoo penguins seem to be heavier than the other two species, and that bill length and body mass are positively correlated. These findings are not a huge surprise, but getting to these simple findings was a little tedious. There are many more combinations of variables that we could plot, but could we instead make a data explorer Streamlit app do this for us?</p>
+    <p class="normal">The final goal of this mini-app is to reduce the friction in exploratory data analysis by letting the user define the species of penguin they want to look at, along with the <em class="italic">x</em> and <em class="italic">y</em> variables to plot on a scatterplot. We’ll start by learning how to take those inputs, how to load the data into Streamlit, and then how to create a dynamic visualization.</p>
+    <p class="normal">In the last chapter, we <a id="_idIndexMarker031"/>learned about a Streamlit input called <code class="inlineCode">st.number_input()</code>. This won’t help us here, but Streamlit has a very similar one called <code class="inlineCode">st.selectbox()</code>, which allows us to ask the user to select one option from multiple options, and the function returns whatever the user selects. We will use this to get the three inputs for our scatterplot:</p>
+    <pre class="programlisting code"><code class="hljs-code"><span class="hljs-keyword">import</span> streamlit <span class="hljs-keyword">as</span> st
+<span class="hljs-keyword">import</span> pandas <span class="hljs-keyword">as</span> pd
+<span class="hljs-keyword">import</span> altair <span class="hljs-keyword">as</span> alt
+<span class="hljs-keyword">import</span> seaborn <span class="hljs-keyword">as</span> sns
+st.title(<span class="hljs-string">"Palmer's Penguins"</span>)
+st.markdown(<span class="hljs-string">'Use this Streamlit app to make your own scatterplot about penguins!'</span>)
+selected_species = st.selectbox(<span class="hljs-string">'</span><span class="hljs-string">What species would you like to visualize?'</span>,
+     [<span class="hljs-string">'Adelie'</span>, <span class="hljs-string">'Gentoo'</span>, <span class="hljs-string">'Chinstrap'</span>])
+selected_x_var = st.selectbox(<span class="hljs-string">'What do you want the x variable to be?'</span>,
+     [<span class="hljs-string">'bill_length_mm'</span>, <span class="hljs-string">'bill_depth_mm'</span>, <span class="hljs-string">'flipper_length_mm'</span>, <span class="hljs-string">'body_mass_g'</span>])
+selected_y_var = st.selectbox(<span class="hljs-string">'What about the y?'</span>,
+     [<span class="hljs-string">'</span><span class="hljs-string">bill_length_mm'</span>, <span class="hljs-string">'bill_depth_mm'</span>, <span class="hljs-string">'flipper_length_mm'</span>, <span class="hljs-string">'body_mass_g'</span>])
+</code></pre>
+    <p class="normal">This code creates three new variables from three new select boxes in which the user can provide input in our Streamlit app. The following screenshot shows the Streamlit app from the preceding code:</p>
+    <figure class="mediaobject"><img alt="" role="presentation" src="../Images/B18444_02_04.png"/></figure>
+    <p class="packt_figref">Figure 2.4: User input on penguins</p>
+    <p class="normal">Now that we <a id="_idIndexMarker032"/>have the <code class="inlineCode">selected_species</code> variable, we can filter our DataFrame and make a quick scatterplot using the selected <em class="italic">x</em> and <em class="italic">y</em> variables, as in this next block of code:</p>
+    <pre class="programlisting code"><code class="hljs-code"><span class="hljs-keyword">import</span> streamlit <span class="hljs-keyword">as</span> st
+<span class="hljs-keyword">import</span> pandas <span class="hljs-keyword">as</span> pd
+<span class="hljs-keyword">import</span> altair <span class="hljs-keyword">as</span> alt
+<span class="hljs-keyword">import</span> seaborn <span class="hljs-keyword">as</span> sns
+st.title(<span class="hljs-string">"Palmer's Penguins"</span>)
+st.markdown(<span class="hljs-string">'Use this Streamlit app to make your own scatterplot about penguins!'</span>)
+selected_species = st.selectbox(<span class="hljs-string">'</span><span class="hljs-string">What species would you like to visualize?'</span>,
+     [<span class="hljs-string">'Adelie'</span>, <span class="hljs-string">'Gentoo'</span>, <span class="hljs-string">'Chinstrap'</span>])
+selected_x_var = st.selectbox(<span class="hljs-string">'What do you want the x variable to be?'</span>,
+     [<span class="hljs-string">'bill_length_mm'</span>, <span class="hljs-string">'bill_depth_mm'</span>, <span class="hljs-string">'flipper_length_mm'</span>, <span class="hljs-string">'body_mass_g'</span>])
+selected_y_var = st.selectbox(<span class="hljs-string">'What about the y?'</span>,
+     [<span class="hljs-string">'</span><span class="hljs-string">bill_depth_mm'</span>, <span class="hljs-string">'bill_length_mm'</span>, <span class="hljs-string">'flipper_length_mm'</span>, <span class="hljs-string">'body_mass_g'</span>])
+penguins_df = pd.read_csv(<span class="hljs-string">'penguins.csv'</span>)
+penguins_df = penguins_df[penguins_df[<span class="hljs-string">'species'</span>] == selected_species] 
+alt_chart = (
+    alt.Chart(penguins_df)
+    .mark_circle()
+    .encode(
+        x=selected_x_var,
+        y=selected_y_var,
+    )
+)
+st.altair_chart(alt_chart)
+</code></pre>
+    <p class="normal">This preceding bit of code adds to the previous example by loading our DataFrame, filtering by species, and then plotting in the same method from the previous chapter, which will result in the same app as before but with a scatterplot attached as well, as shown in the following<a id="_idIndexMarker033"/> screenshot:</p>
+    <figure class="mediaobject"><img alt="" role="presentation" src="../Images/B18444_02_05.png"/></figure>
+    <p class="packt_figref">Figure 2.5: First penguin scatterplot</p>
+    <p class="normal">Try to play around with this app and make sure that all the inputs and outputs are working correctly. Notice that if we hover over any individual point, we can see the underlying data, and if we change the Streamlit inputs, the entire graph changes.</p>
+    <p class="normal">Our graph doesn’t <a id="_idIndexMarker034"/>explicitly show what species is being graphed, so let’s practice making dynamic text. The following adds dynamic text to our Streamlit app’s graph title with the f-strings, which are native to Python:</p>
+    <pre class="programlisting code"><code class="hljs-code"><span class="hljs-keyword">import</span> altair <span class="hljs-keyword">as</span> alt
+<span class="hljs-keyword">import</span> pandas <span class="hljs-keyword">as</span> pd
+<span class="hljs-keyword">import</span> seaborn <span class="hljs-keyword">as</span> sns
+<span class="hljs-keyword">import</span> streamlit <span class="hljs-keyword">as</span> st
+ 
+st.title(<span class="hljs-string">"Palmer's Penguins"</span>)
+st.markdown(<span class="hljs-string">"Use this Streamlit app to make your own scatterplot about penguins!"</span>)
+ 
+selected_species = st.selectbox(
+    <span class="hljs-string">"What species would you like to visualize?"</span>, [<span class="hljs-string">"</span><span class="hljs-string">Adelie"</span>, <span class="hljs-string">"Gentoo"</span>, <span class="hljs-string">"Chinstrap"</span>]
+)
+ 
+selected_x_var = st.selectbox(
+    <span class="hljs-string">"What do you want the x variable to be?"</span>,
+    [<span class="hljs-string">"bill_length_mm"</span>, <span class="hljs-string">"bill_depth_mm"</span>, <span class="hljs-string">"flipper_length_mm"</span>, <span class="hljs-string">"body_mass_g"</span>],
+)
+ 
+selected_y_var = st.selectbox(
+    <span class="hljs-string">"What about the y?"</span>,
+    [<span class="hljs-string">"bill_length_mm"</span>, <span class="hljs-string">"</span><span class="hljs-string">bill_depth_mm"</span>, <span class="hljs-string">"flipper_length_mm"</span>, <span class="hljs-string">"body_mass_g"</span>],
+)
+penguins_df = pd.read_csv(<span class="hljs-string">"penguins.csv"</span>)
+penguins_df = penguins_df[penguins_df[<span class="hljs-string">"species"</span>] == selected_species]
+ 
+alt_chart = (
+    alt.Chart(penguins_df, title=<span class="hljs-string">f"Scatterplot of </span><span class="hljs-subst">{selected_species}</span><span class="hljs-string"> Penguins"</span>)
+    .mark_circle()
+    .encode(
+        x=selected_x_var,
+        y=selected_y_var,
+    )
+)
+st.altair_chart(alt_chart)
+</code></pre>
+    <p class="normal">The preceding<a id="_idIndexMarker035"/> code adds the species to our scatterplot and results in the following Streamlit app:</p>
+    <figure class="mediaobject"><img alt="" role="presentation" src="../Images/B18444_02_06.png"/></figure>
+    <p class="packt_figref">Figure 2.6: Dynamic graph titles</p>
+    <p class="normal">This looks great, but there are a few more edits that we can make as an improvement. Right now we can’t zoom into our chart, so most of the graph is blank. We can change this by either using Altair to edit the axes, or we can make the Altair chart interactive so that the user can zoom in wherever they’d like on the graph. The following code makes the Altair chart zoomable and extends the graph to fit the entire screen with the <code class="inlineCode">use_container_width</code> parameter:</p>
+    <pre class="programlisting code"><code class="hljs-code"><span class="hljs-keyword">import</span> altair <span class="hljs-keyword">as</span> alt
+<span class="hljs-keyword">import</span> pandas <span class="hljs-keyword">as</span> pd
+<span class="hljs-keyword">import</span> seaborn <span class="hljs-keyword">as</span> sns
+<span class="hljs-keyword">import</span> streamlit <span class="hljs-keyword">as</span> st
+st.title(<span class="hljs-string">"Palmer's Penguins"</span>)
+st.markdown(<span class="hljs-string">"</span><span class="hljs-string">Use this Streamlit app to make your own scatterplot about penguins!"</span>)
+selected_species = st.selectbox(
+    <span class="hljs-string">"What species would you like to visualize?"</span>, [<span class="hljs-string">"Adelie"</span>, <span class="hljs-string">"Gentoo"</span>, <span class="hljs-string">"Chinstrap"</span>]
+)
+selected_x_var = st.selectbox(
+    <span class="hljs-string">"What do you want the x variable to be?"</span>,
+    [<span class="hljs-string">"bill_length_mm"</span>, <span class="hljs-string">"bill_depth_mm"</span>, <span class="hljs-string">"flipper_length_mm"</span>, <span class="hljs-string">"body_mass_g"</span>],
+)
+selected_y_var = st.selectbox(
+    <span class="hljs-string">"</span><span class="hljs-string">What about the y?"</span>,
+    [<span class="hljs-string">"bill_length_mm"</span>, <span class="hljs-string">"bill_depth_mm"</span>, <span class="hljs-string">"flipper_length_mm"</span>, <span class="hljs-string">"body_mass_g"</span>],
+)
+penguins_df = pd.read_csv(<span class="hljs-string">"penguins.csv"</span>)
+penguins_df = penguins_df[penguins_df[<span class="hljs-string">"species"</span>] == selected_species]
+alt_chart = (
+    alt.Chart(penguins_df, title=<span class="hljs-string">f"Scatterplot of </span><span class="hljs-subst">{selected_species}</span><span class="hljs-string"> Penguins"</span>)
+    .mark_circle()
+    .encode(
+        x=selected_x_var,
+        y=selected_y_var,
+    )
+    .interactive()
+)
+st.altair_chart(alt_chart, use_container_width=<span class="hljs-literal">True</span>)
+</code></pre>
+    <p class="normal">The following<a id="_idIndexMarker036"/> screenshot shows our new and improved Palmer’s Penguins app, which has the appropriately sized chart and interactivity (I zoomed into some places on the graph that I thought were interesting just to show off the new interactive feature). I also placed my mouse over an individual point, which showed the underlying data for that point:</p>
+    <figure class="mediaobject"><img alt="" role="presentation" src="../Images/B18444_02_07.png"/></figure>
+    <p class="packt_figref">Figure 2.7: Screenshot with interaction</p>
+    <p class="normal">At the beginning of<a id="_idIndexMarker037"/> this chapter, it seemed like a good idea to allow the user to select a species to filter the DataFrame by. But now, after making this app, it seems like it might be better to just allow the user to make changes to the <em class="italic">x</em> and <em class="italic">y</em> inputs, and always plot the species in different colors. The next bit of code does exactly that, removing the filtering mechanisms we added and adding a color parameter to the <code class="inlineCode">altair</code> section of the code:</p>
+    <pre class="programlisting code"><code class="hljs-code"><span class="hljs-keyword">import</span> altair <span class="hljs-keyword">as</span> alt
+<span class="hljs-keyword">import</span> pandas <span class="hljs-keyword">as</span> pd
+<span class="hljs-keyword">import</span> seaborn <span class="hljs-keyword">as</span> sns
+<span class="hljs-keyword">import</span> streamlit <span class="hljs-keyword">as</span> st
+st.title(<span class="hljs-string">"Palmer's Penguins"</span>)
+st.markdown(<span class="hljs-string">"Use this Streamlit app to make your own scatterplot about penguins!"</span>)
+selected_x_var = st.selectbox(
+    <span class="hljs-string">"What do you want the x variable to be?"</span>,
+    [<span class="hljs-string">"bill_length_mm"</span>, <span class="hljs-string">"bill_depth_mm"</span>, <span class="hljs-string">"flipper_length_mm"</span>, <span class="hljs-string">"</span><span class="hljs-string">body_mass_g"</span>],
+)
+selected_y_var = st.selectbox(
+    <span class="hljs-string">"What about the y?"</span>,
+    [<span class="hljs-string">"bill_length_mm"</span>, <span class="hljs-string">"bill_depth_mm"</span>, <span class="hljs-string">"flipper_length_mm"</span>, <span class="hljs-string">"body_mass_g"</span>],
+)
+penguins_df = pd.read_csv(<span class="hljs-string">"penguins.csv"</span>)
+alt_chart = (
+    alt.Chart(penguins_df, title=<span class="hljs-string">"Scatterplot of Palmer's Penguins"</span>)
+    .mark_circle()
+    .encode(
+        x=selected_x_var,
+        y=selected_y_var,
+        color=<span class="hljs-string">"species"</span>,
+    )
+    .interactive()
+)
+st.altair_chart(alt_chart, use_container_width=<span class="hljs-literal">True</span>)
+</code></pre>
+    <p class="normal">Now, our app has a <a id="_idIndexMarker038"/>color for each species (in this screenshot, you can probably see it in black-and-white, but you should see the different colors in your own app!), has interactivity, and allows for user input, all in 26 lines of code and 3 Streamlit commands:</p>
+    <figure class="mediaobject"><img alt="" role="presentation" src="../Images/B18444_02_08.png"/></figure>
+    <p class="packt_figref">Figure 2.8: Penguins in color</p>
+    <p class="normal">The last step for this<a id="_idIndexMarker039"/> app is to allow the user to upload their own data. What if we wanted the research team, at any point, to be able to upload their own data to this app and see the results? Or what if there were three research groups, all with their own unique data with different column names, that wanted to use a method that we created? We’ll approach this problem one aspect at a time. First, how do we accept data from users of our app?</p>
+    <p class="normal">Streamlit has a function called <code class="inlineCode">file_uploader()</code>, which allows users of the app to upload data up to 200 MB in size (as a default). It works just like the other interactive widgets we’ve used before, with one exception. Our default in an interactive widget-like select box is just the first value in our list, but it does not make sense to have a default uploaded file before the user actually interacts with the app! The default user-uploaded file has a value of <code class="inlineCode">None</code>.</p>
+    <p class="normal">This begins to cover a very important concept in Streamlit development, which is flow control. Flow control can be understood as thinking carefully through all the steps of your application because Streamlit will try to run the entire app at once if we’re not explicit about things, such as wanting to wait until the user has uploaded a file to attempt to create a graphic or manipulate a DataFrame.</p>
+    <h1 class="heading-1" id="_idParaDest-30">Flow control in Streamlit</h1>
+    <p class="normal">As <a id="_idIndexMarker040"/>we talked about just before, there are two solutions to this data<a id="_idIndexMarker041"/> upload default situation. We can provide a default file to use until the user interacts with the application, or we can stop the app until a file is uploaded. Let’s start with the first option. The following code uses the <code class="inlineCode">st.file_uploader()</code> function from within an <code class="inlineCode">if</code> statement. If the user uploads a file, then the app uses that; if they do not, then we default to the file we have used before:</p>
+    <pre class="programlisting code"><code class="hljs-code"><span class="hljs-keyword">import</span> altair <span class="hljs-keyword">as</span> alt
+<span class="hljs-keyword">import</span> pandas <span class="hljs-keyword">as</span> pd
+<span class="hljs-keyword">import</span> seaborn <span class="hljs-keyword">as</span> sns
+<span class="hljs-keyword">import</span> streamlit <span class="hljs-keyword">as</span> st
+ 
+st.title(<span class="hljs-string">"Palmer's Penguins"</span>)
+st.markdown(<span class="hljs-string">"Use this Streamlit app to make your own scatterplot about penguins!"</span>)
+ 
+penguin_file = st.file_uploader(<span class="hljs-string">"Select Your Local Penguins CSV (default provided)"</span>)
+<span class="hljs-keyword">if</span> penguin_file <span class="hljs-keyword">is</span> <span class="hljs-keyword">not</span> <span class="hljs-literal">None</span>:
+    penguins_df = pd.read_csv(penguin_file)
+<span class="hljs-keyword">else</span>:
+    penguins_df = pd.read_csv(<span class="hljs-string">"penguins.csv"</span>)
+ 
+selected_x_var = st.selectbox(
+    <span class="hljs-string">"What do you want the x variable to be?"</span>,
+    [<span class="hljs-string">"bill_length_mm"</span>, <span class="hljs-string">"bill_depth_mm"</span>, <span class="hljs-string">"flipper_length_mm"</span>, <span class="hljs-string">"body_mass_g"</span>],
+)
+ 
+selected_y_var = st.selectbox(
+    <span class="hljs-string">"</span><span class="hljs-string">What about the y?"</span>,
+    [<span class="hljs-string">"bill_depth_mm"</span>, <span class="hljs-string">"bill_length_mm"</span>, <span class="hljs-string">"flipper_length_mm"</span>, <span class="hljs-string">"body_mass_g"</span>],
+)
+ 
+alt_chart = (
+    alt.Chart(penguins_df, title=<span class="hljs-string">"Scatterplot of Palmer's Penguins"</span>)
+    .mark_circle()
+    .encode(
+        x=selected_x_var,
+        y=selected_y_var,
+        color=<span class="hljs-string">"species"</span>,
+    )
+    .interactive()
+)
+st.altair_chart(alt_chart, use_container_width=<span class="hljs-literal">True</span>)
+</code></pre>
+    <p class="normal">When we run<a id="_idIndexMarker042"/> the preceding code in our terminal, we see our three user <a id="_idIndexMarker043"/>inputs (the <em class="italic">x</em> axis, the <em class="italic">y</em> axis, and the dataset), and also the graph, even if we have yet to upload a file. The following screenshot shows this app:</p>
+    <figure class="mediaobject"><img alt="" role="presentation" src="../Images/B18444_02_09.png"/></figure>
+    <p class="packt_figref">Figure 2.9: File input</p>
+    <p class="normal">The<a id="_idIndexMarker044"/> clear advantage of this approach is that there are always <a id="_idIndexMarker045"/>results shown in this application, but the results may not be useful to the user! For larger applications, this is a subpar solution as well because any data stored inside the app, regardless of use, is going to slow the application down. Later, in <em class="chapterRef">Chapter 7</em>, <em class="italic">Exploring Streamlit Components</em>, we’ll discuss all of our options for deployment, including a built-in deployment option called Streamlit Community Cloud.</p>
+    <p class="normal">Our second option is to stop the application entirely unless the user has uploaded a file. For that option, we’re going to use a new Streamlit function called <code class="inlineCode">stop()</code>, which (predictably) stops the flow whenever it is called. It is best practice to use this to find errors in the app and to encourage the user to make some changes or describe the error that is happening. This is not necessary for us but is a good thing to know for future applications. The following code uses an <code class="inlineCode">if-else</code> statement with <code class="inlineCode">st.stop()</code> in the <code class="inlineCode">else</code> statement to prevent the entire app from running when <code class="inlineCode">st.file_uploader()</code> is unused:</p>
+    <pre class="programlisting code"><code class="hljs-code"><span class="hljs-keyword">import</span> streamlit <span class="hljs-keyword">as</span> st
+<span class="hljs-keyword">import</span> pandas <span class="hljs-keyword">as</span> pd
+<span class="hljs-keyword">import</span> altair <span class="hljs-keyword">as</span> alt 
+<span class="hljs-keyword">import</span> seaborn <span class="hljs-keyword">as</span> sns
+st.title(<span class="hljs-string">"Palmer's Penguins"</span>)
+st.markdown(<span class="hljs-string">'Use this Streamlit app to make your own scatterplot about penguins!'</span>)
+selected_x_var = st.selectbox(<span class="hljs-string">'</span><span class="hljs-string">What do you want the x variable to be?'</span>,
+     [<span class="hljs-string">'bill_length_mm'</span>, <span class="hljs-string">'bill_depth_mm'</span>, <span class="hljs-string">'flipper_length_mm'</span>, <span class="hljs-string">'body_mass_g'</span>])
+selected_y_var = st.selectbox(<span class="hljs-string">'What about the y?'</span>,
+     [<span class="hljs-string">'bill_depth_mm'</span>, <span class="hljs-string">'bill_length_mm'</span>, <span class="hljs-string">'flipper_length_mm'</span>, <span class="hljs-string">'body_mass_g'</span>])
+penguin_file = st.file_uploader(<span class="hljs-string">'</span><span class="hljs-string">Select Your Local Penguins CSV'</span>)
+<span class="hljs-keyword">if</span> penguin_file <span class="hljs-keyword">is</span> <span class="hljs-keyword">not</span> <span class="hljs-literal">None</span>:
+     penguins_df = pd.read_csv(penguin_file)
+<span class="hljs-keyword">else</span>:
+     st.stop()
+sns.set_style(<span class="hljs-string">'darkgrid'</span>)
+markers = {<span class="hljs-string">"Adelie"</span>: <span class="hljs-string">"X"</span>, <span class="hljs-string">"Gentoo"</span>: <span class="hljs-string">"</span><span class="hljs-string">s"</span>, <span class="hljs-string">"Chinstrap"</span>:<span class="hljs-string">'o'</span>}
+alt_chart = (
+    alt.Chart(penguins_df, title=<span class="hljs-string">"Scatterplot of Palmer's Penguins"</span>)
+    .mark_circle()
+    .encode(
+        x=selected_x_var,
+        y=selected_y_var,
+        color=<span class="hljs-string">"species"</span>,
+    )
+    .interactive()
+)
+st.altair_chart(alt_chart, use_container_width=<span class="hljs-literal">True</span>)
+</code></pre>
+    <p class="normal">As we can see <a id="_idIndexMarker046"/>with the following screenshot, until we upload our own<a id="_idIndexMarker047"/> data, we will not see a scatterplot, and the application stops. The Streamlit app simply waits to run fully until the user has uploaded their file instead of throwing an error:</p>
+    <figure class="mediaobject"><img alt="" role="presentation" src="../Images/B18444_02_10.png"/></figure>
+    <p class="packt_figref">Figure 2.10: Streamlit stop()</p>
+    <p class="normal">Before we move on to data manipulation and create more complicated Streamlit apps, we should touch on some best practices for debugging Streamlit apps.</p>
+    <h1 class="heading-1" id="_idParaDest-31">Debugging Streamlit apps</h1>
+    <p class="normal">We broadly have two options for <a id="_idIndexMarker048"/>Streamlit development:</p>
+    <ul>
+      <li class="bulletList">Develop in Streamlit and <code class="inlineCode">st.write()</code> as a debugger.</li>
+      <li class="bulletList">Explore in Jupyter and then copy to Streamlit.</li>
+    </ul>
+    <h1 class="heading-1" id="_idParaDest-32">Developing in Streamlit</h1>
+    <p class="normal">In the first option, we write our code directly in Streamlit as we’re experimenting and exploring exactly what our application will do. We’ve basically been taking this option already, which works very well if we have less exploration work and more implementation work to do.</p>
+    <p class="normal">Pros:</p>
+    <ul>
+      <li class="bulletList">What you see is what you get – there is no need to maintain both IPython and Python versions of the same app.</li>
+      <li class="bulletList">Better experience for learning how to write production code.</li>
+    </ul>
+    <p class="normal">Cons:</p>
+    <ul>
+      <li class="bulletList">A slower feedback loop (the entire app must run before feedback).</li>
+      <li class="bulletList">A potentially unfamiliar development environment.</li>
+    </ul>
+    <h1 class="heading-1" id="_idParaDest-33">Exploring in Jupyter and then copying to Streamlit</h1>
+    <p class="normal">Another option is to utilize the extremely popular Jupyter data science product to write and test out the Streamlit app’s code before placing it in the necessary script and formatting it correctly. This can be useful for exploring new functions that will live in the Streamlit app, but it has serious downsides.</p>
+    <p class="normal">Pros:</p>
+    <ul>
+      <li class="bulletList">The lightning-fast feedback loop makes it easier to experiment with very large apps.</li>
+      <li class="bulletList">Users may be more familiar with Jupyter.</li>
+      <li class="bulletList">The full app does not have to be run to get results, as Jupyter can be run in individual cells.</li>
+    </ul>
+    <p class="normal">Cons:</p>
+    <ul>
+      <li class="bulletList">Jupyter may provide deceptive results if run out of order.</li>
+      <li class="bulletList">“Copying” code over from Jupyter is time-consuming.</li>
+      <li class="bulletList">Python versioning may be different between Jupyter and Streamlit.</li>
+    </ul>
+    <p class="normal">My recommendation here is to develop Streamlit apps inside the environment where they are going to be run (that is, a Python file). For debugging, heavily utilize the <code class="inlineCode">st.write()</code> function, which can print out nearly any Python object (dictionary, DataFrame, list, string, number, graph, and so on) that you may need. Try to only use another development <a id="_idIndexMarker049"/>environment such as Jupyter as a last resort! Now on to data manipulation.</p>
+    <h1 class="heading-1" id="_idParaDest-34">Data manipulation in Streamlit</h1>
+    <p class="normal">Streamlit runs our Python file from<a id="_idIndexMarker050"/> the top down as a script, so we can perform data <a id="_idIndexMarker051"/>manipulation with powerful libraries such as <code class="inlineCode">pandas</code> in the same way that we might in a Jupyter notebook or a regular Python script. As we’ve discussed before, we can do all our regular data manipulation as normal. For our Palmer’s Penguins app, what if we wanted the user to be able to filter out penguins based on their gender? The following code filters our DataFrame using <code class="inlineCode">pandas</code>:</p>
+    <pre class="programlisting code"><code class="hljs-code"><span class="hljs-keyword">import</span> streamlit <span class="hljs-keyword">as</span> st
+<span class="hljs-keyword">import</span> pandas <span class="hljs-keyword">as</span> pd
+<span class="hljs-keyword">import</span> altair <span class="hljs-keyword">as</span> alt 
+<span class="hljs-keyword">import</span> seaborn <span class="hljs-keyword">as</span> sns
+st.title(<span class="hljs-string">"Palmer's Penguins"</span>)
+st.markdown(<span class="hljs-string">'Use this Streamlit app to make your own scatterplot about penguins!'</span>)
+penguin_file = st.file_uploader(
+    <span class="hljs-string">'Select Your Local Penguins CSV (default provided)'</span>)
+<span class="hljs-keyword">if</span> penguin_file <span class="hljs-keyword">is</span> <span class="hljs-keyword">not</span> <span class="hljs-literal">None</span>:
+    penguins_df = pd.read_csv(penguin_file)
+<span class="hljs-keyword">else</span>:
+    penguins_df = pd.read_csv(<span class="hljs-string">'penguins.csv'</span>)
+selected_x_var = st.selectbox(<span class="hljs-string">'What do you want the x variable to be?'</span>,
+                              [<span class="hljs-string">'bill_length_mm'</span>, <span class="hljs-string">'bill_depth_mm'</span>, <span class="hljs-string">'flipper_length_mm'</span>, <span class="hljs-string">'body_mass_g'</span>])
+selected_y_var = st.selectbox(<span class="hljs-string">'What about the y?'</span>,
+                              [<span class="hljs-string">'bill_depth_mm'</span>, <span class="hljs-string">'bill_length_mm'</span>, <span class="hljs-string">'flipper_length_mm'</span>, <span class="hljs-string">'body_mass_g'</span>])
+selected_gender = st.selectbox(<span class="hljs-string">'What gender do you want to filter for?'</span>,
+                               [<span class="hljs-string">'all penguins'</span>, <span class="hljs-string">'male penguins'</span>, <span class="hljs-string">'female penguins'</span>])
+<span class="hljs-keyword">if</span> selected_gender == <span class="hljs-string">'male penguins'</span>:
+    penguins_df = penguins_df[penguins_df[<span class="hljs-string">'sex'</span>] == <span class="hljs-string">'male'</span>]
+<span class="hljs-keyword">elif</span> selected_gender == <span class="hljs-string">'female penguins'</span>:
+    penguins_df = penguins_df[penguins_df[<span class="hljs-string">'sex'</span>] == <span class="hljs-string">'female'</span>]
+<span class="hljs-keyword">else</span>:
+    <span class="hljs-keyword">pass</span>
+alt_chart = (
+    alt.Chart(penguins_df, title=<span class="hljs-string">"Scatterplot of Palmer's Penguins"</span>)
+    .mark_circle()
+    .encode(
+        x=selected_x_var,
+        y=selected_y_var,
+        color=<span class="hljs-string">"species"</span>,
+    )
+    .interactive()
+)
+st.altair_chart(alt_chart, use_container_width=<span class="hljs-literal">True</span>)
+</code></pre>
+    <p class="normal">A couple of <a id="_idIndexMarker052"/>things to note here. First, we’ve added another <code class="inlineCode">selectbox</code> widget, with<a id="_idIndexMarker053"/> male, female, and all options. We could have done this by asking for a text input, but for data manipulation we want to restrict user action as much as possible. We also made sure to dynamically change the title, which is recommended for clarity as we want to show the user that the data has been filtered by their input directly in the graph.</p>
+    <h1 class="heading-1" id="_idParaDest-35">An introduction to caching</h1>
+    <p class="normal">As we create more computationally intensive Streamlit apps and begin to use and upload larger datasets, we should start thinking about the runtime of these apps and work to increase our efficiency whenever possible. The easiest way to make a Streamlit app more efficient is through caching, which is storing some results in memory so that the app does not repeat the same work whenever possible.</p>
+    <p class="normal">A good analogy for an app’s<a id="_idIndexMarker054"/> cache is a human’s short-term memory, where we keep bits of information close at hand that we think might be useful. When something is in our short-term memory, we don’t have to think very hard to get access to that piece of information. In the same way, when we cache a piece of information in Streamlit, we are making a bet that we’ll use that information often.</p>
+    <p class="normal">The way Streamlit caching works more specifically is by storing the results of a function in our app, and if that function is called with the same parameters by another user (or by us if we rerun the app), Streamlit does not run the same function but instead loads the result of the function from memory.</p>
+    <p class="normal">Let’s prove to ourselves that this works! First, we’ll create a function for our data upload part of the Penguins app, and then use the <code class="inlineCode">time</code> library to artificially make the function take much longer than it would normally and see whether we can make our app faster using <code class="inlineCode">st.cache_data</code>. There are two Streamlit caching functions, one for data (<code class="inlineCode">st.cache_data</code>) and one for resources like database connections or machine learning models (<code class="inlineCode">st.cache_resource</code>). </p>
+    <p class="normal">Don’t <a id="_idIndexMarker055"/>worry, we’ll learn all about <code class="inlineCode">st.cache_resource</code> in <em class="chapterRef">Chapter 4</em>, <em class="italic">Machine Learning and AI with Streamlit</em>, but we don’t need it now so we’ll focus on caching data first.</p>
+    <p class="normal">As you can see in the following code, we first made a new function called <code class="inlineCode">load_file()</code>, which waits 3 seconds, and then loads the file that we need. Normally, we would not intentionally slow down our app, but we want to know whether caching works:</p>
+    <pre class="programlisting code"><code class="hljs-code"><span class="hljs-keyword">import</span> streamlit <span class="hljs-keyword">as</span> st
+<span class="hljs-keyword">import</span> pandas <span class="hljs-keyword">as</span> pd
+<span class="hljs-keyword">import</span> altair <span class="hljs-keyword">as</span> alt 
+<span class="hljs-keyword">import</span> seaborn <span class="hljs-keyword">as</span> sns
+<span class="hljs-keyword">import</span> time
+st.title(<span class="hljs-string">"Palmer's Penguins"</span>)
+st.markdown(<span class="hljs-string">'Use this Streamlit app to make your own scatterplot about penguins!'</span>)
+penguin_file = st.file_uploader(
+    <span class="hljs-string">'</span><span class="hljs-string">Select Your Local Penguins CSV (default provided)'</span>)
+<span class="hljs-keyword">def</span> <span class="hljs-title">load_file</span>(<span class="hljs-params">penguin_file</span>):
+    time.sleep(<span class="hljs-number">3</span>)
+    <span class="hljs-keyword">if</span> penguin_file <span class="hljs-keyword">is</span> <span class="hljs-keyword">not</span> <span class="hljs-literal">None</span>:
+        df = pd.read_csv(penguin_file)
+    <span class="hljs-keyword">else</span>:
+        df = pd.read_csv(<span class="hljs-string">'</span><span class="hljs-string">penguins.csv'</span>)
+    <span class="hljs-keyword">return</span>(df)
+penguins_df = load_file(penguin_file)
+selected_x_var = st.selectbox(<span class="hljs-string">'What do you want the x variable to be?'</span>,
+                              [<span class="hljs-string">'bill_length_mm'</span>, <span class="hljs-string">'bill_depth_mm'</span>, <span class="hljs-string">'flipper_length_mm'</span>, <span class="hljs-string">'body_mass_g'</span>])
+selected_y_var = st.selectbox(<span class="hljs-string">'What about the y?'</span>,
+                              [<span class="hljs-string">'bill_depth_mm'</span>, <span class="hljs-string">'bill_length_mm'</span>, <span class="hljs-string">'</span><span class="hljs-string">flipper_length_mm'</span>, <span class="hljs-string">'body_mass_g'</span>])
+selected_gender = st.selectbox(<span class="hljs-string">'What gender do you want to filter for?'</span>,
+                               [<span class="hljs-string">'all penguins'</span>, <span class="hljs-string">'male penguins'</span>, <span class="hljs-string">'female penguins'</span>])
+<span class="hljs-keyword">if</span> selected_gender == <span class="hljs-string">'male penguins'</span>:
+    penguins_df = penguins_df[penguins_df[<span class="hljs-string">'sex'</span>] == <span class="hljs-string">'male'</span>]
+<span class="hljs-keyword">elif</span> selected_gender == <span class="hljs-string">'female penguins'</span>:
+    penguins_df = penguins_df[penguins_df[<span class="hljs-string">'sex'</span>] == <span class="hljs-string">'female'</span>]
+<span class="hljs-keyword">else</span>:
+    <span class="hljs-keyword">pass</span> 
+alt_chart = (
+    alt.Chart(penguins_df, title=<span class="hljs-string">"Scatterplot of Palmer's Penguins"</span>)
+    .mark_circle()
+    .encode(
+        x=selected_x_var,
+        y=selected_y_var,
+        color=<span class="hljs-string">"species"</span>,
+    )
+    .interactive()
+)
+st.altair_chart(alt_chart, use_container_width=<span class="hljs-literal">True</span>)
+</code></pre>
+    <p class="normal">Now, let’s run this app and then select the hamburger icon in the top right and press the rerun button (we can also just press the <em class="keystroke">R</em> key to rerun).</p>
+    <p class="normal">We notice that each<a id="_idIndexMarker056"/> time we rerun the app, it takes at least 3 seconds. Now, let’s add our cache decorator on top of the <code class="inlineCode">load_file()</code> function and run our app again:</p>
+    <pre class="programlisting code"><code class="hljs-code"><span class="hljs-keyword">import</span> streamlit <span class="hljs-keyword">as</span> st
+<span class="hljs-keyword">import</span> pandas <span class="hljs-keyword">as</span> pd
+<span class="hljs-keyword">import</span> altair <span class="hljs-keyword">as</span> alt
+<span class="hljs-keyword">import</span> seaborn <span class="hljs-keyword">as</span> sns
+<span class="hljs-keyword">import</span> time
+st.title(<span class="hljs-string">"Palmer's Penguins"</span>)
+st.markdown(<span class="hljs-string">'Use this Streamlit app to make your own scatterplot about penguins!'</span>)
+penguin_file = st.file_uploader(
+    <span class="hljs-string">'Select Your Local Penguins CSV (default provided)'</span>)
+<span class="hljs-meta">@st.cache_data()</span>
+<span class="hljs-keyword">def</span> <span class="hljs-title">load_file</span>(<span class="hljs-params">penguin_file</span>):
+    time.sleep(<span class="hljs-number">3</span>)
+    <span class="hljs-keyword">if</span> penguin_file <span class="hljs-keyword">is</span> <span class="hljs-keyword">not</span> <span class="hljs-literal">None</span>:
+        df = pd.read_csv(penguin_file)
+    <span class="hljs-keyword">else</span>:
+        df = pd.read_csv(<span class="hljs-string">'penguins.csv'</span>)
+    <span class="hljs-keyword">return</span>(df)
+penguins_df = load_file(penguin_file)
+selected_x_var = st.selectbox(<span class="hljs-string">'What do you want the x variable to be?'</span>,
+                              [<span class="hljs-string">'bill_length_mm'</span>, <span class="hljs-string">'bill_depth_mm'</span>, <span class="hljs-string">'flipper_length_mm'</span>, <span class="hljs-string">'body_mass_g'</span>])
+selected_y_var = st.selectbox(<span class="hljs-string">'What about the y?'</span>,
+                              [<span class="hljs-string">'bill_depth_mm'</span>, <span class="hljs-string">'bill_length_mm'</span>, <span class="hljs-string">'flipper_length_mm'</span>, <span class="hljs-string">'body_mass_g'</span>])
+selected_gender = st.selectbox(<span class="hljs-string">'What gender do you want to filter for?'</span>,
+                               [<span class="hljs-string">'all penguins'</span>, <span class="hljs-string">'male penguins'</span>, <span class="hljs-string">'female penguins'</span>])
+<span class="hljs-keyword">if</span> selected_gender == <span class="hljs-string">'male penguins'</span>:
+    penguins_df = penguins_df[penguins_df[<span class="hljs-string">'sex'</span>] == <span class="hljs-string">'male'</span>]
+<span class="hljs-keyword">elif</span> selected_gender == <span class="hljs-string">'female penguins'</span>:
+    penguins_df = penguins_df[penguins_df[<span class="hljs-string">'sex'</span>] == <span class="hljs-string">'female'</span>]
+<span class="hljs-keyword">else</span>:
+    <span class="hljs-keyword">pass</span>
+alt_chart = (
+    alt.Chart(penguins_df, title=<span class="hljs-string">"Scatterplot of Palmer's Penguins"</span>)
+    .mark_circle()
+    .encode(
+        x=selected_x_var,
+        y=selected_y_var,
+        color=<span class="hljs-string">"species"</span>,
+    )
+    .interactive()
+)
+st.altair_chart(alt_chart, use_container_width=<span class="hljs-literal">True</span>)
+</code></pre>
+    <p class="normal">As we run the app a few times, we <a id="_idIndexMarker057"/>can notice that it is much faster! When we rerun the app, two things happen. First, Streamlit checks the cache to ascertain whether that same function with the same inputs has been run before and returns the Palmer’s Penguins data from memory, and second, it does not run the <code class="inlineCode">load_file()</code> function at all, meaning we never run the <code class="inlineCode">time.sleep(3)</code> command and also never spend the time required to load the data into Streamlit. We’ll explore this caching function in more detail, but this method offers us the majority of the efficiency gains. The last flow-related topic we will cover here is Streamlit’s <code class="inlineCode">st.session_state</code>, which is used to hold information across sessions!</p>
+    <h1 class="heading-1" id="_idParaDest-36">Persistence with Session State</h1>
+    <p class="normal">One of the most<a id="_idIndexMarker058"/> frustrating parts of the Streamlit operating model for <a id="_idIndexMarker059"/>developers starting out is the combination of two facts:</p>
+    <ol class="numberedList" style="list-style-type: decimal;">
+      <li class="numberedList" value="1">By default, information is not stored across reruns of the app.</li>
+      <li class="numberedList">On user input, Streamlits are rerun top-to-bottom.</li>
+    </ol>
+    <p class="normal">These two facts make it difficult to make certain types of apps! This is best shown in an example. Let’s say that we want to make a to-do app that makes it easy for you to add items to your to-do list. Adding user input in Streamlit is really simple, so we can create one quickly in a new file called <code class="inlineCode">session_state_example.py</code> that looks like the following: </p>
+    <pre class="programlisting code"><code class="hljs-code"><span class="hljs-keyword">import</span> streamlit <span class="hljs-keyword">as</span> st
+st.title(<span class="hljs-string">'My To-Do List Creator'</span>)
+my_todo_list = [<span class="hljs-string">"Buy groceries"</span>, <span class="hljs-string">"Learn Streamlit"</span>, <span class="hljs-string">"Learn Python"</span>]
+st.write(<span class="hljs-string">'My current To-Do list is:'</span>, my_todo_list)
+new_todo = st.text_input(<span class="hljs-string">"What do you need to do?"</span>)
+<span class="hljs-keyword">if</span> st.button(<span class="hljs-string">'Add the new To-Do item'</span>):
+    st.write(<span class="hljs-string">'Adding a new item to the list'</span>)
+    my_todo_list.append(new_todo)
+st.write(<span class="hljs-string">'</span><span class="hljs-string">My new To-Do list is:'</span>, my_todo_list)
+</code></pre>
+    <p class="normal">This app seems to work well on first use. You can add to the list from the text box as shown below:</p>
+    <figure class="mediaobject"><img alt="A screenshot of a computer  Description automatically generated" src="../Images/B18444_02_11.png"/></figure>
+    <p class="packt_figref">Figure 2.11: To-do list</p>
+    <p class="normal">Now what do you<a id="_idIndexMarker060"/> think will happen if we try to add a second item? Let’s <a id="_idIndexMarker061"/>try it now by adding another item to our list:</p>
+    <figure class="mediaobject"><img alt="A screenshot of a computer program  Description automatically generated" src="../Images/B18444_02_12.png"/></figure>
+    <p class="packt_figref">Figure 2.12: Second addition</p>
+    <p class="normal">Once you try to add<a id="_idIndexMarker062"/> more than one item to the list, you will notice that it <a id="_idIndexMarker063"/>resets the original list and forgets what the first item you entered was! Now our to-do list does not contain our eat fruit addition from earlier.</p>
+    <p class="normal">Enter <code class="inlineCode">st.session_state</code>. Session State is a Streamlit feature that is a global dictionary that persists through a user’s session. This allows us to get around the two annoyances we mentioned earlier in this section, by placing the user’s inputs into this global dictionary! We can add the Session State functionality by first checking if we have placed our to-do list in the <code class="inlineCode">session_state</code> dictionary, and if not, setting our default values. And with each new button click, we can update our list that we placed in the <code class="inlineCode">session_state</code> dictionary:</p>
+    <pre class="programlisting code"><code class="hljs-code"><span class="hljs-keyword">import</span> streamlit <span class="hljs-keyword">as</span> st
+st.title(<span class="hljs-string">'My To-Do List Creator'</span>)
+<span class="hljs-keyword">if</span> <span class="hljs-string">'my_todo_list'</span> <span class="hljs-keyword">not</span> <span class="hljs-keyword">in</span> st.session_state:
+    st.session_state.my_todo_list = [<span class="hljs-string">"Buy groceries"</span>, <span class="hljs-string">"Learn Streamlit"</span>, <span class="hljs-string">"Learn Python"</span>]
+new_todo = st.text_input(<span class="hljs-string">"What do you need to do?"</span>)
+<span class="hljs-keyword">if</span> st.button(<span class="hljs-string">'Add the new To-Do item'</span>):
+    st.write(<span class="hljs-string">'Adding a new item to the list'</span>)
+    st.session_state.my_todo_list.append(new_todo)
+st.write(<span class="hljs-string">'My To-Do list is:'</span>, st.session_state.my_todo_list)
+</code></pre>
+    <p class="normal">Now, our app will <a id="_idIndexMarker064"/>work just fine and will keep our to-do list until we leave<a id="_idIndexMarker065"/> the app or refresh the page. And we can add multiple to-do items!</p>
+    <figure class="mediaobject"><img alt="A screenshot of a computer  Description automatically generated" src="../Images/B18444_02_13.png"/></figure>
+    <p class="packt_figref">Figure 2.13: Multiple additions</p>
+    <p class="normal">There are many<a id="_idIndexMarker066"/> applications of this, from keeping the state of Streamlit<a id="_idIndexMarker067"/> inputs to applying filters across multi-page apps (don’t worry, we will cover these later in this book). But whenever you want to keep information from the user across runs, <code class="inlineCode">st.session_state</code> can help you out.</p>
+    <h1 class="heading-1" id="_idParaDest-37">Summary</h1>
+    <p class="normal">This chapter was full of fundamental building blocks that we will use often throughout the remainder of this book, and that you will use to develop your own Streamlit applications.</p>
+    <p class="normal">In terms of data, we covered how to bring our own DataFrames into Streamlit and how to accept user input in the form of a data file, which brings us past only being able to simulate data. In terms of other skill sets, we learned how to use our cache to make our data apps faster, how to control the flow of our Streamlit apps, and how to debug our Streamlit apps using <code class="inlineCode">st.write()</code>. That’s it for this chapter. Next, we’ll move on to data visualization!</p>
+    <h1 class="heading-1">Learn more on Discord</h1>
+    <p class="normal">To join the Discord community for this book – where you can share feedback, ask questions to the author, and learn about new releases – follow the QR code below:</p>
+    <p class="normal"><a href="https://packt.link/sl"><span class="url">https://packt.link/sl</span></a></p>
+    <p class="normal"><img alt="" role="presentation" src="../Images/QR_Code13440134443835796.png"/></p>
+  </div>
+</body></html>

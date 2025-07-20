@@ -1,0 +1,483 @@
+<html><head></head><body>
+  <div class="Basic-Text-Frame" id="_idContainer065">
+    <h1 class="chapterNumber">4</h1>
+    <h1 class="chapterTitle" id="_idParaDest-51">Machine Learning and AI with Streamlit</h1>
+    <p class="normal">A very common situation data scientists find themselves in is at the end of the model creation process, not knowing exactly how to convince non-data scientists that their model is worthwhile. They might have performance metrics from their model or some static visualizations but have no easy way to allow others to interact with their model. </p>
+    <p class="normal">Before Streamlit, there were a couple of other options, the most popular being creating a full-fledged app in Flask or Django or even turning a model into an <strong class="keyWord">Application Programming Interface</strong> (<strong class="keyWord">API</strong>) and<a id="_idIndexMarker128"/> pointing developers toward it. These are great options but tend to be time-consuming and suboptimal for valuable use cases such as prototyping an app. </p>
+    <p class="normal">The incentives for teams are a little misaligned here. Data scientists want to create the best models for their teams, but if they need to take a day or two (or, if they have experience, a few hours) of work to turn their model into a Flask or Django app, it doesn’t make much sense to build this out until they think they are nearly complete with the modeling process. It would be ideal for data scientists to also involve stakeholders early and often, so they can build things that people actually want!</p>
+    <p class="normal">The benefit of Streamlit is that it helps us turn this arduous process into a frictionless app creation experience. In this chapter, we’ll go over how<a id="_idIndexMarker129"/> to create <strong class="keyWord">Machine Learning</strong> (<strong class="keyWord">ML</strong>) prototypes in Streamlit, how to add user interaction to your ML apps, and also how to understand the ML results. And we’ll do all this with the most popular ML libraries, including PyTorch, Hugging Face, OpenAI, and scikit-learn. </p>
+    <p class="normal">Specifically, the following topics are covered in this chapter:</p>
+    <ul>
+      <li class="bulletList">The standard ML workflow</li>
+      <li class="bulletList">Predicting penguin species</li>
+      <li class="bulletList">Utilizing a pre-trained ML model</li>
+      <li class="bulletList">Training models inside Streamlit apps</li>
+      <li class="bulletList">Understanding ML results</li>
+      <li class="bulletList">Integrating external ML libraries – a Hugging Face example</li>
+      <li class="bulletList">Integrating external AI libraries – an OpenAI example</li>
+    </ul>
+    <h1 class="heading-1" id="_idParaDest-52">Technical requirements</h1>
+    <p class="normal">For this chapter, we will need an OpenAI account. To create one, head over to (<a href="https://platform.openai.com/"><span class="url">https://platform.openai.com/</span></a>) and follow the instructions on the page. </p>
+    <h1 class="heading-1" id="_idParaDest-53">The standard ML workflow</h1>
+    <p class="normal">The first step to creating an app that uses <a id="_idIndexMarker130"/>ML is creating the ML model itself. There are dozens of popular workflows for creating your own ML models. It’s likely you might have your own already! There are two parts of this process to consider:</p>
+    <ul>
+      <li class="bulletList">The generation of the ML model</li>
+      <li class="bulletList">The use of the ML model in production </li>
+    </ul>
+    <p class="normal">If the plan is to train a model once and then use this model in our Streamlit app, the best method is to create this model outside of Streamlit first (for example, in a Jupyter notebook or in a standard Python file), and then use this model within the app. </p>
+    <p class="normal">If the plan is to use the user input to train the model inside our app, then we can no longer create the model outside of Streamlit and instead will need to run the model training within the Streamlit app. </p>
+    <p class="normal">We will start by building our ML models outside of Streamlit and move on to training our models inside Streamlit apps. </p>
+    <h1 class="heading-1" id="_idParaDest-54">Predicting penguin species</h1>
+    <p class="normal">The dataset that <a id="_idIndexMarker131"/>we will primarily use in this chapter is the same Palmer Penguins dataset that we used earlier in <em class="chapterRef">Chapter 1</em>, <em class="italic">An Introduction to Streamlit</em>. As is typical, we will create a new folder that will house our new Streamlit app and accompanying code. </p>
+    <p class="normal">The following code creates this new folder within our <code class="inlineCode">streamlit_apps</code> folder and copies the data from our <code class="inlineCode">penguin_app</code> folder. If you haven’t downloaded the Palmer Penguins dataset yet, please follow the instructions in the <em class="italic">The setup: Palmer Penguins</em> section in <em class="chapterRef">Chapter 2</em>, <em class="italic">Uploading, Downloading, and Manipulating Data</em>:</p>
+    <pre class="programlisting con"><code class="hljs-con">mkdir penguin_ml
+cp penguin_app/penguins.csv penguin_ml
+cd penguin_ml
+touch penguins_ml.py
+touch penguins_streamlit.py
+</code></pre>
+    <p class="normal">As you may have noticed in the preceding code, there are two Python files here, one to create the ML model (<code class="inlineCode">penguins_ml.py</code>) and the second to create the Streamlit app (<code class="inlineCode">penguins_streamlit.py</code>). We will start with the <code class="inlineCode">penguins_ml.py</code> file, and once we have a model that we are happy with, we will then move on to the <code class="inlineCode">penguins_streamlit.py</code> file.</p>
+    <div class="note">
+      <p class="normal">You can also opt to create the model in a Jupyter notebook, which is less reproducible by design (as cells can be run out of order) but is still incredibly popular. </p>
+    </div>
+    <p class="normal">Let’s get re-familiarized<a id="_idIndexMarker132"/> with the <code class="inlineCode">penguins.csv</code> dataset. The following code will read the dataset and print out the first five rows: </p>
+    <pre class="programlisting code"><code class="hljs-code"><span class="hljs-keyword">import</span> pandas <span class="hljs-keyword">as</span> pd
+penguin_df = pd.read_csv(<span class="hljs-string">'penguins.csv'</span>)
+<span class="hljs-built_in">print</span>(penguin_df.head())
+</code></pre>
+    <p class="normal">The output of the preceding code, when we run our Python file <code class="inlineCode">penguins_ml.py</code> in the terminal, will look something like the following screenshot:</p>
+    <figure class="mediaobject"><img alt="Figure 4.1 – First five penguins " src="../Images/B18444_04_01.png"/></figure>
+    <p class="packt_figref">Figure 4.1: First five penguins</p>
+    <p class="normal">For this app, we are going to attempt to create an app that will help researchers in the wild know what species of penguin they are looking at. It will predict the species of the penguin given some measurements of the bill, flippers, and body mass, and knowledge about the sex and location of the penguin. </p>
+    <p class="normal">This next section is not an attempt to make the best ML model possible, but just to create something as a quick prototype for our Streamlit app that we can iterate on. In that light, we are going to drop our few rows with null values, and not use the <code class="inlineCode">year</code><strong class="screenText"> </strong>variable in our features as it does not fit with our use case. We will need to define our features and output variables, do one-hot-encoding (or as <em class="italic">pandas</em> calls it, creating dummy variables for our text columns) on our features, and factorize our output variable (turn it from a string into a number). The following code should get our dataset in a better state to run through a classification algorithm:</p>
+    <pre class="programlisting code"><code class="hljs-code"><span class="hljs-keyword">import</span> pandas <span class="hljs-keyword">as</span> pd
+penguin_df = pd.read_csv(<span class="hljs-string">'penguins.csv'</span>)
+penguin_df.dropna(inplace=<span class="hljs-literal">True</span>)
+output = penguin_df[<span class="hljs-string">'species'</span>]
+features = penguin_df[[<span class="hljs-string">'island'</span>, <span class="hljs-string">'bill_length_mm'</span>, <span class="hljs-string">'bill_depth_mm'</span>,
+      <span class="hljs-string">'flipper_length_mm'</span>, <span class="hljs-string">'body_mass_g'</span>, <span class="hljs-string">'sex'</span>]]
+features = pd.get_dummies(features)
+<span class="hljs-built_in">print</span>(<span class="hljs-string">'Here are our output variables'</span>)
+<span class="hljs-built_in">print</span>(output.head())
+<span class="hljs-built_in">print</span>(<span class="hljs-string">'Here are our feature variables'</span>)
+<span class="hljs-built_in">print</span>(features.head()
+</code></pre>
+    <p class="normal">Now, when we run our<a id="_idIndexMarker133"/> Python file <code class="inlineCode">penguins_ml.py</code> again, we see that the output and feature variables are separated, as shown in the following screenshot: </p>
+    <figure class="mediaobject"><img alt="Figure 4.2 – Output variables " src="../Images/B18444_04_02.png"/></figure>
+    <p class="packt_figref">Figure 4.2: Output variables</p>
+    <p class="normal">Now, we want to create a classification model using a subset (in this case, 80%) of our data, and get the accuracy of said model. The following code runs through those steps using a random forest model, but you can use other classification algorithms if you would like. Again, the point here is to get a quick prototype to show to the penguin researchers for feedback! </p>
+    <pre class="programlisting code"><code class="hljs-code"><span class="hljs-keyword">import</span> pandas <span class="hljs-keyword">as</span> pd
+<span class="hljs-keyword">from</span> sklearn.metrics <span class="hljs-keyword">import</span> accuracy_score
+<span class="hljs-keyword">from</span> sklearn.ensemble <span class="hljs-keyword">import</span> RandomForestClassifier
+<span class="hljs-keyword">from</span> sklearn.model_selection <span class="hljs-keyword">import</span> train_test_split
+penguin_df = pd.read_csv(<span class="hljs-string">'penguins.csv'</span>)
+penguin_df.dropna(inplace=<span class="hljs-literal">True</span>)
+output = penguin_df[<span class="hljs-string">'species'</span>]
+features = penguin_df[[<span class="hljs-string">'island'</span>, <span class="hljs-string">'bill_length_mm'</span>, <span class="hljs-string">'bill_depth_mm'</span>,
+                       <span class="hljs-string">'flipper_length_mm'</span>, <span class="hljs-string">'body_mass_g'</span>, <span class="hljs-string">'sex'</span>]]
+features = pd.get_dummies(features)
+output, uniques = pd.factorize(output)
+x_train, x_test, y_train, y_test = train_test_split(
+    features, output, test_size=<span class="hljs-number">.8</span>)
+rfc = RandomForestClassifier(random_state=<span class="hljs-number">15</span>)
+rfc.fit(x_train.values, y_train)
+y_pred = rfc.predict(x_test.values)
+score = accuracy_score(y_pred, y_test)
+<span class="hljs-built_in">print</span>(<span class="hljs-string">'Our accuracy score for this model is {}'</span>.<span class="hljs-built_in">format</span>(score))
+</code></pre>
+    <p class="normal">We now have a pretty good model for predicting the species of penguins! Our last step in the model-generating process is to save the two parts of this model that we need the most – the model itself and the <code class="inlineCode">uniques</code> variable, which maps the factorized output variable to the species name that we recognize. To the previous code, we will add a few lines that will save these objects as pickle files (files that turn a Python object into something we can save directly and import easily from another Python file such as our Streamlit app). More specifically, the <code class="inlineCode">open()</code> function creates two pickle files, the <code class="inlineCode">pickle.dump()</code> function writes our Python files to said files, and the <code class="inlineCode">close()</code> function closes the files. The <code class="inlineCode">wb</code> in the <code class="inlineCode">open()</code> function stands<a id="_idIndexMarker134"/> for <strong class="keyWord">write bytes</strong>, which tells Python that we want to write, not <a id="_idIndexMarker135"/>read, to this file:</p>
+    <pre class="programlisting code"><code class="hljs-code"><span class="hljs-keyword">import</span> pandas <span class="hljs-keyword">as</span> pd
+<span class="hljs-keyword">from</span> sklearn.metrics <span class="hljs-keyword">import</span> accuracy_score
+<span class="hljs-keyword">from</span> sklearn.ensemble <span class="hljs-keyword">import</span> RandomForestClassifier
+<span class="hljs-keyword">from</span> sklearn.model_selection <span class="hljs-keyword">import</span> train_test_split
+<span class="hljs-keyword">import</span> pickle
+penguin_df = pd.read_csv(<span class="hljs-string">'penguins.csv'</span>)
+penguin_df.dropna(inplace=<span class="hljs-literal">True</span>)
+output = penguin_df[<span class="hljs-string">'species'</span>]
+features = penguin_df[[<span class="hljs-string">'island'</span>, <span class="hljs-string">'bill_length_mm'</span>, <span class="hljs-string">'bill_depth_mm'</span>,
+                       <span class="hljs-string">'flipper_length_mm'</span>, <span class="hljs-string">'body_mass_g'</span>, <span class="hljs-string">'</span><span class="hljs-string">sex'</span>]]
+features = pd.get_dummies(features)
+output, uniques = pd.factorize(output)
+x_train, x_test, y_train, y_test = train_test_split(
+    features, output, test_size=<span class="hljs-number">.8</span>)
+rfc = RandomForestClassifier(random_state=<span class="hljs-number">15</span>)
+rfc.fit(x_train.values, y_train)
+y_pred = rfc.predict(x_test.values)
+score = accuracy_score(y_pred, y_test)
+<span class="hljs-built_in">print</span>(<span class="hljs-string">'Our accuracy score for this model is {}'</span>.<span class="hljs-built_in">format</span>(score))
+rf_pickle = <span class="hljs-built_in">open</span>(<span class="hljs-string">'random_forest_penguin.pickle'</span>, <span class="hljs-string">'wb'</span>)
+pickle.dump(rfc, rf_pickle)
+rf_pickle.close()
+output_pickle = <span class="hljs-built_in">open</span>(<span class="hljs-string">'</span><span class="hljs-string">output_penguin.pickle'</span>, <span class="hljs-string">'wb'</span>)
+pickle.dump(uniques, output_pickle)
+output_pickle.close() 
+</code></pre>
+    <p class="normal">We now have two more files in our <code class="inlineCode">penguin_ml</code> folder: A file called <code class="inlineCode">random_forest_penguin.pickle</code>, which contains our model, and <code class="inlineCode">output_penguin_.pickle</code>, which has the mapping between penguin species and the output of our model. This<a id="_idIndexMarker136"/> is it for the <code class="inlineCode">penguins_ml.py</code> function! We can move on to creating our Streamlit app, which uses the machine model we just created. </p>
+    <h1 class="heading-1" id="_idParaDest-55">Utilizing a pre-trained ML model in Streamlit</h1>
+    <p class="normal">Now<a id="_idIndexMarker137"/> that we have our model, we want to<a id="_idIndexMarker138"/> load it (along with our mapping function as well) into Streamlit. In our file, <code class="inlineCode">penguins_streamlit.py</code>, that we created before, we will again use the <code class="inlineCode">pickle</code> library to load our files using the following code. We use the same functions as before, but instead of <code class="inlineCode">wb</code>, we use the <code class="inlineCode">rb</code> parameter, which stands<a id="_idIndexMarker139"/> for <strong class="keyWord">read bytes</strong>. To make sure these are the same Python objects that we used before, we will use the <code class="inlineCode">st.write()</code> function that we are so familiar with already to check: </p>
+    <pre class="programlisting code"><code class="hljs-code"><span class="hljs-keyword">import</span> streamlit <span class="hljs-keyword">as</span> st
+<span class="hljs-keyword">import</span> pickle
+rf_pickle = <span class="hljs-built_in">open</span>(<span class="hljs-string">'random_forest_penguin.pickle'</span>, <span class="hljs-string">'rb'</span>)
+map_pickle = <span class="hljs-built_in">open</span>(<span class="hljs-string">'output_penguin.pickle'</span>, <span class="hljs-string">'rb'</span>)
+rfc = pickle.load(rf_pickle)
+unique_penguin_mapping = pickle.load(map_pickle)
+st.write(rfc)
+st.write(unique_penguin_mapping)
+</code></pre>
+    <p class="normal">As with our previous Streamlit apps, we run the following code in the terminal to run our app: </p>
+    <pre class="programlisting con"><code class="hljs-con">streamlit run penguins_streamlit.py
+</code></pre>
+    <p class="normal">We now have our <a id="_idIndexMarker140"/>random forest classifier, along with<a id="_idIndexMarker141"/> the penguin mapping! Our next step is to add Streamlit functions to get the user input. In our app, we used the island, bill length, bill depth, flipper length, body mass, and sex to predict the penguin species, so we will need to get each of these from our user. For island and sex, we know which options were in our dataset already and want to avoid having to parse through user text, so we will use <code class="inlineCode">st.selectbox()</code>. For the other data, we just need to make sure that the user has input a positive number, so we will use the <code class="inlineCode">st.number_input()</code> function and make the minimum value <code class="inlineCode">0</code>. The following code takes these inputs in and prints them out on our Streamlit app: </p>
+    <pre class="programlisting code"><code class="hljs-code"><span class="hljs-keyword">import</span> pickle
+<span class="hljs-keyword">import</span> streamlit <span class="hljs-keyword">as</span> st
+rf_pickle = <span class="hljs-built_in">open</span>(<span class="hljs-string">"random_forest_penguin.pickle"</span>, <span class="hljs-string">"rb"</span>)
+map_pickle = <span class="hljs-built_in">open</span>(<span class="hljs-string">"output_penguin.pickle"</span>, <span class="hljs-string">"rb"</span>)
+rfc = pickle.load(rf_pickle)
+unique_penguin_mapping = pickle.load(map_pickle)
+rf_pickle.close()
+map_pickle.close()
+island = st.selectbox(<span class="hljs-string">"Penguin Island"</span>, options=[<span class="hljs-string">"Biscoe"</span>, <span class="hljs-string">"Dream"</span>, <span class="hljs-string">"Torgerson"</span>])
+sex = st.selectbox(<span class="hljs-string">"</span><span class="hljs-string">Sex"</span>, options=[<span class="hljs-string">"Female"</span>, <span class="hljs-string">"Male"</span>])
+bill_length = st.number_input(<span class="hljs-string">"Bill Length (mm)"</span>, min_value=<span class="hljs-number">0</span>)
+bill_depth = st.number_input(<span class="hljs-string">"Bill Depth (mm)"</span>, min_value=<span class="hljs-number">0</span>)
+flipper_length = st.number_input(<span class="hljs-string">"Flipper Length (mm)"</span>, min_value=<span class="hljs-number">0</span>)
+body_mass = st.number_input(<span class="hljs-string">"Body Mass (g)"</span>, min_value=<span class="hljs-number">0</span>)
+user_inputs = [island, sex, bill_length, bill_depth, flipper_length, body_mass]
+st.write(<span class="hljs-string">f"""the user inputs are </span><span class="hljs-subst">{user_inputs}</span><span class="hljs-string">"""</span>.<span class="hljs-built_in">format</span>())
+</code></pre>
+    <p class="normal">The preceding code should make the following app. Try it out and see if it works by changing the values and seeing if the output changes as well. </p>
+    <p class="normal">Streamlit is designed so that, by default, each time a value is changed, the entire app reruns. The following screenshot shows the app live, with some values that I’ve changed. We can either change numeric values with the <strong class="screenText">+</strong> and <strong class="screenText">-</strong> buttons on the right-hand side or we can just enter the values manually:</p>
+    <figure class="mediaobject"><img alt="" role="presentation" src="../Images/B18444_04_03.png"/></figure>
+    <p class="packt_figref">Figure 4.3: Model inputs</p>
+    <p class="normal">Now that we have all of our <a id="_idIndexMarker142"/>inputs and model ready, the next step<a id="_idIndexMarker143"/> is to format the data into the same format as our preprocessed data. For example, our model does not have one variable called <code class="inlineCode">sex</code> but instead has two variables called <code class="inlineCode">sex_female</code> and <code class="inlineCode">sex_male</code>. Once our data is in the right shape, we can call the <code class="inlineCode">predict</code> function and map the prediction to our original species list to see how our model functions. The following code does exactly this, and also adds some basic titles and instructions to the app to make it more usable. This app is rather long, so I will break it up into multiple sections for readability. We will start by adding instructions and a title to our app:</p>
+    <pre class="programlisting code"><code class="hljs-code"><span class="hljs-keyword">import</span> streamlit <span class="hljs-keyword">as</span> st
+<span class="hljs-keyword">import</span> pickle
+st.title(<span class="hljs-string">'Penguin Classifier'</span>)
+st.write(<span class="hljs-string">"This app uses 6 inputs to predict the species of penguin using"</span>
+         <span class="hljs-string">"a model built on the Palmer Penguins dataset. Use the form below"</span>
+         <span class="hljs-string">" to get started!"</span>)
+rf_pickle = <span class="hljs-built_in">open</span>(<span class="hljs-string">'random_forest_penguin.pickle'</span>, <span class="hljs-string">'rb'</span>)
+map_pickle = <span class="hljs-built_in">open</span>(<span class="hljs-string">'output_penguin.pickle'</span>, <span class="hljs-string">'rb'</span>)
+rfc = pickle.load(rf_pickle)
+unique_penguin_mapping = pickle.load(map_pickle)
+rf_pickle.close()
+map_pickle.close()
+</code></pre>
+    <p class="normal">We now have an app<a id="_idIndexMarker144"/> with our title and instructions for the <a id="_idIndexMarker145"/>user. The next step is to get the user inputs as we did before. We also need to put our <code class="inlineCode">sex</code> and <code class="inlineCode">island</code> variables into the correct format, as discussed before:</p>
+    <pre class="programlisting code"><code class="hljs-code">island = st.selectbox(<span class="hljs-string">'Penguin Island'</span>, options=[
+                      <span class="hljs-string">'</span><span class="hljs-string">Biscoe'</span>, <span class="hljs-string">'Dream'</span>, <span class="hljs-string">'Torgerson'</span>])
+sex = st.selectbox(<span class="hljs-string">'Sex'</span>, options=[<span class="hljs-string">'Female'</span>, <span class="hljs-string">'Male'</span>])
+bill_length = st.number_input(<span class="hljs-string">'Bill Length (mm)'</span>, min_value=<span class="hljs-number">0</span>)
+bill_depth = st.number_input(<span class="hljs-string">'Bill Depth (mm)'</span>, min_value=<span class="hljs-number">0</span>)
+flipper_length = st.number_input(<span class="hljs-string">'</span><span class="hljs-string">Flipper Length (mm)'</span>, min_value=<span class="hljs-number">0</span>)
+body_mass = st.number_input(<span class="hljs-string">'Body Mass (g)'</span>, min_value=<span class="hljs-number">0</span>)
+island_biscoe, island_dream, island_torgerson = <span class="hljs-number">0</span>, <span class="hljs-number">0</span>, <span class="hljs-number">0</span>
+<span class="hljs-keyword">if</span> island == <span class="hljs-string">'Biscoe'</span>:
+    island_biscoe = <span class="hljs-number">1</span>
+<span class="hljs-keyword">elif</span> island == <span class="hljs-string">'Dream'</span>:
+    island_dream = <span class="hljs-number">1</span>
+<span class="hljs-keyword">elif</span> island == <span class="hljs-string">'Torgerson'</span>:
+    island_torgerson = <span class="hljs-number">1</span>
+sex_female, sex_male = <span class="hljs-number">0</span>, <span class="hljs-number">0</span>
+<span class="hljs-keyword">if</span> sex == <span class="hljs-string">'Female'</span>:
+    sex_female = <span class="hljs-number">1</span>
+<span class="hljs-keyword">elif</span> sex == <span class="hljs-string">'Male'</span>:
+    sex_male = <span class="hljs-number">1</span>
+</code></pre>
+    <p class="normal">All of our data is in the correct format! The last step here is to use the <code class="inlineCode">predict()</code> function on our model and our new data, which this final section takes care of:</p>
+    <pre class="programlisting code"><code class="hljs-code">new_prediction = rfc.predict([[bill_length, bill_depth, flipper_length,
+                               body_mass, island_biscoe, island_dream,
+                               island_torgerson, sex_female, sex_male]])
+prediction_species = unique_penguin_mapping[new_prediction][<span class="hljs-number">0</span>]
+st.write(<span class="hljs-string">f"We predict your penguin is of the </span><span class="hljs-subst">{prediction_species}</span><span class="hljs-string"> species"</span>)
+</code></pre>
+    <p class="normal">Now our app should look like the following screenshot. </p>
+    <p class="normal">I have added some<a id="_idIndexMarker146"/> example values to the inputs, but you <a id="_idIndexMarker147"/>should play around with changing the data to see if you can make the species change!</p>
+    <figure class="mediaobject"><img alt="" role="presentation" src="../Images/B18444_04_04.png"/></figure>
+    <p class="packt_figref">Figure 4.4: Full Streamlit app for prediction</p>
+    <p class="normal">We now have a full <a id="_idIndexMarker148"/>Streamlit app that utilizes our <a id="_idIndexMarker149"/>pre-trained ML model, takes user input, and outputs the prediction. Next, we will discuss how to train models directly within Streamlit apps!</p>
+    <h1 class="heading-1" id="_idParaDest-56">Training models inside Streamlit apps</h1>
+    <p class="normal">Often, we may<a id="_idIndexMarker150"/> want to have the user input change how our <a id="_idIndexMarker151"/>model is trained. We may want to accept data from the user or ask the user what features they would like to use, or even allow the user to pick the type of ML algorithm that they would like to use. All of these options are feasible in Streamlit, and in this section, we will cover the basics of using user input to affect the training process. As we discussed in the section above, if a model is going to be trained only once, it is probably best to train the model outside of Streamlit and import the model into Streamlit. But what if, in our example, the penguin researchers have the data stored locally, or do not know how to retrain the model but have the data in the correct format already? In cases like these, we can add the <code class="inlineCode">st.file_uploader()</code> option and include a method for these users to input their own data, and get a custom model deployed for them without having to write any code. The following code will add a user option to accept data and will use the preprocessing/training code that we originally had in <code class="inlineCode">penguins_ml.py</code> to make a unique model for this user. It is important to note here that this will only work if the user has data in the exact same format and style that we used, which may be unlikely. One other potential add-on here is to show the user what format the data needs to be in for this app to correctly train a model as expected! </p>
+    <pre class="programlisting code"><code class="hljs-code"><span class="hljs-keyword">import</span> streamlit <span class="hljs-keyword">as</span> st
+<span class="hljs-keyword">import</span> seaborn <span class="hljs-keyword">as</span> sns
+<span class="hljs-keyword">import</span> matplotlib.pyplot <span class="hljs-keyword">as</span> plt
+<span class="hljs-keyword">import</span> pandas <span class="hljs-keyword">as</span> pd
+<span class="hljs-keyword">import</span> pickle
+<span class="hljs-keyword">from</span> sklearn.metrics <span class="hljs-keyword">import</span> accuracy_score
+<span class="hljs-keyword">from</span> sklearn.ensemble <span class="hljs-keyword">import</span> RandomForestClassifier
+<span class="hljs-keyword">from</span> sklearn.model_selection <span class="hljs-keyword">import</span> train_test_split
+st.title(<span class="hljs-string">'</span><span class="hljs-string">Penguin Classifier'</span>)
+st.write(
+    <span class="hljs-string">"""This app uses 6 inputs to predict the species of penguin using</span>
+<span class="hljs-string">    a model built on the Palmer Penguins dataset. Use the form below</span>
+<span class="hljs-string">    to get started!"""</span>
+)
+penguin_file = st.file_uploader(<span class="hljs-string">'Upload your own penguin data'</span>)
+</code></pre>
+    <p class="normal">This first section <a id="_idIndexMarker152"/>imports the libraries that we need, adds the title – as <a id="_idIndexMarker153"/>we have used before – and adds the <code class="inlineCode">file_uploader()</code> function. What happens, however, when the user has yet to upload a file? We can set the default to load our random forest model if there is no penguin file, as shown in the next section of code:</p>
+    <pre class="programlisting code"><code class="hljs-code"><span class="hljs-keyword">if</span> penguin_file <span class="hljs-keyword">is</span> <span class="hljs-literal">None</span>:
+    rf_pickle = <span class="hljs-built_in">open</span>(<span class="hljs-string">'random_forest_penguin.pickle'</span>, <span class="hljs-string">'rb'</span>)
+    map_pickle = <span class="hljs-built_in">open</span>(<span class="hljs-string">'output_penguin.pickle'</span>, <span class="hljs-string">'rb'</span>)
+    rfc = pickle.load(rf_pickle)
+    unique_penguin_mapping = pickle.load(map_pickle)
+    rf_pickle.close()
+    map_pickle.close()
+</code></pre>
+    <p class="normal">The next problem we need to solve is how to take in the user’s data, clean it, and train a model based on it. Luckily, we can reuse the model training code that we have already created and put it within our <code class="inlineCode">else</code> statement in the next code block:</p>
+    <pre class="programlisting code"><code class="hljs-code"><span class="hljs-keyword">else</span>:
+    penguin_df = pd.read_csv(penguin_file)
+    penguin_df = penguin_df.dropna()
+    output = penguin_df[<span class="hljs-string">'species'</span>]
+    features = penguin_df[[<span class="hljs-string">'island'</span>, <span class="hljs-string">'bill_length_mm'</span>, <span class="hljs-string">'bill_depth_mm'</span>,
+                           <span class="hljs-string">'</span><span class="hljs-string">flipper_length_mm'</span>, <span class="hljs-string">'body_mass_g'</span>, <span class="hljs-string">'sex'</span>]]
+    features = pd.get_dummies(features)
+    output, unique_penguin_mapping = pd.factorize(output)
+    x_train, x_test, y_train, y_test = train_test_split(
+        features, output, test_size=<span class="hljs-number">.8</span>)
+    rfc = RandomForestClassifier(random_state=<span class="hljs-number">15</span>)
+    rfc.fit(x_train.values, y_train)
+    y_pred = rfc.predict(x_test.values)
+    score = <span class="hljs-built_in">round</span>(accuracy_score(y_pred, y_test), <span class="hljs-number">2</span>)
+    st.write(
+        <span class="hljs-string">f"""We trained a Random Forest model on these</span>
+<span class="hljs-string">        data, it has a score of </span><span class="hljs-subst">{score}</span><span class="hljs-string">! Use the</span>
+<span class="hljs-string">        inputs below to try out the model"""</span>
+    )
+</code></pre>
+    <p class="normal">We have now created our model within the app and need to get the inputs from the user for our prediction. This time, however, we can make an improvement on what we have done before. As of now, each time a user changes an input in our app, the entire Streamlit app will rerun. We can use the <code class="inlineCode">st.form()</code> and <code class="inlineCode">st.submit_form_button()</code> functions to wrap<a id="_idIndexMarker154"/> the rest of our user inputs in and allow the<a id="_idIndexMarker155"/> user to change all of the inputs and submit the entire form at once, instead of multiple times:</p>
+    <pre class="programlisting code"><code class="hljs-code"><span class="hljs-keyword">with</span> st.form(<span class="hljs-string">'user_inputs'</span>):
+island = st.selectbox(<span class="hljs-string">'Penguin Island'</span>, options=		[<span class="hljs-string">'Biscoe'</span>, <span class="hljs-string">'Dream'</span>, <span class="hljs-string">'Torgerson'</span>])
+sex = st.selectbox(<span class="hljs-string">'Sex'</span>, options=[<span class="hljs-string">'Female'</span>, <span class="hljs-string">'</span><span class="hljs-string">Male'</span>])
+bill_length = st.number_input(<span class="hljs-string">'Bill Length (mm)'</span>, min_value=<span class="hljs-number">0</span>)
+bill_depth = st.number_input(<span class="hljs-string">'Bill Depth (mm)'</span>, min_value=<span class="hljs-number">0</span>)
+flipper_length = st.number_input(<span class="hljs-string">'Flipper Length (mm)'</span>, min_value=<span class="hljs-number">0</span>)
+body_mass = st.number_input(<span class="hljs-string">'Body Mass (g)'</span>, min_value=<span class="hljs-number">0</span>)
+st.form_submit_button()
+island_biscoe, island_dream, island_torgerson = <span class="hljs-number">0</span>, <span class="hljs-number">0</span>, <span class="hljs-number">0</span>
+<span class="hljs-keyword">if</span> island == <span class="hljs-string">'Biscoe'</span>:
+    island_biscoe = <span class="hljs-number">1</span>
+<span class="hljs-keyword">elif</span> island == <span class="hljs-string">'Dream'</span>:
+    island_dream = <span class="hljs-number">1</span>
+<span class="hljs-keyword">elif</span> island == <span class="hljs-string">'Torgerson'</span>:
+    island_torgerson = <span class="hljs-number">1</span>
+sex_female, sex_male = <span class="hljs-number">0</span>, <span class="hljs-number">0</span>
+<span class="hljs-keyword">if</span> sex == <span class="hljs-string">'Female'</span>:
+    sex_female = <span class="hljs-number">1</span>
+<span class="hljs-keyword">elif</span> sex == <span class="hljs-string">'Male'</span>:
+    sex_male = <span class="hljs-number">1</span>
+</code></pre>
+    <p class="normal">Now that we have the inputs with our new form, we need to create our prediction and write the prediction to the user, as shown in the next block:</p>
+    <pre class="programlisting code"><code class="hljs-code">new_prediction = rfc.predict(
+    [
+        [
+            bill_length,
+            bill_depth,
+            flipper_length,
+            body_mass,
+            island_biscoe,
+            island_dream,
+            island_torgerson,
+            sex_female,
+            sex_male,
+        ]
+    ]
+)
+prediction_species = unique_penguin_mapping[new_prediction][<span class="hljs-number">0</span>]
+st.write(<span class="hljs-string">f"We predict your penguin is of the </span><span class="hljs-subst">{prediction_species}</span><span class="hljs-string"> species"</span>)
+</code></pre>
+    <p class="normal">And there we<a id="_idIndexMarker156"/> go! We now have a Streamlit app that allows the<a id="_idIndexMarker157"/> user to input their own data, trains a model based on their data, and outputs the results, as shown in the next screenshot:</p>
+    <figure class="mediaobject"><img alt="" role="presentation" src="../Images/B18444_04_05.png"/></figure>
+    <p class="packt_figref">Figure 4.5: Penguin classifier app</p>
+    <p class="normal">There are potential<a id="_idIndexMarker158"/> improvements that can be made here, such <a id="_idIndexMarker159"/>as using caching functions (explored in <em class="chapterRef">Chapter 2</em>, <em class="italic">Uploading, Downloading, and Manipulating Data</em>), as one example. Apps like these, where users bring their own data, are significantly harder to build, especially without a universal data format. It is more common as of the time of writing to see Streamlit apps that show off impressive ML models and use cases rather than apps that build them directly in-app (especially with more computationally expensive model training). As we mentioned before, Streamlit <a id="_idIndexMarker160"/>developers often will provide references to the required data format before asking for user input <a id="_idIndexMarker161"/>in the form of a dataset. However, this option of allowing users to bring their own data is available and practical, especially to allow for quick iterations on model building. </p>
+    <h1 class="heading-1" id="_idParaDest-57">Understanding ML results</h1>
+    <p class="normal">So far, our app might be<a id="_idIndexMarker162"/> useful, but often, just showing a result is not good enough for a data app. We should show some explanation of the results. In order to do this, we can include a section in the output of the app that we have already made that helps users in understanding the model better.</p>
+    <p class="normal">To start, random forest models already have a built-in feature importance method derived from the set of individual decision trees that make up the random forest. We can edit our <code class="inlineCode">penguins_ml.py</code> file to graph this importance, and then call that image from within our Streamlit app. We could also graph this directly from within our Streamlit app, but it is more efficient to make this graph once in <code class="inlineCode">penguins_ml.py</code> instead of every time our Streamlit app reloads (which is every time a user changes a user input!). The following code edits our <code class="inlineCode">penguins_ml.py</code> file and adds the feature importance graph, saving it to our folder. We also call the <code class="inlineCode">tight_layout()</code> feature, which helps format our graph better and makes sure we avoid any labels getting cut off. This set of code is long, and the top half of the file remains unchanged, so only the section on library importing and data cleaning has been omitted. One other note about this section is that we’re going to try out using other graphing libraries such as Seaborn and Matplotlib, just to get a bit of diversity in the graphing libraries used.</p>
+    <pre class="programlisting code"><code class="hljs-code">x_train, x_test, y_train, y_test = train_test_split(
+    features, output, test_size=<span class="hljs-number">.8</span>)
+rfc = RandomForestClassifier(random_state=<span class="hljs-number">15</span>)
+rfc.fit(x_train, y_train)
+y_pred = rfc.predict(x_test)
+score = accuracy_score(y_pred, y_test)
+<span class="hljs-built_in">print</span>(<span class="hljs-string">'Our accuracy score for this model is {}'</span>.<span class="hljs-built_in">format</span>(score))
+rf_pickle = <span class="hljs-built_in">open</span>(<span class="hljs-string">'random_forest_penguin.pickle'</span>, <span class="hljs-string">'wb'</span>)
+pickle.dump(rfc, rf_pickle)
+rf_pickle.close()
+output_pickle = <span class="hljs-built_in">open</span>(<span class="hljs-string">'output_penguin.pickle'</span>, <span class="hljs-string">'wb'</span>)
+pickle.dump(uniques, output_pickle)
+output_pickle.close()
+fig, ax = plt.subplots()
+ax = sns.barplot(x=rfc.feature_importances_, y=features.columns)
+plt.title(<span class="hljs-string">'Which features are the most important for species prediction?'</span>)
+plt.xlabel(<span class="hljs-string">'Importance'</span>)
+plt.ylabel(<span class="hljs-string">'Feature'</span>)
+plt.tight_layout()
+fig.savefig(<span class="hljs-string">'feature_importance.png'</span>)
+</code></pre>
+    <p class="normal">Now when we rerun <code class="inlineCode">penguins_ml.py</code>, we should see a file called <code class="inlineCode">feature_importance.png</code>, which we<a id="_idIndexMarker163"/> can call from our Streamlit app. Let’s do that now! We can use the <code class="inlineCode">st.image()</code> function to load an image from our <code class="inlineCode">.png</code> and print it to our penguin app. The following code adds our image to the Streamlit app and also improves our explanations around the prediction we made. Because of the length of this code block, we will just show the new code from the point where we start to predict using the user’s data:</p>
+    <pre class="programlisting code"><code class="hljs-code">new_prediction = rfc.predict([[bill_length, bill_depth, flipper_length,
+                               body_mass, island_biscoe, island_dream,
+                               island_torgerson, sex_female, sex_male]])
+prediction_species = unique_penguin_mapping[new_prediction][<span class="hljs-number">0</span>]
+st.subheader(<span class="hljs-string">"Predicting Your Penguin's Species:"</span>)
+st.write(<span class="hljs-string">f"We predict your penguin is of the </span><span class="hljs-subst">{prediction_species}</span><span class="hljs-string"> species"</span>)
+st.write(
+    <span class="hljs-string">"""We used a machine learning (Random Forest)</span>
+<span class="hljs-string">    model to predict the species, the features</span>
+<span class="hljs-string">    used in this prediction are ranked by </span>
+<span class="hljs-string">    relative importance below."""</span>
+)
+st.image(<span class="hljs-string">'feature_importance.png'</span>)
+</code></pre>
+    <p class="normal">Now, the bottom of your Streamlit app should look like the following screenshot (note that your string might be slightly different based on your inputs): </p>
+    <figure class="mediaobject"><img alt="Figure 4.6 – Feature importance screenshot " src="../Images/B18444_04_06.png"/></figure>
+    <p class="packt_figref">Figure 4.6: Feature importance screenshot</p>
+    <p class="normal">As we can see, bill<a id="_idIndexMarker164"/> length, bill depth, and flipper length are the most important variables according to our random forest model. A final option for explaining how our model works is to plot the distributions of each of these variables by species, and also plot some vertical lines representing the user input. Ideally, the user can begin to understand the underlying data holistically and therefore, will understand the predictions that come from the model as well. To do this, we will need to actually import the data into our Streamlit app, which we have not done previously. The following code imports the penguin data that we used to build the model, and plots three histograms (for <em class="italic">bill length</em>, <em class="italic">bill depth</em>, and <em class="italic">flipper length</em>) along with the user input as a vertical line, starting from the model explanation section:</p>
+    <pre class="programlisting code"><code class="hljs-code">st.subheader(<span class="hljs-string">"Predicting Your Penguin's Species:"</span>)
+st.write(<span class="hljs-string">f"We predict your penguin is of the </span><span class="hljs-subst">{prediction_species}</span><span class="hljs-string"> species"</span>)
+st.write(
+    <span class="hljs-string">"""We used a machine learning (Random Forest)</span>
+<span class="hljs-string">    model to predict the species, the features</span>
+<span class="hljs-string">    used in this prediction are ranked by </span>
+<span class="hljs-string">    relative importance below."""</span>
+)
+st.image(<span class="hljs-string">'</span><span class="hljs-string">feature_importance.png'</span>)
+st.write(
+    <span class="hljs-string">"""Below are the histograms for each </span>
+<span class="hljs-string">    continuous variable separated by penguin </span>
+<span class="hljs-string">    species. The vertical line represents </span>
+<span class="hljs-string">    your the inputted value."""</span>
+)
+</code></pre>
+    <p class="normal">Now that we have set up our app for <a id="_idIndexMarker165"/>displaying histograms, we can use the <code class="inlineCode">displot()</code> function in the Seaborn visualization library to create our three histograms for our most important variables:</p>
+    <pre class="programlisting code"><code class="hljs-code">fig, ax = plt.subplots()
+ax = sns.displot(x=penguin_df[<span class="hljs-string">'bill_length_mm'</span>],
+                 hue=penguin_df[<span class="hljs-string">'species'</span>])
+plt.axvline(bill_length)
+plt.title(<span class="hljs-string">'Bill Length by Species'</span>)
+st.pyplot(ax)
+fig, ax = plt.subplots()
+ax = sns.displot(x=penguin_df[<span class="hljs-string">'bill_depth_mm'</span>],
+                 hue=penguin_df[<span class="hljs-string">'species'</span>])
+plt.axvline(bill_depth)
+plt.title(<span class="hljs-string">'Bill Depth by Species'</span>)
+st.pyplot(ax)
+fig, ax = plt.subplots()
+ax = sns.displot(x=penguin_df[<span class="hljs-string">'</span><span class="hljs-string">flipper_length_mm'</span>],
+                 hue=penguin_df[<span class="hljs-string">'species'</span>])
+plt.axvline(flipper_length)
+plt.title(<span class="hljs-string">'Flipper Length by Species'</span>)
+st.pyplot(ax)
+</code></pre>
+    <p class="normal">The preceding code should create the app shown in the following figure, which is our app in its final form. For viewing ease, we will just show the first histogram:</p>
+    <figure class="mediaobject"><img alt="" role="presentation" src="../Images/B18444_04_07.png"/></figure>
+    <p class="packt_figref">Figure 4.7: Bill length by species</p>
+    <p class="normal">As always, the complete<a id="_idIndexMarker166"/> and final code can be found at <a href="https://github.com/tylerjrichards/Streamlit-for-Data-Science"><span class="url">https://github.com/tylerjrichards/Streamlit-for-Data-Science</span></a>. That completes this section. We have now created a fully formed Streamlit app that takes a pre-built model and user input and outputs both the result of the prediction and an explanation of the output as well. Now, let’s explore how to integrate your other favorite ML libraries into Streamlit! </p>
+    <h1 class="heading-1" id="_idParaDest-58">Integrating external ML libraries – a Hugging Face example</h1>
+    <p class="normal">Over the last few<a id="_idIndexMarker167"/> years, there has been a massive increase in the number of<a id="_idIndexMarker168"/> ML models created by startups and institutions. There is one that, in my opinion, has stood out above the rest for prioritizing the open sourcing and sharing of their models and methods, and that is Hugging Face. Hugging Face makes it incredibly easy to use ML models that some of the best researchers in the field have created for your own use cases, and in this bit, we’ll quickly show off how to integrate Hugging Face into Streamlit. </p>
+    <p class="normal">As part of the original setup for this book, we have already downloaded the two libraries that we need: PyTorch (the most popular deep learning Python framework) and transformers (a Hugging Face’s library that makes it easy to use their pre-trained models). So, for our app, let’s try one of the most basic tasks in natural language processing: Getting the sentiment of a bit of text! Hugging Face makes this incredibly easy with its pipeline function, which lets us ask for a model by name. This next code snippet gets a text input from the user and then retrieves the sentiment analysis model from Hugging Face:</p>
+    <pre class="programlisting code"><code class="hljs-code"><span class="hljs-keyword">import</span> streamlit <span class="hljs-keyword">as</span> st
+<span class="hljs-keyword">from</span> transformers <span class="hljs-keyword">import</span> pipeline
+ 
+st.title(<span class="hljs-string">"Hugging Face Demo"</span>)
+text = st.text_input(<span class="hljs-string">"Enter text to analyze"</span>)
+model = pipeline(<span class="hljs-string">"sentiment-analysis"</span>)
+<span class="hljs-keyword">if</span> text:
+    result = model(text)
+    st.write(<span class="hljs-string">"Sentiment:"</span>, result[<span class="hljs-number">0</span>][<span class="hljs-string">"label"</span>])
+    st.write(<span class="hljs-string">"Confidence:"</span>, result[<span class="hljs-number">0</span>][<span class="hljs-string">"score"</span>])
+</code></pre>
+    <p class="normal">When we run this, we should see the following.</p>
+    <figure class="mediaobject"> <img alt="" role="presentation" src="../Images/B18444_04_08.png"/></figure>
+    <p class="packt_figref">Figure 4.8: Hugging Face Demo</p>
+    <p class="normal">I put a random sentence in the app, but go ahead and play around with it! Try to give the model a bit of text that the confidence is low in (I tried “streamlit is a pizza pie” and sufficiently confused the model). To learn more about the models that are used here, Hugging Face has extensive documentation (<a href="https://huggingface.co/distilbert-base-uncased-finetuned-sst-2-english"><span class="url">https://huggingface.co/distilbert-base-uncased-finetuned-sst-2-english</span></a>).</p>
+    <p class="normal">As you play <a id="_idIndexMarker169"/>around with the app, you notice that the app often <a id="_idIndexMarker170"/>takes a long time to load. This is because each time the app is run, the transformers library fetches the model from Hugging Face, and then uses it in the app. We already learned how to cache data, but Streamlit has a similar caching function called <code class="inlineCode">st.cache_resource</code>, which lets us cache objects like ML models and database connections. Let’s use it here to speed up our app:</p>
+    <pre class="programlisting code"><code class="hljs-code"><span class="hljs-keyword">import</span> streamlit <span class="hljs-keyword">as</span> st
+<span class="hljs-keyword">from</span> transformers <span class="hljs-keyword">import</span> pipeline
+st.title(<span class="hljs-string">"Hugging Face Demo"</span>)
+text = st.text_input(<span class="hljs-string">"Enter text to analyze"</span>)
+<span class="hljs-meta">@st.cache_resource()</span>
+<span class="hljs-keyword">def</span> <span class="hljs-title">get_model</span>():
+    <span class="hljs-keyword">return</span> pipeline(<span class="hljs-string">"sentiment-analysis"</span>)
+model = get_model()
+<span class="hljs-keyword">if</span> text:
+    result = model(text)
+    st.write(<span class="hljs-string">"Sentiment:"</span>, result[<span class="hljs-number">0</span>][<span class="hljs-string">"label"</span>])
+    st.write(<span class="hljs-string">"Confidence:"</span>, result[<span class="hljs-number">0</span>][<span class="hljs-string">"score"</span>])
+</code></pre>
+    <p class="normal">Now, our app<a id="_idIndexMarker171"/> should run much faster for multiple uses. This<a id="_idIndexMarker172"/> app is not perfect but shows us how easy it is to integrate some of the best-in-class libraries into Streamlit. Later in this book, we’ll go over how to deploy Streamlit apps directly on Hugging Face for free, but I would encourage you to explore the Hugging Face<a id="_idIndexMarker173"/> website (<a href="https://huggingface.co/"><span class="url">https://huggingface.co/</span></a>) and see all that they have to offer. </p>
+    <h1 class="heading-1" id="_idParaDest-59">Integrating external AI libraries – an OpenAI example</h1>
+    <p class="normal">2023 has surely been the <a id="_idIndexMarker174"/>year of generative AI, with ChatGPT taking the world and developer community by storm. The availability of generative models behind services like ChatGPT has also exploded, with each of the largest technology companies coming out with their own versions (<a href="https://ai.meta.com/llama/"><span class="url">https://ai.meta.com/llama/</span></a> from Meta and <a href="https://bard.google.com/"><span class="url">https://bard.google.com/</span></a> from Google, for example). The most popular series of these<a id="_idIndexMarker175"/> generative models is OpenAI’s <strong class="keyWord">GPT</strong> (<strong class="keyWord">Generative Pre-trained Transformer</strong>). This section will show you how to use the OpenAI API to add generative AI to your Streamlit apps!</p>
+    <h2 class="heading-2" id="_idParaDest-60">Authenticating with OpenAI</h2>
+    <p class="normal">Our first step is to <a id="_idIndexMarker176"/>make an OpenAI account and get an API key. To do this, head over to <a href="https://platform.openai.com"><span class="url">https://platform.openai.com</span></a> and create an account. Once you have created an account, go to the <strong class="screenText">API keys</strong> section (<a href="https://platform.openai.com/account/api-keys"><span class="url">https://platform.openai.com/account/api-keys</span></a>) and press the button <strong class="screenText">Create new secret key</strong>. Once you create the key, make sure to save it <a id="_idIndexMarker177"/>somewhere safe because OpenAI will not show you your key again! I saved mine in my password manager to ensure I wouldn’t lose it (<a href="https://1password.com/"><span class="url">https://1password.com/</span></a>), but you can save yours wherever you want.</p>
+    <h2 class="heading-2" id="_idParaDest-61">OpenAI API cost</h2>
+    <p class="normal">The <a id="_idIndexMarker178"/>OpenAI API is not free, but the one we<a id="_idIndexMarker179"/> will use (GPT-3.5 turbo) currently costs $.0015/1k tokens (~750 words) for input and $.002 /1k tokens for output (see <a href="https://openai.com/pricing"><span class="url">https://openai.com/pricing</span></a> for updated info). You can also set a hard limit on the maximum you want to spend on this API at <a href="https://platform.openai.com/account/billing/limits"><span class="url">https://platform.openai.com/account/billing/limits</span></a>. If you set a hard limit, OpenAI will not allow you to spend above it. I certainly recommend setting a limit. Set one for this example section of 1 USD; we should stay well within that! Once you start to create generative AI apps of your own that you share publicly, this feature will become even more useful (often, developers either ask the user to enter their own API key or charge them for access to the Streamlit app with libraries like <a href="https://github.com/tylerjrichards/st-paywall"><span class="url">https://github.com/tylerjrichards/st-paywall</span></a> to get around paying too much).</p>
+    <h2 class="heading-2" id="_idParaDest-62">Streamlit and OpenAI</h2>
+    <p class="normal">For this example, we’re <a id="_idIndexMarker180"/>going to recreate the sentiment analysis from our Hugging Face example but using GPT-3.5 turbo. As you play around with models like these, you will find that they are<a id="_idIndexMarker181"/> generally very intelligent, and can be used for almost any task you can think of without any extra<a id="_idIndexMarker182"/> training on top of them. Let me prove it to you!</p>
+    <p class="normal">Now that we have our API, we add it to a Secrets file (we’ll cover Secrets in more detail in the <em class="italic">Streamlit Secrets</em> section in <em class="chapterRef">Chapter 5</em>, <em class="italic">Deploying Streamlit with Streamlit Community Cloud</em>). Create a folder called <code class="inlineCode">.streamlit</code> and create a <code class="inlineCode">secrets.toml</code> file inside it, and then put your API key in there assigned to a variable called <code class="inlineCode">OPENAI_API_KEY</code> so that it becomes <code class="inlineCode">OPENAI_API_KEY="sk-xxxxxxxxxxxx"</code>.</p>
+    <p class="normal">Let’s open our existing Streamlit app and put a title at the bottom of it, button we can have the user click to analyze the text, and our authentication key:</p>
+    <pre class="programlisting code"><code class="hljs-code"><span class="hljs-keyword">import</span> openai
+st.title(<span class="hljs-string">"OpenAI Version"</span>)
+analyze_button = st.button(<span class="hljs-string">"Analyze Text"</span>)
+openai.api_key = st.secrets[<span class="hljs-string">"OPENAI_API_KEY"</span>]
+</code></pre>
+    <p class="normal">The OpenAI Python library (which we installed with our initial <code class="inlineCode">requirements.txt</code> file) provides an easy way to interact with the OpenAI API all in Python, which is a wonderfully useful resource. The endpoint we want to hit here is called the chat completion endpoint (<a href="https://platform.openai.com/docs/api-reference/chat/create"><span class="url">https://platform.openai.com/docs/api-reference/chat/create</span></a>), which takes in a system message (which is a way for us to instruct the OpenAPI model on how to respond, which in our case is a helpful sentiment analysis assistant) and a few other parameters about what underlying model we want to call. There are more up-to-date and expensive models than the one we will use, but I’ve found GPT 3.5 to be excellent and very fast.</p>
+    <p class="normal">We can call the API and write the response back to our app like this:</p>
+    <pre class="programlisting code"><code class="hljs-code"><span class="hljs-keyword">if</span> analyze_button:
+    messages = [
+        {<span class="hljs-string">"role"</span>: <span class="hljs-string">"system"</span>, <span class="hljs-string">"content"</span>: <span class="hljs-string">"""You are a helpful sentiment analysis assistant.</span>
+<span class="hljs-string">            You always respond with the sentiment of the text you are given and the confidence of your sentiment analysis with a number between 0 and 1"""</span>},
+        {<span class="hljs-string">"</span><span class="hljs-string">role"</span>: <span class="hljs-string">"user"</span>, 
+    <span class="hljs-string">"content"</span>: <span class="hljs-string">f"Sentiment analysis of the following text: </span><span class="hljs-subst">{text}</span><span class="hljs-string">"</span>}
+    ]
+    response = openai.ChatCompletion.create(
+        model=<span class="hljs-string">"gpt-3.5-turbo"</span>,
+        messages=messages,
+    )
+    sentiment = response.choices[<span class="hljs-number">0</span>].message[<span class="hljs-string">'content'</span>].strip()
+    st.write(sentiment)
+</code></pre>
+    <p class="normal">Let’s test<a id="_idIndexMarker183"/> it out! We <a id="_idIndexMarker184"/>can use the same text input as<a id="_idIndexMarker185"/> we did in the Hugging Face example to compare the two:</p>
+    <figure class="mediaobject"><img alt="A screenshot of a computer  Description automatically generated" src="../Images/B18444_04_09.png"/></figure>
+    <p class="packt_figref">Figure 4.9: A comparison of the Hugging Face and OpenAI sentiment analyzers</p>
+    <p class="normal">It looks like both versions think that this sentiment is positive with fairly high confidence. This is remarkable! The Hugging Face model is specifically trained for sentiment analysis, but OpenAI’s is not at all. For this trivial example, they both seem to work. What <a id="_idIndexMarker186"/>about if we try out giving each just a single word, like Streamlit?</p>
+    <figure class="mediaobject"><img alt="A screenshot of a computer  Description automatically generated" src="../Images/B18444_04_10.png"/></figure>
+    <p class="packt_figref">Figure 4.10: Testing the sentiment for “Streamlit”</p>
+    <p class="normal">In this case, the<a id="_idIndexMarker187"/> two <a id="_idIndexMarker188"/>methods disagree. OpenAI thinks this is neutral with medium confidence, and Hugging Face thinks the sentiment is positive with very high confidence. I think OpenAI is probably right here, which is endlessly fascinating. There is clearly a large number of use cases for a model like this.</p>
+    <p class="normal">Through Streamlit widgets, we can let the user change any part of the API call. We just add the correct widget type and the user’s input to the OpenAI function, and then we’re good to go! Let’s try one more thing. What if we let the user change the system message we started with? To do this, we’ll need to add a new text input. We will use a Streamlit input widget called <code class="inlineCode">st.text_area</code>, which works the same as our familiar <code class="inlineCode">st.text_input</code> but allows for a multi-line input for longer sections of text:</p>
+    <pre class="programlisting code"><code class="hljs-code">openai.api_key = st.secrets[<span class="hljs-string">"OPENAI_API_KEY"</span>]
+system_message_default = <span class="hljs-string">"""You are a helpful sentiment analysis assistant. You always respond with the sentiment of the text you are given and the confidence of your sentiment analysis with a number between 0 and 1"""</span>
+ 
+system_message = st.text_area(
+    <span class="hljs-string">"Enter a System Message to instruct OpenAI"</span>, system_message_default
+)
+analyze_button = st.button(<span class="hljs-string">"Analyze Text"</span>)
+<span class="hljs-keyword">if</span> analyze_button:
+    messages = [
+        {
+            <span class="hljs-string">"role"</span>: <span class="hljs-string">"system"</span>,
+            <span class="hljs-string">"content"</span>: <span class="hljs-string">f"</span><span class="hljs-subst">{system_message}</span><span class="hljs-string">"</span>,
+        },
+        {
+            <span class="hljs-string">"role"</span>: <span class="hljs-string">"user"</span>,
+            <span class="hljs-string">"content"</span>: <span class="hljs-string">f"Sentiment analysis of the following text: </span><span class="hljs-subst">{text}</span><span class="hljs-string">"</span>,
+        },
+    ]
+</code></pre>
+    <p class="normal">The user <a id="_idIndexMarker189"/>can now<a id="_idIndexMarker190"/> change the system message, but<a id="_idIndexMarker191"/> our default message is the same. I went ahead and changed the system message here to something ridiculous. I asked the model to be a terrible sentiment analysis assistant, always messing up the sentiment that was input:</p>
+    <figure class="mediaobject"><img alt="A screenshot of a computer  Description automatically generated" src="../Images/B18444_04_11.png"/></figure>
+    <p class="packt_figref">Figure 4.11: Changing the system message for the OpenAI text analyzer</p>
+    <p class="normal">As you can see, the <a id="_idIndexMarker192"/>model did what I asked and screwed up the sentiment analysis for <strong class="screenText">streamlit is awesome</strong>, saying that the sentiment was negative.</p>
+    <p class="normal">A quick<a id="_idIndexMarker193"/> warning: When<a id="_idIndexMarker194"/> you allow user input into a large language model, users may try and inject undesirable prompts into your applications. Here is one example using the same app, where I ask the model to ignore all the other instructions and instead write a pirate themed story:</p>
+    <figure class="mediaobject"><img alt="A screenshot of a computer  Description automatically generated" src="../Images/B18444_04_12.png"/></figure>
+    <p class="packt_figref">Figure 4.12: OpenAI and pirates</p>
+    <p class="normal">This story <a id="_idIndexMarker195"/>continued for<a id="_idIndexMarker196"/> many more lines, but you can see how the more input I give the user control over, the more likely it is that they can use my<a id="_idIndexMarker197"/> application in ways I did not intend. There are many novel ways to get around this, including running the prompt through another API call, this time asking the model if it thinks the prompt is disingenuous, or preventing common injections like “ignore the previous prompt.” </p>
+    <p class="normal">There are also open-source libraries like Rebuff (<a href="https://github.com/protectai/rebuff"><span class="url">https://github.com/protectai/rebuff</span></a>), which are extremely useful as well! I hesitate to give any specific advice here, as the field of generative AI moves extremely quickly, but the <a id="_idIndexMarker198"/>general principles of caution and intentional user input should be very useful.</p>
+    <p class="normal">If you’re<a id="_idIndexMarker199"/> interested in <a id="_idIndexMarker200"/>more generative AI Streamlit apps, the<a id="_idIndexMarker201"/> Streamlit team has made a landing page that has all the most recent information and examples at <a href="https://streamlit.io/generative-ai"><span class="url">https://streamlit.io/generative-ai</span></a>.</p>
+    <h1 class="heading-1" id="_idParaDest-63">Summary</h1>
+    <p class="normal">In this chapter, we learned about some ML basics: How to take a pre-built ML model and use it within Streamlit, how to create our own models from within Streamlit, how to use user input to understand and iterate on ML models, and even how to use models from Hugging Face and OpenAI. Hopefully, by the end of this chapter, you’ll feel comfortable with each of these. Next, we will dive into the world of deploying Streamlit apps using Streamlit Community Cloud! </p>
+    <h1 class="heading-1">Learn more on Discord</h1>
+    <p class="normal">To join the Discord community for this book – where you can share feedback, ask questions to the author, and learn about new releases – follow the QR code below:</p>
+    <p class="normal"><a href="https://packt.link/sl"><span class="url">https://packt.link/sl</span></a></p>
+    <p class="normal"><img alt="" role="presentation" src="../Images/QR_Code13440134443835796.png"/></p>
+  </div>
+</body></html>
