@@ -1,4 +1,4 @@
-# 第一节：创建基础的 Streamlit 应用程序
+# 第一部分：创建基础的 Streamlit 应用程序
 
 本节将介绍 Streamlit 应用程序的基础知识、Streamlit 中的数据可视化、如何部署应用程序，以及如何在 Streamlit 应用程序中实现模型。
 
