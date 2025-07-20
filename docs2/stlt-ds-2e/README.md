@@ -1,6 +1,6 @@
-# Github DevOps 加速指南
+# Streamlit 数据科学第二版
 
-> 原文：[`annas-archive.org/md5/677f27c30764b3701bc2b6cf6de3a30e`](https://annas-archive.org/md5/677f27c30764b3701bc2b6cf6de3a30e)
+> 原文：[`annas-archive.org/md5/ceb02068667ed96ace7c50fbb2a5b490`](https://annas-archive.org/md5/ceb02068667ed96ace7c50fbb2a5b490)
 > 
 > 译者：[飞龙](https://github.com/wizardforcel)
 > 
