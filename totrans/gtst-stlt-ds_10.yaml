@@ -1,0 +1,743 @@
+- en: '*Chapter 8*: Deploying Streamlit Apps with Heroku and AWS'
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'In [*Chapter 5*](B16864_05_Final_VK_ePub.xhtml#_idTextAnchor056), *Deploying
+    Streamlit with Streamlit Sharing*, we learned how to deploy our Streamlit applications
+    with Streamlit Sharing. Streamlit Sharing is quick, easy, and very effective for
+    most applications but has a few downsides, mainly that we are limited by only
+    being able to host three free applications at once and that we also are limited
+    in the computational power at hand. The following excerpt is from the Streamlit
+    Sharing page:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Apps get up to 1 CPU, 800 MB of RAM, and 800 MB of dedicated storage in a shared
+    execution environment.
+  prefs: []
+  type: TYPE_NORMAL
+- en: If you are in a situation where you want to deploy more than three applications
+    at a time, or you want more compute as you run, for example, more complex ML models
+    that would benefit from a GPU or more RAM, then this chapter is for you! We will
+    cover how to set up accounts with AWS and Heroku and how to fully deploy your
+    Streamlit applications there.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In this chapter, we will cover the following topics:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Choosing between AWS, Streamlit Sharing, and Heroku
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Deploying Streamlit with Heroku
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Deploying Streamlit with AWS
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Technical requirements
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Here is a list of installments required for this chapter:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Heroku account**: Heroku is a popular platform that data scientists and software
+    engineers use to host their applications, models, and APIs (application programming
+    interfaces), and is owned by Salesforce. To get a Heroku account, please head
+    over to [https://signup.heroku.com](https://signup.heroku.com) to make your free
+    account.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Heroku Command-Line Interface** (**CLI**): To use Heroku effectively, we
+    will need to download the Heroku CLI, which will allow us to run Heroku commands.
+    To download this, please follow the instructions listed here: [https://devcenter.heroku.com/articles/heroku-cli](https://devcenter.heroku.com/articles/heroku-cli).'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Amazon Web Services** (**AWS**) **account**: Before we can use AWS, we first
+    need to sign up for our own Amazon account, which you can do at [https://aws.amazon.com/free](https://aws.amazon.com/free).
+    Thankfully, there is a generous free tier available for students with .edu accounts,
+    for start-up founders and entrepreneurs, and also for non-profits. Once you do
+    this, I would strongly recommend setting billing alerts on your account (see [https://console.aws.amazon.com/billing/home?#preferences](https://console.aws.amazon.com/billing/home?#preferences)
+    for more details) to make sure that you do not overshoot your free tier, and when
+    you have deployed your own app, to make sure you are not spending more than desired.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**PuTTy** (Windows only): If you are using Windows, you will need to download
+    and install the PuTTY program, which allows Windows OSes to use a protocol called
+    **Secure Shell** (**SSH**). To download PuTTY, head over to [https://www.putty.org/](https://www.putty.org/)
+    and follow the installation instructions. Then, wherever we are using SSH in this
+    chapter, open PuTTY and follow the directions as normal!'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Now that we have the requirements, let's begin!
+  prefs: []
+  type: TYPE_NORMAL
+- en: Choosing between AWS, Streamlit Sharing, and Heroku
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: At a high level, whenever we are trying to deploy our Streamlit application
+    such that users on the internet can see our applications, what we are really doing
+    is renting a computer owned by someone else (such as Amazon) and giving that computer
+    a set of instructions to start up our application. Choosing which platform to
+    use is difficult to know how to do without either having a background in deploying
+    systems or without trying each option out first, but there are a few heuristics
+    that should help you out. The two most important factors for this decision are
+    the flexibility of the system and the time it takes to get up and running. Note
+    that these two factors directly trade off with one another. If you are using Streamlit
+    Sharing, you cannot say "I want this to run on a macOS, and I want to add two
+    GPUs to this app," and so on, but in return, you get a wildly simple process where
+    you can simply point Streamlit Sharing to your GitHub repository, and it will
+    take care of all the other little decisions that need to be made.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'On the other hand, AWS and Heroku give you much more flexibility but take time
+    to set up (as you will find out!). The biggest difference between the two is that
+    Heroku is a *Platform as a Service product*, while Amazon is an *Infrastructure
+    as a Service product*, which means, in practical terms, that Heroku gives you
+    more flexibility than Streamlit Sharing by allowing you to do things such as provide
+    more computational resources, and is faster to deploy than AWS, as you can see
+    in the following graphic:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 8.1 – Heroku versus AWS versus Sharing'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/B16864_08_1.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Figure 8.1 – Heroku versus AWS versus Sharing
+  prefs: []
+  type: TYPE_NORMAL
+- en: The AWS advantage, however, is in its extreme flexibility. AWS will let you
+    choose between Ubuntu, macOS, Windows, and Red Hat Linux, between dozens of different
+    database types, and is seemingly infinitely customizable. When you are making
+    your Streamlit applications, if you want to get out a quick prototype to test
+    out an idea, Streamlit Sharing is perfect for you. For full-fledged public applications
+    that need more compute, Heroku might be the best call. And if you require ultimate
+    flexibility for a complex ML application, or if you are running a business entirely
+    on Streamlit, then AWS might be the best call. Throughout the rest of this chapter,
+    we will dive into how to deploy your own app on both AWS and Heroku, as we have
+    covered Streamlit Sharing directly in [*Chapter 5*](B16864_05_Final_VK_ePub.xhtml#_idTextAnchor056),
+    *Deploying Streamlit with Streamlit Sharing*. Let's get started with Heroku!
+  prefs: []
+  type: TYPE_NORMAL
+- en: Deploying Streamlit with Heroku
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Heroku is slightly faster and simpler than AWS, and more cumbersome than Streamlit
+    Sharing. But if you have run out of your Streamlit Sharing repositories, or need
+    some more compute than Sharing has to offer but require fewer configuration options
+    than the infinite ones provided by AWS, then Heroku is the place for you. One
+    other win is that you can get custom URLs for your apps with Heroku, which Streamlit
+    Sharing does not support (yet!). To deploy our Streamlit apps on Heroku, we need
+    to do the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Set up and log in to Heroku.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Clone and configure our local repository.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Deploy to Heroku.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Let's look at each of these steps in detail!
+  prefs: []
+  type: TYPE_NORMAL
+- en: Setting up and logging in to Heroku
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'In the *Technical requirements* section of this chapter, we covered how to
+    download Heroku and create an account. Now, we need to log in to our Heroku from
+    our command line by running the following command and logging in when prompted:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: This will take us to the Heroku page, and once we log in, we will be good to
+    go. This command will keep you logged in on your machine indefinitely unless your
+    password changes or you purposely log out of Heroku.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Cloning and configuring our local repository
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Next, we need to change our directory to where the penguin machine learning
+    app is located. My app folder is inside my `Documents` folder, so the following
+    command takes me there, but your folder might be different:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'If you do not already have the repository downloaded locally with a corresponding
+    repository on GitHub, go ahead and stop by [*Chapter 5*](B16864_05_Final_VK_ePub.xhtml#_idTextAnchor056),
+    *Deploying Streamlit with Streamlit Sharing*, to see how to get started with GitHub.
+    Instead, you can also run the following command to download the repository locally
+    from my personal GitHub, just as we did with deploying from AWS:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: It is highly encouraged that you practice with your own GitHub repository, as
+    this is much better practice than cloning an app from me to use to deploy to Heroku.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now we need to create a Heroku app with a unique name for our app with the next
+    command (the app will be deployed as this name with `.heroku.com` appended to
+    the end of it). Mine will be `penguin-machine-learning`, but go ahead and pick
+    your own!
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Once we have this, we need to explicitly make the connection between our Git
+    repository and the Heroku app we have just created, which can be done with the
+    following command:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'And finally, we are going to add two files to our repository that are needed
+    to start up with Heroku, the `Procfile` file and the `streamlit_setup.sh` file.
+    Heroku uses something called a `streamlit run` command to launch our app. Let''s
+    start by creating the `streamlit_setup.sh` file using the following command:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'We can open this file with our text editor and put the following lines inside
+    it, which creates our familiar `config.toml` file in the base directory:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Once we save this file, we need to create a Procfile that runs this `streamlit_setup.sh`
+    file and then also runs our Streamlit app:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Within the `Procfile` file we just created, we will next add the following
+    line:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs: []
+  type: TYPE_PRE
+- en: Now that we have our Streamlit app all set up, our final step is to deploy to
+    Heroku!
+  prefs: []
+  type: TYPE_NORMAL
+- en: Deploying to Heroku
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Before we deploy, we have a couple of new files on our app, so we need to add
+    those to our Git repository using the following commands:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'And now, our final step in this chapter is to push to Heroku, which we can
+    do with this next command:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'This will kick off the Heroku build, and soon enough we will see our Penguin
+    app deployed to Heroku for anyone to go and view. The app we have been working
+    on and just deployed can be found at the following link (with a screenshot attached!),
+    [https://penguin-machine-learning.herokuapp.com/](https://penguin-machine-learning.herokuapp.com/),
+    and the GitHub repository for this app can be found at [https://github.com/tylerjrichards/penguin_ml](https://github.com/tylerjrichards/penguin_ml).
+    It is the same as the app we deployed on AWS earlier in the chapter, shown in
+    the following screenshot:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 8.2 – Heroku App deployment'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/B16864_08_2.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Figure 8.2 – Heroku App deployment
+  prefs: []
+  type: TYPE_NORMAL
+- en: We have now successfully deployed one of our Streamlit apps on the Heroku platform,
+    but if we need more control over the types of servers behind our app, we need
+    to build directly on AWS, as demonstrated in the next section!
+  prefs: []
+  type: TYPE_NORMAL
+- en: Deploying Streamlit with AWS
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'In comparison to deploying with Heroku, deploying apps on AWS is significantly
+    more cumbersome but has seemingly infinite options. There are a few steps to deploying
+    your own apps with AWS, and these include the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Selecting and launching a virtual machine
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Installing the necessary software
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Cloning and running your app
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Long-term AWS deployment
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: We will run through these sequentially!
+  prefs: []
+  type: TYPE_NORMAL
+- en: Selecting and launching a virtual machine
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'AWS has literally hundreds of service options for everything from deploying
+    ML models to compute resources to everything in between. In this book so far,
+    we have referred to the services listed in the following screenshot under the
+    central name *AWS*, but to be more precise, we are going to be using **Amazon
+    Elastic Compute Cloud**, or **Amazon EC2** for short. This next screenshot shows
+    the breadth of services available just for compute resources, which does not include
+    any of the services available for machine learning, business applications, or
+    storage:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 8.3 – AWS Compute'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/B16864_08_3.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Figure 8.3 – AWS Compute
+  prefs: []
+  type: TYPE_NORMAL
+- en: Amazon EC2 is a dynamic, pay-as-you-go service that will scale automatically
+    based on use. If there are 10, 100, or 10,000 concurrent users of your Streamlit
+    app, EC2 will change the compute resources given to your application to accommodate
+    the users. You pay for what you use!
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'To get started, head over to [https://console.aws.amazon.com/ec2/v2/home](https://console.aws.amazon.com/ec2/v2/home)
+    and click the button that says **Launch instance**, as shown in the following
+    screenshot. Your default region may be different than mine, which is totally fine!
+    AWS regions allow you to select where you want the compute to be physically located,
+    in case your app needs low latency, or there are regulatory reasons for where
+    your data is hosted (for example, because of **General Data Privacy Regulation**
+    (**GDPR**), in the European Union). The overwhelming majority of the time, the
+    default region AWS puts you in is perfectly fine:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 8.4 – EC2 launch'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/B16864_08_4.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Figure 8.4 – EC2 launch
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Once you launch your instance, there are seven tabs:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Choose AMI** (Amazon Machine Image) or the OS used by your virtual machine'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Choose Instance Type** (choosing the compute/memory/storage of your virtual
+    machine)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Configure Instance**'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Add Storage**'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Add Tags**'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Configure Security Group**'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Review**'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'You might be starting to understand what I was talking about earlier when I
+    mentioned flexibility versus speed! Luckily, we only really need to start with
+    a few of these, starting with choosing our AMI from a list of options. When we
+    click the **Launch instance** button, we will see options including, but not limited
+    to, the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Amazon Linux 2 AMI
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: This option is Amazon's own option, is free tier-eligible, and is designed to
+    work well with EC2\.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: Red Hat Enterprise Linux
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: This option is an enterprise version of Linux created by the Red Hat foundation,
+    which creates open source enterprise solutions ([https://www.redhat.com/en](https://www.redhat.com/en)).
+    There are a variety of options depending on versions and volume type.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: Ubuntu Server
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Ubuntu is another open source OS built on Linux similar to Red Hat. They also
+    have a variety of free and paid options, the same as Red Hat.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: I would recommend selecting the OS that you are most comfortable with already.
+    If you have already used Ubuntu servers, try the newest Ubuntu option, which is,
+    in this case, Ubuntu Server 20.04\. The most commonly used AMI options are all
+    based on Linux, which is an open source OS with many flavors, including Red Hat,
+    Debian, and Ubuntu.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'To follow along with this chapter, select the default Amazon option, **Amazon
+    Linux 2**. When you check this option and are taken to the **Choose Instance Type**
+    page, select any type that is free tier-eligible, as shown in the following screenshot.
+    Of course, if you would like to pay for more memory or vCPUs you absolutely can,
+    but they are not necessary at this time:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 8.5 – AWS AMI options'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/B16864_08_5.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Figure 8.5 – AWS AMI options
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Next, we can skip past the next few options until you get to the sixth tab
+    entitled **Configure Security Group**. There are a few edits that we need to make
+    here:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: TCP Rule
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: We need to set our `8501`, the custom Streamlit port.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: Access Source
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'We also need to allow anyone to access our app, so we will also set the source
+    to **Anywhere**, as shown in the following screenshot:'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '![Figure 8.6 – Security settings'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/B16864_08_6.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Figure 8.6 – Security settings
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now, we are ready to launch! Head over to the seventh tab, **Review**, and
+    click the **Launch** button if everything looks correct. What will pop up next
+    is a way to create a public and private key, one held by AWS and the other held
+    by you, to allow you to access this new virtual computer from your command line,
+    as shown in the following screenshot:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![ Figure 8.7 – Key-value pairs'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/B16864_08_7.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Figure 8.7 – Key-value pairs
+  prefs: []
+  type: TYPE_NORMAL
+- en: Think of it like a unique password that is downloaded as its own file. You can
+    keep this file wherever is easiest and most secure for you, but make sure to never
+    upload this file to a public location, such as a GitHub repository, otherwise,
+    others could come and access your virtual machine! Now that we have launched our
+    EC2 instance, we can access it from our command line and download our app.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Installing the necessary software
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: For this example, we are going to try and deploy the penguin ML app that we
+    created in [*Chapter 4*](B16864_04_Final_VK_ePub.xhtml#_idTextAnchor049), *Using
+    Machine Learning with Streamlit*, and deployed in [*Chapter 5*](B16864_05_Final_VK_ePub.xhtml#_idTextAnchor056),
+    *Deploying Streamlit with Streamlit Sharing*, on Streamlit Sharing. Now that we
+    have our virtual machine and our objective, we need to access our virtual machine
+    from our command line. To begin, we need to first find out the AWS instance's
+    public DNS. Locate your AWS instance using this link, [https://console.aws.amazon.com/ec2/v2/home#Instances](https://console.aws.amazon.com/ec2/v2/home#Instances),
+    and look for `ec2-10-857-84-485.compute-1.amazonaws.com`. I made up those numbers,
+    but yours should be close to this.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now, we can access our virtual machine using SSH, which is the Secure Shell
+    Protocol, using the following command, which combines our password and our public
+    DNS:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Often, AWS commands feel like magic incantations, especially when you are first
+    getting started. After some experience, you will certainly get more comfortable
+    with this. At this point, AWS may ask you some questions on the command line about
+    allowing certain types of access depending on how your security settings are set
+    up on your local machine, and after you confirm that you would like to connect,
+    you will know that you are connected if you see something similar to the following
+    screenshot:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 8.8 – AWS login'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/B16864_08_8.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Figure 8.8 – AWS login
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'This is your own new virtual computer! There are no programs, folders, or really
+    almost anything else on this computer; it is brand new right out of the Amazon
+    box. Each computer that we rent out using `ec2` starts out with next to nothing,
+    so we have to download all that we need for this project. There are a good number
+    of ways in which to do this. We can do the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Install everything manually.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Install a prepackaged installer such as Anaconda or Miniconda.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Use Docker to create a set of installation instructions.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: I would advise going with the second option for most use cases, as Anaconda
+    or Miniconda are designed to handle all the difficulties that come with installing
+    Python, dealing with our path, and also with installing various Python and R packages.
+    Anaconda, and its bootstrapped (that is, smaller) version, Miniconda, are notorious
+    for making installation difficult outside of their environment on your computer.
+    If you require other installations of Python on your virtual or local machine,
+    I would advocate either *option 1* or *option 3*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'For installing and setting up Miniconda on our virtual machine, we can run
+    the following commands, which use `wget` to download Miniconda to the file location,
+    `~/miniconda.sh`, then run the installation file using `bash`, and then change
+    our path so that we can use `conda` more easily to download packages:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE12]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Great! Now we have the latest versions of `python`, `pip`, and a whole host
+    of Python packages. Miniconda does not come with Streamlit, however, so we will
+    use the next command to download, install, and test the installation of Streamlit
+    by launching the Streamlit demo app:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE13]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'When we run this command, we should see the following in our terminal (albeit
+    with different network and external URLs):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 8.9 – First Streamlit command'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/B16864_08_9.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Figure 8.9 – First Streamlit command
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'When you head over to the external URL from any browser, you will see the Streamlit
+    demo app, as shown in the following screenshot:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 8.10 – Streamlit demo'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/B16864_08_10.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Figure 8.10 – Streamlit demo
+  prefs: []
+  type: TYPE_NORMAL
+- en: We have now deployed our very first Streamlit app from AWS. Now, to deploy a
+    Streamlit app that we have built.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Cloning and running your app
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'We now have a virtual machine that can run Streamlit, and our next step is
+    to download our own app onto our machine. The most straightforward method for
+    doing this is by using Git and cloning the repository where your penguin machine
+    learning app is held. If you have not already done this in [*Chapter 5*](B16864_05_Final_VK_ePub.xhtml#_idTextAnchor056),
+    *Deploying Streamlit with Streamlit Sharing*, feel free to use my GitHub repository
+    at [https://github.com/tylerjrichards/penguin_ml.git](https://github.com/tylerjrichards/penguin_ml.git).
+    The following code downloads `git` and then downloads our app from GitHub:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE14]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'This will make a new folder in our current directory called `penguin_ml`, which
+    contains all the files for the Streamlit app. This app requires a few more libraries
+    than come from Miniconda, such as Seaborn and scikit-learn, so we need to download
+    them before we run our app. We have already placed the names of these libraries
+    into a file called `requirements.txt`, so we need to point `pip` to the file using
+    the next set of commands:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE15]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Now, our final step is to run our Streamlit app:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE16]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'When we go to the external URL in our AWS terminal, we will see our Streamlit
+    app fully functioning there, as shown in the following screenshot:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 8.11 – AWS Penguin app'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/B16864_08_11.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Figure 8.11 – AWS Penguin app
+  prefs: []
+  type: TYPE_NORMAL
+- en: And there we go! We now have our app running on AWS, visible to the entire world.
+    From this point, we can link to our app from a personal website you may already
+    have or send it to others who may be interested in classifying their own set of
+    penguins.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Long-term AWS deployment
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Our final problem is that the SSH session we have running to connect our local
+    machine to AWS needs to be running in order for the Streamlit app to stay up.
+    For most use cases, this will not work as you will ideally want the user to interact
+    with your Streamlit app if your local computer disconnects from AWS. Enter `tmux`,
+    or the terminal mutiplexer, which can keep a terminal session going regardless
+    of our local connection to it. To download `tmux`, we can run the following command
+    while connected to our AWS virtual machine:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE17]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'And now, we can begin a new `tmux` session and kick off our Streamlit app by
+    running these next commands:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE18]'
+  prefs: []
+  type: TYPE_PRE
+- en: If our connection to AWS gets disconnected, `tmux` will keep our app running.
+    We can leave the `tmux` session at any time by pressing *Ctrl + D* and can re-enter
+    the session by running `tmux attach`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: And that covers deploying Streamlit with AWS! As you can see, Streamlit Sharing
+    handles the majority of these difficulties out of the box, so I would make an
+    effort to make Streamlit Sharing work whenever possible. However, this session
+    should have given you an appreciation for the true breadth of options and configuration
+    controls in front of us when we use AWS, which may come in handy in the future.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Summary
+  prefs: []
+  type: TYPE_NORMAL
+- en: This has been by far the most technical of our chapters so far, so congratulations
+    on making it through! Deploying applications is notoriously difficult and time-consuming,
+    and requires skills from software engineering and DevOps, along with often requiring
+    experience with version control software (such as Git) and Unix-style commands
+    and systems. This is part of the reason why Streamlit Sharing is such a crucial
+    innovation, but in this chapter, we have learned how to push the edge of Streamlit
+    deployment through renting our own virtual machines and deploying these on AWS
+    and Heroku. We have also learned how to figure out what the right deployment strategy
+    is before starting out, which will save hours or days of work (nothing is worse
+    than finishing the deployment of an app and finding out you need to use another
+    platform!).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Next, we'll be moving on to the third and final section of this book, which
+    will focus on the various applications of Streamlit, starting with improving job
+    applications with Streamlit. This next chapter will focus on impressing hiring
+    managers and recruiters with Streamlit applications, on using Streamlit apps within
+    actual job application sections, such as the infamous take-home portion of many
+    interviews, and also on proof-of-skill data projects for improving on the data
+    science résumé.
+  prefs: []
+  type: TYPE_NORMAL
