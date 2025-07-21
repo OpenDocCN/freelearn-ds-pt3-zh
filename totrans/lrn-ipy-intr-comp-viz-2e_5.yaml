@@ -1,0 +1,860 @@
+- en: Chapter 5. High-Performance and Parallel Computing
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: A recurring argument against using Python for high-performance numerical computing
+    is that this language is slow, because it is dynamic and interpreted. A compiled
+    lower-level language such as C can often be orders of magnitude faster. We exposed
+    a first counterargument in [Chapter 3](ch03.html "Chapter 3. Numerical Computing
+    with IPython"), *Numerical Computing with IPython*, with the notion of **vectorization**
+    . Operations on NumPy arrays can be almost as fast as C because slow Python loops
+    are transparently replaced with fast C loops. Sometimes though, it may happen
+    that vectorization is impossible or difficult to implement on some complex algorithms.
+    In these cases, there are fortunately solutions other than throwing away all Python
+    code and coding everything again in C. We will introduce some of these solutions
+    in this chapter.
+  prefs: []
+  type: TYPE_NORMAL
+- en: First, one can take advantage of the multiple cores that are now present in
+    any computer. A standard Python process normally runs on a single core, but it
+    is possible to distribute tasks across multiple cores and even multiple computers
+    in parallel. This is particularly easy to do with IPython. MPI can also be easily
+    used with a few lines of code.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Another popular solution is to first detect the time-critical section of a
+    Python algorithm and then replace it with C code. Typically, only a very small
+    section of the Python code is responsible for most of the algorithm''s duration,
+    so that it is possible to keep the rest of the code in Python. **Cython** is an
+    external package which makes this task easier than it sounds: it offers a superset
+    of Python that is compiled and that can be seamlessly integrated within Python
+    code. It is particularly convenient to use it with IPython.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'At the end of this chapter, we will have discussed:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to distribute independent functions across several cores from IPython
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: How to easily use MPI from IPython
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: How to convert Python code in C with Cython using a cell magic
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: How to use NumPy arrays in Cython for making your code orders of magnitude faster
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Interactive task parallelization
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In this section, we will see how to distribute tasks across different cores
+    with IPython.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Parallel computing in Python
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Python''s native support of parallel computing features leaves much to be desired.
+    A long-standing issue is that CPython implements a **Global Interpreter Lock**
+    (**GIL**), which, as quoted from the official CPython documentation, is:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '"...a mutex that prevents multiple native threads from executing Python bytecodes
+    at once."'
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+- en: The GIL is necessary because CPython's memory management is not thread-safe,
+    but a major drawback is that it can prevent multithreaded CPython programs from
+    taking full advantage of multicore processors.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: '**Python''s GIL**'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The interested reader can find more information about Python''s GIL in the
+    following references:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[http://wiki.python.org/moin/GlobalInterpreterLock](http://wiki.python.org/moin/GlobalInterpreterLock)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '[http://www.dabeaz.com/python/UnderstandingGIL.pdf](http://www.dabeaz.com/python/UnderstandingGIL.pdf)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Some linear algebraic functions in NumPy may take advantage of multicore processors
+    by releasing the GIL, if NumPy is compiled with the appropriate libraries (ATLAS,
+    MKL, and so on). Otherwise, distributing tasks across different *processes* instead
+    of different *threads* is the typical way of doing parallel computing with Python.
+    As processes do not share the same memory space, some kind of inter-process communication
+    needs to be implemented, for example, using Python's native **multiprocessing**
+    module. A more powerful but more complex solution is to use **Message Passing
+    Interface** (**MPI**).
+  prefs: []
+  type: TYPE_NORMAL
+- en: IPython is particularly well-adapted to both solutions, and we will discuss
+    them in this section. It provides a powerful and general architecture for parallel
+    computing. Several IPython engines can run on different cores and/or different
+    computers. Independent tasks can be easily and evenly distributed, thanks to **load
+    balancing** . Data can be transferred from one engine to the other, making complex
+    distributed algorithms possible from IPython.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Parallel computing is a particularly hard topic, and we will only cover the
+    most basic aspects here.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Distributing tasks on multiple cores
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: The parallel computing features of IPython are extensive and highly customizable,
+    but we will only show the simplest way of using them here. In addition, we will
+    focus on the interactive usage of parallel computing, since that is the essence
+    of IPython.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'There are several steps to distribute code across multiple cores on one computer:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Launch several IPython engines (typically one per processor).
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Create a `Client` object that acts as a proxy to these engines.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Use the client to launch tasks on the engines and retrieve the results.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Tasks can be launched synchronously or asynchronously:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: With **synchronous** (or blocking) tasks, the client blocks right after the
+    tasks have started, and returns the tasks' results when they have finished.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: With **asynchronous** (non-blocking) tasks, the client returns an `ASyncResult`
+    object immediately after the tasks have started. This object can be used to poll
+    the task statuses asynchronously and to retrieve the results at any time after
+    they have finished.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Starting the engines
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: The simplest way of starting the engines is to call in a system shell `ipcluster
+    start` command. By default, this command will start one engine per core on the
+    local machine. The number of engines can be specified with the `-n` option, for
+    example, `ipcluster start -n 2` to start two engines. You can see the other available
+    options with `ipcluster -h` and `ipcluster start -h`. In addition, the notebook
+    has a panel named **Clusters** where you can launch and stop engines through a
+    web interface.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Creating a Client instance
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: A client is used to send tasks to the engines. In an IPython console or in the
+    notebook, we first need to import the `Client` class from the `parallel` subpackage.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: The next step is to create a `Client` instance.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'IPython automatically detects the running engines. To check the number of running
+    engines, we can do the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: The `ids` attribute of the client gives the identifiers of the running engines.
+    Here, there are two running engines on the local machine (it has a dual-core processing
+    unit).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Using the parallel magic
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: The easiest way of sending tasks to the engines from IPython is to use the `%px`
+    magic. It executes a single Python command on the engines.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: By default, the command executes on all running engines and in synchronous mode.
+    There are several ways to specify which engine(s) to target.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The first possibility is to use the `%pxconfig` magic command:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: The `--targets` option accepts an index or a slice object, for example, `::2`
+    for all engines with even indices. Here, we target only the second engine. All
+    subsequent calls to `%px` will be executed on the specified targets.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'An equivalent method is to use the `%%px` cell magic:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: The options of `%%px` apply to the whole cell, which is particularly convenient
+    in the notebook.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Another available option is the **blocking mode** . By default, the `%px` magic
+    assumes a blocking mode. To enable the **non-blocking mode** , we can use the
+    `--noblock` option.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: The task then executes asynchronously. The `%pxresult` magic command blocks
+    the interpreter until the task has finished, and returns the result.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs: []
+  type: TYPE_PRE
+- en: Parallel map
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: The built-in `map` function applies a Python function to a sequence element-by-element.
+    IPython provides a parallel `map` function, which is semantically equivalent,
+    but dispatches the different tasks across the different engines. It is the simplest
+    way to distribute tasks across multiple cores.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Creating a view
+  prefs:
+  - PREF_H4
+  type: TYPE_NORMAL
+- en: 'To use it, we first need to get a view to the engines, using the `Client` instance.
+    A **view** represents one or several engines, and is obtained with an indexing
+    syntax on the client. For example, to get a view on all engines, we use the following
+    command:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The view can then be used to launch tasks on the engines. Also, we can import
+    packages on the engines with the `sync_imports()` method:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs: []
+  type: TYPE_PRE
+- en: Synchronous map
+  prefs:
+  - PREF_H4
+  type: TYPE_NORMAL
+- en: 'Let''s define the following simple function:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'This function accepts a number and waits for one second before returning its
+    square. To execute the function synchronously on all numbers between zero and
+    nine, and using our two engines (so, using two CPUs), we can use the `v.map_sync()`
+    method:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'We obtain a list of results after a few seconds. Here, each engine has processed
+    five tasks, for a total of 10 tasks:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE12]'
+  prefs: []
+  type: TYPE_PRE
+- en: Asynchronous map
+  prefs:
+  - PREF_H4
+  type: TYPE_NORMAL
+- en: 'To execute the function asynchronously on the list of arguments, we can use
+    the `v.map()` method:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE13]'
+  prefs: []
+  type: TYPE_PRE
+- en: The `r` variable is an `ASyncResult` object, with several attributes and methods
+    that can be used to poll information about the progress, the elapsed time, and
+    to get the tasks' results. The `elapsed` attribute returns, at any time, the elapsed
+    time since the tasks began. The `serial_time` attribute is only available after
+    the tasks have finished, and returns the cumulative time spent on all tasks across
+    all engines. The `ready()` method returns, at any time, a value indicating whether
+    the tasks have finished or not. The `get()` method blocks until the tasks have
+    finished, and returns the results.
+  prefs: []
+  type: TYPE_NORMAL
+- en: A practical example – Monte Carlo simulations
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'To illustrate the parallel computing possibilities offered by IPython, we will
+    consider a new example. We want to estimate the Pi constant using *Monte Carlo
+    simulations*. The principle is that if *n* points are randomly and uniformly sampled
+    within a square of edge 1, the proportion of points that have a distance smaller
+    than 1 from a fixed corner tends to *Pi/4*, if the number of points *n* tends
+    to infinity. The following figure illustrates this fact:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![A practical example – Monte Carlo simulations](img/9932_05_01.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: Estimation of Pi using a Monte-Carlo simulation
+  prefs: []
+  type: TYPE_NORMAL
+- en: This is a particular example of a *Monte Carlo simulation*, which repeats a
+    random experiment a large number of times, and takes an average at the end to
+    estimate some quantity of interest that would be difficult to obtain with a deterministic
+    method. Monte Carlo simulations are widespread in science, engineering, and finance.
+    They are particularly convenient to parallelize, as it is generally a matter of
+    executing the exact same function independently a large number of times.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Here, we will use this random experiment to estimate Pi. The precision obtained
+    with this method is known to be low, and there are numerous methods that are far
+    more efficient and precise. But, this example will be sufficient for introducing
+    the parallel computing features of IPython.
+  prefs: []
+  type: TYPE_NORMAL
+- en: First, we will write the Python code that executes the simulation. The `sample`
+    function generates *n* points in the cube and returns the number of points that
+    lie within the quarter disc.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE14]'
+  prefs: []
+  type: TYPE_PRE
+- en: Since the *n*-long vector inside the parentheses is a mask array (that is, it
+    contains Boolean values), its sum is the number of `True` values, that is, the
+    number of points with an Euclidean distance from 0, smaller than 1.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now, to estimate Pi, we just need to multiply `sample(n)` by `4/n`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE15]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Since the real value of Pi is 3.1415926535..., we see that there are two correct
+    digits (for this particular code execution) with one million points. We will now
+    distribute this task on several cores. Assuming several engines have been started,
+    for example, with `ipcluster start`, here is how we can parallelize the code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE16]'
+  prefs: []
+  type: TYPE_PRE
+- en: Here, `len(v)` is the number of engines. We call the sample function `len(v)`
+    times with the same argument `n`. The sum of all results is the total number of
+    red points, and the total number of points is `n * len(v)`. Finally, we obtain
+    the estimation of Pi with the same previous formula.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Using MPI with IPython
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: MPI is a famous standardized message passing system that is particularly efficient
+    for parallel computing. We will assume that an MPI implementation is installed
+    on your system (such as **Open-MPI**, [http://www.open-mpi.org](http://www.open-mpi.org)),
+    as well as the **mpi4py** package for using MPI from Python ([http://mpi4py.scipy.org](http://mpi4py.scipy.org)).
+    Information about how to install MPI can be found on these websites.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: '**MPI on Windows**'
+  prefs: []
+  type: TYPE_NORMAL
+- en: If you are on Windows, a possibility is to install Microsoft's MPI implementation
+    available in the HPC Pack ([http://www.microsoft.com/en-us/download/details.aspx?id=36045](http://www.microsoft.com/en-us/download/details.aspx?id=36045)).
+    Also, you may be interested in the Python Tools for Visual Studio ([http://pytools.codeplex.com](http://pytools.codeplex.com)),
+    which lets you turn Visual Studio into a Python IDE. It offers native support
+    for IPython, and has been specifically designed for high-performance computing
+    with MPI.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'First, we need to create a specific IPython profile for MPI. Type in the following
+    command in a shell:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE17]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Next, edit the file `IPYTHONDIR/profile_mpi/ipcluster_config.py` (`IPYTHONDIR`
+    is generally `~/.ipython`) and add the following line:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE18]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Now, to launch the cluster with four engines, type in the following command:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE19]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'To use MPI with IPython, we first need to write a function using MPI through
+    mpi4py. In this example, we will compute the sum of all integers between 1 and
+    16 in parallel, across four cores. Let''s write, in a file named `psum.py`, the
+    following code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE20]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Finally, we can use this function interactively in IPython as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE21]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'More details about how to use MPI with IPython can be found on the following
+    webpage from the official IPython documentation (where this example comes from):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[http://ipython.org/ipython-doc/stable/parallel/parallel_mpi.html](http://ipython.org/ipython-doc/stable/parallel/parallel_mpi.html)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Advanced parallel computing features of IPython
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'We covered only the very basics of the parallel computing features available
+    in IPython. More advanced features include the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Dynamic load balancing
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Pushing and pulling objects across engines
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Running engines on different computers, optionally using SSH tunnels
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Using IPython on an Amazon EC2 cluster with StarCluster
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Storing all requests and results in a database
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Managing task dependencies with a Directed Acyclic Graph (DAG)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: These features are far beyond the scope of this book. Interested readers can
+    find details about all those features in the official IPython documentation.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Using C in IPython with Cython
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Distributing independent tasks across several cores is the easiest way to take
+    advantage of the parallel capabilities of modern computers, thereby reducing the
+    total execution time twofold or more. However, some algorithms cannot be easily
+    split into independent subtasks. In addition, it may happen that the algorithm
+    itself is far too slow in Python because it involves nested loops that cannot
+    be vectorized. In this situation, a very interesting option could be to code a
+    small but critical section of the code in C so as to considerably reduce the Python
+    overhead. This solution does not involve any parallel computing feature, but it
+    still allows to considerably improve the efficiency of a Python script. Additionally,
+    nothing prevents using both techniques: partial C compilation and parallel computing
+    with IPython.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The Cython package allows the compiling of a portion of the Python code without
+    even converting it explicitly in C; it proposes an extended syntax in Python to
+    call C functions and to define C types. The code in question is, then, automatically
+    converted in C, compiled, and can then be used transparently from Python. In some
+    situations when only pure Python code is possible, and when vectorization with
+    NumPy is out of reach due to the particular nature of the algorithms, the speed
+    improvement can be drastic and can reach several orders of magnitude.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this section, we will see how to use Cython interactively in IPython. We
+    will also look at an example of a pure Python function implementing a numerical
+    algorithm, which can be compiled with Cython without too much effort for an execution
+    more than 300 times faster.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Installing and configuring Cython
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: The Cython package is a bit more difficult to install than the other packages.
+    The reason is that using Cython means compiling C code, which obviously requires
+    a C compiler (for example the popular GNU C Compiler **gcc**). On Linux, gcc is
+    already available or easily installable with the package manager, for example
+    with `sudo apt-get install build-essential` on Ubuntu or Debian. On OS X, a possibility
+    is to install Apple XCode. On Windows, you can install MinGW ([http://www.mingw.org](http://www.mingw.org)),
+    which is an open-source distribution of gcc. Then, Cython can be installed as
+    the other packages (see [Chapter 1](ch01.html "Chapter 1. Getting Started with
+    IPython"), *Getting started with IPython*). More information can be found at [http://wiki.cython.org/Installing](http://wiki.cython.org/Installing).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: '**Configuring MinGW and Cython on Windows**'
+  prefs: []
+  type: TYPE_NORMAL
+- en: On Windows, depending on the version of MinGW, error messages may appear when
+    compiling Cython code. To fix this bug, you may need to open `C:\Python27\Lib\distutils\cygwinccompiler.py`
+    (or a similar path depending on your specific configuration) and replace all occurrences
+    of `-mno-cygwin` with `""` (empty string).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Also, make sure that `C:\MinGW\bin` is in the `PATH` environment variable.
+    Finally, you may need to edit (or create) the file `C:\Python27\Lib\distutils\distutils.cfg`
+    and add the following lines of code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE22]'
+  prefs: []
+  type: TYPE_PRE
+- en: You can find more information at [http://wiki.cython.org/InstallingOnWindows](http://wiki.cython.org/InstallingOnWindows).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Using Cython from IPython
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: With Cython, the code is generally written in a `.pyx` file, which is converted
+    in C by Cython. Then, the resulting C program is compiled by the C compiler into
+    a `.so` file (on Linux) or a `.pyd` file (on Windows), which can be normally imported
+    in Python.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This process typically involves a `distutils setup.py` script which specifies
+    the files to be compiled and also the different compiler options. Because this
+    step is not particularly difficult, we will not cover it here. Rather, we will
+    show how Cython can be easily used from IPython. The advantage is that the Cython
+    and C compilations happen automatically uder the hood and do not require a manual
+    `setup.py` script. The IPython notebook is particularly useful here, as it is
+    far more convenient to write multiline code in it than in the console.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Here we will show how to use the `%%cython` cell magic to execute Cython code
+    from IPython. The first step is to load the `cythonmagic` extension.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE23]'
+  prefs: []
+  type: TYPE_PRE
+- en: Then, the `%%cython` cell magic allows to write Cython code that will be automatically
+    compiled. The functions defined in the cell become available in the interactive
+    session, and can be used normally from Python.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE24]'
+  prefs: []
+  type: TYPE_PRE
+- en: Here, the call to `square(10)` involves the call to a compiled C function which
+    computes the square of the number.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Accelerating a pure Python algorithm with Cython
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Here, we will see how a pure Python algorithm involving nested loops can be
+    converted in Cython for an interesting 10-fold speed improvement. This algorithm
+    is the **Sieve of Eratosthenes** , a multi-millennial algorithm for finding all
+    the prime integers less than a fixed number. This very classic algorithm consists
+    of starting from all integers between 2 and *n*, and progressively removing the
+    multiples of the prime numbers found so far. At the end of the algorithm, only
+    the prime numbers remain. We will implement this algorithm in Python and show
+    how it can be converted in Cython.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Pure Python version
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: The algorithm is a dozen-lines long in pure Python. This implementation could
+    be improved and shortened in many ways (a one-liner algorithm exists!), but it
+    will be sufficient for this example as we will mostly be interested in the *relative*
+    execution times of the pure Python and Cython versions.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE25]'
+  prefs: []
+  type: TYPE_PRE
+- en: The `primes` variable contains Boolean values indicating whether the associated
+    index is prime or not. We initialize it with only `0` and `1` being composite
+    (non-prime), using the definition that a positive integer is prime if and only
+    if it has exactly two positive divisors. Then, at each iteration over `i`, we
+    will mark more and more numbers as composite numbers, without changing the prime
+    ones. Every `i` represents a prime number, and the iteration over `k` allows to
+    mark all multiples of `i` as composite numbers. At the end, we return the list
+    of indices that are `True`, that is, all prime numbers less than `n`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now, let''s take a look at the execution time of this function:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE26]'
+  prefs: []
+  type: TYPE_PRE
+- en: We will try to speed up this function using Cython.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Naïve Cython conversion
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: As a first attempt, we will simply use the exact same code in Cython.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE27]'
+  prefs: []
+  type: TYPE_PRE
+- en: We achieve 70 percent speed improvement here just by adding `%%cython` at the
+    top of the cell, but we can do much better by giving type information to Cython.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Adding C types
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: The speed improvement in the previous example was modest because the local variables
+    are dynamically-typed Python variables. It means that the Python overhead due
+    to its dynamic nature is still responsible for an important performance discrepancy
+    as compared to pure C code. We can improve the performance by converting the Python
+    variables into C variables with the `cdef` keyword.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE28]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'There are three changes compared to the naïve version: the `n` argument is
+    statically declared as an integer, and the local variables `i` and `k` are now
+    declared as C integer variables. The speed improvement is, then, much more interesting:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE29]'
+  prefs: []
+  type: TYPE_PRE
+- en: This function is now 10 times faster than the pure Python version, just by using
+    the `%%cython` magic and a few type declarations. This result might even be improved
+    with more adequate data structures.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In general, knowing the portion of the code that would be advantageously converted
+    in Cython for a major speed improvement, requires some knowledge about the Python
+    internals and, more importantly, requires performing extensive profiling. Python
+    loops (especially nested loops), Python function calls, and high-level data structure
+    manipulations inside tight loops are classical targets for Cython optimizations.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Using NumPy and Cython
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: In this section, we will show how to integrate NumPy arrays with Cython code.
+    We will also see how calls to Python functions inside tight loops can be vastly
+    optimized by converting the Python functions into C functions.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Python version
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: Here, we will use an example of a **stochastic process simulation**, namely
+    a Brownian motion. This process describes the trajectory of a particle starting
+    at `x=0`, and making random steps of `+dx` or `-dx` at each discrete time step,
+    with `dx` being a small constant. This type of process appears frequently in finance,
+    economy, physics, biology, and so on.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This specific process can be simulated very efficiently with NumPy's `cumsum()`
+    and `rand()` functions. However, more complex processes may need to be simulated,
+    for example, some models require instantaneous jumps when the position reaches
+    a threshold. In these cases, vectorization is not an option and a manual loop
+    is, therefore, unavoidable.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE30]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The `step` function returns a random `+1` or `-1` value. It uses NumPy''s `sign()`
+    and `rand()` functions. In the `sim1()` function, the trajectory is first initialized
+    as a NumPy vector with zeros. Then, at each iteration, a new random step is added
+    to the trajectory. The `then` function returns the full trajectory. The following
+    is an example of a trajectory:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE31]'
+  prefs: []
+  type: TYPE_PRE
+- en: '![Python version](img/9932_05_02.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: Simulation of a Brownian motion
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let's take a look to the execution time of this function.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE32]'
+  prefs: []
+  type: TYPE_PRE
+- en: Cython version
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: For the Cython version, we will do two things. First, we will add C types for
+    all local variables as well as for the NumPy array containing the trajectory.
+    Also, we will convert the `step()` function to a pure C function that does not
+    call any NumPy function. We will rather call pure C functions that are defined
+    in the C standard library.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE33]'
+  prefs: []
+  type: TYPE_PRE
+- en: We first need to import the standard NumPy library as well as a special C library,
+    also called `NumPy`, which is part of the Cython package, with `cimport`. We define
+    the NumPy dtype `double` and the corresponding C dtype `double_t` with `ctypedef`.
+    It allows to define the exact type of the `x` array at compile-time rather than
+    execution-time, resulting in major speed improvements. The number of dimensions
+    of `x` is also specified inside the `sim2()` function. All local variables are
+    defined as C variables with C types.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The `step()` function has been entirely rewritten. It is now a pure C function
+    (defined with `cdef`). It uses the `rand()` function of the C standard library,
+    which returns a random number between 0 and `RAND_MAX`. The `round()` function
+    of the `math` library is also used to generate a random `+1` or `-1` value.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let''s check the execution time of the `sim2()` function:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE34]'
+  prefs: []
+  type: TYPE_PRE
+- en: The Cython version is 370 times faster than the Python version. The main reason
+    for this dramatic speed improvement is that the Cython version uses only pure
+    C code. All variables are C variables, and the calls to step, which previously
+    required costly calls to a Python function, now only involve calls to a pure C
+    function, thereby reducing considerably the Python overhead inside the loop.
+  prefs: []
+  type: TYPE_NORMAL
+- en: More advanced options for accelerating Python code
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Cython can also be used to interface existing C code or libraries with Python,
+    but we won't cover this use case here.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Apart from Cython, there are other packages that accelerate Python code. `SciPy.weave`
+    ([http://www.scipy.org/Weave](http://www.scipy.org/Weave)) is a SciPy subpackage
+    that allows the inclusion of C/C++ code within Python code. **Numba** ([http://numba.pydata.org/](http://numba.pydata.org/))
+    uses just-in-time LLVM compilation to accelerate a pure Python code considerably
+    by compiling it dynamically and transparently. It integrates nicely with NumPy
+    arrays. Its installation requires llvmpy and meta.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Related projects include **Theano** ([http://deeplearning.net/software/theano/](http://deeplearning.net/software/theano/)),
+    which allows to define, optimize, and evaluate mathematical expressions on arrays
+    very efficiently by compiling them transparently on the CPU or on the graphics
+    card. Similarly, **Numexpr** ([https://code.google.com/p/numexpr/](https://code.google.com/p/numexpr/))
+    can compile array expressions and take advantage of vectorized CPU instructions
+    and multi-core processors.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Blaze** ([http://blaze.pydata.org/](http://blaze.pydata.org/)) is a project
+    that is still in early development at the time of writing, and aims at combining
+    all these dynamic compilation technologies together into a unified framework.
+    It will also extend the notion of multidimensional array by allowing type and
+    shape heterogeneity, missing values, labeled dimensions (such as in Pandas), and
+    so on. Being developed by the creators of NumPy, it is likely to be a central
+    project in the Python computing community in the near future.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Finally, **PyOpenCL** ([http://mathema.tician.de/software/pyopencl](http://mathema.tician.de/software/pyopencl))
+    and **PyCUDA** ([http://mathema.tician.de/software/pycuda](http://mathema.tician.de/software/pycuda))
+    are Python wrappers to OpenCL and CUDA. These libraries implement C-like, low-level
+    languages that can be compiled on modern graphics cards for taking advantage of
+    their massively parallel architecture. Indeed, graphics cards contain hundreds
+    of specialized cores that can process a function very efficiently on a large number
+    of elements (**Single Instruction Multiple Data** (**SIMD**) paradigm). The speed
+    improvement can be more than one order of magnitude faster compared to pure C
+    code. **OpenCL** is an open standard language, whereas **CUDA** is a proprietary
+    language owned by Nvidia Corporation. CUDA code runs on Nvidia cards only, whereas
+    OpenCL is supported by most graphics cards as well as most CPUs. In the latter
+    case, the same code is compiled on the CPU and takes advantage of multi-core processors
+    and vectorized instructions.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Summary
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'In this chapter, we introduced two approaches to accelerate Python code: bypassing
+    the Python overhead by converting the Python code into lower-level C code, or
+    taking advantage of multi-core processors by distributing Python code across multiple
+    computing units. Both approaches can even be used simultaneously. IPython considerably
+    simplifies these techniques. Parallel computing and Cython can be used without
+    IPython, but they require more boilerplate code.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the next chapter, we will explore some advanced options to customize IPython.
+  prefs: []
+  type: TYPE_NORMAL
