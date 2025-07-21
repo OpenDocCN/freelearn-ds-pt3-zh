@@ -1,4 +1,4 @@
-# 第三章 matplotlib 图形
+# 第三章：matplotlib 图形
 
 本章介绍了 matplotlib，这是一个用于生成出版质量图形的 IPython 库。在本章中，将讨论以下主题：
 
