@@ -1,0 +1,2995 @@
+- en: Chapter 5. High-performance Computing
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'In this chapter, we will cover the following topics:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Accelerating pure Python code with Numba and Just-In-Time compilation
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Accelerating array computations with Numexpr
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Wrapping a C library in Python with ctypes
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Accelerating Python code with Cython
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Optimizing Cython code by writing less Python and more C
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Releasing the GIL to take advantage of multi-core processors with Cython and
+    OpenMP
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Writing massively parallel code for NVIDIA graphics cards (GPUs) with CUDA
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Writing massively parallel code for heterogeneous platforms with OpenCL
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Distributing Python code across multiple cores with IPython
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Interacting with asynchronous parallel tasks in IPython
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Parallelizing code with MPI in IPython
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Trying the Julia language in the notebook
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Introduction
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: The previous chapter presented techniques for code optimization. Sometimes,
+    these methods are not sufficient, and we need to resort to advanced high-performance
+    computing techniques.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In this chapter, we will see three broad, but not mutually exclusive categories
+    of methods:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Just-In-Time compilation** (**JIT**) of Python code'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Resorting to a lower-level language, such as C, from Python
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Dispatching tasks across multiple computing units using parallel computing
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: With Just-In-Time compilation, Python code is dynamically compiled into a lower-level
+    language. Compilation occurs at runtime rather than ahead of execution. The translated
+    code runs faster since it is compiled rather that interpreted. JIT compilation
+    is a popular technique as it can lead to fast *and* high-level languages, whereas
+    these two characteristics used to be mutually exclusive in general.
+  prefs: []
+  type: TYPE_NORMAL
+- en: JIT compilation techniques are implemented in packages such as **Numba**, **Numexpr**,
+    **Blaze**, and others. In this chapter, we will cover the first two packages.
+    Blaze is a promising project but it is still in its infancy at the time of writing
+    this book.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We will also introduce a new high-level language, **Julia**, which uses JIT
+    compilation to achieve high performance. This language can be used effectively
+    in the IPython notebook, thanks to the **IJulia** package.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: '**PyPy** ([http://pypy.org](http://pypy.org)), successor of Psyco, is another
+    related project. This alternative implementation of Python (the reference implementation
+    being CPython) integrates a JIT compiler. Thus, it is typically much faster than
+    CPython. However, at the time of writing this book, PyPy does not fully support
+    NumPy yet. Additionally, PyPy and SciPy tend to form distinct communities.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Resorting to a lower-level language such as C is another interesting method.
+    Popular libraries include **ctypes**, **SWIG**, or **Cython**. Using ctypes requires
+    writing C code and having access to a C compiler, or using a compiled C library.
+    By contrast, Cython lets us write code in a superset of Python, which is translated
+    to C with various performance results. Unfortunately, it is not always easy to
+    write efficient Cython code. In this chapter, we will cover ctypes and Cython,
+    and we will see how to achieve interesting speedups on complex examples.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Finally, we will cover two classes of parallel computing techniques: using
+    multiple CPU cores with IPython and using massively parallel architectures such
+    as **Graphics Processing Units** (**GPUs**).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Here are a few references:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: A blog post on PyPy and NumPy by Travis Oliphant available at [http://technicaldiscovery.blogspot.com/2011/10/thoughts-on-porting-numpy-to-pypy.html](http://technicaldiscovery.blogspot.com/2011/10/thoughts-on-porting-numpy-to-pypy.html)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Interfacing Python with C, a tutorial in the scikit lectures notes available
+    at [http://scipy-lectures.github.io/advanced/interfacing_with_c/interfacing_with_c.html](http://scipy-lectures.github.io/advanced/interfacing_with_c/interfacing_with_c.html)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: CPython and concurrent programming
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Python is sometimes criticized for its poor native support of multi-core processors.
+    Let's explain why.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The mainstream implementation of the Python language is **CPython**, written
+    in C. CPython integrates a mechanism called the **Global Interpreter Lock** (**GIL**).
+    As mentioned at [http://wiki.python.org/moin/GlobalInterpreterLock](http://wiki.python.org/moin/GlobalInterpreterLock):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*The GIL facilitates memory management by preventing multiple native threads
+    from executing Python bytecodes at once.*'
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+- en: In other words, by disabling concurrent threads within one Python process, the
+    GIL considerably simplifies the memory management system. Memory management is
+    therefore not thread-safe in CPython.
+  prefs: []
+  type: TYPE_NORMAL
+- en: An important implication is that with CPython, a pure Python program cannot
+    be easily executed in parallel over multiple cores. This is an important issue
+    as modern processors contain more and more cores.
+  prefs: []
+  type: TYPE_NORMAL
+- en: What possible solutions do we have in order to take advantage of multi-core
+    processors?
+  prefs: []
+  type: TYPE_NORMAL
+- en: Removing the GIL in CPython. This solution has been tried but has never made
+    it into CPython. It would bring too much complexity in the implementation of CPython,
+    and it would degrade the performance of single-threaded programs.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Using multiple processes instead of multiple threads. This is a popular solution;
+    it can be done with the native **multiprocessing** module or with IPython. We
+    will cover the latter in this chapter.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Rewriting specific portions of your code in Cython and replacing all Python
+    variables with C variables. This allows you to remove the GIL temporarily in a
+    loop, thereby enabling use of multi-core processors. We will cover this solution
+    in the *Releasing the GIL to take advantage of multi-core processors with Cython
+    and OpenMP* recipe.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Implementing a specific portion of your code in a language that offers better
+    support for multi-core processors and calling it from your Python program.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Making your code use the NumPy functions that benefit from multi-core processors,
+    such as `numpy.dot()`. NumPy needs to be compiled with BLAS/LAPACK/ATLAS/MKL.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: A must-read reference on the GIL can be found at [http://www.dabeaz.com/GIL/](http://www.dabeaz.com/GIL/).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Compiler-related installation instructions
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: In this section, we will give a few instructions for using compilers with Python.
+    Use-cases include using ctypes, using Cython, and building C extensions for Python.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Linux
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: On Linux, you can install the **GCC** (**GNU Compiler Collection**) compiler.
+    On Ubuntu or Debian, you can install GCC with the `sudo apt-get install build-essential`
+    command.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Mac OS X
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: On Mac OS X, you can install Apple XCode. Starting with XCode 4.3, you must
+    manually install command-line tools from XCode's menu through **Preferences**
+    | **Downloads** | **Command Line Tools**.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Windows
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'On Windows, using compilers with Python is notoriously tedious. It is generally
+    difficult to find all the necessary instructions online. We detail these instructions
+    here (you''ll also find them on the book''s GitHub repository):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The instructions differ according to whether you use a 32-bit or 64-bit version
+    of Python, and whether you use Python 2.x or Python 3.x. To quickly find out this
+    information in a Python terminal, type the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: Python 32-bit
+  prefs:
+  - PREF_H4
+  type: TYPE_NORMAL
+- en: First, you need to install a C compiler. With Python 32-bit, you can download
+    and install MinGW from [http://www.mingw.org](http://www.mingw.org), which is
+    an open source distribution of GCC.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Depending on your version of the `distutils` library, you may need to manually
+    fix a bug in its source code. Open `C:\Python27\Lib\distutils\cygwinccompiler.py`
+    in a text editor (or a similar path depending on your specific configuration),
+    and replace all occurrences of `-mno-cygwin` with an empty string.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Open or create a text file named `distutils.cfg` in `C:\Python27\Lib\distutils\`
+    and add the following lines:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: Python 64-bit
+  prefs:
+  - PREF_H4
+  type: TYPE_NORMAL
+- en: With Python 2.x, you need Visual Studio 2008 Express. With Python 3.x, you need
+    Visual Studio 2010 Express.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'You also need the Microsoft Windows SDK (2008 or 2010 according to your Python
+    version):'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '**Python 2.x**: Microsoft Windows SDK for Windows 7 and .NET Framework 3.5
+    available at [http://www.microsoft.com/en-us/download/details.aspx?id=3138](http://www.microsoft.com/en-us/download/details.aspx?id=3138)'
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Python 3.x**: Microsoft Windows SDK for Windows 7 and .NET Framework 4 available
+    at [http://www.microsoft.com/en-us/download/details.aspx?id=8279](http://www.microsoft.com/en-us/download/details.aspx?id=8279)'
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Make sure that the path to the folder containing `cl.exe` is in the system's
+    `PATH` environment variable. This path should look like `C:\Program Files (x86)\Microsoft
+    Visual Studio 9.0\VC\bin\amd64` (using Visual Studio 2008's C compiler available
+    with the Microsoft Windows SDK for Windows 7 and .NET Framework 3.5).
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'You need to execute a few commands in Windows'' command-line terminal every
+    time you want to use the compiler with Python (for example, before typing `ipython
+    notebook`):'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: DLL hell
+  prefs:
+  - PREF_H4
+  type: TYPE_NORMAL
+- en: When using compiled packages, particularly those obtained on Chris Gohlke's
+    webpage at [http://www.lfd.uci.edu/~gohlke/pythonlibs/](http://www.lfd.uci.edu/~gohlke/pythonlibs/),
+    you may get obscure DLL-related errors. To fix those problems, you can open the
+    spurious DLLs in Dependency Walker available at [http://www.dependencywalker.com](http://www.dependencywalker.com).
+    This program can tell you that a DLL is missing. You can search for it in your
+    computer and add its location to the `PATH` environment variable.
+  prefs: []
+  type: TYPE_NORMAL
+- en: References
+  prefs:
+  - PREF_H4
+  type: TYPE_NORMAL
+- en: 'Here are a few references:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Installing Cython on Windows, at [http://wiki.cython.org/InstallingOnWindows](http://wiki.cython.org/InstallingOnWindows)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Cython on Windows 64-bit, at [https://github.com/cython/cython/wiki/64BitCythonExtensionsOnWindows](https://github.com/cython/cython/wiki/64BitCythonExtensionsOnWindows)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Building Python wheels for Windows, at [http://cowboyprogrammer.org/building-python-wheels-for-windows/](http://cowboyprogrammer.org/building-python-wheels-for-windows/)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Accelerating pure Python code with Numba and just-in-time compilation
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Numba ([http://numba.pydata.org](http://numba.pydata.org)) is a package created
+    by Continuum Analytics ([http://www.continuum.io](http://www.continuum.io)). At
+    the time of writing, Numba is still a young and relatively experimental package,
+    but its technology is promising. Numba takes pure Python code and translates it
+    automatically (just-in-time) into optimized machine code. In practice, this means
+    that we can write a non-vectorized function in pure Python, using `for` loops,
+    and have this function vectorized automatically by using a single decorator. Performance
+    speedups when compared to pure Python code can reach several orders of magnitude
+    and may even outmatch manually-vectorized NumPy code.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this section, we will show how to accelerate pure Python code generating
+    the Mandelbrot fractal.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Getting ready
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: The easiest way to install Numba is to use the Anaconda distribution (also maintained
+    by Continuum Analytics), and type in a terminal `conda install numba`. On Windows,
+    an alternative is to download a binary installer from Chris Gohlke's webpage at
+    [http://www.lfd.uci.edu/~gohlke/pythonlibs/#numba](http://www.lfd.uci.edu/~gohlke/pythonlibs/#numba).
+    In this case, there are dependencies (Numpy-MKL, LLVMPy, llvmmath, and Meta),
+    all available on the same page.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it…
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Let''s import NumPy and define a few variables:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: The following function generates the fractal in pure Python. It accepts an empty
+    array `m` as argument.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Let''s run the simulation and display the fractal:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '![How to do it…](img/4818OS_05_01.jpg)'
+  prefs:
+  - PREF_IND
+  type: TYPE_IMG
+- en: The Mandelbrot fractal
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'Now, we evaluate the time taken by this function:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Let''s try to accelerate this function using Numba. First, we import the package:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Next, we add the `@jit` decorator right above the function definition. Numba
+    tries to automatically infer the type of the local variables, but we can also
+    specify the types explicitly:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: This function works just like the pure Python version. How much faster is it?
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: The Numba version is more than 100 times faster than the pure Python version
+    here!
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: How it works…
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Python bytecode is normally interpreted at runtime by the Python interpreter
+    (for example, CPython). By contrast, a Numba function is parsed and translated
+    directly to machine code ahead of execution, using a powerful compiler architecture
+    named **LLVM** (**Low Level Virtual Machine**). Citing the official documentation:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*Numba is aware of NumPy arrays as typed memory regions and so can speedup
+    code using NumPy arrays. Other, less well-typed code will be translated to Python
+    C-API calls effectively removing the "interpreter" but not removing the dynamic
+    indirection.*'
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+- en: Numba is not able to compile any Python functions. There are also some subtle
+    restrictions on the type of local variables. Numba tries to infer the type of
+    the function's variables automatically, but it is not always successful. In this
+    case, we can specify the types explicitly.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Numba generally gives the most impressive speedups on functions that involve
+    tight loops on NumPy arrays (such as in this recipe).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: '**Blaze**, another project from Continuum Analytics, is the next generation
+    of NumPy. It will offer data structures with much more flexibility than NumPy
+    arrays, and it will support out-of-core computations. Together with Numba, Blaze
+    will form a highly efficient compiler-like infrastructure for big data algorithms
+    and complex numerical simulations. We can expect Blaze to play an important role
+    in the future, as it should combine the nice and easy syntax of Python with the
+    performance of native code and parallel processing techniques (notably multi-core
+    processors and Graphical Processing Units). Other worthwhile related projects,
+    but slightly older than Blaze and Numba, include **Theano** and **Numexpr** (which
+    we will see in the next recipe).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: There's more…
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Let''s compare the performance of Numba with manually-vectorized code using
+    NumPy, which is the standard way of accelerating pure Python code such as the
+    code given in this recipe. In practice, it means replacing the code inside the
+    two loops over `i` and `j` with array computations. This is relatively easy here
+    as the operations closely follow the **Single Instruction, Multiple Data** (**SIMD**)
+    paradigm:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs: []
+  type: TYPE_PRE
+- en: Here, Numba beats NumPy. However, we cannot draw any firm conclusion from this
+    single experiment. Whether Numba or NumPy is faster depends on the particular
+    implementation of the algorithm, simulation parameters, machine characteristics,
+    and so on.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Here are a few references:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Documentation of Numba available at [http://numba.pydata.org/doc.html](http://numba.pydata.org/doc.html)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Types supported by Numba available at [http://numba.pydata.org/numba-doc/dev/types.html](http://numba.pydata.org/numba-doc/dev/types.html)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Numba examples available at [http://numba.pydata.org/numba-doc/dev/examples.html](http://numba.pydata.org/numba-doc/dev/examples.html)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Blaze available at [http://blaze.pydata.org](http://blaze.pydata.org)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Theano available at [http://deeplearning.net/software/theano/](http://deeplearning.net/software/theano/)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: See also
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: The *Accelerating array computations with Numexpr* recipe
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Accelerating array computations with Numexpr
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '**Numexpr** is a package that improves upon a weakness of NumPy; the evaluation
+    of complex array expressions is sometimes slow. The reason is that multiple temporary
+    arrays are created for the intermediate steps, which is suboptimal with large
+    arrays. Numexpr evaluates algebraic expressions involving arrays, parses them,
+    compiles them, and finally executes them faster than NumPy.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: This principle is somewhat similar to Numba, in that normal Python code is compiled
+    dynamically by a JIT compiler. However, Numexpr only tackles algebraic array expressions
+    rather than arbitrary Python code. We will see how that works in this recipe.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Getting ready
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: You will find the instructions to install Numexpr in the documentation available
+    at [http://github.com/pydata/numexpr](http://github.com/pydata/numexpr).
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it…
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Let''s import NumPy and Numexpr:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Then, we generate three large vectors:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE12]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Now, we evaluate the time taken by NumPy to calculate a complex algebraic expression
+    involving our vectors:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE13]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Let''s perform the same calculation with Numexpr. We need to give the expression
+    as a string:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE14]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Numexpr can use multiple cores. Here, we have 2 physical cores and 4 virtual
+    threads with Intel''s Hyper-Threading Technology. We can specify how many cores
+    we want Numexpr to use using the `set_num_threads()` function:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE15]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: How it works...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Numexpr analyzes the array expression, parses it, and compiles it into a lower-level
+    language. Numexpr is aware of CPU-vectorized instructions as well as CPU cache
+    characteristics. As such, Numexpr can optimize vectorized computations dynamically.
+  prefs: []
+  type: TYPE_NORMAL
+- en: There is some overlap between Numexpr, Numba, and Blaze. We can probably expect
+    some crosstalk between these projects in the future.
+  prefs: []
+  type: TYPE_NORMAL
+- en: See also
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: The *Accelerating pure Python code with Numba and just-in-time compilation*
+    recipe
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Wrapping a C library in Python with ctypes
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Wrapping a C library in Python allows us to leverage existing C code or to implement
+    a critical part of the code in a fast language such as C.
+  prefs: []
+  type: TYPE_NORMAL
+- en: It is relatively easy to use externally-compiled libraries with Python. The
+    first possibility is to call a command-line executable with an `os.system` command,
+    but this method does not extend to compiled libraries (on Windows, **Dynamically
+    Linked Libraries**, or **DLLs**). A more powerful method consists of using a native
+    Python module called **ctypes**. This module allows us to call functions defined
+    in a compiled library (written in C) from Python. The `ctypes` module takes care
+    of the data type conversions between C and Python. In addition, the `numpy.ctypeslib`
+    module provides facilities to use NumPy arrays wherever data buffers are used
+    in the external library.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this example, we will rewrite the code of the Mandelbrot fractal in C, compile
+    it in a shared library, and call it from Python.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Getting ready
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: The code of this recipe is written for Windows. It can be adapted to other systems
+    with minor changes.
+  prefs: []
+  type: TYPE_NORMAL
+- en: A C compiler is required. You will find all compiler-related instructions in
+    this chapter's introduction. In particular, for the C compiler to work on Windows,
+    you need to execute a sequence of instructions in the Windows terminal before
+    launching the IPython notebook. You will find a batch script with the appropriate
+    instructions on the book's repository (in the folder containing the code for this
+    chapter).
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it…
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: The first step is to write and compile the Mandelbrot example in C. The second
+    step is to access the library from Python using ctypes. If you are only interested
+    in discovering how to access an existing compiled library, you can go straight
+    to step 3, assuming that `mandelbrot.dll` is a compiled library defining a function
+    named `mandelbrot()`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let''s write the code of the Mandelbrot fractal in C:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE16]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Now, let''s build this C source file into a DLL with Microsoft Visual Studio''s
+    `cl.exe`. The `/LD` option specifies that a DLL is to be created:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE17]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Let''s access the library with ctypes:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE18]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'NumPy and ctypes allow us to wrap the C function defined in the DLL:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE19]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'To use this function, we first need to initialize an empty array and pass it
+    as an argument to the `mandelbrot()` wrapper function:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE20]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'We free the library at the end of the script:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE21]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: How it works…
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: In the C code, the `__declspec(dllexport)` command declares the function visible
+    in the DLL. The `__stdcall` keyword declares the standard calling convention on
+    Windows.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'As arguments, the `mandelbrot()` function accepts:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The **size** of the `col` buffer (the `col` value is the last iteration where
+    the corresponding point is within a disc around the origin)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The number of **iterations**
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: A **pointer** to the buffer of integers
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`mandelbrot()` does not return any value; rather, it updates the buffer that
+    was passed by reference to the function (it is a pointer).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: To wrap this function in Python, we need to declare the types of the input arguments.
+    The ctypes module defines constants for the different data types. In addition,
+    the `numpy.ctypeslib.ndpointer()` function lets us use a NumPy array wherever
+    a pointer is expected in the C function. The data type given as argument to `ndpointer()`needs
+    to correspond to the NumPy data type of the array passed to the function.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Once the function has been correctly wrapped, it can be called as if it was
+    a standard Python function. Here, the initially-empty NumPy array is filled with
+    the Mandelbrot fractal after the call to `mandelbrot()`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: There's more…
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: SciPy contains a module called **weave** that provides similar functionality.
+    We can write C code in a Python string and let weave compile and execute it at
+    runtime using a C compiler. This module does not seem well-maintained and appears
+    to be incompatible with Python 3\. Cython or ctypes are probably better options.
+  prefs: []
+  type: TYPE_NORMAL
+- en: A more recent alternative to ctypes is cffi ([http://cffi.readthedocs.org](http://cffi.readthedocs.org)),
+    which may be a bit faster and more convenient to use. You can also refer to [http://eli.thegreenplace.net/2013/03/09/python-ffi-with-ctypes-and-cffi/](http://eli.thegreenplace.net/2013/03/09/python-ffi-with-ctypes-and-cffi/).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Accelerating Python code with Cython
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '**Cython** is both a language (a superset of Python) and a Python library.
+    With Cython, we start from a regular Python program and we add annotations about
+    the type of the variables. Then, Cython translates that code to C and compiles
+    the result to a Python extension module. Finally, we can use this compiled module
+    in any Python program.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: While dynamic typing comes with a performance cost in Python, statically-typed
+    variables in Cython generally lead to faster code execution.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Performance gains are most significant in CPU-bound programs, notably in tight
+    Python loops. By contrast, I/O-bound programs are not expected to benefit much
+    from a Cython implementation.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this recipe, we will see how to accelerate the Mandelbrot code example with
+    Cython.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Getting ready
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: A C compiler is required. You will find all compiler-related instructions in
+    the introduction of this chapter.
+  prefs: []
+  type: TYPE_NORMAL
+- en: You also need to install Cython from [http://www.cython.org](http://www.cython.org).
+    With Anaconda, you can type `conda install cython` in a terminal.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it…
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: We assume that the variables `size` and `iterations` have been defined as in
+    the previous recipes.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'To use Cython in the IPython notebook, we first need to import the `cythonmagic`
+    extension provided by IPython:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE22]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'As a first try, let''s just add the `%%cython` magic before the definition
+    of the `mandelbrot()` function. Internally, this cell magic compiles the cell
+    into a standalone Cython module, hence the need for all required imports to occur
+    within the same cell. This cell does not have access to any variable or function
+    defined in the interactive namespace:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE23]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: How fast is this version?
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE24]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: We get virtually no speedup here. We need to specify the type of our Python
+    variables.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'Let''s add type information using typed memory views for NumPy arrays (we explain
+    these in the *How it works…* section). We also use a slightly different way to
+    test whether particles have escaped from the domain (`if` test):'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE25]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: How fast is this new version?
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE26]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: All we have done is specified the type of the local variables and function arguments
+    and bypassed NumPy's `np.abs()` function when computing the absolute value of
+    `z`. These changes have helped Cython to generate more optimized C code from Python
+    code.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: How it works…
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: The `cdef` keyword declares a variable as a statically-typed C variable. C variables
+    lead to faster code execution because the overhead from Python's dynamic typing
+    is mitigated. Function arguments can also be declared as statically-typed C variables.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In general, variables used inside tight loops should be declared with `cdef`.
+    To ensure that our code is well-optimized, we can use **annotations**. We just
+    add the `-a` flag after the `%%cython` magic and the non-optimized lines will
+    be shown in a gradient of yellow (white lines are faster, yellow lines are slower).
+    This is shown in the following screenshot. The color depends on the relative number
+    of Python API calls at each line.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![How it works…](img/4818OS_05_02.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: Annotations in Cython
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'There are two ways of declaring NumPy arrays as C variables with Cython: using
+    **array buffers** or using **typed memory views**. In this recipe, we used typed
+    memory views. We will cover array buffers in the next recipe.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Typed memory views allow efficient access to data buffers with a NumPy-like
+    indexing syntax. For example, we can use `int[:,::1]` to declare a C-ordered 2D
+    NumPy array with integer values, with `::1` meaning a contiguous layout in this
+    dimension. Typed memory views can be indexed just like NumPy arrays.
+  prefs: []
+  type: TYPE_NORMAL
+- en: However, memory views do not implement element-wise operations like NumPy. Thus,
+    memory views act as convenient data containers within tight `for` loops. For element-wise
+    NumPy-like operations, array buffers should be used instead.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We could achieve a significant performance speedup by replacing the call to
+    `np.abs` with a faster expression. The reason is that `np.abs` is a NumPy function
+    with a slight call overhead. It is designed to work with relatively large arrays,
+    not scalar values. This overhead results in a significant performance hit in a
+    tight loop such as here. This bottleneck can be spotted with Cython annotations.
+  prefs: []
+  type: TYPE_NORMAL
+- en: There's more…
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Using Cython from IPython is very convenient with the `%%cython` cell magic.
+    However, it is sometimes necessary to create a reusable C extension module with
+    Cython. This is actually what IPython's `%%cython` cell magic does under the hood.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The first step is to write a standalone Cython script in a `.pyx` file. This
+    should correspond exactly to the entire contents of a `%%cython` cell magic.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'The second step is to create a `setup.py` file that we will use to compile
+    the Cython module. Here is a basic `setup.py` file, assuming a `mandelbrot.pyx`
+    file:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE27]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'The third step is to execute this setup script with Python:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE28]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Two files have been created during the build process: the C source file and
+    a compiled Python extension. The file extension is `.pyd` on Windows (DLL files)
+    and `.so` on UNIX:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE29]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: Finally, we can load the compiled module as usual (using `from mandelbrot import
+    mandelbrot`).
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'With this technique, Cython code can also be integrated within a Python package.
+    Here are a few references:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Distributing Cython modules, explained at [http://docs.cython.org/src/userguide/source_files_and_compilation.html](http://docs.cython.org/src/userguide/source_files_and_compilation.html)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Compilation with Cython, explained at [http://docs.cython.org/src/reference/compilation.html](http://docs.cython.org/src/reference/compilation.html)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: See also
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: The *Optimizing Cython code by writing less Python and more C* recipe
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The *Releasing the GIL to take advantage of multicore processors with Cython
+    and OpenMP* recipe
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Optimizing Cython code by writing less Python and more C
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In this recipe, we will consider a more complicated Cython example. Starting
+    from a slow implementation in pure Python, we will use different Cython features
+    to speed it up progressively.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We will implement a very simple ray tracing engine. **Ray tracing** consists
+    of rendering a scene by simulating the physical properties of light propagation.
+    This rendering method leads to photorealistic scenes, but it is computationally
+    intensive.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Here, we will render a single sphere with diffuse and specular lighting. First
+    we'll give the example's code in pure Python. Then, we will accelerate it incrementally
+    with Cython.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: The code is long and contains many functions. We will first give the full code
+    of the pure Python version. Then, we will just describe the changes required to
+    accelerate the code with Cython. The entire scripts are available on the book's
+    website.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it…
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'First, let''s implement the pure Python version:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE30]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'We create a normalization function for vectors:'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '[PRE31]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Now, we create a function that computes the intersection of a ray with a sphere:'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '[PRE32]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'The following function traces a ray:'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '[PRE33]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Finally, the main loop is implemented in the following function:'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '[PRE34]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Now, we initialize the scene and define a few parameters:'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '[PRE35]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Let''s render the scene:'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '[PRE36]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '![How to do it…](img/4818OS_05_03.jpg)'
+  prefs:
+  - PREF_IND
+  type: TYPE_IMG
+- en: 'Ray tracing with Python and Cython. Left: the outcome of this recipe. Right:
+    outcome of an extended version.'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: How slow is this implementation?
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE37]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: If we just use the `%%cython` magic with the adequate `import numpy as np` and
+    `cimport numpy as np` commands at the top of the cell, we only get a modest improvement,
+    only a tenth of a second quicker.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'We could do better by giving information about the type of the variables. Since
+    we use vectorized computations on NumPy arrays, we cannot easily use memory views.
+    Rather, we will use array buffers. First, at the very beginning of the Cython
+    module (or `%%cython` cell), we declare NumPy data types as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE38]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: Then, we declare a NumPy array with `cdef np.ndarray[DBL_C, ndim=1]` (in this
+    example, a 1D array of double precision floating point numbers). There is a difficulty
+    here because NumPy arrays can only be declared inside functions, not at the top
+    level. Thus, we need to slightly tweak the overall architecture of the code by
+    passing some arrays as function arguments instead of using global variables. However,
+    even by declaring the type of all variables, we gain virtually no speedup at all.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: In the current implementation, we incur a performance hit because of the large
+    number of NumPy function calls on tiny arrays (three elements). NumPy is designed
+    to deal with large arrays, and it does not make much sense to use it for arrays
+    that small.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'In this specific situation, we can try to bypass NumPy by rewriting some functions
+    using the C standard library. We use the `cdef` keyword to declare a C-style function.
+    These functions can yield significant performance speedups. Here, we get a 2-3x
+    speedup by replacing the `normalize()` Python function with the following C function:'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '[PRE39]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: To get the most interesting speedups, we need to completely bypass NumPy. Where
+    do we use NumPy precisely?
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Many variables are NumPy arrays (mostly one-dimensional vectors with three elements).
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Element-wise operations yield implicit NumPy API calls.
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: We also use a few NumPy built-in functions such as `numpy.dot()`.
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'In order to bypass NumPy in our example, we need to reimplement all these features
+    for our specific needs. The first possibility is to use a native Python type for
+    vectors (for example, tuples), and write C-style functions that implement operations
+    on tuples (always assuming they have exactly three elements). For example, the
+    addition between two tuples can be implemented as follows:'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '[PRE40]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: We get an interesting speedup (30x compared to pure Python), but we can do even
+    better by using a pure C data type.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'We are going to define a pure C structure instead of using a Python type for
+    our vectors. In other words, we are not only bypassing NumPy, but we are also
+    bypassing Python by moving to pure C code. To declare a C structure representing
+    a 3D vector in Cython, we can use the following code:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE41]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'To create a new `Vec3` variable, we can use the following function:'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '[PRE42]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'As an example, here is the function used to add two `Vec3` objects:'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '[PRE43]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: The code can be updated to make use of these fast C-style functions. Finally,
+    the image can be declared as a 3D memory view. With all these changes, the Cython
+    implementation runs in ~12 ms, 300 times faster than the pure Python version!
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: In summary, we have achieved a very interesting speedup by basically rewriting
+    the entire implementation in C with an enhanced Python syntax.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How it works…
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Let''s explain briefly how the ray tracing code works. We model a three-dimensional
+    scene with objects such as planes and spheres (here, there is only one sphere).
+    There is also a camera and a plane representing the rendered image:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![How it works…](img/4818OS_05_04.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: Principles of ray tracing ("Ray trace diagram" by Henrik, Wikimedia Commons)
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'There is a main loop over all pixels of the image. For each pixel, we launch
+    a ray from the camera center to the scene through the current pixel and compute
+    the first intersection point between that ray and an object from the scene. Then,
+    we compute the pixel''s color as a function of the object material''s color, the
+    position of the lights, the normal of the object at the intersection point, and
+    so on. There are several physics-inspired lighting equations that describe how
+    the color depends on these parameters. Here, we use the **Blinn-Phong shading
+    model** with ambient, diffuse, and specular lighting components:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![How it works…](img/4818OS_05_05.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: Blinn-Phong shading model ("Phong components", Wikimedia Commons)
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Of course, a full ray tracing engine is far more complex than what we have
+    implemented in this example. We can model other optic and lighting characteristics
+    such as reflections, refractions, shadows, depth of field, and others. It is also
+    possible to implement ray tracing algorithms on the graphics card for real-time
+    photorealistic rendering. Here are a few references:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Blinn-Phong shading model on Wikipedia, available at [http://en.wikipedia.org/wiki/Blinn-Phong_shading_model](http://en.wikipedia.org/wiki/Blinn-Phong_shading_model)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Ray tracing on Wikipedia, available at [http://en.wikipedia.org/wiki/Ray_tracing_(graphics)](http://en.wikipedia.org/wiki/Ray_tracing_(graphics))
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: There's more…
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Although powerful, Cython requires a good understanding of Python, NumPy, and
+    C. The most interesting performance speedups are achieved when dynamically-typed
+    Python variables are converted to statically-typed C variables, notably within
+    tight loops.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Here are a few references:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Cython extension types available at [http://docs.cython.org/src/userguide/extension_types.html](http://docs.cython.org/src/userguide/extension_types.html)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Extended version of our ray tracing engine available at [http://gist.github.com/rossant/6046463](http://gist.github.com/rossant/6046463)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: See also
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: The *Accelerating Python code with Cython* recipe
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The *Releasing the GIL to take advantage of multicore processors with Cython
+    and OpenMP* recipe
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Releasing the GIL to take advantage of multicore processors with Cython and
+    OpenMP
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: As we have seen in this chapter's introduction, CPython's GIL prevents pure
+    Python code from taking advantage of multi-core processors. With Cython, we have
+    a way to release the GIL temporarily in a portion of the code in order to enable
+    multi-core computing. This is done with **OpenMP**, a multiprocessing API that
+    is supported by most C compilers.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this recipe, we will see how to parallelize the previous recipe's code on
+    multiple cores.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Getting ready
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: To enable OpenMP in Cython, you just need to specify some options to the compiler.
+    There is nothing special to install on your computer besides a good C compiler.
+    See the instructions in this chapter's introduction for more details.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this recipe, we use Microsoft's Visual C++ compiler on Windows, but the code
+    can be easily adapted to other systems.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it…
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Our simple ray tracing engine implementation is **embarrassingly parallel**;
+    there is a main loop over all pixels, within which the exact same function is
+    called repetitively. There is no crosstalk between loop iterations. Therefore,
+    it would be theoretically possible to execute all iterations in parallel.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Here, we will execute one loop (over all columns in the image) in parallel with
+    OpenMP.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'You will find the entire code on the book''s website. We will only show the
+    most important steps here:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We add the following options to the `%%cython` magic command: `--compile-args=/openmp
+    --link-args=/openmp`. The exact syntax may depend on your compiler and/or your
+    system. For example, `/openmp` should be replaced by `-fopenmp` with GCC.'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'We import the `prange()` function:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE44]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'We add `nogil` after each function definition in order to remove the GIL. We
+    cannot use any Python variable or function inside a function annotated with `nogil`.
+    For example:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE45]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'To run a loop in parallel over the cores with OpenMP, we use `prange()`:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE46]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: The GIL needs to be released before using any parallel computing feature such
+    as `prange()`.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: With these changes, we reach a 4x speedup on a quad-core processor.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: How it works…
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: The GIL has been described in the introduction of this chapter. The `nogil`
+    keyword tells Cython that a particular function or code section should be executed
+    without the GIL. When the GIL is released, it is not possible to make any Python
+    API calls, meaning that only C variables and C functions (declared with `cdef`)
+    can be used.
+  prefs: []
+  type: TYPE_NORMAL
+- en: See also
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: The *Accelerating Python code with Cython* recipe
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The *Optimizing Cython code by writing less Python and more C* recipe
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The *Distributing Python code across multiple cores with IPython* recipe
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Writing massively parallel code for NVIDIA graphics cards (GPUs) with CUDA
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '**Graphics Processing Units** (**GPUs**) are powerful processors specialized
+    in real-time rendering. We find GPUs in virtually any computer, laptop, video
+    game console, tablet, or smartphone. Their massively parallel architecture comprises
+    tens to thousands of cores. The video game industry has been fostering the development
+    of increasingly powerful GPUs over the last two decades.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: GPUs are routinely used in modern supercomputers (for example in Cray's Titan
+    at Oak Ridge National Laboratory, ~20 petaFLOPS, ~20,000 CPUs, and as many NVIDIA
+    GPUs). A high-end $1000 GPU today is roughly as powerful as a $100 million supercomputer
+    from 2000 (several teraFLOPS).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: FLOPS means FLoating-point Operations Per Second. A 1 teraFLOPS GPU can perform
+    up to one trillion floating-point operations per second.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Since the mid-2000s, GPUs are no longer limited to graphics processing. We
+    can now implement scientific algorithms on a GPU. The only condition is that the
+    algorithm follows the **SIMD (Single Instruction, Multiple Data) paradigm**, where
+    a sequence of instructions is executed in parallel with multiple data. This is
+    called **General Purpose Programming on Graphics Processing Units** (**GPGPU**).
+    GPGPU is used in many areas: meteorology, data mining, computer vision, image
+    processing, finance, physics, bioinformatics, and many more. Writing code for
+    GPUs can be challenging as it requires understanding the internal architecture
+    of the hardware.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**CUDA** is a proprietary GPGPU framework created in 2007 by NVIDIA Corporation,
+    one of the main GPU manufacturers. Programs written in CUDA only work on NVIDIA
+    graphics cards. There is another competing GPGPU framework called **OpenCL**,
+    an open standard supported by other major companies. OpenCL programs can work
+    on GPUs and CPUs from most manufacturers (notably NVIDIA, AMD, and Intel).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this recipe, we will show a very basic example of GPGPU. We'll implement
+    the embarrassingly parallel computation of the Mandelbrot fractal in CUDA. In
+    the next recipe, we will implement the exact same example in OpenCL.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Tip
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: Should you choose OpenCL or CUDA for a new project? The answer depends most
+    notably on the hardware of your user base. If you need the highest performance
+    possible for a specific project in your lab where all computers have an NVIDIA
+    card, and if releasing your program to the world is not a high priority, you could
+    choose CUDA. If you envision distributing your program to many people running
+    different platforms, you should probably choose OpenCL. Featurewise, these two
+    platforms are very roughly equivalent.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We can use CUDA in Python thanks to PyCUDA, a Python package written by Andreas
+    Klöckner ([http://documen.tician.de/pycuda/](http://documen.tician.de/pycuda/)).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Getting ready
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Installing and configuring PyCUDA is not straightforward in general. First,
+    you need an NVIDIA GPU. Then, you need to install the CUDA SDK. Finally, you have
+    to install and configure PyCUDA. Note that PyCUDA depends on a few external packages,
+    notably pytools.
+  prefs: []
+  type: TYPE_NORMAL
+- en: On Windows, you should use Chris Gohlke's package. Make sure your version of
+    CUDA matches the version used in the PyCUDA package. If you have DLL-related problems,
+    use Dependency Walker on the `*.pyd` files in PyCUDA's installation folder (with
+    Anaconda, it should look like `C:\anaconda\lib\site-packages\pycuda`). If you
+    use Windows 64-bit, make sure that `C:\Windows\SysWOW64` is in your system PATH.
+    Finally, make sure you have the version of Visual Studio that corresponds to your
+    version of Python (see the instructions related to C compilers at the beginning
+    of this chapter).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'You will find more information at the following links:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: CUDA SDK available at [http://developer.nvidia.com/cuda-downloads](http://developer.nvidia.com/cuda-downloads)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: PyCUDA wiki available at [http://wiki.tiker.net](http://wiki.tiker.net)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Let''s import PyCUDA:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE47]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'We initialize the NumPy array that will contain the fractal:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE48]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'We allocate GPU memory for this array:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE49]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'We write the CUDA kernel in a string. Arguments to the `mandelbrot()` function
+    are:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: The figure **size**
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The number of **iterations**
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The **pointer** to the memory buffer
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'This function executes on every single pixel. It updates the `col` buffer with
+    the pixel''s color:'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '[PRE50]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Now, we compile the CUDA program:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE51]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'We define the block size and the grid size, specifying how the threads will
+    be parallelized with respect to the data:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE52]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'We call the compiled function:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE53]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Once the function has completed, we copy the contents of the CUDA buffer back
+    to the NumPy array `col`:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE54]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: The `col` array now contains the Mandelbrot fractal. We find that this CUDA
+    program is executed in 0.7 ms on a mobile GeForce GPU.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: How it works…
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: GPU programming is a rich and highly technical topic, encompassing low-level
+    architectural details of GPUs. Of course, we only scratched the surface here with
+    the simplest paradigm possible (the "embarrassingly parallel" problem). We give
+    further references in a later section.
+  prefs: []
+  type: TYPE_NORMAL
+- en: A CUDA GPU has a number of **multiprocessors**, and each multiprocessor has
+    multiple **stream processors** (also called **CUDA cores**). Each multiprocessor
+    executes in parallel with the others. Within a multiprocessor, the stream processors
+    execute the same instruction at the same time, but on multiple data bits (SIMD
+    paradigm).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Central notions to the CUDA programming model are those of kernels, threads,
+    blocks, and grids:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: A **kernel** is a program written in a C-like language that runs on the GPU.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: A **thread** represents one execution of a kernel on one *stream processor*.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: A **block** contains multiple threads executing on one *multiprocessor*.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: A **grid** contains a number of blocks.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The number of threads per block is limited by the size of the multiprocessors
+    and depends on the graphics card model (1024 in recent models). However, a grid
+    can contain an arbitrary number of blocks.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Within a block, threads are executed within **warps** of typically 32 threads.
+    Better performance is achieved when conditional branching in a kernel is organized
+    into groups of 32 threads.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Threads within a block can synchronize at synchronization barriers using the
+    `__syncthreads()` function. This feature enables inter-thread communication within
+    one block. However, blocks execute independently so that two threads from different
+    blocks cannot synchronize.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Within a block, threads are organized into a 1D, 2D, or 3D structure, and similarly
+    for blocks within a grid, as shown in the following figure. This structure is
+    convenient as it matches most common multidimensional datasets encountered in
+    real-world problems.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![How it works…](img/4818OS_05_06.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: The CUDA programming model (showing threads, blocks, and grids — image by NVIDIA
+    Corporation)
+  prefs: []
+  type: TYPE_NORMAL
+- en: The kernel can retrieve the thread index within the block (`threadIdx`), as
+    well as the block index within the grid (`blockIdx`) to determine which bit of
+    data it should work on. In this recipe, the 2D image of the fractal is partitioned
+    into 10 x 10 blocks, each block containing 100 pixels, with one thread per pixel.
+    The kernel `mandelbrot` computes the color of a single pixel.
+  prefs: []
+  type: TYPE_NORMAL
+- en: There are several levels of memory on the GPU, ranging from small, fast, and
+    local memory shared by a few threads within a block; to large, slow, and global
+    memory shared by all blocks. We need to tweak the memory access patterns in the
+    code to match the hardware constraints and achieve higher performance. In particular,
+    data access is more efficient when the threads within a warp access *consecutive*
+    addresses in the global memory; the hardware **coalesces** all memory accesses
+    into a single access to consecutive **DRAM** (**Dynamic Random Access Memory**)
+    locations.
+  prefs: []
+  type: TYPE_NORMAL
+- en: PyCUDA lets us upload/download data from NumPy arrays to buffers residing on
+    the GPU. This operation is generally costly. Complex real-world problems frequently
+    involve iterative steps happening on both the CPU and on the GPU, such that communication
+    between the two is a common performance bottleneck. Higher performance is achieved
+    when there are few of these exchanges.
+  prefs: []
+  type: TYPE_NORMAL
+- en: There is some boilerplate code in (Py)CUDA on the C/Python side that consists
+    of initializing the GPU, allocating data, uploading/downloading data to/from the
+    GPU, compiling the kernel, executing the kernel, and so on. You can find all the
+    details in the CUDA/PyCUDA documentation, but as a first approach, you can also
+    just copy and paste code from this recipe or any tutorial.
+  prefs: []
+  type: TYPE_NORMAL
+- en: There's more…
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Here are a few references:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Official CUDA portal at [http://developer.nvidia.com/category/zone/cuda-zone](http://developer.nvidia.com/category/zone/cuda-zone)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Education and training for CUDA, at [http://developer.nvidia.com/cuda-education-training](http://developer.nvidia.com/cuda-education-training)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Suggested books about CUDA, at [http://developer.nvidia.com/suggested-reading](http://developer.nvidia.com/suggested-reading)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Choosing between CUDA or OpenCL, at [http://wiki.tiker.net/CudaVsOpenCL](http://wiki.tiker.net/CudaVsOpenCL)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: A blog post on CUDA and OpenCL available at [http://streamcomputing.eu/blog/2011-06-22/opencl-vs-cuda-misconceptions/](http://streamcomputing.eu/blog/2011-06-22/opencl-vs-cuda-misconceptions/)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: See also
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: The *Writing massively parallel code for heterogeneous platforms with OpenCL*
+    recipe
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Writing massively parallel code for heterogeneous platforms with OpenCL
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In the previous recipe, we introduced CUDA, a *proprietary* GPGPU framework
+    created by NVIDIA Corporation. In this recipe, we present OpenCL, an alternative
+    *open* framework initiated by Apple in 2008\. It is now adopted by mainstream
+    companies including Intel, NVIDIA, AMD, Qualcomm, ARM, and others. These companies
+    are regrouped within the non-profit technology consortium **Khronos Group** (which
+    also maintains the OpenGL real-time rendering specification). Programs written
+    in OpenCL can run on GPUs and CPUs (**heterogeneous computing**).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Tip
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: CUDA and OpenCL are relatively similar in terms of concepts, syntax, and features.
+    CUDA sometimes leads to slightly higher performance, since its API matches the
+    hardware more closely than OpenCL's generic API.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We can use OpenCL in Python thanks to **PyOpenCL**, a Python package written
+    by Andreas Klöckner ([http://documen.tician.de/pyopencl/](http://documen.tician.de/pyopencl/)).
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this recipe, we will implement the Mandelbrot fractal in OpenCL. The OpenCL
+    kernel is very similar to the CUDA kernel from the previous recipe. The Python
+    API used to access OpenCL is somewhat different from PyCUDA, but the concepts
+    are equivalent.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Getting ready
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Installing PyOpenCL is generally not straightforward. The first step is to install
+    the OpenCL SDK for your hardware (CPU and/or GPU). Then, you have to install and
+    configure PyOpenCL. On Windows, you should use Chris Gohlke's package. Some installation
+    instructions in the previous recipe apply here as well.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Here are a few references:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The PyOpenCL Wiki available at [http://wiki.tiker.net](http://wiki.tiker.net)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The documentation of PyOpenCL available at [http://documen.tician.de/pyopencl/](http://documen.tician.de/pyopencl/)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Here are the links to the various OpenCL SDKs:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Intel's SDK is available at [http://software.intel.com/en-us/vcsource/tools/opencl-sdk](http://software.intel.com/en-us/vcsource/tools/opencl-sdk)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: AMD's SDK is available at [http://developer.amd.com/tools-and-sdks/heterogeneous-computing/](http://developer.amd.com/tools-and-sdks/heterogeneous-computing/)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: NVIDIA's SDK is available at [http://developer.nvidia.com/opencl](http://developer.nvidia.com/opencl)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: How to do it…
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Let''s import PyOpenCL:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE55]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'The following object defines some flags related to memory management on the
+    device:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE56]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'We create an OpenCL context and a command queue:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE57]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Now, we initialize the NumPy array that will contain the fractal:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE58]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'We allocate GPU memory for this array:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE59]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'We write the OpenCL kernel in a string:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE60]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Now, we compile the OpenCL program:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE61]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'We call the compiled function, passing the command queue, the grid size, and
+    the buffers as arguments:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE62]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Once the function has completed, we copy the contents of the OpenCL buffer
+    back into the NumPy array `col`:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE63]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: Finally, we can check that the function was successful by `imshow()`-ing the
+    NumPy array `col`. We can also do a quick benchmark with `%timeit`, and we find
+    that this function takes ~3.7 ms to complete on an Intel i3 dual-core CPU.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: How it works…
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'The principles detailed in the previous recipe apply here as well. There is
+    a change of terminology between CUDA and OpenCL:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: CUDA threads are equivalent to OpenCL **work items**.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: CUDA blocks are equivalent to OpenCL **work groups**.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: A CUDA grid is equivalent to an OpenCL **NDRange**.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: A CUDA streaming processor is equivalent to an OpenCL **compute unit**.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: In the kernel, we can get a work item's index with `get_local_id(dim)`, `get_group_id(dim)`,
+    and `get_global_id(dim)`. The `global` qualifier in the function's arguments specifies
+    that a variable corresponds to an object in global memory.
+  prefs: []
+  type: TYPE_NORMAL
+- en: An OpenCL context is the environment within which work items execute. It includes
+    devices with their memories and command queues. The command queue is a queue used
+    by the host application to submit work to a device.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This program works the same on a CPU or a GPU, depending on the installed OpenCL
+    SDK and on the available OpenCL context. If multiple contexts exist, PyOpenGL
+    may ask the user to choose the device. The context may also be specified programmatically
+    (see [http://documen.tician.de/pyopencl/runtime.html#pyopencl.Context](http://documen.tician.de/pyopencl/runtime.html#pyopencl.Context)).
+    On a CPU, the code is parallelized and vectorized over multiple cores and with
+    vector instructions such as SSE or AVX.
+  prefs: []
+  type: TYPE_NORMAL
+- en: There's more…
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: OpenCL is a relatively young standard but we should expect it to have more and
+    more importance in the future. It is supported by the biggest companies in the
+    GPU industry. It supports interoperability with OpenGL, the industry standard
+    for real-time, hardware-accelerated computer graphics (maintained by the very
+    same Khronos Group). It is on its way to being supported on mobile platforms (smartphones
+    and tablets), and in the browser as well with **WebCL** (which is still a draft
+    at the time of writing).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Here are a few OpenCL resources:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: OpenCL tutorial available at [http://opencl.codeplex.com](http://opencl.codeplex.com)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Courses available at [http://developer.amd.com/partners/university-programs/opencl-university-course-listings/](http://developer.amd.com/partners/university-programs/opencl-university-course-listings/)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Books on OpenCL, at [http://streamcomputing.eu/knowledge/for-developers/books/](http://streamcomputing.eu/knowledge/for-developers/books/)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: See also
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: The *Writing massively parallel code for NVIDIA graphics cards (GPUs) with CUDA*
+    recipe
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Distributing Python code across multiple cores with IPython
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Despite CPython's GIL, it is possible to execute several tasks in parallel on
+    multi-core computers using multiple processes instead of multiple threads. Python
+    offers a native **multiprocessing** module. IPython offers an even simpler interface
+    that brings powerful parallel computing features in an interactive environment.
+    We will describe this tool here.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it…
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'First, we launch four IPython engines in separate processes. We have basically
+    two options to do this:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Executing `ipcluster start -n 4` in a system shell
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Using the web interface provided in the IPython notebook's main page by clicking
+    on the **Clusters** tab and launching four engines
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Then, we create a client that will act as a proxy to the IPython engines. The
+    client automatically detects the running engines:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE64]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Let''s check the number of running engines:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE65]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'To run commands in parallel over the engines, we can use the `%px` line magic
+    or the `%%px` cell magic:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE66]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'We can specify which engines to run the commands on using the `--targets` or
+    `-t` option:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE67]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'By default, the `%px` magic executes commands in **blocking mode**; the cell
+    only returns when the commands have completed on all engines. It is possible to
+    run non-blocking commands with the `--noblock` or `-a` option. In this case, the
+    cell returns immediately, and the task''s status and results can be polled asynchronously
+    from IPython''s interactive session:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE68]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'The previous command returned an `ASyncResult` instance that we can use to
+    poll the task''s status:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE69]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'The `%pxresult` blocks until the task finishes:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE70]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'IPython provides convenient functions for common use cases, such as a parallel
+    `map` function:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE71]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: How it works…
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'There are several steps to distribute code across multiple cores:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Launching several IPython **engines** (there is typically one process per core).
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Creating a `Client` that acts as a proxy to these engines.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Using the client to launch tasks on the engines and retrieve the results.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Engines are Python processes that execute code on different computing units.
+    They are very similar to IPython kernels.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'There are two main interfaces for accessing the engines:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: With the **direct interface**, we access engines directly and explicitly with
+    their identifiers.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: With the **load-balanced interface**, we access engines through an interface
+    that automatically and dynamically assigns work to appropriate engines.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: We can also create custom interfaces for alternative styles of parallelism.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this recipe, we used the direct interface; we addressed individual engines
+    explicitly by specifying their identifiers in the `%px` magics.
+  prefs: []
+  type: TYPE_NORMAL
+- en: As we have seen in this recipe, tasks can be launched synchronously or asynchronously.
+    The `%px*` magic commands are particularly convenient in the notebook, as they
+    let us work seamlessly on multiple engines in parallel.
+  prefs: []
+  type: TYPE_NORMAL
+- en: There's more…
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: The parallel computing capabilities of IPython offer an easy way to launch independent
+    jobs in parallel over multiple cores. A more advanced use case is when jobs have
+    **dependencies**.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Dependent parallel tasks
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'There are two types of dependencies:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Functional dependency**: It determines whether a given task can execute on
+    a given engine, according to the engine''s operating system, the presence or absence
+    of specific Python modules, or other conditions. IPython provides a `@require`
+    decorator for functions that need specific Python modules to run on the engines.
+    Another decorator is `@depend`; it lets us define arbitrary conditions implemented
+    in a Python function returning `True` or `False`.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Graph dependency**: It determines whether a given task can execute at a given
+    time on a given engine. We may require a task to run only after one or several
+    other tasks have finished. Additionally, we can impose this condition within any
+    individual engine; an engine may need to execute a specific set of tasks before
+    executing our task. For example, here is how to require tasks B and C (with asynchronous
+    results `arB` and `arC`) to finish before task A starts:'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '[PRE72]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: IPython provides options to specify whether all or any of the dependencies should
+    be met for the task to run. Additionally, we can specify whether success- and/or
+    failure-dependent tasks should be considered as met or not.
+  prefs: []
+  type: TYPE_NORMAL
+- en: When a task's dependency is unmet, the scheduler reassigns it to one engine,
+    then to another engine, and so on until an appropriate engine is found. If the
+    dependency cannot be met on any engine, an `ImpossibleDependency` error is raised
+    for the task.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Passing data between dependent tasks is not particularly easy with IPython.parallel.
+    A first possibility is to use blocking calls in the interactive session; wait
+    for tasks to finish, retrieve the results, and send them back to the next tasks.
+    Another possibility is to share data between engines via the filesystem, but this
+    solution does not work well on multiple computers. An alternate solution is described
+    at: [http://nbviewer.ipython.org/gist/minrk/11415238](http://nbviewer.ipython.org/gist/minrk/11415238).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Alternative parallel computing solutions
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: Besides IPython, there are numerous alternative parallel computing frameworks
+    in Python, including **ParallelPython**, **joblib**, and many others.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'There are also third-party (often commercial) services that provide Python-based
+    clouds, such as **PythonAnywhere** or **Wakari**. They are generally used in two
+    ways:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Distributing a large number of computational tasks across multiple nodes
+    in parallel**: Instead of being limited to a few cores with one or several local
+    computers, we can use hundreds or thousands of servers in parallel without worrying
+    about the maintenance of the whole infrastructure (it is handled by the company).'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Hosting Python applications online, typically with a web interface**: For
+    example, with Wakari, IPython notebooks can run on the cloud. An interesting use
+    case is teaching, where students can instantaneously use IPython from a web browser
+    connected to the Internet without installing anything locally.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: References
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'Here are a few references about IPython.parallel:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Documentation of IPython.parallel available at [http://ipython.org/ipython-doc/dev/parallel/](http://ipython.org/ipython-doc/dev/parallel/)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: IPython parallel tutorial by the IPython developers available at [http://nbviewer.ipython.org/github/minrk/IPython-parallel-tutorial/blob/master/Index.ipynb](http://nbviewer.ipython.org/github/minrk/IPython-parallel-tutorial/blob/master/Index.ipynb)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Dependencies in IPython.parallel, explained at [http://ipython.org/ipython-doc/dev/parallel/parallel_task.html#dependencies](http://ipython.org/ipython-doc/dev/parallel/parallel_task.html#dependencies)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: DAG dependencies, described at [http://ipython.org/ipython-doc/dev/parallel/dag_dependencies.html](http://ipython.org/ipython-doc/dev/parallel/dag_dependencies.html)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Examples of advanced techniques with IPython.parallel available at [http://github.com/ipython/ipython/tree/master/examples/Parallel%20Computing](http://github.com/ipython/ipython/tree/master/examples/Parallel%20Computing)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Here are some references about alternative parallel computing solutions in
+    Python:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Parallel Python available at [http://www.parallelpython.com](http://www.parallelpython.com)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Joblib available at [http://pythonhosted.org/joblib/parallel.html](http://pythonhosted.org/joblib/parallel.html)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: List of parallel computing packages available at [http://wiki.python.org/moin/ParallelProcessing](http://wiki.python.org/moin/ParallelProcessing)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Python Anywhere available at [http://www.pythonanywhere.com](http://www.pythonanywhere.com)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Wakari available at [http://wakari.io](http://wakari.io)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: IPCluster on Wakari described at [http://continuum.io/blog/ipcluster-wakari-intro](http://continuum.io/blog/ipcluster-wakari-intro)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Teaching with Wakari described at [http://continuum.io/blog/teaching-with-wakari](http://continuum.io/blog/teaching-with-wakari)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: See also
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: The *Interacting with asynchronous parallel tasks in IPython* recipe
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The *Parallelizing code with MPI in IPython* recipe
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Interacting with asynchronous parallel tasks in IPython
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In this recipe, we will show how to interact with asynchronous tasks running
+    in parallel with IPython.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Getting ready
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: You need to start the IPython engines (see the previous recipe). The simplest
+    option is to launch them from the **Clusters** tab in the notebook dashboard.
+    In this recipe, we use four engines.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it…
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Let''s import a few modules:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE73]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'We create a `Client`:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE74]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Now, we create a load-balanced view on the IPython engines:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE75]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'We define a simple function for our parallel tasks:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE76]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'We will run this function on 100 integer numbers in parallel:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE77]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'We execute `f()` on our list `numbers` in parallel across all of our engines,
+    using `map_async()`. This function immediately returns an `AsyncResult` object
+    that allows us to interactively retrieve information about the tasks:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE78]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'This object has a `metadata` attribute: a list of dictionaries for all engines.
+    We can get the date of submission and completion, the status, the standard output
+    and error, and other information:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE79]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Iterating over the `AsyncResult` instance works normally; the iteration progresses
+    in real-time while the tasks are being completed:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE80]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Now, we create a simple progress bar for our asynchronous tasks. The idea is
+    to create a loop polling for the tasks'' status at every second. An `IntProgressWidget`
+    widget is updated in real-time and shows the progress of the tasks:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE81]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'The progress bar is shown in the following screenshot:'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '![How to do it…](img/4818OS_05_07.jpg)'
+  prefs:
+  - PREF_IND
+  type: TYPE_IMG
+- en: 'Finally, it is easy to debug a parallel task on an engine. We can launch a
+    Qt client on the remote kernel by calling `%qtconsole` within a `%%px` cell magic:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE82]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'The Qt console allows us to inspect the remote namespace for debugging or analysis
+    purposes, as shown in the following screenshot:'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '![How to do it…](img/4818OS_05_08.jpg)'
+  prefs:
+  - PREF_IND
+  type: TYPE_IMG
+- en: Qt console for debugging an IPython engine
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: How it works…
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: '`AsyncResult` instances are returned by asynchronous parallel functions. They
+    implement several useful attributes and methods, notably:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`elapsed`: Elapsed time since submission'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`progress`: Number of tasks that have competed so far'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`serial_time`: Sum of the computation time of all of the tasks done in parallel'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`metadata`: Dictionary with further information about the task'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`ready()`: Returns whether the call has finished'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`successful()`: Returns whether the call has completed without raising an exception
+    (an exception is raised if the task has not completed yet)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`wait()`: Blocks until the tasks have completed (there is an optional timeout
+    argument)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`get()`: Blocks until the tasks have completed and returns the result (there
+    is an optional timeout argument)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: There's more…
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Here are a few references:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Documentation of the AsyncResult class available at [http://ipython.org/ipython-doc/dev/parallel/asyncresult.html](http://ipython.org/ipython-doc/dev/parallel/asyncresult.html)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Documentation of the task interface available at [http://ipython.org/ipython-doc/dev/parallel/parallel_task.html](http://ipython.org/ipython-doc/dev/parallel/parallel_task.html)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Printing engines output in real-time, demonstrated at [http://github.com/ipython/ipython/blob/master/examples/Parallel%20Computing/iopubwatcher.py](http://github.com/ipython/ipython/blob/master/examples/Parallel%20Computing/iopubwatcher.py)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: See also
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: The *Distributing Python code across multiple cores with IPython* recipe
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The *Parallelizing code with MPI in IPython* recipe
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Parallelizing code with MPI in IPython
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '**Message Passing Interface** (**MPI**) is a standardized communication protocol
+    for parallel systems. It is used in many parallel computing applications to exchange
+    data between nodes. MPI has a high barrier to entry, but it is very efficient
+    and powerful.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: IPython's parallel computing system has been designed from the ground up to
+    work with MPI. If you are new to MPI, it is a good idea to start using it from
+    IPython. If you are an experienced MPI user, you will find that IPython integrates
+    seamlessly with your parallel application.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this recipe, we will see how to use MPI with IPython through a very simple
+    example.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Getting ready
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'To use MPI with IPython, you need:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: A standard MPI implementation such as OpenMPI available at [http://www.open-mpi.org](http://www.open-mpi.org)
+    or MPICH available at [http://www.mpich.org](http://www.mpich.org)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The mpi4py package available at [http://mpi4py.scipy.org](http://mpi4py.scipy.org)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'For example, here are the commands to install MPI for IPython on Ubuntu and
+    Anaconda:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE83]'
+  prefs: []
+  type: TYPE_PRE
+- en: You can also do `pip install mpi4py` for mpi4py. MPI can also be used on Windows.
+    The website of *Python Tools for Visual Studio* available at [http://pytools.codeplex.com](http://pytools.codeplex.com)
+    contains the instructions to do this.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it…
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'We first need to create a MPI profile with:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE84]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: Then, we open `~/.ipython/profile_mpi/ipcluster_config.py` and add the line
+    `c.IPClusterEngines.engine_launcher_class = 'MPI'`.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Once the MPI profile has been created and configured, we can launch the engines
+    by typing in a terminal: `ipcluster start -n 2 --engines MPI --profile=mpi`.'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Now, to actually use the engines, we create a client in the notebook:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE85]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Let''s create a view on all engines:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE86]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'In this example, we compute the sum of all integers between 0 and 15 in parallel
+    over two cores. We first distribute the array with the 16 values across the engines
+    (each engine gets a subarray):'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE87]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'We compute the total sum in parallel using MPI''s `allreduce()` function. Every
+    node makes the same computation and returns the same result:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE88]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: Tip
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: If you get a different result, it means that the engines were not actually started
+    with MPI (see [http://stackoverflow.com/a/20159018/1595060](http://stackoverflow.com/a/20159018/1595060)).
+  prefs: []
+  type: TYPE_NORMAL
+- en: How it works…
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'In this example, each node:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Receives a subset of the integers
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Computes the local sum of those integers
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Sends this local sum to all other engines
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Receives the local sum of the other engines
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Computes the total sum of those local sums
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: This is how `allreduce()` works in MPI; the principle is to **scatter** data
+    across engines first, then to **reduce** the local computations through a global
+    operator (here, `MPI.SUM`).
+  prefs: []
+  type: TYPE_NORMAL
+- en: IPython's direct interface also supports the scatter/gather paradigm natively,
+    without resorting to MPI. However, these operations can only be launched from
+    the interactive session, not from the engines themselves.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'There are many other parallel computing paradigms in MPI. You can find more
+    information here:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: MPI tutorials by Wes Kendall available at [http://mpitutorial.com](http://mpitutorial.com)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: MPI tutorials by Blaise Barney, Lawrence Livermore National Laboratory, available
+    at [http://computing.llnl.gov/tutorials/mpi/](http://computing.llnl.gov/tutorials/mpi/)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: See also
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: The *Distributing Python code across multiple cores with IPython* recipe
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The *Interacting with asynchronous parallel tasks in IPython* recipe
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Trying the Julia language in the notebook
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Julia ([http://julialang.org](http://julialang.org)) is a young, high-level,
+    dynamic language for high-performance numerical computing. The first version was
+    released in 2012 after three years of development at MIT. Julia borrows ideas
+    from Python, R, MATLAB, Ruby, Lisp, C, and other languages. Its major strength
+    is to combine the expressivity and ease of use of high-level, dynamic languages
+    with the speed of C (almost). This is achieved via an LLVM-based Just-In-Time
+    (JIT) compiler that targets machine code for x86-64 architectures.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this recipe, we will try Julia in the IPython notebook using the **IJulia**
+    package available at [http://github.com/JuliaLang/IJulia.jl](http://github.com/JuliaLang/IJulia.jl).
+    We will also show how to use Python packages (such as NumPy and matplotlib) from
+    Julia. Specifically, we will compute and display a Julia set.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This recipe is inspired by a Julia tutorial given by David P. Sanders at the
+    SciPy 2014 conference ([http://nbviewer.ipython.org/github/dpsanders/scipy_2014_julia/tree/master/](http://nbviewer.ipython.org/github/dpsanders/scipy_2014_julia/tree/master/)).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Getting ready
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: You first need to install Julia. You will find packages for Windows, Mac OS
+    X, and Linux on Julia's website at [http://julialang.org/downloads/](http://julialang.org/downloads/).
+    On Ubuntu, you can type `sudo apt-get install julia` in a terminal. For IJulia,
+    you also need a C++ compiler. On Ubuntu, you can type `sudo apt-get install build-essential`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Then, open a Julia terminal with the `julia` command, and install IJulia by
+    typing `Pkg.add("IJulia")` in the Julia terminal. This package should also create
+    a `julia` profile in your IPython installation.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Finally, to launch a Julia notebook, run `ipython notebook --profile=julia`
+    in a terminal. You'll recognize the dashboard of the IPython notebook. The only
+    difference is that the Julia language is used in the notebook instead of Python.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This recipe has been tested on Ubuntu 14.04 with Julia 0.2.1.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it…
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'We can''t avoid the customary *Hello World* example. The `println()` function
+    displays a string and adds a line break at the end:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE89]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'We create a polymorphic function, `f`, that computes the expression `z*z+c`.
+    We will evaluate this function on arrays, so we use element-wise operators with
+    a dot (`.`) prefix:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE90]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: Let's evaluate `f` on scalar complex numbers (the imaginary number *i* is `1im`).
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE91]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Now, we create a (2, 2) matrix. Components are separated by a space and rows
+    are separated by a semicolon (`;`). The type of this `Array` is automatically
+    inferred from its components. The `Array` type is a built-in data type in Julia,
+    similar, but not identical, to NumPy''s `ndarray` type:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE92]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'We can index arrays with brackets `[]`. A notable difference with Python is
+    that indexing starts from 1 instead of 0\. MATLAB has the same convention. Furthermore,
+    the keyword `end` refers to the last item in that dimension:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE93]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'We can evaluate `f` on the matrix `z` and a scalar `c` (polymorphism):'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE94]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Now, we create a function, `julia`, that computes a Julia set. Optional named
+    arguments are separated from positional arguments by a semicolon (`;`). Julia''s
+    syntax for flow control is close to that of Python''s, except that colons are
+    dropped, indentation doesn''t count, and block `end` keywords are mandatory:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE95]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'We can use Python packages from Julia. First, we have to install the `PyCall`
+    package by using Julia''s built-in package manager (`Pkg`). Once the package is
+    installed, we can use it in the interactive session with `using PyCall`:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE96]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'We can import Python packages with the `@pyimport` **macro** (a metaprogramming
+    feature in Julia). This macro is the equivalent of Python''s `import` command:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE97]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'The `np` namespace is now available in the Julia interactive session. NumPy
+    arrays are automatically converted to Julia `Array` objects:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE98]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'We can use list comprehensions to evaluate the function `julia` on many arguments:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE99]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Let''s try the Gadfly plotting package. This library offers a high-level plotting
+    interface inspired by Dr. Leland Wilkinson''s textbook *The Grammar of Graphics*.
+    In the notebook, plots are interactive thanks to the **D3.js** library:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE100]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Here is a screenshot:'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '![How to do it…](img/4818OS_05_09.jpg)'
+  prefs:
+  - PREF_IND
+  type: TYPE_IMG
+- en: A Gadfly plot in the IPython notebook with Julia
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'Now, we compute a Julia set by using two nested loops. In general, and unlike
+    Python, there is no significant performance penalty in using `for` loops instead
+    of vectorized operations. High-performance code can be written either with vectorized
+    operations or `for` loops:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE101]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Finally, we use the `PyPlot` package to draw matplotlib figures in Julia:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE102]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '![How to do it…](img/4818OS_05_10.jpg)'
+  prefs:
+  - PREF_IND
+  type: TYPE_IMG
+- en: How it works…
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Languages used to be either low-level, difficult to use, but fast (such as C);
+    or high-level, easy to use, but slow (such as Python). In Python, solutions to
+    this problem include NumPy and Cython, among others.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Julia developers chose to create a new high-level but fast language, bringing
+    the best of both worlds together. This is essentially achieved through modern
+    Just-In-Time compilation techniques implemented with LLVM.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Julia dynamically parses code and generates low-level code in the LLVM Intermediate
+    Representation. This representation features a language-independent instruction
+    set that is then compiled to machine code. Code written with explicit loops is
+    directly compiled to machine code. This explains why the performance-motivated
+    vectorization of code is generally not required with Julia.
+  prefs: []
+  type: TYPE_NORMAL
+- en: There's more…
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Strengths of Julia include:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: A powerful and flexible dynamic type system based on multiple dispatch for parametric
+    polymorphism
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Facilities for metaprogramming
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: A simple interface for calling C, FORTRAN, or Python code from Julia
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Built-in support for fine-grained parallel and distributed computing
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: A built-in multidimensional array data type and numerical computing library
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: A built-in package manager based on Git
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: External packages for data analysis such as DataFrames (equivalent of pandas)
+    and Gadfly (statistical plotting library)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Integration in the IPython notebook
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: What are the strengths of Python over Julia? At the time of this writing, Julia
+    is much younger and less mature than Python and SciPy. Therefore, there are fewer
+    packages and less documentation in Julia than in Python. The syntax of the Julia
+    language is still changing. Additionally, Python is much more commonly found in
+    production environments than Julia. Thus, bringing numerical computing code to
+    a production environment is easier when the code is in Python.
+  prefs: []
+  type: TYPE_NORMAL
+- en: That being said, the Julia ecosystem and its community are growing fast. We
+    can reasonably expect Julia to become increasingly popular in the future. Also,
+    since both languages can be used in the IPython notebook, we don't necessarily
+    have to *choose* between Python and Julia. We can call Python code and use Python
+    modules from Julia and vice versa.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We have only scratched the surface of the Julia language in this recipe. Topics
+    of interest we couldn't cover in details here include Julia's type system, the
+    metaprogramming features, the support for parallel computing, and the package
+    manager, among others.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Here are some references:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The Julia language on Wikipedia available at [http://en.wikipedia.org/wiki/Julia_%28programming_language%29](http://en.wikipedia.org/wiki/Julia_%28programming_language%29)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Official documentation of Julia available at [http://docs.julialang.org/en/latest/](http://docs.julialang.org/en/latest/)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The *Why We Created Julia* blog post available at [http://julialang.org/blog/2012/02/why-we-created-julia/](http://julialang.org/blog/2012/02/why-we-created-julia/)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: PyCall.jl for calling Python from Julia available at [http://github.com/stevengj/PyCall.jl](http://github.com/stevengj/PyCall.jl)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: PyPlot.jl for using matplotlib in Julia available at [http://github.com/stevengj/PyPlot.jl](http://github.com/stevengj/PyPlot.jl)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Gadfly.jl, a Julia plotting library, available at [http://dcjones.github.io/Gadfly.jl/](http://dcjones.github.io/Gadfly.jl/)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: DataFrames.jl, an equivalent of pandas for Julia, available at [http://juliastats.github.io/DataFrames.jl/](http://juliastats.github.io/DataFrames.jl/)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Julia Studio, an IDE for Julia, available at [http://forio.com/labs/julia-studio/](http://forio.com/labs/julia-studio/)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL

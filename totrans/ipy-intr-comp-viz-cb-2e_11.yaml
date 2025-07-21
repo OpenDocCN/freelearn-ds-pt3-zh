@@ -1,0 +1,1310 @@
+- en: Chapter 11. Image and Audio Processing
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'In this chapter, we will cover the following topics:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Manipulating the exposure of an image
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Applying filters on an image
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Segmenting an image
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Finding points of interest in an image
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Detecting faces in an image with OpenCV
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Applying digital filters to speech sounds
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Creating a sound synthesizer in the notebook
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Introduction
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In the previous chapter, we covered signal processing techniques for one-dimensional,
+    time-dependent signals. In this chapter, we will see signal processing techniques
+    for images and sounds.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Generic signal processing techniques can be applied to images and sounds, but
+    many image or audio processing tasks require specialized algorithms. For example,
+    we will see algorithms for segmenting images, detecting points of interest in
+    an image, or detecting faces. We will also hear the effect of linear filters on
+    speech sounds.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**scikit-image** is one of the main image processing packages in Python. We
+    will use it in most of the image processing recipes in this chapter. For more
+    on scikit-image, refer to [http://scikit-image.org](http://scikit-image.org).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: We will also use **OpenCV** ([http://opencv.org](http://opencv.org)), a C++
+    computer vision library that has a Python wrapper. It implements algorithms for
+    specialized image and video processing tasks, but it can be a bit difficult to
+    use. An interesting (and simpler) alternative is **SimpleCV** ([http://simplecv.org](http://simplecv.org)).
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this introduction, we will discuss the particularities of images and sounds
+    from a signal processing point of view.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Images
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: A **grayscale** image is a bidimensional signal represented by a function, *f*,
+    that maps each pixel to an **intensity**. The intensity can be a real value between
+    0 (dark) and 1 (light). In a colored image, this function maps each pixel to a
+    triplet of intensities, generally, the **red**, **green**, and **blue** (**RGB**)
+    components.
+  prefs: []
+  type: TYPE_NORMAL
+- en: On a computer, images are digitally sampled. The intensities are no longer real
+    values, but integers or floating point numbers. On one hand, the mathematical
+    formulation of continuous functions allows us to apply analytical tools such as
+    derivatives and integrals. On the other hand, we need to take into account the
+    digital nature of the images we deal with.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Sounds
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: From a signal processing perspective, a sound is a time-dependent signal that
+    has sufficient power in the hearing frequency range (about 20 Hz to 20 kHz). Then,
+    according to the Nyquist-Shannon theorem (introduced in [Chapter 10](ch10.html
+    "Chapter 10. Signal Processing"), *Signal Processing*), the sampling rate of a
+    digital sound signal needs to be at least 40 kHz. A sampling rate of 44100 Hz
+    is frequently chosen.
+  prefs: []
+  type: TYPE_NORMAL
+- en: References
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Here are a few references:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Image processing on Wikipedia, available at [http://en.wikipedia.org/wiki/Image_processing](http://en.wikipedia.org/wiki/Image_processing)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Advanced image processing algorithms, by Gabriel Peyré, available at [https://github.com/gpeyre/numerical-tours](https://github.com/gpeyre/numerical-tours)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Audio signal processing on Wikipedia, available at [http://en.wikipedia.org/wiki/Audio_signal_processing](http://en.wikipedia.org/wiki/Audio_signal_processing)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Particularities of the 44100 Hz sampling rate explained at [http://en.wikipedia.org/wiki/44,100_Hz](http://en.wikipedia.org/wiki/44,100_Hz)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Manipulating the exposure of an image
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: The **exposure** of an image tells us whether the image is too dark, too light,
+    or balanced. It can be measured with a histogram of the intensity values of all
+    pixels. Improving the exposure of an image is a basic image-editing operation.
+    As we will see in this recipe, that can be done easily with scikit-image.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Getting ready
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: You need scikit-image for this recipe. You will find the installation instructions
+    at [http://scikit-image.org/download.html](http://scikit-image.org/download.html).
+    With Anaconda, you can just type `conda install scikit-image` in a terminal.
+  prefs: []
+  type: TYPE_NORMAL
+- en: You also need to download the *Beach* dataset from the book's GitHub repository
+    at [https://github.com/ipython-books/cookbook-data](https://github.com/ipython-books/cookbook-data).
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Let''s import the packages:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'We open an image with matplotlib. We only take a single RGB component to have
+    a grayscale image (there are better ways to convert a colored image to a grayscale
+    image):'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'We create a function that displays the image along with its **histogram** of
+    the intensity values (that is, the exposure):'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Let''s display the image along with its histogram:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '![How to do it...](img/4818OS_11_01.jpg)'
+  prefs:
+  - PREF_IND
+  type: TYPE_IMG
+- en: An image and its histogram
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: The histogram is unbalanced and the image appears overexposed (many pixels are
+    too bright).
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'Now, we rescale the intensity of the image using scikit-image''s `rescale_intensity`
+    function. The `in_range` and `out_range` parameters define a linear mapping from
+    the original image to the modified image. The pixels that are outside `in_range`
+    are clipped to the extremal values of `out_range`. Here, the darkest pixels (intensity
+    less than 100) become completely black (0), whereas the brightest pixels (>240)
+    become completely white (255):'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '![How to do it...](img/4818OS_11_02.jpg)'
+  prefs:
+  - PREF_IND
+  type: TYPE_IMG
+- en: A crude exposure manipulation technique
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: Many intensity values seem to be missing in the histogram, which reflects the
+    poor quality of this basic exposure correction technique.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'We now use a more advanced exposure correction technique called **Contrast
+    Limited Adaptive Histogram Equalization** (**CLAHE**):'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '![How to do it...](img/4818OS_11_03.jpg)'
+  prefs:
+  - PREF_IND
+  type: TYPE_IMG
+- en: Result of the Contrast Limited Adaptive Histogram Equalization method for exposure
+    correction
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: The histogram seems more balanced, and the image now appears more contrasted.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: How it works...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: An image's histogram represents the distribution of the pixels' intensity values.
+    It is a central tool in image editing, image processing, and computer vision.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The `rescale_intensity()` function stretches or shrinks the intensity levels
+    of the image. One use case is to ensure that the whole range of values allowed
+    by the data type is used by the image.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The `equalize_adapthist()` function works by splitting the image into rectangular
+    sections and computing the histogram for each section. Then, the intensity values
+    of the pixels are redistributed to improve the contrast and enhance the details.
+  prefs: []
+  type: TYPE_NORMAL
+- en: There's more...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Here are some references:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Image histogram on Wikipedia, available at [http://en.wikipedia.org/wiki/Image_histogram](http://en.wikipedia.org/wiki/Image_histogram)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Histogram equalization on Wikipedia, available at [http://en.wikipedia.org/wiki/Histogram_equalization](http://en.wikipedia.org/wiki/Histogram_equalization)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Adaptive histogram equalization on Wikipedia, available at [http://en.wikipedia.org/wiki/Adaptive_histogram_equalization](http://en.wikipedia.org/wiki/Adaptive_histogram_equalization)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Contrast on Wikipedia, available at [http://en.wikipedia.org/wiki/Contrast_(vision)](http://en.wikipedia.org/wiki/Contrast_(vision))
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: See also
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: The *Applying filters on an image* recipe
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Applying filters on an image
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'In this recipe, we apply filters on an image for various purposes: blurring,
+    denoising, and edge detection.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: How it works...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Let''s import the packages:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'We create a function that displays a grayscale image:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Now, we load the Lena image (bundled in scikit-image). We select a single RGB
+    component to get a grayscale image:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '![How it works...](img/4818OS_11_04.jpg)'
+  prefs:
+  - PREF_IND
+  type: TYPE_IMG
+- en: 'Let''s apply a blurring **Gaussian filter** to the image:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '![How it works...](img/4818OS_11_05.jpg)'
+  prefs:
+  - PREF_IND
+  type: TYPE_IMG
+- en: 'We now apply a **Sobel filter** that enhances the edges in the image:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '![How it works...](img/4818OS_11_06.jpg)'
+  prefs:
+  - PREF_IND
+  type: TYPE_IMG
+- en: We can threshold the filtered image to get a *sketch effect*. We obtain a binary
+    image that only contains the edges. We use a notebook widget to find an adequate
+    thresholding value; by adding the `@interact` decorator, we display a slider on
+    top of the image. This widget lets us control the threshold dynamically.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '![How it works...](img/4818OS_11_07.jpg)'
+  prefs:
+  - PREF_IND
+  type: TYPE_IMG
+- en: 'Finally, we add some noise to the image to illustrate the effect of a denoising
+    filter:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE12]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '![How it works...](img/4818OS_11_08.jpg)'
+  prefs:
+  - PREF_IND
+  type: TYPE_IMG
+- en: 'The `denoise_tv_bregman()` function implements total-variation denoising using
+    the Split Bregman method:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE13]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '![How it works...](img/4818OS_11_09.jpg)'
+  prefs:
+  - PREF_IND
+  type: TYPE_IMG
+- en: How it works...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Many filters used in image processing are linear filters. These filters are
+    very similar to those seen in [Chapter 10](ch10.html "Chapter 10. Signal Processing"),
+    *Signal Processing*; the only difference is that they work in two dimensions.
+    Applying a linear filter to an image amounts to performing a discrete **convolution**
+    of the image with a particular function. The Gaussian filter applies a convolution
+    with a Gaussian function to blur the image.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The Sobel filter computes an approximation of the gradient of the image. Therefore,
+    it can detect fast-varying spatial changes in the image, which generally correspond
+    to edges.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Image denoising** refers to the process of removing noise from an image.
+    **Total variation denoising** works by finding a *regular* image close to the
+    original (noisy) image. Regularity is quantified by the **total variation** of
+    the image:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![How it works...](img/4818OS_11_10.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: The **Split Bregman method** is a variant based on the L¹ norm. It is an instance
+    of **compressed sensing**, which aims to find regular and sparse approximations
+    of real-world noisy measurements.
+  prefs: []
+  type: TYPE_NORMAL
+- en: There's more...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Here are a few references:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: API reference of the skimage.filter module available at [http://scikit-image.org/docs/dev/api/skimage.filter.html](http://scikit-image.org/docs/dev/api/skimage.filter.html)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Noise reduction on Wikipedia, available at [http://en.wikipedia.org/wiki/Noise_reduction](http://en.wikipedia.org/wiki/Noise_reduction)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Gaussian filter on Wikipedia, available at [http://en.wikipedia.org/wiki/Gaussian_filter](http://en.wikipedia.org/wiki/Gaussian_filter)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Sobel filter on Wikipedia, available at [http://en.wikipedia.org/wiki/Sobel_operator](http://en.wikipedia.org/wiki/Sobel_operator)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Image denoising on Wikipedia, available at [http://en.wikipedia.org/wiki/Noise_reduction](http://en.wikipedia.org/wiki/Noise_reduction)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Total variation denoising on Wikipedia, available at [http://en.wikipedia.org/wiki/Total_variation_denoising](http://en.wikipedia.org/wiki/Total_variation_denoising)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The Split Bregman algorithm explained at [www.ece.rice.edu/~tag7/Tom_Goldstein/Split_Bregman.html](http://www.ece.rice.edu/~tag7/Tom_Goldstein/Split_Bregman.html)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: See also
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: The *Manipulating the exposure of an image* recipe
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Segmenting an image
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Image segmentation consists of partitioning an image into different regions
+    that share certain characteristics. This is a fundamental task in computer vision,
+    facial recognition, and medical imaging. For example, an image segmentation algorithm
+    can automatically detect the contours of an organ in a medical image.
+  prefs: []
+  type: TYPE_NORMAL
+- en: scikit-image provides several segmentation methods. In this recipe, we will
+    demonstrate how to segment an image containing different objects.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Let''s import the packages:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE14]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'We create a function that displays a grayscale image:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE15]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'We get a test image bundled in scikit-image, showing various coins on a plain
+    background:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE16]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '![How to do it...](img/4818OS_11_11.jpg)'
+  prefs:
+  - PREF_IND
+  type: TYPE_IMG
+- en: The first step to segment the image is finding an intensity threshold separating
+    the (bright) coins from the (dark) background. **Otsu's method** defines a simple
+    algorithm to automatically find such a threshold.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE17]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '![How to do it...](img/4818OS_11_12.jpg)'
+  prefs:
+  - PREF_IND
+  type: TYPE_IMG
+- en: The thresholded image using Otsu's method
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'There appears to be a problem in the top-left corner of the image, with part
+    of the background being too bright. Let''s use a notebook widget to find a better
+    threshold:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE18]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '![How to do it...](img/4818OS_11_13.jpg)'
+  prefs:
+  - PREF_IND
+  type: TYPE_IMG
+- en: The thresholded image using a manually selected threshold
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: The threshold 120 looks better. The next step consists of cleaning the binary
+    image by smoothing the coins and removing the border. scikit-image contains a
+    few functions for these purposes.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE19]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '![How to do it...](img/4818OS_11_14.jpg)'
+  prefs:
+  - PREF_IND
+  type: TYPE_IMG
+- en: The thresholded image with cleared borders
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'Next, we perform the segmentation task itself with the `label()` function.
+    This function detects the connected components in the image and attributes a unique
+    label to every component. Here, we color code the labels in the binary image:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE20]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '![How to do it...](img/4818OS_11_15.jpg)'
+  prefs:
+  - PREF_IND
+  type: TYPE_IMG
+- en: The segmented image
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'Small artifacts in the image result in spurious labels that do not correspond
+    to coins. Therefore, we only keep components with more than 100 pixels. The `regionprops()`
+    function allows us to retrieve specific properties of the components (here, the
+    area and the bounding box):'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE21]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Finally, we show the label number on top of each component in the original
+    image:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE22]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '![How to do it...](img/4818OS_11_16.jpg)'
+  prefs:
+  - PREF_IND
+  type: TYPE_IMG
+- en: How it works...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: To clean up the coins in the thresholded image, we used **mathematical morphology**
+    techniques. These methods, based on set theory, geometry, and topology, allow
+    us to manipulate shapes.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'For example, let''s explain **dilation** and **erosion**. First, if *A* is
+    a set of pixels in an image, and *b* is a 2D vector, we denote *A[b]* the set
+    *A* translated by *b* as:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![How it works...](img/4818OS_11_17.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Let *B* be a set of vectors with integer components. We call *B* the **structuring
+    element** (here, we used a square). This set represents the neighborhood of a
+    pixel. The dilation of *A* by *B* is:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![How it works...](img/4818OS_11_18.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'The erosion of *A* by *B* is:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![How it works...](img/4818OS_11_19.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: A dilation extends a set by adding pixels close to its boundaries. An erosion
+    removes the pixels of the set that are too close to the boundaries. The **closing**
+    of a set is a dilation followed by an erosion. This operation can remove small
+    dark spots and connect small bright cracks. In this recipe, we used a square structuring
+    element.
+  prefs: []
+  type: TYPE_NORMAL
+- en: There's more...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Here are a few references:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: SciPy lecture notes on image processing available at [http://scipy-lectures.github.io/packages/scikit-image/](http://scipy-lectures.github.io/packages/scikit-image/)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Image segmentation on Wikipedia, available at [http://en.wikipedia.org/wiki/Image_segmentation](http://en.wikipedia.org/wiki/Image_segmentation)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Otsu's method to find a threshold explained at [http://en.wikipedia.org/wiki/Otsu's_method](http://en.wikipedia.org/wiki/Otsu's_method)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Segmentation tutorial with scikit-image (which inspired this recipe) available
+    at [http://scikit-image.org/docs/dev/user_guide/tutorial_segmentation.html](http://scikit-image.org/docs/dev/user_guide/tutorial_segmentation.html)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Mathematical morphology on Wikipedia, available at [http://en.wikipedia.org/wiki/Mathematical_morphology](http://en.wikipedia.org/wiki/Mathematical_morphology)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: API reference of the `skimage.morphology` module available at [http://scikit-image.org/docs/dev/api/skimage.morphology.html](http://scikit-image.org/docs/dev/api/skimage.morphology.html)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: See also
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: The *Computing connected components in an image* recipe in [Chapter 14](ch14.html
+    "Chapter 14. Graphs, Geometry, and Geographic Information Systems"), *Graphs,
+    Geometry, and Geographic Information Systems*
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Finding points of interest in an image
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In an image, **points of interest** are positions where there might be edges,
+    corners, or interesting objects. For example, in a landscape picture, points of
+    interest can be located near a house or a person. Detecting points of interest
+    is useful in image recognition, computer vision, or medical imaging.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this recipe, we will find points of interest in an image with scikit-image.
+    This will allow us to crop an image around the subject of the picture, even when
+    this subject is not in the center of the image.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Getting ready
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Download the *Child* dataset from the book's GitHub repository at [https://github.com/ipython-books/cookbook-data](https://github.com/ipython-books/cookbook-data),
+    and extract it into the current directory.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Let''s import the packages:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE23]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'We create a function to display a colored or grayscale image:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE24]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'We load an image:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE25]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '![How to do it...](img/4818OS_11_20.jpg)'
+  prefs:
+  - PREF_IND
+  type: TYPE_IMG
+- en: 'Let''s find salient points in the image with the Harris corner method. The
+    first step consists of computing the **Harris corner measure response image**
+    with the `corner_harris()` function (we will explain this measure in *How it works...*).
+    This function requires a grayscale image, thus we select the first RGB component:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE26]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '![How to do it...](img/4818OS_11_21.jpg)'
+  prefs:
+  - PREF_IND
+  type: TYPE_IMG
+- en: We see that the patterns in the child's coat are well detected by this algorithm.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'The next step is to detect corners from this measure image, using the `corner_peaks()`
+    function:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE27]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '![How to do it...](img/4818OS_11_22.jpg)'
+  prefs:
+  - PREF_IND
+  type: TYPE_IMG
+- en: 'Finally, we create a box around the corner points to define our region of interest:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE28]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '![How to do it...](img/4818OS_11_23.jpg)'
+  prefs:
+  - PREF_IND
+  type: TYPE_IMG
+- en: How it works...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Let''s explain the method used in this recipe. The first step consists of computing
+    the **structure tensor** (or **Harris matrix**) of the image:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![How it works...](img/4818OS_11_24.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: Here, *I(x,y)* is the image, *I[x]* and *I[y]* are the partial derivatives,
+    and the brackets denote the local spatial average around neighboring values.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This tensor associates a *(2,2)* positive symmetric matrix at each point. This
+    matrix is used to calculate a sort of autocorrelation of the image at each point.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let ![How it works...](img/4818OS_11_31.jpg) and ![How it works...](img/4818OS_11_32.jpg)
+    be the two eigenvalues of this matrix (the matrix is diagonalizable because it
+    is real and symmetric). Roughly, a corner is characterized by a large variation
+    of the autocorrelation in all directions, or in large positive eigenvalues ![How
+    it works...](img/4818OS_11_31.jpg) and ![How it works...](img/4818OS_11_32.jpg).
+    The corner measure image is defined as:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![How it works...](img/4818OS_11_25.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: Here, *k* is a tunable parameter. *M* is large when there is a corner. Finally,
+    `corner_peaks()` finds corner points by looking at local maxima in the corner
+    measure image.
+  prefs: []
+  type: TYPE_NORMAL
+- en: There's more...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Here are a few references:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: A corner detection example with scikit-image available at [http://scikit-image.org/docs/dev/auto_examples/plot_corner.html](http://scikit-image.org/docs/dev/auto_examples/plot_corner.html)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: An image processing tutorial with scikit-image available at [http://blog.yhathq.com/posts/image-processing-with-scikit-image.html](http://blog.yhathq.com/posts/image-processing-with-scikit-image.html)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Corner detection on Wikipedia, available at [http://en.wikipedia.org/wiki/Corner_detection](http://en.wikipedia.org/wiki/Corner_detection)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Structure tensor on Wikipedia, available at [http://en.wikipedia.org/wiki/Structure_tensor](http://en.wikipedia.org/wiki/Structure_tensor)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Interest point detection on Wikipedia, available at [http://en.wikipedia.org/wiki/Interest_point_detection](http://en.wikipedia.org/wiki/Interest_point_detection)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: API reference of the `skimage.feature` module available at [http://scikit-image.org/docs/dev/api/skimage.feature.html](http://scikit-image.org/docs/dev/api/skimage.feature.html)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Detecting faces in an image with OpenCV
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '**OpenCV** (**Open Computer Vision**) is an open source C++ library for computer
+    vision. It features algorithms for image segmentation, object recognition, augmented
+    reality, face detection, and other computer vision tasks.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this recipe, we will use OpenCV in Python to detect faces in a picture.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Getting ready
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: You need OpenCV and the Python wrapper. You can find installation instructions
+    on OpenCV's website, [http://docs.opencv.org/trunk/doc/py_tutorials/py_tutorials.html](http://docs.opencv.org/trunk/doc/py_tutorials/py_tutorials.html).
+  prefs: []
+  type: TYPE_NORMAL
+- en: On Windows, you can install Chris Gohlke's package, available at [www.lfd.uci.edu/~gohlke/pythonlibs/#opencv](http://www.lfd.uci.edu/~gohlke/pythonlibs/#opencv).
+  prefs: []
+  type: TYPE_NORMAL
+- en: You also need to download the *Family* dataset from the book's GitHub repository
+    at [https://github.com/ipython-books/cookbook-data](https://github.com/ipython-books/cookbook-data).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: OpenCV is not compatible with Python 3 at the time of this writing. Therefore,
+    this recipe requires Python 2.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'First, we import the packages:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE29]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'We open the JPG image with OpenCV:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE30]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: Then, we convert it to a grayscale image using OpenCV's `cvtColor()` function.
+    For face detection, it is sufficient and faster to use grayscale images.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE31]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'To detect faces, we will use the **Viola–Jones object detection framework**.
+    A cascade of Haar-like classifiers has been trained on many images to detect faces
+    (more details are given in the next section). The result of the training is stored
+    in an XML file (part of the *Family* dataset available on the book''s GitHub repository).
+    We load this cascade from this XML file with OpenCV''s `CascadeClassifier` class:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE32]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Finally, the `detectMultiScale()` method of the classifier detects the objects
+    on a grayscale image and returns a list of rectangles around these objects:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE33]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '![How to do it...](img/4818OS_11_26.jpg)'
+  prefs:
+  - PREF_IND
+  type: TYPE_IMG
+- en: We see that, although all detected objects are indeed faces, one face out of
+    four is not detected. This is probably due to the fact that this face is not perfectly
+    facing the camera, whereas the faces in the training set were. This shows that
+    the efficacy of this method is limited by the quality and generality of the training
+    set.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: How it works...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'The Viola–Jones object detection framework works by training a cascade of boosted
+    classifiers with Haar-like features. First, we consider a set of features:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![How it works...](img/4818OS_11_27.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: Haar-like features
+  prefs: []
+  type: TYPE_NORMAL
+- en: A feature is positioned at a particular location and size in the image. It covers
+    a small window in the image (for example, 24 x 24 pixels). The sum of all pixels
+    in the black area is subtracted to the sum of the pixels in the white area. This
+    operation can be done efficiently with integral images.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Then, the set of all classifiers is trained with a boosting technique; only
+    the best features are kept for the next stage during training. The training set
+    contains positive and negative images (with and without faces). Although the classifiers
+    yield poor performance *individually*, the cascade of boosted classifiers is both
+    efficient and fast. This method is therefore well-adapted to real-time processing.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The XML file has been obtained in OpenCV's package. There are multiple files
+    corresponding to different training sets. You can also train your own cascade
+    with your own training set.
+  prefs: []
+  type: TYPE_NORMAL
+- en: There's more...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Here are a few references:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: A cascade tutorial with OpenCV (C++) available at [http://docs.opencv.org/doc/tutorials/objdetect/cascade_classifier/cascade_classifier.html](http://docs.opencv.org/doc/tutorials/objdetect/cascade_classifier/cascade_classifier.html)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Documentation to train a cascade, available at [http://docs.opencv.org/doc/user_guide/ug_traincascade.html](http://docs.opencv.org/doc/user_guide/ug_traincascade.html)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Haar cascades library, available at [https://github.com/Itseez/opencv/tree/master/data/haarcascades](https://github.com/Itseez/opencv/tree/master/data/haarcascades)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: OpenCV's cascade classification API reference available at [http://docs.opencv.org/modules/objdetect/doc/cascade_classification.html](http://docs.opencv.org/modules/objdetect/doc/cascade_classification.html)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The Viola–Jones object detection framework on Wikipedia, available at [http://en.wikipedia.org/wiki/Viola%E2%80%93Jones_object_detection_framework](http://en.wikipedia.org/wiki/Viola%E2%80%93Jones_object_detection_framework)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Boosting or how to create one strong classifier from many weak classifiers,
+    explained at [http://en.wikipedia.org/wiki/Boosting_(machine_learning)](http://en.wikipedia.org/wiki/Boosting_(machine_learning))
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Applying digital filters to speech sounds
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In this recipe, we will show how to play sounds in the notebook. We will also
+    illustrate the effect of simple digital filters on speech sounds.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Getting ready
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: You need the **pydub** package. You can install it with `pip install pydub`
+    or download it from [https://github.com/jiaaro/pydub/](https://github.com/jiaaro/pydub/).
+  prefs: []
+  type: TYPE_NORMAL
+- en: This package requires the open source multimedia library FFmpeg for the decompression
+    of MP3 files, available at [www.ffmpeg.org](http://www.ffmpeg.org).
+  prefs: []
+  type: TYPE_NORMAL
+- en: The code given here works with Python 3\. You will find the Python 2 version
+    in the book's GitHub repository.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it…
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Let''s import the packages:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE34]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'We create a Python function to generate a sound from an English sentence. This
+    function uses Google''s **Text-To-Speech** (**TTS**) API. We retrieve the sound
+    in the MP3 format, and convert it to the Wave format with pydub. Finally, we retrieve
+    the raw sound data by removing the wave header with NumPy:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE35]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'We create a function that plays a sound (represented by a NumPy vector) in
+    the notebook, using IPython''s `Audio` class:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE36]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Let''s play the sound "Hello world." We also display the waveform with matplotlib:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE37]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '![How to do it…](img/4818OS_11_28.jpg)'
+  prefs:
+  - PREF_IND
+  type: TYPE_IMG
+- en: 'Now, we will hear the effect of a Butterworth low-pass filter applied to this
+    sound (500 Hz cutoff frequency):'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE38]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '![How to do it…](img/4818OS_11_29.jpg)'
+  prefs:
+  - PREF_IND
+  type: TYPE_IMG
+- en: We hear a muffled voice.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'Now, with a high-pass filter (1000 Hz cutoff frequency):'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE39]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '![How to do it…](img/4818OS_11_30.jpg)'
+  prefs:
+  - PREF_IND
+  type: TYPE_IMG
+- en: It sounds like a phone call.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'Finally, we can create a simple widget to quickly test the effect of a high-pass
+    filter with an arbitrary cutoff frequency:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE40]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: We get a slider that lets us change the cutoff frequency and hear the effect
+    in real-time.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: How it works...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: The human ear can hear frequencies up to 20 kHz. The human voice frequency band
+    ranges from approximately 300 Hz to 3000 Hz.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Digital filters were described in [Chapter 10](ch10.html "Chapter 10. Signal
+    Processing"), *Signal Processing*. The example given here allows us to hear the
+    effect of low- and high-pass filters on sounds.
+  prefs: []
+  type: TYPE_NORMAL
+- en: There's more...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Here are a few references:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Audio signal processing on Wikipedia, available at [http://en.wikipedia.org/wiki/Audio_signal_processing](http://en.wikipedia.org/wiki/Audio_signal_processing)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Audio filters on Wikipedia, available at [http://en.wikipedia.org/wiki/Audio_filter](http://en.wikipedia.org/wiki/Audio_filter)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Voice frequency on Wikipedia, available at [http://en.wikipedia.org/wiki/Voice_frequency](http://en.wikipedia.org/wiki/Voice_frequency)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**PyAudio**, an audio Python package that uses the PortAudio library, available
+    at [http://people.csail.mit.edu/hubert/pyaudio/](http://people.csail.mit.edu/hubert/pyaudio/)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: See also
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: The *Creating a sound synthesizer in the notebook* recipe
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Creating a sound synthesizer in the notebook
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In this recipe, we will create a small electronic piano in the notebook. We
+    will synthesize sinusoidal sounds with NumPy instead of using recorded tones.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'We import the modules:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE41]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'We define the sampling rate and the duration of the notes:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE42]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'We create a function that generates and plays the sound of a note (sine function)
+    at a given frequency, using NumPy and IPython''s `Audio` class:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE43]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Here is the fundamental 440 Hz note:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE44]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Now, we generate the note frequencies of our piano. The chromatic scale is
+    obtained by a geometric progression with the common ratio *2^(1/12)*:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE45]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: Finally, we create the piano with the notebook widgets. Each note is a button,
+    and all buttons are contained in a horizontal box container. Clicking on one note
+    plays a sound at the corresponding frequency. The piano layout is the same as
+    the one used in the *Using interactive widgets – a piano in the notebook* recipe
+    of [Chapter 3](ch03.html "Chapter 3. Mastering the Notebook"), *Mastering the
+    Notebook*.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE46]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: Note
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: The IPython API used here to design the layout is based on IPython 2.x; it will
+    be slightly different in IPython 3.0.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How it works...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: A **pure tone** is a tone with a sinusoidal waveform. It is the simplest way
+    of representing a musical note. A note generated by a musical instrument is typically
+    much more complex. Although the sound contains many frequencies, we generally
+    perceive a musical tone (**fundamental frequency**).
+  prefs: []
+  type: TYPE_NORMAL
+- en: By generating another periodic function instead of a sinusoidal waveform, we
+    would hear the same tone, but a different **timbre**. Electronic music synthesizers
+    are based on this idea.
+  prefs: []
+  type: TYPE_NORMAL
+- en: There's more...
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Here are a few references:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Synthesizer on Wikipedia, available at [http://en.wikipedia.org/wiki/Synthesizer](http://en.wikipedia.org/wiki/Synthesizer)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Equal temperament on Wikipedia, available at [http://en.wikipedia.org/wiki/Equal_temperament](http://en.wikipedia.org/wiki/Equal_temperament)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Chromatic scale on Wikipedia, available at [http://en.wikipedia.org/wiki/Chromatic_scale](http://en.wikipedia.org/wiki/Chromatic_scale)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Pure tone on Wikipedia, available at [http://en.wikipedia.org/wiki/Pure_tone](http://en.wikipedia.org/wiki/Pure_tone)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Timbre on Wikipedia, available at [http://en.wikipedia.org/wiki/Timbre](http://en.wikipedia.org/wiki/Timbre)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: See also
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: The *Applying digital filters to speech sounds* recipe
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The *Using interactive widgets – a piano in the notebook* recipe in [Chapter
+    3](ch03.html "Chapter 3. Mastering the Notebook"), *Mastering the Notebook*
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
